@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ssr-kit-config
+data:
+  NODE_ENV: production
+  PORT: "3005"
+  CACHE_BACKEND: redis
+  CACHE_MAX_ENTRIES: "2000"

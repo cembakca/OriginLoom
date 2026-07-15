@@ -1,0 +1,50 @@
+{
+  "_index-DJMca0Pd.js": {
+    "file": "assets/index-DJMca0Pd.js",
+    "name": "index",
+    "imports": [
+      "src/entry.client.tsx"
+    ]
+  },
+  "src/entry.client.tsx": {
+    "file": "assets/entry.client-OytNkgTr.js",
+    "name": "entry.client",
+    "src": "src/entry.client.tsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "src/islands/blog-pagination.tsx",
+      "src/islands/filter-panel.tsx",
+      "src/islands/user-badge.tsx"
+    ]
+  },
+  "src/islands/blog-pagination.tsx": {
+    "file": "assets/blog-pagination-KcvT_Pkx.js",
+    "name": "blog-pagination",
+    "src": "src/islands/blog-pagination.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/entry.client.tsx",
+      "_index-DJMca0Pd.js"
+    ]
+  },
+  "src/islands/filter-panel.tsx": {
+    "file": "assets/filter-panel-DFs3MrXu.js",
+    "name": "filter-panel",
+    "src": "src/islands/filter-panel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/entry.client.tsx",
+      "_index-DJMca0Pd.js"
+    ]
+  },
+  "src/islands/user-badge.tsx": {
+    "file": "assets/user-badge-DNu5jgdF.js",
+    "name": "user-badge",
+    "src": "src/islands/user-badge.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/entry.client.tsx",
+      "_index-DJMca0Pd.js"
+    ]
+  }
+}
