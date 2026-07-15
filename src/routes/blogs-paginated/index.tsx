@@ -1,8 +1,7 @@
-import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { Island } from "~/lib/island";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { locale } from "~/lib/request";
-import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
 import { getPaginatedBlogs, type PaginatedBlogs, parsePageParam } from "~/services/blogs";
 
@@ -12,14 +11,7 @@ import { PaginationShell } from "./pagination-shell";
 export default defineRoute<PaginatedBlogs>({
   path: "/blogs/paginated",
 
-  cache: (ctx) =>
-    sharedUnlessBypass(ctx, [
-      "blogs-paginated",
-      ctx.publicPath,
-      ctx.url.searchParams.get("page") ?? "1",
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
-    ]),
+  cache: (ctx) => pageCachePolicy(PageCacheId.blogsPaginated, ctx),
 
   loader: async (ctx) => {
     const page = parsePageParam(ctx.url.searchParams.get("page"));

@@ -1,11 +1,10 @@
-import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import {
   generateMetaDataForPageWithDummySeoInfo,
   generateMetaDataForPageWithSeoInfo,
 } from "~/lib/metadata/generate";
 import type { SeoInfo } from "~/lib/metadata/types";
-import { locale } from "~/lib/request";
-import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
 import { fetchRetirementBankingPage } from "~/services/pages";
 import type { UserProfile } from "~/services/user";
@@ -22,14 +21,7 @@ type Data = {
 export default defineRoute<Data>({
   path: "/retirement-banking",
 
-  cache: (ctx) =>
-    sharedUnlessBypass(
-      ctx,
-      ["retirement-banking", ctx.publicPath, locale(ctx.request), layoutCacheFragment(ctx)],
-      {
-        ttl: 3600,
-      },
-    ),
+  cache: (ctx) => pageCachePolicy(PageCacheId.retirementBanking, ctx),
 
   loader: async (ctx) => {
     const [user, page] = await Promise.all([

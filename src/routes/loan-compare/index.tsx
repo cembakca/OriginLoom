@@ -1,10 +1,10 @@
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { Island } from "~/lib/island";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { cookie, device, locale } from "~/lib/request";
-import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { cookie, device } from "~/lib/request";
+import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
 import { getOffers, type Offer } from "~/services/offers";
 
@@ -15,16 +15,7 @@ type Data = { offers: Offer[]; amount: number; city: string; theme: string };
 export default defineRoute<Data>({
   path: "/ihtiyac-kredisi/:city?",
 
-  cache: (ctx) =>
-    sharedUnlessBypass(ctx, [
-      "loan",
-      ctx.params.city ?? "-",
-      ctx.url.searchParams.get("amount") ?? "50000",
-      device(ctx.request),
-      locale(ctx.request),
-      cookie(ctx.request, "theme") ?? "light",
-      layoutCacheFragment(ctx),
-    ]),
+  cache: (ctx) => pageCachePolicy(PageCacheId.loanCompare, ctx),
 
   loader: async (ctx) => {
     const amount = Number(ctx.url.searchParams.get("amount") ?? 50_000);

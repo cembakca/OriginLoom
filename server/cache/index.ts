@@ -1,5 +1,6 @@
 import { config } from "@server/config";
 
+import { formatCacheKey } from "~/lib/cache-keys";
 import type { CachePolicy } from "~/lib/types";
 
 import { MemoryStore } from "./memory";
@@ -36,7 +37,7 @@ export async function closeCache(): Promise<void> {
 }
 
 export function cacheKey(policy: CachePolicy): string | null {
-  return policy.kind === "shared" ? policy.key.join("\u0000") : null;
+  return policy.kind === "shared" ? formatCacheKey(policy.key) : null;
 }
 
 export async function read(

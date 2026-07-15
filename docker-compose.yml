@@ -21,6 +21,7 @@ services:
       GTM_CONTAINER_ID: GTM-XXXXXX
       SITE_URL: http://localhost:3005
       MENU_CACHE_TTL: 14400
+      CACHE_PURGE_SECRET: ${CACHE_PURGE_SECRET:-dev-purge-secret}
     depends_on:
       redis:
         condition: service_healthy

@@ -1,15 +1,12 @@
 import * as cache from "@server/cache";
 
+import { menuCacheKey } from "~/lib/cache-keys";
 import type { DeviceType } from "~/lib/device";
 import { gatewayFetch } from "~/lib/gateway-fetch";
 import type { IMenuItems, MenuItem } from "~/lib/menu/types";
 
-const MENU_CACHE_TTL = Number(process.env.MENU_CACHE_TTL ?? 14_400); // 4h default
+const MENU_CACHE_TTL = Number(process.env.MENU_CACHE_TTL ?? 14_400);
 const MENU_CACHE_SWR = Number(process.env.MENU_CACHE_SWR ?? 86_400);
-
-function menuCacheKey(device: DeviceType): string {
-  return `menu:${device}`;
-}
 
 /** Public menu endpoint — device header ile tek fetch; uzun TTL API cache. */
 export async function fetchMenuList(request: Request, device: DeviceType): Promise<IMenuItems> {

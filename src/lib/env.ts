@@ -10,4 +10,5 @@ export const env = {
   gtmContainerId: process.env.GTM_CONTAINER_ID ?? "",
   siteUrl: process.env.SITE_URL ?? "http://localhost:3005",
   menuCacheTtl: Number(process.env.MENU_CACHE_TTL ?? 14_400),
+  cachePurgeSecret: process.env.CACHE_PURGE_SECRET,
 } as const;

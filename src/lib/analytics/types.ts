@@ -29,7 +29,6 @@ export type PageAnalyticsMeta = {
   sub?: string;
   title?: string;
   publicPath: string;
-  search: string;
 };
 
 export type GtmLifecycleEvent = {

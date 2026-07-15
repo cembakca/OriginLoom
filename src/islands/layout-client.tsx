@@ -12,7 +12,7 @@ export default function LayoutClient(props: LayoutClientProps) {
     seedSession({
       publicPath: props.publicPath,
       pathname: props.pathname,
-      search: props.search,
+      search: window.location.search,
       ...(props.theme !== undefined ? { theme: props.theme } : {}),
     });
 
@@ -24,7 +24,7 @@ export default function LayoutClient(props: LayoutClientProps) {
       ...(accountText !== undefined ? { displayName: accountText } : {}),
       ...(initials !== undefined ? { initials } : {}),
     });
-  }, [props.publicPath, props.pathname, props.search, props.theme]);
+  }, [props.publicPath, props.pathname, props.theme]);
 
   return null;
 }

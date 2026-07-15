@@ -8,7 +8,10 @@ import { pushDataLayer, signalReactReady } from "./data-layer";
 import type { PageAnalyticsMeta, PageDetails } from "./types";
 
 export function buildVirtualPageUrl(meta: PageAnalyticsMeta): string {
-  return meta.publicPath + (meta.search || "");
+  if (typeof window !== "undefined") {
+    return window.location.pathname + window.location.search;
+  }
+  return meta.publicPath;
 }
 
 export function buildPageDetails(meta: PageAnalyticsMeta): PageDetails {

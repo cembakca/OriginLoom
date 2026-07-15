@@ -1,4 +1,4 @@
-import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
@@ -7,10 +7,7 @@ export default defineRoute<{ page: string; publicPath: string }>({
   path: "/recourse/:page/redirect",
   minimalChrome: true,
 
-  cache: (ctx) => {
-    const page = ctx.params.page ?? "";
-    return sharedUnlessBypass(ctx, ["recourse-redirect", page, ctx.publicPath]);
-  },
+  cache: (ctx) => pageCachePolicy(PageCacheId.recourseRedirect, ctx),
 
   loader: async (ctx) => ({
     data: { page: ctx.params.page ?? "", publicPath: ctx.publicPath },

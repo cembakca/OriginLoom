@@ -12,7 +12,6 @@ import type { Ctx } from "./types";
 export type LayoutClientProps = {
   publicPath: string;
   pathname: string;
-  search: string;
   theme?: string;
   minimalChrome?: boolean;
   deviceType: DeviceType;
@@ -32,7 +31,6 @@ export function buildLayoutClientProps(
   return {
     publicPath: ctx.publicPath,
     pathname: ctx.url.pathname,
-    search: ctx.url.search,
     ...(theme !== undefined ? { theme } : {}),
     ...(opts?.minimalChrome !== undefined ? { minimalChrome: opts.minimalChrome } : {}),
     deviceType,
@@ -65,7 +63,6 @@ export function defaultPageMeta(
   return {
     pageType,
     publicPath: ctx.publicPath,
-    search: ctx.url.search,
     ...extra,
   };
 }

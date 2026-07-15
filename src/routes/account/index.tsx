@@ -1,6 +1,6 @@
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
-import { neverCache } from "~/lib/cache-policy";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
@@ -11,7 +11,7 @@ type Data = { user: UserProfile | null };
 
 export default defineRoute<Data>({
   path: "/hesabim",
-  cache: () => neverCache(),
+  cache: (ctx) => pageCachePolicy(PageCacheId.account, ctx),
   loader: async (ctx) => {
     const user = await fetchUserProfile(ctx.request);
     if (!user) return { data: { user: null }, status: 401 };

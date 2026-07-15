@@ -1,6 +1,6 @@
 import type { CachePolicy } from "~/lib/types";
 
-import type { CacheEntry, CacheStore } from "./types";
+import type { CacheEntry, CacheStore, ListKeysOptions, ListKeysResult } from "./types";
 
 export class MemoryStore implements CacheStore {
   private store = new Map<string, CacheEntry>();
@@ -31,6 +31,48 @@ export class MemoryStore implements CacheStore {
       freshUntil: now + policy.ttl * 1000,
       staleUntil: now + (policy.ttl + (policy.swr ?? 0)) * 1000,
     });
+  }
+
+  async deleteKey(key: string): Promise<boolean> {
+    return this.store.delete(key);
+  }
+
+  async deleteKeys(keys: string[]): Promise<number> {
+    let deleted = 0;
+    for (const key of keys) {
+      if (this.store.delete(key)) deleted++;
+    }
+    return deleted;
+  }
+
+  async deleteByPrefix(prefix: string): Promise<number> {
+    let deleted = 0;
+    for (const key of [...this.store.keys()]) {
+      if (key.startsWith(prefix)) {
+        this.store.delete(key);
+        deleted++;
+      }
+    }
+    return deleted;
+  }
+
+  async flushAll(): Promise<number> {
+    const deleted = this.store.size;
+    this.store.clear();
+    return deleted;
+  }
+
+  async listKeys(options: ListKeysOptions): Promise<ListKeysResult> {
+    const offset = Number(options.cursor ?? 0);
+    const filtered = [...this.store.keys()].filter((key) =>
+      options.prefix ? key.startsWith(options.prefix) : true,
+    );
+    const keys = filtered.slice(offset, offset + options.limit);
+    const nextOffset = offset + options.limit;
+    return {
+      keys,
+      ...(nextOffset < filtered.length ? { nextCursor: String(nextOffset) } : {}),
+    };
   }
 
   async ping(): Promise<boolean> {
