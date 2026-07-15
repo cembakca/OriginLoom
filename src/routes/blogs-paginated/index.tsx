@@ -54,12 +54,7 @@ export default defineRoute<PaginatedBlogs>({
         </p>
       </div>
 
-      <Island
-        name="blog-explorer"
-        mode="defer"
-        eager
-        props={{ page: data.page, initialData: data }}
-      >
+      <Island name="blog-explorer" mode="defer" props={{ page: data.page, initialData: data }}>
         <BlogExplorerShell data={data} />
       </Island>
 

@@ -11,4 +11,6 @@ export const env = {
   siteUrl: process.env.SITE_URL ?? "http://localhost:3005",
   menuCacheTtl: Number(process.env.MENU_CACHE_TTL ?? 14_400),
   cachePurgeSecret: process.env.CACHE_PURGE_SECRET,
+  /** Statik JS/CSS CDN tabanı — ör. https://cdn.hangikredi.com (path /assets korunur). */
+  assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
 } as const;

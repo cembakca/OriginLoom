@@ -21,7 +21,7 @@ export function UserChromeFallback() {
 export function UserChromeSlot() {
   return (
     <div className="flex h-10 shrink-0 items-center justify-end">
-      <Island name="user-chrome" mode="defer" eager>
+      <Island name="user-chrome" mode="defer">
         <UserChromeFallback />
       </Island>
     </div>
@@ -31,7 +31,7 @@ export function UserChromeSlot() {
 export function MobileMenuSlot({ items }: { items: NavItemProp[] }) {
   return (
     <div className="flex h-10 w-10 shrink-0 items-center justify-self-start">
-      <Island name="mobile-menu" mode="defer" eager props={{ items }}>
+      <Island name="mobile-menu" mode="defer" props={{ items }}>
         <Button variant="secondary" size="icon" aria-label="Menüyü aç" type="button">
           <Menu className="h-5 w-5" />
         </Button>
@@ -101,7 +101,7 @@ export function MobileNavFallback({ items }: { items: NavItemProp[] }) {
 
 export function FooterAccordionSlot({ items }: { items: NavItemProp[] }) {
   return (
-    <Island name="footer-accordion" mode="defer" eager props={{ items }}>
+    <Island name="footer-accordion" mode="defer" props={{ items }}>
       <div className="space-y-2">
         {items.map((col) => (
           <details key={col.id} className="border-b border-slate-200 py-2">

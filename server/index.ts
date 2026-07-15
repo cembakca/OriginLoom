@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
@@ -12,6 +10,7 @@ import { routes } from "~/routes";
 // import { registerCacheBypassCheck, hasPid } from "~/lib/cache-policy";
 // registerCacheBypassCheck(hasPid);
 import { mountApi } from "./api";
+import { readAssets } from "./assets";
 import { closeCache, initCache, pingCache } from "./cache";
 import { config, validateConfig } from "./config";
 import type { Assets } from "./document";
@@ -25,6 +24,7 @@ import {
 } from "./middleware/pipeline";
 import { type AppVariables, requestId } from "./middleware/request-id";
 import { securityMiddleware } from "./middleware/security";
+import { staticAssetCacheHeaders } from "./middleware/static-assets";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
@@ -78,6 +78,7 @@ function createApp(assets: Assets) {
   app.use("*", requestId);
   app.use("*", securityMiddleware);
 
+  app.use("/assets/*", staticAssetCacheHeaders);
   app.use("/assets/*", serveStatic({ root: "./dist/client" }));
 
   app.get("/healthz", (c) => c.text("ok"));
@@ -118,21 +119,6 @@ function createApp(assets: Assets) {
   });
 
   return app;
-}
-
-type ManifestChunk = { isEntry?: boolean; file: string; css?: string[] };
-
-function readAssets(): Assets {
-  const manifest = JSON.parse(readFileSync("dist/client/.vite/manifest.json", "utf8")) as Record<
-    string,
-    ManifestChunk
-  >;
-  const entry = Object.values(manifest).find((chunk) => chunk.isEntry);
-  if (!entry) throw new Error("Vite manifest entry not found — run npm run build first");
-  return {
-    js: "/" + entry.file,
-    css: (entry.css ?? []).map((file) => "/" + file),
-  };
 }
 
 main().catch((err) => {

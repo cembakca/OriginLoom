@@ -38,6 +38,22 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 3. `entry.client.tsx`'i düzenleme — Vite glob yeni dosyayı otomatik bulur
 4. Kullanıcıya özel veri: SSR loader + `gatewayFetch`; kişisel alanı cached HTML'e koyma
 
+### `eager` — ne zaman JS hemen indirilir?
+
+`entry.client.tsx` island chunk'larını varsayılan olarak **lazy** yükler: `IntersectionObserver` viewport'a 200px kala tetiklenir. `eager` prop'u bu gecikmeyi kaldırır — sayfa açılır açılmaz chunk indirilir.
+
+| Island              | `eager` | Neden                                              |
+| ------------------- | ------- | -------------------------------------------------- |
+| `layout-client`     | Evet    | Store seed + chrome state erken gerekli            |
+| `page-analytics`    | Evet    | Pageview EventQueue sırası                         |
+| `user-chrome`       | Hayır   | Dropdown viewport'ta; ilk paint JS'siz fallback OK |
+| `mobile-menu`       | Hayır   | Hamburger tıklanana kadar Sheet JS gereksiz        |
+| `footer-accordion`  | Hayır   | Footer fold altında                                |
+| `blog-explorer`     | Hayır   | Sıralama etkileşimi; SSR liste yeterli             |
+| `account-dashboard` | Hayır   | Kişisel panel; defer + TanStack zaten lazy mount   |
+
+**Kural:** Yeni island'larda `eager` ekleme — yalnızca analytics veya global store seed gibi erken client state gerekiyorsa kullan.
+
 ## Paylaşılan bileşen ekleme
 
 1. `src/components/{category}/{name}.tsx` oluştur
@@ -429,7 +445,7 @@ Tablet → mobile shell; API'ye yine `Tablet` gider.
 | `src/lib/menu/utils.ts`         | sort, filter, label                                      |
 | `src/components/layout/header/` | Desktop / Mobile shell                                   |
 | `src/components/layout/footer/` | Grid / accordion                                         |
-| `src/islands/user-chrome.tsx`   | Auth dropdown (defer, eager)                             |
+| `src/islands/user-chrome.tsx`   | Auth dropdown (defer, lazy chunk)                        |
 
 ---
 
@@ -460,11 +476,11 @@ generateMetadata: (data, ctx) =>
 
 ### Kanal 2 — Manuel head (teknik bootstrap)
 
-| Bileşen                            | Sorumluluk                                 |
-| ---------------------------------- | ------------------------------------------ |
-| `HeadClient`                       | dns-prefetch, preconnect (GTM, CDN)        |
-| `GtmBootstrap`                     | dataLayer, EventQueue, hk.tracking, gtm.js |
-| `layout-client` / `page-analytics` | Store + pageview (metadata dışı)           |
+| Bileşen                            | Sorumluluk                                       |
+| ---------------------------------- | ------------------------------------------------ |
+| `HeadClient`                       | dns-prefetch, preconnect (GTM, üçüncü parti CDN) |
+| `GtmBootstrap`                     | dataLayer, EventQueue, hk.tracking, gtm.js       |
+| `layout-client` / `page-analytics` | Store + pageview (metadata dışı)                 |
 
 **SEO meta ≠ GTM.** Analytics script'leri `generateMetadata`'ya girmez.
 
@@ -704,6 +720,45 @@ import { handle } from "@server/handler";
 | `src/islands/**`                 | `server/**`      | Client server kodu okumaz        |
 
 Runtime env: `src/lib/env.ts` — `src/lib` modülleri `server/config` import etmez.
+
+---
+
+## Statik asset CDN
+
+Vite build çıktısı (`dist/client/assets/*`) hash'li dosyalardır — uzun süre cache'lenebilir. Prod'da bu dosyaları ayrı bir CDN origin'inden servis etmek için `ASSET_CDN_URL` kullanılır.
+
+### Akış
+
+```
+npm run build → dist/client/.vite/manifest.json
+       ↓
+readAssets() → assetUrl() ile JS/CSS URL'leri
+       ↓
+renderDocument → <link>/<script> href'leri CDN veya origin
+       ↓
+CDN (veya origin /assets/*) → Cache-Control: immutable, max-age=31536000
+```
+
+| Dosya                                | Rol                                              |
+| ------------------------------------ | ------------------------------------------------ |
+| `server/assets.ts`                   | `readAssets()`, `assetUrl()`, `assetCdnOrigin()` |
+| `server/document.tsx`                | CDN `preconnect` + manifest URL'leri             |
+| `server/middleware/static-assets.ts` | Origin `/assets/*` için immutable header         |
+| `src/lib/env.ts`                     | `ASSET_CDN_URL`                                  |
+
+### Env
+
+```bash
+# Boş = aynı origin (/assets/entry.*.js)
+ASSET_CDN_URL=https://cdn.hangikredi.com
+```
+
+- Trailing slash otomatik kesilir.
+- Path yapısı korunur: `https://cdn…/assets/entry.client-abc123.js`
+- HTML hâlâ uygulama sunucusundan gelir; yalnızca JS/CSS CDN'e yönlendirilir.
+- `assetCdnOrigin()` → `<link rel="preconnect">` (document head)
+
+**Deploy notu:** CDN bucket'ına `dist/client/assets/` içeriğini build sonrası sync et; manifest ile eşleşen hash'li dosyalar gerekli.
 
 ### SSR vs island
 

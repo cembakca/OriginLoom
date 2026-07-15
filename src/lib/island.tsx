@@ -8,6 +8,9 @@ import type { ReactNode } from "react";
  *   fetches its own data.
  *   This is where anything per-user goes. It never touches the cached HTML,
  *   so the cache key never has to grow a session dimension.
+ *
+ * `eager` — sayfa yüklenir yüklenmez JS chunk indirilir (layout-client, analytics).
+ *   Yoksa IntersectionObserver viewport'a yaklaşınca yükler (footer, menü…).
  */
 export function Island({
   name,

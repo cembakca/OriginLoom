@@ -17,7 +17,7 @@ export default defineRoute({
   }),
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "account", { category: "account" }),
   Component: () => (
-    <Island name="account-dashboard" mode="defer" eager>
+    <Island name="account-dashboard" mode="defer">
       <AccountDashboardShell />
     </Island>
   ),

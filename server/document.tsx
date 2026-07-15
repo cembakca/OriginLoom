@@ -1,3 +1,4 @@
+import { assetCdnOrigin } from "@server/assets";
 import { renderToString } from "react-dom/server";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
@@ -34,6 +35,8 @@ export async function renderDocument<T>(
     route.pageMeta?.(data, routeCtx) ??
     defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
 
+  const cdnOrigin = assetCdnOrigin();
+
   const html = renderToString(
     <html lang="tr">
       <head>
@@ -41,6 +44,7 @@ export async function renderDocument<T>(
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <MetadataHead meta={seo} />
         <HeadClient />
+        {cdnOrigin ? <link rel="preconnect" href={cdnOrigin} crossOrigin="anonymous" /> : null}
         {assets.css.map((href) => (
           <link key={href} rel="stylesheet" href={href} />
         ))}
