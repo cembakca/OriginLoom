@@ -35,14 +35,14 @@ describe("handler", () => {
 
   it("bypasses cache for uncached routes", async () => {
     const req = new Request("http://localhost/hesabim", {
-      headers: { cookie: "sid=test-session" },
+      headers: { Authorization: "Bearer test-token-1234" },
     });
     const res = await handle(req, [account], assets);
     expect(res.status).toBe(200);
     expect(res.headers.get("x-cache")).toBe("BYPASS");
   });
 
-  it("returns 401 for account without session", async () => {
+  it("returns 401 for account without auth", async () => {
     const res = await handle(new Request("http://localhost/hesabim"), [account], assets);
     expect(res.status).toBe(401);
   });

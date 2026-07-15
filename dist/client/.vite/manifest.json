@@ -1,50 +1,39 @@
 {
-  "_index-DJMca0Pd.js": {
-    "file": "assets/index-DJMca0Pd.js",
+  "_index-B_Q5GWd0.js": {
+    "file": "assets/index-B_Q5GWd0.js",
     "name": "index",
     "imports": [
       "src/entry.client.tsx"
     ]
   },
   "src/entry.client.tsx": {
-    "file": "assets/entry.client-OytNkgTr.js",
+    "file": "assets/entry.client-CSVRuNVr.js",
     "name": "entry.client",
     "src": "src/entry.client.tsx",
     "isEntry": true,
     "dynamicImports": [
       "src/islands/blog-pagination.tsx",
-      "src/islands/filter-panel.tsx",
-      "src/islands/user-badge.tsx"
+      "src/islands/filter-panel.tsx"
     ]
   },
   "src/islands/blog-pagination.tsx": {
-    "file": "assets/blog-pagination-KcvT_Pkx.js",
+    "file": "assets/blog-pagination-Cp4QbZWF.js",
     "name": "blog-pagination",
     "src": "src/islands/blog-pagination.tsx",
     "isDynamicEntry": true,
     "imports": [
       "src/entry.client.tsx",
-      "_index-DJMca0Pd.js"
+      "_index-B_Q5GWd0.js"
     ]
   },
   "src/islands/filter-panel.tsx": {
-    "file": "assets/filter-panel-DFs3MrXu.js",
+    "file": "assets/filter-panel-D03bAggK.js",
     "name": "filter-panel",
     "src": "src/islands/filter-panel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "src/entry.client.tsx",
-      "_index-DJMca0Pd.js"
-    ]
-  },
-  "src/islands/user-badge.tsx": {
-    "file": "assets/user-badge-DNu5jgdF.js",
-    "name": "user-badge",
-    "src": "src/islands/user-badge.tsx",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/entry.client.tsx",
-      "_index-DJMca0Pd.js"
+      "_index-B_Q5GWd0.js"
     ]
   }
 }

@@ -1,7 +1,10 @@
 import { defineRoute } from "../../lib/types";
+import { sharedUnlessBypass } from "../../lib/cache-policy";
 
 export default defineRoute<{ publicPath: string }>({
   path: "/remote-customer-obtain",
+
+  cache: (ctx) => sharedUnlessBypass(ctx, ["remote-customer-obtain", ctx.publicPath]),
 
   loader: async (ctx) => ({ data: { publicPath: ctx.publicPath } }),
 

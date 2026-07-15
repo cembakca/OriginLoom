@@ -8,9 +8,18 @@ import type { Assets } from "./document";
 import { routes } from "../src/routes";
 import { config, validateConfig } from "./config";
 import { initCache, closeCache, pingCache } from "./cache";
+// Extend HTML cache bypass at bootstrap, e.g.:
+// import { registerCacheBypassCheck, hasPid } from "../src/lib/cache-policy";
+// registerCacheBypassCheck(hasPid);
 import { mountApi } from "./api";
 import { securityMiddleware } from "./middleware/security";
 import { requestId, type AppVariables } from "./middleware/request-id";
+import {
+  finalizePipelineResponse,
+  finalizeSsrResponse,
+  runPipeline,
+  shouldUsePipeline,
+} from "./middleware/pipeline";
 import { logger, logError } from "./logger";
 
 let shuttingDown = false;
@@ -77,9 +86,31 @@ function createApp(assets: Assets) {
 
   mountApi(app);
 
-  app.all("*", (c) => {
+  app.all("*", async (c) => {
     if (shuttingDown) return c.text("shutting down", 503);
-    return handle(c.req.raw, routes, assets, { requestId: c.get("requestId") });
+
+    const requestId = c.get("requestId");
+    const pathname = new URL(c.req.url).pathname;
+
+    if (shouldUsePipeline(pathname)) {
+      const pipeline = await runPipeline(c.req.raw, requestId);
+
+      if (pipeline.response) {
+        const res = finalizePipelineResponse(pipeline);
+        if (requestId) res.headers.set("x-request-id", requestId);
+        return res;
+      }
+
+      const ssr = await handle(pipeline.request, routes, assets, {
+        requestId,
+        trackingId: pipeline.trackingId,
+      });
+      const res = finalizeSsrResponse(ssr, pipeline);
+      if (requestId) res.headers.set("x-request-id", requestId);
+      return res;
+    }
+
+    return handle(c.req.raw, routes, assets, { requestId });
   });
 
   return app;

@@ -32,7 +32,11 @@
 1. Create `src/islands/{kebab-name}.tsx` — default export
 2. Reference in route: `<Island name="kebab-name" mode="hydrate|defer" />`
 3. Do not edit `entry.client.tsx` — Vite glob picks up new files automatically
-4. Per-user data: use `mode="defer"` and fetch from `/api/*`
+4. Per-user data: SSR loader + `gatewayFetch`; anonim cache HTML'de kişisel alan gösterme
+
+## HTML cache
+
+See **HTML cache — `sharedUnlessBypass`** under Middleware pipeline, or [`src/lib/cache-policy.ts`](../src/lib/cache-policy.ts).
 
 ## Add a shared component
 
@@ -50,6 +54,90 @@
 
 1. Create `src/services/{domain}.ts` — async functions + types only
 2. Import from route loaders and API handlers
+
+## Middleware pipeline
+
+Next.js `middleware.ts` karşılığı: [`server/middleware/pipeline.ts`](../server/middleware/pipeline.ts)
+
+**Sıra:** auth → session/tracking → CMS redirect → (handler) static rules.ts → SSR
+
+| Adım | Dosya | Ne yapar |
+|---|---|---|
+| Auth | `server/middleware/steps/auth/` | Token oku/yenile, `Authorization` inject, cookie yaz |
+| Session | `server/middleware/steps/session/` | gclid/utm/theme → cookie, tracking UUID, `x-pathname` |
+| CMS redirect | `server/middleware/steps/redirection/` | GW redirect map, 410/301 terminal |
+| Static routing | `src/routing/rules.ts` | Config redirect/rewrite/proxy |
+| SSR loader | `src/services/*` + `gatewayFetch` | GW'ye token ile istek |
+
+### Matcher (2 seviye)
+
+1. **Hono mount** — `/assets/*`, `/healthz`, `/api/*` (internal hariç) pipeline'a girmez
+2. **`shouldRunPipeline(pathname)`** — `_next`, static extensions, public API skip; `/api/internal/*` çalışır
+
+### Loader + gateway sözleşmesi
+
+Middleware `Authorization` header inject eder. Loader'da:
+
+```ts
+import { gatewayFetch } from "../../lib/gateway-fetch";
+import { fetchUserProfile } from "../../services/user";
+
+loader: async (ctx) => {
+  const user = await fetchUserProfile(ctx.request); // GW + Bearer token
+  return { data: { user } };
+}
+```
+
+**Cache kuralı:** Token (veya kayıtlı bypass check) varsa HTML cache **BYPASS**; anonim ziyaretçi **shared cache** (HIT/MISS). Bypass kriterleri cache key'e girmez.
+
+## HTML cache — `sharedUnlessBypass`
+
+Tüm public route'lar [`src/lib/cache-policy.ts`](../src/lib/cache-policy.ts) kullanır:
+
+```ts
+import { sharedUnlessBypass, neverCache } from "../../lib/cache-policy";
+
+// Standart sayfa — anonim cache'lenir, oturumlu BYPASS
+cache: (ctx) => sharedUnlessBypass(ctx, ["page-id", ctx.publicPath, locale(ctx.request)]),
+
+// Kişisel sayfa — hiç cache'lenmez (ör. hesabım)
+cache: () => neverCache(),
+```
+
+| Ziyaretçi | x-cache | Davranış |
+|---|---|---|
+| Anonim | MISS → HIT | Paylaşılan HTML cache |
+| Token / Authorization | BYPASS | Her istekte loader + render |
+| `neverCache()` route | BYPASS | Her zaman |
+
+### Esnek bypass registry
+
+Bugün token; yarın PID veya başka kriter — global registry'ye ekle:
+
+```ts
+// server/index.ts veya src/bootstrap/cache.ts (app startup)
+import { registerCacheBypassCheck, hasPid } from "../src/lib/cache-policy";
+
+registerCacheBypassCheck(hasPid); // Cookie.pid doluysa BYPASS
+```
+
+Route-local override:
+
+```ts
+cache: (ctx) =>
+  sharedUnlessBypass(ctx, ["special", ctx.publicPath], {
+    bypass: (ctx) => cookie(ctx.request, "preview") === "1",
+  }),
+```
+
+**Kurallar:**
+- Bypass check'ler cache **key'e girmez** — sadece cache'e girip girmeme kararı verirler
+- Kişisel veri cached HTML'de olmamalı; oturumlu isteklerde loader GW'den çeker
+- `Cookie` isimleri: [`src/lib/cookies.ts`](../src/lib/cookies.ts)
+
+### Internal BFF
+
+`POST /api/internal/refresh` — token yenileme; pipeline bu path'te çalışır.
 
 ## Routing — rewrites, redirects, proxy
 
@@ -85,4 +173,4 @@ export const redirects = [
 
 Pattern syntax: `:param` (tek segment), `:path*` (kalan path).
 
-`server/api/*` route'ları rewrite'dan **önce** mount edilir — `/api/me` gibi SSR-kit API'leri proxy'ye düşmez.
+`server/api/internal/*` BFF route'ları rewrite'dan **önce** mount edilir — pipeline çalışır. Genel `/api/*` proxy rewrite ile GW'ye gider, pipeline atlanır.

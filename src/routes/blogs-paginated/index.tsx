@@ -1,4 +1,5 @@
 import { defineRoute } from "../../lib/types";
+import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
 import { Island } from "../../lib/island";
 import { SiteHeader } from "../../components/layout/site-header";
@@ -9,12 +10,13 @@ import { PaginationShell } from "./pagination-shell";
 export default defineRoute<PaginatedBlogs>({
   path: "/blogs/paginated",
 
-  cache: (ctx) => ({
-    kind: "shared",
-    ttl: 300,
-    swr: 86_400,
-    key: ["blogs-paginated", ctx.publicPath, ctx.url.searchParams.get("page") ?? "1", locale(ctx.request)],
-  }),
+  cache: (ctx) =>
+    sharedUnlessBypass(ctx, [
+      "blogs-paginated",
+      ctx.publicPath,
+      ctx.url.searchParams.get("page") ?? "1",
+      locale(ctx.request),
+    ]),
 
   loader: async (ctx) => {
     const page = parsePageParam(ctx.url.searchParams.get("page"));

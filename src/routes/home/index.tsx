@@ -1,20 +1,23 @@
 import { defineRoute } from "../../lib/types";
+import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
+import { SiteHeader } from "~/components/layout/site-header";
 
 export default defineRoute<{ locale: string }>({
   path: "/",
-  cache: (ctx) => ({ kind: "shared", ttl: 3600, swr: 86_400, key: ["home", locale(ctx.request)] }),
+  cache: (ctx) => sharedUnlessBypass(ctx, ["home", locale(ctx.request)], { ttl: 3600 }),
   loader: async (ctx) => ({ data: { locale: locale(ctx.request) } }),
   title: () => "ssr-kit",
   Component: () => (
     <main>
+      <SiteHeader />
       <h1>ssr-kit</h1>
       <ul>
         <li>
           <a href="/ihtiyac-kredisi/istanbul?amount=75000">/ihtiyac-kredisi/istanbul?amount=75000</a>
         </li>
         <li>
-          <a href="/hesabim">/hesabim (uncached)</a>
+          <a href="/hesabim">/hesabim (never cached)</a>
         </li>
         <li>
           <a href="/blogs/paginated?page=2">/blogs/paginated?page=2</a>
@@ -24,6 +27,12 @@ export default defineRoute<{ locale: string }>({
         </li>
         <li>
           <a href="/basvuru/kredi/yonlendirme">/basvuru/kredi/yonlendirme → rewrite</a>
+        </li>
+        <li>
+          <a href="/eski-emeklilik">/eski-emeklilik → CMS redirect</a>
+        </li>
+        <li>
+          <a href="/kaldirildi">/kaldirildi → 410</a>
         </li>
       </ul>
     </main>

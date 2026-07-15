@@ -9,6 +9,7 @@ import * as cache from "./cache";
 
 export type HandleContext = {
   requestId?: string;
+  trackingId?: string;
 };
 
 /**
@@ -75,6 +76,7 @@ export async function handle(
       params: m.params,
       url: internalUrl,
       publicPath: resolution.publicPath,
+      trackingId: ctx.trackingId,
     };
     const { route } = m;
 

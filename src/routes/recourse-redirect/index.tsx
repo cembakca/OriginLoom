@@ -1,7 +1,11 @@
 import { defineRoute } from "../../lib/types";
+import { sharedUnlessBypass } from "../../lib/cache-policy";
 
 export default defineRoute<{ page: string; publicPath: string }>({
   path: "/recourse/:page/redirect",
+
+  cache: (ctx) =>
+    sharedUnlessBypass(ctx, ["recourse-redirect", ctx.params.page, ctx.publicPath]),
 
   loader: async (ctx) => ({
     data: { page: ctx.params.page, publicPath: ctx.publicPath },

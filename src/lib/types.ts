@@ -12,6 +12,8 @@ export type Ctx = {
   url: URL;
   /** Browser-visible path before rewrite. Use in cache keys and canonical URLs. */
   publicPath: string;
+  /** Set by session middleware when pipeline runs. */
+  trackingId?: string;
 };
 
 /**

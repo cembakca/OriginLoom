@@ -1,12 +1,17 @@
-import { Island } from "../../lib/island";
+import type { UserProfile } from "../../services/user";
 
-export function SiteHeader() {
+export type { UserProfile };
+
+/** SSR-safe site header — user comes from loader (uncached routes) or anonymous shell. */
+export function SiteHeader({ user }: { user?: UserProfile | null }) {
   return (
-    <header>
+    <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <a href="/">ssr-kit</a>
-      <Island name="user-badge" mode="defer" eager>
-        <span>&nbsp;</span>
-      </Island>
+      {user ? (
+        <span title={user.displayName}>{user.initials}</span>
+      ) : (
+        <a href="/giris">Giriş yap</a>
+      )}
     </header>
   );
 }
