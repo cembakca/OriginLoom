@@ -8,7 +8,10 @@ import type { ReactElement } from "react";
 export type Ctx = {
   request: Request;
   params: Record<string, string>;
+  /** URL after rewrite — query string preserved, pathname is internal. */
   url: URL;
+  /** Browser-visible path before rewrite. Use in cache keys and canonical URLs. */
+  publicPath: string;
 };
 
 /**

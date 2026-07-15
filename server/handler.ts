@@ -1,8 +1,10 @@
 import { match } from "../src/lib/match";
 import type { Route } from "../src/lib/types";
+import { resolveRoute } from "../src/routing";
 import { renderDocument, type Assets } from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
+import { proxyRequest } from "./proxy";
 import * as cache from "./cache";
 
 export type HandleContext = {
@@ -11,6 +13,10 @@ export type HandleContext = {
 
 /**
  * The whole request pipeline. Read it top to bottom — there is nothing else.
+ *
+ *   1. resolve redirects / rewrites / proxy  (src/routing/rules.ts)
+ *   2. match internal path → route
+ *   3. cache → loader → render
  */
 export async function handle(
   request: Request,
@@ -23,13 +29,53 @@ export async function handle(
   const requestId = ctx.requestId;
 
   try {
-    const m = match(routes, url.pathname);
+    const resolution = resolveRoute(url);
+
+    if (resolution.kind === "redirect") {
+      logRequest({
+        requestId,
+        path: url.pathname,
+        status: resolution.status,
+        cache: "REDIRECT",
+        durationMs: Date.now() - started,
+      });
+      return Response.redirect(resolution.url, resolution.status);
+    }
+
+    if (resolution.kind === "proxy") {
+      const proxied = await proxyRequest(request, resolution.url);
+      logRequest({
+        requestId,
+        path: url.pathname,
+        status: proxied.status,
+        cache: "PROXY",
+        durationMs: Date.now() - started,
+      });
+      if (requestId) proxied.headers.set("x-request-id", requestId);
+      return proxied;
+    }
+
+    const internalUrl = new URL(url);
+    internalUrl.pathname = resolution.pathname;
+
+    const m = match(routes, resolution.pathname);
     if (!m) {
-      logRequest({ requestId, path: url.pathname, status: 404, cache: "NONE", durationMs: Date.now() - started });
+      logRequest({
+        requestId,
+        path: url.pathname,
+        status: 404,
+        cache: "NONE",
+        durationMs: Date.now() - started,
+      });
       return new Response("Not found", { status: 404 });
     }
 
-    const routeCtx = { request, params: m.params, url };
+    const routeCtx = {
+      request,
+      params: m.params,
+      url: internalUrl,
+      publicPath: resolution.publicPath,
+    };
     const { route } = m;
 
     const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };

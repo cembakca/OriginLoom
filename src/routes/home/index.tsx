@@ -19,6 +19,12 @@ export default defineRoute<{ locale: string }>({
         <li>
           <a href="/blogs/paginated?page=2">/blogs/paginated?page=2</a>
         </li>
+        <li>
+          <a href="/emekli-bankaciligi">/emekli-bankaciligi → rewrite</a>
+        </li>
+        <li>
+          <a href="/basvuru/kredi/yonlendirme">/basvuru/kredi/yonlendirme → rewrite</a>
+        </li>
       </ul>
     </main>
   ),

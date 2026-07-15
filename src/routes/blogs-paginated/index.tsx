@@ -13,7 +13,7 @@ export default defineRoute<PaginatedBlogs>({
     kind: "shared",
     ttl: 300,
     swr: 86_400,
-    key: ["blogs-paginated", ctx.url.searchParams.get("page") ?? "1", locale(ctx.request)],
+    key: ["blogs-paginated", ctx.publicPath, ctx.url.searchParams.get("page") ?? "1", locale(ctx.request)],
   }),
 
   loader: async (ctx) => {

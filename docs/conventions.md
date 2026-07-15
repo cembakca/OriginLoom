@@ -50,3 +50,39 @@
 
 1. Create `src/services/{domain}.ts` — async functions + types only
 2. Import from route loaders and API handlers
+
+## Routing — rewrites, redirects, proxy
+
+Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](../src/routing/rules.ts)
+
+| Next.js | ssr-kit | Davranış |
+|---|---|---|
+| `redirects()` | `redirects[]` | Tarayıcı URL değişir (301/308) |
+| `rewrites()` (internal) | `rewrites[]` + `destination: "/internal-path"` | URL aynı kalır, route matcher internal path görür |
+| `rewrites()` (external) | `rewrites[]` + `destination: "http://…"` | Proxy — istek backend/CDN'e iletilir |
+
+**Pipeline sırası:** redirect → rewrite/proxy → route match → SSR
+
+### Public URL vs internal path
+
+- Route dosyasında **internal path** kullan: `path: "/retirement-banking"`
+- Türkçe public URL için **rewrite** ekle: `{ source: "/emekli-bankaciligi", destination: "/retirement-banking" }`
+- Cache key ve canonical URL için `ctx.publicPath` kullan (tarayıcıdaki path)
+- Loader'da internal params için `ctx.url.pathname` ve `ctx.params`
+
+```ts
+// src/routing/rules.ts
+export const rewrites = [
+  { source: "/emekli-bankaciligi", destination: "/retirement-banking" },
+  { source: "/basvuru/:page/yonlendirme", destination: "/recourse/:page/redirect" },
+  { source: "/api/:path*", destination: `${GATEWAY_URL}/:path*` }, // proxy
+];
+
+export const redirects = [
+  { source: "/eski-sayfa", destination: "/yeni-sayfa", status: 301 },
+];
+```
+
+Pattern syntax: `:param` (tek segment), `:path*` (kalan path).
+
+`server/api/*` route'ları rewrite'dan **önce** mount edilir — `/api/me` gibi SSR-kit API'leri proxy'ye düşmez.
