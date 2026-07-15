@@ -1,39 +1,67 @@
 {
-  "_index-B_Q5GWd0.js": {
-    "file": "assets/index-B_Q5GWd0.js",
+  "_index-CzcZmbuf.js": {
+    "file": "assets/index-CzcZmbuf.js",
     "name": "index",
     "imports": [
       "src/entry.client.tsx"
     ]
   },
+  "_user-info-store-C1E54D7d.js": {
+    "file": "assets/user-info-store-C1E54D7d.js",
+    "name": "user-info-store"
+  },
   "src/entry.client.tsx": {
-    "file": "assets/entry.client-CSVRuNVr.js",
+    "file": "assets/entry.client-CXqLhSlj.js",
     "name": "entry.client",
     "src": "src/entry.client.tsx",
     "isEntry": true,
     "dynamicImports": [
       "src/islands/blog-pagination.tsx",
-      "src/islands/filter-panel.tsx"
+      "src/islands/filter-panel.tsx",
+      "src/islands/layout-client.tsx",
+      "src/islands/page-analytics.tsx"
     ]
   },
   "src/islands/blog-pagination.tsx": {
-    "file": "assets/blog-pagination-Cp4QbZWF.js",
+    "file": "assets/blog-pagination-CD_wWT-_.js",
     "name": "blog-pagination",
     "src": "src/islands/blog-pagination.tsx",
     "isDynamicEntry": true,
     "imports": [
       "src/entry.client.tsx",
-      "_index-B_Q5GWd0.js"
+      "_index-CzcZmbuf.js"
     ]
   },
   "src/islands/filter-panel.tsx": {
-    "file": "assets/filter-panel-D03bAggK.js",
+    "file": "assets/filter-panel-DvFRs_hT.js",
     "name": "filter-panel",
     "src": "src/islands/filter-panel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "src/entry.client.tsx",
-      "_index-B_Q5GWd0.js"
+      "_index-CzcZmbuf.js"
+    ]
+  },
+  "src/islands/layout-client.tsx": {
+    "file": "assets/layout-client-o630CI70.js",
+    "name": "layout-client",
+    "src": "src/islands/layout-client.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/entry.client.tsx",
+      "_index-CzcZmbuf.js",
+      "_user-info-store-C1E54D7d.js"
+    ]
+  },
+  "src/islands/page-analytics.tsx": {
+    "file": "assets/page-analytics-BTaydXCr.js",
+    "name": "page-analytics",
+    "src": "src/islands/page-analytics.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-CzcZmbuf.js",
+      "_user-info-store-C1E54D7d.js",
+      "src/entry.client.tsx"
     ]
   }
 }

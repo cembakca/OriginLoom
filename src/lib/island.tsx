@@ -27,7 +27,7 @@ export function Island({
       data-island={name}
       data-mode={mode}
       data-eager={eager ? "" : undefined}
-      data-props={mode === "hydrate" ? JSON.stringify(props ?? {}) : undefined}
+      data-props={JSON.stringify(props ?? {})}
     >
       {mode === "hydrate" ? children : <div data-fallback="">{children}</div>}
     </div>

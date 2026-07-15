@@ -55,6 +55,91 @@ See **HTML cache — `sharedUnlessBypass`** under Middleware pipeline, or [`src/
 1. Create `src/services/{domain}.ts` — async functions + types only
 2. Import from route loaders and API handlers
 
+## Page open pipeline — Layout + GTM + PageAnalytics
+
+Next.js `layout.tsx` + `page.client.tsx` karşılığı. Tek root shell tüm route'ları sarar; route farkı `pageMeta` + route `Component` ile gelir.
+
+### Zaman sırası
+
+```
+1. Middleware          auth → session/tracking → CMS redirect
+2. handler             rules.ts → cache → loader → renderDocument
+3. document (SSR)      head: dataLayer=[] → EventQueue → hk.tracking → GTM
+                       body: layout-client → main → page-analytics
+4. entry.client        layout-client (store seed) → page-analytics (pageview)
+5. EventQueue          originalLocation → GAVirtual → signalReactReady → gtm.dom/load
+```
+
+### Dosya haritası
+
+| Next.js | ssr-kit | Sorumluluk |
+|---|---|---|
+| `app/layout.tsx` | `server/document.tsx` + `RootLayout` | HTML shell, GTM bootstrap |
+| `layout.client.tsx` | `src/islands/layout-client.tsx` | Chrome + store seed (defer, eager) |
+| `page.tsx` | `src/routes/*/index.tsx` loader + Component | Veri fetch + SSR UI |
+| `page.client.tsx` | `src/islands/page-analytics.tsx` | **Sadece** page-view dataLayer |
+| Container | route `Component` + `<Island />` | UI + interaktivite |
+
+### GTM bootstrap (root only)
+
+[`src/components/analytics/gtm-bootstrap.tsx`](../src/components/analytics/gtm-bootstrap.tsx) — head sırası:
+
+1. `window.dataLayer = []`
+2. EventQueue interceptor (`gtm.dom` / `gtm.load` bekletilir)
+3. `hk.tracking` — cookie'den `user_tracking_id` (cache-safe inline script)
+4. dns-prefetch / preconnect
+5. GTM container (`GTM_CONTAINER_ID` env)
+6. noscript iframe (bot değilse)
+
+**Kural:** GTM bootstrap yalnızca root layout'ta. Pageview route'a özel.
+
+### PageAnalytics (route page.client)
+
+Route'ta `pageMeta` tanımla — cache-safe alanlar:
+
+```ts
+pageMeta: (data, ctx) => defaultPageMeta(ctx, "loan-compare", {
+  category: "credit",
+  mid: "ihtiyac-kredisi",
+  sub: data.city,
+}),
+```
+
+`RootLayout` otomatik `<Island name="page-analytics" mode="defer" eager />` render eder.
+
+Pageview sırası ([`src/lib/analytics/page-view.ts`](../src/lib/analytics/page-view.ts)):
+
+1. `originalLocation` (sessionStorage ile korunur)
+2. `GAVirtual` + `page-{pageType}` event
+3. `signalReactReady()` → gtm.dom serbest
+
+Login state `layout-client` store'dan okunur — pageview'den **önce** seed edilir (DOM sırası).
+
+### Cache + analytics
+
+| Veri | SSR HTML'de? | Neden |
+|---|---|---|
+| GTM container ID | Evet | Herkes aynı |
+| `user_tracking_id` | **Hayır** | Cookie'den client okur |
+| `isSignedIn` / token | **Hayır** | layout-client cookie okur |
+| `pageMeta` (category, path) | Evet (island props) | Cache key parçası / anonim |
+| Kişisel user adı | BYPASS route'larda SSR OK | `neverCache()` veya token BYPASS |
+
+Anonim ziyaretçi cached HTML alır → layout-client + page-analytics client'ta cookie'den kimlik okur → doğru GTM context.
+
+### Env
+
+```bash
+GTM_CONTAINER_ID=GTM-XXXXXX   # boş = GTM devre dışı
+```
+
+### Yeni route checklist
+
+1. `defineRoute()` + `sharedUnlessBypass` cache
+2. `pageMeta` — pageview kategorisi
+3. `Component` — sadece sayfa içeriği (header/footer yok)
+4. Interaktivite → `src/islands/` + `<Island mode="hydrate" />`
+
 ## Middleware pipeline
 
 Next.js `middleware.ts` karşılığı: [`server/middleware/pipeline.ts`](../server/middleware/pipeline.ts)

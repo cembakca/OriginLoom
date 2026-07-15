@@ -6,6 +6,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   isProduction: (process.env.NODE_ENV ?? "development") === "production",
   shutdownTimeoutMs: Number(process.env.SHUTDOWN_TIMEOUT_MS ?? 10_000),
+  gtmContainerId: process.env.GTM_CONTAINER_ID ?? "",
 } as const;
 
 export function validateConfig(): void {

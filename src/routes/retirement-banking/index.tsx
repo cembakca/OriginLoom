@@ -1,9 +1,9 @@
 import type { UserProfile } from "../../services/user";
 import { fetchRetirementBankingContent, fetchUserProfile } from "../../services/user";
-import { SiteHeader } from "../../components/layout/site-header";
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
+import { defaultPageMeta } from "../../lib/shell-data";
 
 type Data = {
   publicPath: string;
@@ -38,10 +38,15 @@ export default defineRoute<Data>({
 
   title: () => "Emekli Bankacılığı",
 
-  Component: ({ data }) => (
-    <main style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
-      <SiteHeader user={data.user} />
+  pageMeta: (_data, ctx) =>
+    defaultPageMeta(ctx, "retirement-banking", {
+      category: "banking",
+      mid: "emekli",
+      title: "Emekli Bankacılığı",
+    }),
 
+  Component: ({ data }) => (
+    <>
       <h1>{data.headline}</h1>
       <p>
         Internal route: <code>/retirement-banking</code>
@@ -55,6 +60,6 @@ export default defineRoute<Data>({
       <p style={{ color: "#64748b" }}>
         Anonim ziyaretçi cache HIT alır; token varsa BYPASS — kişisel SSR + gateway.
       </p>
-    </main>
+    </>
   ),
 });

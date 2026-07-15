@@ -1,16 +1,16 @@
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
-import { SiteHeader } from "~/components/layout/site-header";
+import { defaultPageMeta } from "../../lib/shell-data";
 
 export default defineRoute<{ locale: string }>({
   path: "/",
   cache: (ctx) => sharedUnlessBypass(ctx, ["home", locale(ctx.request)], { ttl: 3600 }),
   loader: async (ctx) => ({ data: { locale: locale(ctx.request) } }),
   title: () => "ssr-kit",
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "home", { category: "landing" }),
   Component: () => (
-    <main>
-      <SiteHeader />
+    <>
       <h1>ssr-kit</h1>
       <ul>
         <li>
@@ -35,6 +35,6 @@ export default defineRoute<{ locale: string }>({
           <a href="/kaldirildi">/kaldirildi → 410</a>
         </li>
       </ul>
-    </main>
+    </>
   ),
 });

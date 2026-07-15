@@ -1,8 +1,8 @@
 import type { UserProfile } from "../../services/user";
 import { fetchUserProfile } from "../../services/user";
-import { SiteHeader } from "../../components/layout/site-header";
 import { defineRoute } from "../../lib/types";
 import { neverCache } from "../../lib/cache-policy";
+import { defaultPageMeta } from "../../lib/shell-data";
 
 type Data = {
   user: UserProfile | null;
@@ -18,18 +18,19 @@ export default defineRoute<Data>({
     return { data: { user } };
   },
   title: () => "Hesabım",
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "account", { category: "account" }),
   Component: ({ data }) =>
     data.user ? (
-      <main style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
-        <SiteHeader user={data.user} />
+      <>
         <h1>Hesabım</h1>
         <p>Hoş geldin, {data.user.displayName}</p>
-      </main>
+      </>
     ) : (
-      <main style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
-        <SiteHeader />
+      <>
         <h1>Giriş gerekli</h1>
-        <p>Oturum açmak için <code>access_token</code> veya <code>refresh_token</code> cookie kullanın.</p>
-      </main>
+        <p>
+          Oturum açmak için <code>access_token</code> veya <code>refresh_token</code> cookie kullanın.
+        </p>
+      </>
     ),
 });

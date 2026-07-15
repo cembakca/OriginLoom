@@ -102,7 +102,8 @@ export async function handle(
     }
 
     const result = await route.loader(routeCtx);
-    const body = renderDocument(route, result.data, assets);
+    const docCtx = { routeCtx };
+    const body = renderDocument(route, result.data, assets, docCtx);
     if (key && (result.status ?? 200) === 200) {
       await cache.write(key, body, policy);
     }
@@ -142,7 +143,7 @@ async function revalidate(
 ) {
   try {
     const result = await route.loader(routeCtx);
-    await cache.write(key, renderDocument(route, result.data, assets), policy);
+    await cache.write(key, renderDocument(route, result.data, assets, { routeCtx }), policy);
   } catch (err) {
     logError(err, { requestId, key, msg: "revalidate failed" });
   }

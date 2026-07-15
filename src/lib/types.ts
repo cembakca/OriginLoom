@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import type { PageAnalyticsMeta } from "./analytics/types";
 
 /**
  * Everything a route is allowed to know about the incoming request.
@@ -51,6 +52,12 @@ export type Route<T = any> = {
   Component: (props: { data: T }) => ReactElement;
 
   title?: (data: T) => string;
+
+  /** GTM page-view metadata — cache-safe fields only (no trackingId / tokens). */
+  pageMeta?: (data: T, ctx: Ctx) => PageAnalyticsMeta;
+
+  /** Minimal chrome for redirect / terminal routes. */
+  minimalChrome?: boolean;
 };
 
 export function defineRoute<T>(r: Route<T>): Route<T> {

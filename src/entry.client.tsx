@@ -19,7 +19,7 @@ async function mount(el: HTMLElement) {
     hydrateRoot(el, <Comp {...JSON.parse(el.dataset.props || "{}")} />);
   } else {
     el.replaceChildren();
-    createRoot(el).render(<Comp />);
+    createRoot(el).render(<Comp {...JSON.parse(el.dataset.props || "{}")} />);
   }
 }
 

@@ -2,7 +2,7 @@ import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
 import { Island } from "../../lib/island";
-import { SiteHeader } from "../../components/layout/site-header";
+import { defaultPageMeta } from "../../lib/shell-data";
 import { getPaginatedBlogs, parsePageParam, type PaginatedBlogs } from "../../services/blogs";
 import { BlogList, PageSummary } from "./components";
 import { PaginationShell } from "./pagination-shell";
@@ -26,10 +26,15 @@ export default defineRoute<PaginatedBlogs>({
 
   title: (d) => `Blog — Sayfa ${d.page}`,
 
-  Component: ({ data }) => (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "2rem 1rem" }}>
-      <SiteHeader />
+  pageMeta: (data, ctx) =>
+    defaultPageMeta(ctx, "blog-list", {
+      category: "content",
+      mid: "blog",
+      sub: `page-${data.page}`,
+    }),
 
+  Component: ({ data }) => (
+    <>
       <header style={{ marginBottom: "1.5rem" }}>
         <h1 style={{ margin: "0 0 0.5rem" }}>Blog Yazıları</h1>
         <p style={{ margin: 0, color: "#64748b" }}>
@@ -48,6 +53,6 @@ export default defineRoute<PaginatedBlogs>({
       >
         <PaginationShell page={data.page} totalPages={data.totalPages} />
       </Island>
-    </main>
+    </>
   ),
 });

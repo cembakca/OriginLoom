@@ -3,7 +3,7 @@ import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { cookie, device, locale } from "../../lib/request";
 import { Island } from "../../lib/island";
 import { getOffers, type Offer } from "../../services/offers";
-import { SiteHeader } from "../../components/layout/site-header";
+import { defaultPageMeta } from "../../lib/shell-data";
 import { FilterPanelShell } from "./components";
 
 type Data = { offers: Offer[]; amount: number; city: string; theme: string };
@@ -37,10 +37,15 @@ export default defineRoute<Data>({
 
   title: (d) => `${d.city} ihtiyaç kredisi — ${d.offers.length} teklif`,
 
-  Component: ({ data }) => (
-    <main data-theme={data.theme}>
-      <SiteHeader />
+  pageMeta: (data, ctx) =>
+    defaultPageMeta(ctx, "loan-compare", {
+      category: "credit",
+      mid: "ihtiyac-kredisi",
+      sub: data.city,
+    }),
 
+  Component: ({ data }) => (
+    <div data-theme={data.theme}>
       <h1>{data.city} ihtiyaç kredisi</h1>
 
       <Island name="filter-panel" mode="hydrate" props={{ amount: data.amount, city: data.city }}>
@@ -54,6 +59,6 @@ export default defineRoute<Data>({
           </li>
         ))}
       </ul>
-    </main>
+    </div>
   ),
 });

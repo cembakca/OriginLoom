@@ -2,6 +2,7 @@
 export const Cookie = {
   accessToken: "access_token",
   refreshToken: "refresh_token",
+  accountText: "account_text",
   userTrackingId: "user_tracking_id",
   theme: "theme",
   gclid: "gclid",

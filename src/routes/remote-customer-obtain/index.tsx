@@ -1,5 +1,6 @@
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
+import { defaultPageMeta } from "../../lib/shell-data";
 
 export default defineRoute<{ publicPath: string }>({
   path: "/remote-customer-obtain",
@@ -10,12 +11,15 @@ export default defineRoute<{ publicPath: string }>({
 
   title: () => "Uzaktan Müşteri Edinimi",
 
+  pageMeta: (_data, ctx) =>
+    defaultPageMeta(ctx, "remote-customer-obtain", { category: "acquisition" }),
+
   Component: ({ data }) => (
-    <main style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
+    <>
       <h1>Uzaktan Müşteri Edinimi</h1>
       <p>
         Public URL: <code>{data.publicPath}</code> → internal <code>/remote-customer-obtain</code>
       </p>
-    </main>
+    </>
   ),
 });

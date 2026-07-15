@@ -1,8 +1,10 @@
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
+import { defaultPageMeta } from "../../lib/shell-data";
 
 export default defineRoute<{ page: string; publicPath: string }>({
   path: "/recourse/:page/redirect",
+  minimalChrome: true,
 
   cache: (ctx) =>
     sharedUnlessBypass(ctx, ["recourse-redirect", ctx.params.page, ctx.publicPath]),
@@ -13,8 +15,11 @@ export default defineRoute<{ page: string; publicPath: string }>({
 
   title: (d) => `Başvuru yönlendirme — ${d.page}`,
 
+  pageMeta: (data, ctx) =>
+    defaultPageMeta(ctx, "recourse-redirect", { category: "redirect", sub: data.page }),
+
   Component: ({ data }) => (
-    <main style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
+    <>
       <h1>Başvuru yönlendirme</h1>
       <p>
         Param: <code>{data.page}</code>
@@ -22,6 +27,6 @@ export default defineRoute<{ page: string; publicPath: string }>({
       <p>
         <code>/basvuru/{data.page}/yonlendirme</code> → <code>/recourse/{data.page}/redirect</code>
       </p>
-    </main>
+    </>
   ),
 });
