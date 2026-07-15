@@ -7,6 +7,7 @@ export const config = {
   isProduction: (process.env.NODE_ENV ?? "development") === "production",
   shutdownTimeoutMs: Number(process.env.SHUTDOWN_TIMEOUT_MS ?? 10_000),
   gtmContainerId: process.env.GTM_CONTAINER_ID ?? "",
+  siteUrl: process.env.SITE_URL ?? "http://localhost:3005",
 } as const;
 
 export function validateConfig(): void {

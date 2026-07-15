@@ -3,12 +3,12 @@ import { fetchUserProfile } from "../../services/user";
 import { defineRoute } from "../../lib/types";
 import { neverCache } from "../../lib/cache-policy";
 import { defaultPageMeta } from "../../lib/shell-data";
+import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
 
 type Data = {
   user: UserProfile | null;
 };
 
-/** Personal account — never shared cache; auth via middleware-injected Authorization. */
 export default defineRoute<Data>({
   path: "/hesabim",
   cache: () => neverCache(),
@@ -17,7 +17,10 @@ export default defineRoute<Data>({
     if (!user) return { data: { user: null }, status: 401 };
     return { data: { user } };
   },
-  title: () => "Hesabım",
+  generateMetadata: (data, ctx) => ({
+    ...generateMetaDataForPageWithDummySeoInfo("/hesabim", ctx),
+    robots: { index: false, follow: false },
+  }),
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "account", { category: "account" }),
   Component: ({ data }) =>
     data.user ? (

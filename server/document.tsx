@@ -1,7 +1,10 @@
 import { renderToString } from "react-dom/server";
 import type { Route, Ctx } from "../src/lib/types";
 import { GtmBootstrap, isBotRequest } from "../src/components/analytics/gtm-bootstrap";
+import { HeadClient } from "../src/components/head/head-client";
+import { MetadataHead } from "../src/components/head/metadata-head";
 import { RootLayout } from "../src/components/layout/root-layout";
+import { resolveDocumentMetadata } from "../src/lib/metadata/resolve";
 import { buildLayoutClientProps, defaultPageMeta } from "../src/lib/shell-data";
 import { config } from "./config";
 
@@ -20,6 +23,7 @@ export function renderDocument<T>(
   const { routeCtx } = docCtx;
   const isBot = isBotRequest(routeCtx.request);
   const shell = buildLayoutClientProps(routeCtx, { minimalChrome: route.minimalChrome });
+  const seo = resolveDocumentMetadata(route, data, routeCtx);
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
     defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
@@ -29,7 +33,8 @@ export function renderDocument<T>(
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{route.title?.(data) ?? "ssr-kit"}</title>
+        <MetadataHead meta={seo} />
+        <HeadClient />
         {assets.css.map((href) => (
           <link key={href} rel="stylesheet" href={href} />
         ))}

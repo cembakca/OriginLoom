@@ -3,6 +3,7 @@ import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
 import { Island } from "../../lib/island";
 import { defaultPageMeta } from "../../lib/shell-data";
+import { generateMetaDataForPageWithDummySeoInfo, publicAbsoluteUrl } from "../../lib/metadata/generate";
 import { getPaginatedBlogs, parsePageParam, type PaginatedBlogs } from "../../services/blogs";
 import { BlogList, PageSummary } from "./components";
 import { PaginationShell } from "./pagination-shell";
@@ -24,7 +25,16 @@ export default defineRoute<PaginatedBlogs>({
     return { data };
   },
 
-  title: (d) => `Blog — Sayfa ${d.page}`,
+  generateMetadata: (data, ctx) => {
+    const title = `Blog — Sayfa ${data.page}`;
+    const url = publicAbsoluteUrl(ctx);
+    return {
+      title,
+      description: `Finans ve bankacılık blog yazıları — sayfa ${data.page}.`,
+      canonical: url,
+      openGraph: { title, url },
+    };
+  },
 
   pageMeta: (data, ctx) =>
     defaultPageMeta(ctx, "blog-list", {

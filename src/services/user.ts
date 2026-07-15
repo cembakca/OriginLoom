@@ -30,27 +30,11 @@ function mockProfile(auth: string): UserProfile {
   return { displayName: `User ${suffix}`, initials: suffix.slice(0, 2).toUpperCase() };
 }
 
-/** Example GW page fetch for retirement-banking demo. */
+/** Example GW page fetch for retirement-banking demo — use fetchRetirementBankingPage from services/pages. */
 export async function fetchRetirementBankingContent(
   request: Request,
 ): Promise<{ headline: string; authenticated: boolean }> {
-  try {
-    const res = await gatewayFetch(request, "/pages/retirement-banking");
-    if (!res.ok) {
-      return {
-        headline: "Emekli Bankacılığı",
-        authenticated: Boolean(request.headers.get("Authorization")),
-      };
-    }
-    const data = (await res.json()) as { headline?: string };
-    return {
-      headline: data.headline ?? "Emekli Bankacılığı",
-      authenticated: Boolean(request.headers.get("Authorization")),
-    };
-  } catch {
-    return {
-      headline: "Emekli Bankacılığı",
-      authenticated: Boolean(request.headers.get("Authorization")),
-    };
-  }
+  const { fetchRetirementBankingPage } = await import("./pages");
+  const page = await fetchRetirementBankingPage(request);
+  return { headline: page.headline, authenticated: page.authenticated };
 }

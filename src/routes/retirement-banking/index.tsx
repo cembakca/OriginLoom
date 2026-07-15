@@ -1,15 +1,22 @@
 import type { UserProfile } from "../../services/user";
-import { fetchRetirementBankingContent, fetchUserProfile } from "../../services/user";
+import { fetchUserProfile } from "../../services/user";
+import { fetchRetirementBankingPage } from "../../services/pages";
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
 import { defaultPageMeta } from "../../lib/shell-data";
+import {
+  generateMetaDataForPageWithDummySeoInfo,
+  generateMetaDataForPageWithSeoInfo,
+} from "../../lib/metadata/generate";
+import type { SeoInfo } from "../../lib/metadata/types";
 
 type Data = {
   publicPath: string;
   user: UserProfile | null;
   headline: string;
   authenticated: boolean;
+  seoInfo: SeoInfo | null;
 };
 
 export default defineRoute<Data>({
@@ -21,22 +28,26 @@ export default defineRoute<Data>({
     }),
 
   loader: async (ctx) => {
-    const [user, content] = await Promise.all([
+    const [user, page] = await Promise.all([
       fetchUserProfile(ctx.request),
-      fetchRetirementBankingContent(ctx.request),
+      fetchRetirementBankingPage(ctx.request),
     ]);
 
     return {
       data: {
         publicPath: ctx.publicPath,
         user,
-        headline: content.headline,
-        authenticated: content.authenticated,
+        headline: page.headline,
+        authenticated: page.authenticated,
+        seoInfo: page.seoInfo,
       },
     };
   },
 
-  title: () => "Emekli Bankacılığı",
+  generateMetadata: (data, ctx) =>
+    data.seoInfo
+      ? generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx)
+      : generateMetaDataForPageWithDummySeoInfo("/retirement-banking", ctx),
 
   pageMeta: (_data, ctx) =>
     defaultPageMeta(ctx, "retirement-banking", {

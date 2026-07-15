@@ -19,6 +19,7 @@ services:
       CACHE_BACKEND: redis
       REDIS_URL: redis://redis:6379
       GTM_CONTAINER_ID: GTM-XXXXXX
+      SITE_URL: http://localhost:3005
     depends_on:
       redis:
         condition: service_healthy

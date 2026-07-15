@@ -1,6 +1,7 @@
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { defaultPageMeta } from "../../lib/shell-data";
+import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
 
 export default defineRoute<{ page: string; publicPath: string }>({
   path: "/recourse/:page/redirect",
@@ -13,7 +14,11 @@ export default defineRoute<{ page: string; publicPath: string }>({
     data: { page: ctx.params.page, publicPath: ctx.publicPath },
   }),
 
-  title: (d) => `Başvuru yönlendirme — ${d.page}`,
+  generateMetadata: (data, ctx) => ({
+    ...generateMetaDataForPageWithDummySeoInfo("/recourse-redirect", ctx),
+    title: `Başvuru yönlendirme — ${data.page}`,
+    robots: { index: false, follow: true },
+  }),
 
   pageMeta: (data, ctx) =>
     defaultPageMeta(ctx, "recourse-redirect", { category: "redirect", sub: data.page }),

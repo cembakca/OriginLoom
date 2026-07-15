@@ -55,6 +55,66 @@ See **HTML cache — `sharedUnlessBypass`** under Middleware pipeline, or [`src/
 1. Create `src/services/{domain}.ts` — async functions + types only
 2. Import from route loaders and API handlers
 
+## Metadata / head — iki kanal
+
+Next.js'teki **Metadata API** + **manuel `<head>`** ayrımının karşılığı.
+
+### Kanal 1 — Metadata API (`generateMetadata`)
+
+| Katman | Dosya | Ne |
+|---|---|---|
+| Site defaults | `src/lib/metadata/site-defaults.ts` | title template, description, OG/Twitter site, icons, robots |
+| Route override | `route.generateMetadata(data, ctx)` | title, description, canonical, robots, OG/Twitter sayfa |
+| Merge | `src/lib/metadata/merge.ts` | layout ⊎ page — page ezer |
+| HTML | `src/components/head/metadata-head.tsx` | `<title>`, meta, canonical, OG, Twitter |
+
+```ts
+// Loader'da seoInfo fetch et — generateMetadata ayrı API çağırmasın
+loader: async (ctx) => {
+  const page = await fetchRetirementBankingPage(ctx.request);
+  return { data: { ...page } };
+},
+
+generateMetadata: (data, ctx) =>
+  data.seoInfo
+    ? generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx)
+    : generateMetaDataForPageWithDummySeoInfo("/retirement-banking", ctx),
+```
+
+**seoInfo alanları → Metadata:**
+
+| seoInfo | Metadata | HTML |
+|---|---|---|
+| `title` | `title` | `<title>` (+ `%s \| Hangikredi` template) |
+| `metaDescription` | `description` | `<meta name="description">` |
+| `canonicalUrl` | `canonical` | `<link rel="canonical">` |
+| `noindex` | `robots.index` | `<meta name="robots">` |
+| `image` | `openGraph.image` / `twitter.image` | og:image, twitter:image |
+
+### Kanal 2 — Manuel head (teknik bootstrap)
+
+| Bileşen | Sorumluluk |
+|---|---|
+| `HeadClient` | dns-prefetch, preconnect (GTM, CDN) |
+| `GtmBootstrap` | dataLayer, EventQueue, hk.tracking, gtm.js |
+| `layout-client` / `page-analytics` | Store + pageview (metadata dışı) |
+
+**SEO meta ≠ GTM.** Analytics script'leri `generateMetadata`'ya girmez.
+
+### Metadata dışı
+
+| Şey | Nerede |
+|---|---|
+| JSON-LD / breadcrumb | Body — `PageSchema` (gelecek) |
+| GTM pageview | `page-analytics` island |
+| H1 / hero | Route `Component` (`headingTitle` metadata'dan ayrı) |
+
+### Env
+
+```bash
+SITE_URL=https://www.hangikredi.com   # canonical / OG url base
+```
+
 ## Page open pipeline — Layout + GTM + PageAnalytics
 
 Next.js `layout.tsx` + `page.client.tsx` karşılığı. Tek root shell tüm route'ları sarar; route farkı `pageMeta` + route `Component` ile gelir.

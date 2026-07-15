@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import type { PageAnalyticsMeta } from "./analytics/types";
+import type { PageMetadata } from "./metadata/types";
 
 /**
  * Everything a route is allowed to know about the incoming request.
@@ -51,6 +52,13 @@ export type Route<T = any> = {
 
   Component: (props: { data: T }) => ReactElement;
 
+  /**
+   * Route SEO override (Next.js generateMetadata karşılığı).
+   * Loader'dan gelen seoInfo ile beslenir — ayrı fetch yapma.
+   */
+  generateMetadata?: (data: T, ctx: Ctx) => PageMetadata;
+
+  /** @deprecated Prefer generateMetadata */
   title?: (data: T) => string;
 
   /** GTM page-view metadata — cache-safe fields only (no trackingId / tokens). */

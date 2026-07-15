@@ -4,6 +4,7 @@ import { cookie, device, locale } from "../../lib/request";
 import { Island } from "../../lib/island";
 import { getOffers, type Offer } from "../../services/offers";
 import { defaultPageMeta } from "../../lib/shell-data";
+import { publicAbsoluteUrl } from "../../lib/metadata/generate";
 import { FilterPanelShell } from "./components";
 
 type Data = { offers: Offer[]; amount: number; city: string; theme: string };
@@ -35,7 +36,18 @@ export default defineRoute<Data>({
     };
   },
 
-  title: (d) => `${d.city} ihtiyaç kredisi — ${d.offers.length} teklif`,
+  generateMetadata: (data, ctx) => {
+    const title = `${data.city.charAt(0).toUpperCase()}${data.city.slice(1)} ihtiyaç kredisi`;
+    const description = `${data.city} için ${data.offers.length} kredi teklifini karşılaştır.`;
+    const url = publicAbsoluteUrl(ctx);
+    return {
+      title,
+      description,
+      canonical: url,
+      openGraph: { title, description, url },
+      twitter: { title, description },
+    };
+  },
 
   pageMeta: (data, ctx) =>
     defaultPageMeta(ctx, "loan-compare", {

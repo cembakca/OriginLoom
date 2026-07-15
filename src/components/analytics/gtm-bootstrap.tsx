@@ -51,8 +51,6 @@ j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNo
       <script dangerouslySetInnerHTML={{ __html: "window.dataLayer=window.dataLayer||[];" }} />
       <script dangerouslySetInnerHTML={{ __html: EVENT_QUEUE_SCRIPT }} />
       <script dangerouslySetInnerHTML={{ __html: EARLY_TRACKING_SCRIPT }} />
-      <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-      <link rel="preconnect" href="https://www.googletagmanager.com" crossOrigin="anonymous" />
       <script dangerouslySetInnerHTML={{ __html: gtmScript }} />
       {!isBot && (
         <noscript>
