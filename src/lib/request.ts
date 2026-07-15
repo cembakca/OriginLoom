@@ -13,10 +13,7 @@ export function cookie(request: Request, name: string): string | undefined {
 }
 
 /** Collapse the User-Agent into a small closed set so the cache key stays small. */
-export function device(request: Request): "mobile" | "desktop" {
-  const ua = request.headers.get("user-agent") ?? "";
-  return /Android|iPhone|iPad|Mobile/i.test(ua) ? "mobile" : "desktop";
-}
+export { device } from "./device";
 
 export function locale(request: Request): string {
   const al = request.headers.get("accept-language") ?? "";

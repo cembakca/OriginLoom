@@ -1,42 +1,28 @@
-import { useLayoutEffect, useState } from "react";
-import { SiteHeader } from "../components/layout/site-header";
-import type { LayoutClientProps } from "../lib/shell-data";
-import { hasAuthCookies, readCookie } from "../lib/client/cookies";
-import { Cookie } from "../lib/cookies";
+import { useLayoutEffect } from "react";
 import { seedSession } from "../lib/stores/session-store";
 import { seedUserInfo } from "../lib/stores/user-info-store";
+import { hasAuthCookies, readCookie } from "../lib/client/cookies";
+import { Cookie } from "../lib/cookies";
+import type { LayoutClientProps } from "../lib/shell-data";
 
-function resolveDisplayName(): { displayName: string; initials: string } | null {
-  if (!hasAuthCookies()) return null;
-  const accountText = readCookie(Cookie.accountText);
-  const label = accountText ?? "Hesabım";
-  return { displayName: label, initials: label.slice(0, 2).toUpperCase() };
-}
-
-/** Client chrome + store bootstrap — mounts before page-analytics (DOM order). */
+/** Store bootstrap — Header/Footer SSR; burada sadece session + auth store. */
 export default function LayoutClient(props: LayoutClientProps) {
-  const [user, setUser] = useState<{ displayName: string; initials: string } | null>(null);
-
   useLayoutEffect(() => {
     seedSession({
       publicPath: props.publicPath,
       pathname: props.pathname,
       search: props.search,
       theme: props.theme,
-      userAgent: navigator.userAgent,
     });
 
     const signedIn = hasAuthCookies();
-    const profile = resolveDisplayName();
-    seedUserInfo({ isSignedIn: signedIn, displayName: profile?.displayName, initials: profile?.initials });
-    setUser(profile);
+    const accountText = readCookie(Cookie.accountText);
+    seedUserInfo({
+      isSignedIn: signedIn,
+      displayName: accountText ?? undefined,
+      initials: accountText?.slice(0, 2).toUpperCase(),
+    });
   }, [props.publicPath, props.pathname, props.search, props.theme]);
 
-  if (props.minimalChrome) return null;
-
-  return (
-    <div id="layout-chrome">
-      <SiteHeader user={user} />
-    </div>
-  );
+  return null;
 }

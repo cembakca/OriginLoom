@@ -1,12 +1,12 @@
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
-import { defaultPageMeta } from "../../lib/shell-data";
+import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
 import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
 
 export default defineRoute<{ locale: string }>({
   path: "/",
-  cache: (ctx) => sharedUnlessBypass(ctx, ["home", locale(ctx.request)], { ttl: 3600 }),
+  cache: (ctx) => sharedUnlessBypass(ctx, ["home", locale(ctx.request), layoutCacheFragment(ctx)], { ttl: 3600 }),
   loader: async (ctx) => ({ data: { locale: locale(ctx.request) } }),
   generateMetadata: (_data, ctx) => generateMetaDataForPageWithDummySeoInfo("/", ctx),
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "home", { category: "landing" }),

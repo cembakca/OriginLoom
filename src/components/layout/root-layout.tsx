@@ -1,33 +1,32 @@
 import type { ReactNode } from "react";
 import { Island } from "../../lib/island";
-import type { LayoutClientProps } from "../../lib/shell-data";
+import type { ShellData } from "../../lib/shell-data";
 import type { PageAnalyticsMeta } from "../../lib/analytics/types";
-import { SiteHeader } from "./site-header";
-import { SiteFooter } from "./site-footer";
+import { Header } from "./header";
+import { Footer } from "./footer";
 
 export type RootLayoutProps = {
-  shell: LayoutClientProps;
+  shell: ShellData;
   pageMeta: PageAnalyticsMeta;
   children: ReactNode;
 };
 
 /**
- * Application shell — GTM bootstrap lives in document head.
- * Chrome + stores: layout-client island (defer, eager).
- * Page view: page-analytics island (defer, eager) — after layout seeds stores.
+ * Application shell — menu SSR (Header/Footer), auth client island.
+ * GTM bootstrap lives in document head.
  */
 export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
+  const showChrome = !shell.minimalChrome && shell.menu;
+
   return (
     <>
-      <Island name="layout-client" mode="defer" eager props={shell}>
-        <div data-chrome-fallback="">
-          <SiteHeader />
-        </div>
-      </Island>
+      {showChrome ? <Header menu={shell.menu!} deviceType={shell.deviceType} /> : null}
+
+      <Island name="layout-client" mode="defer" eager props={shell} />
 
       <main id="page-main">{children}</main>
 
-      <SiteFooter minimal={shell.minimalChrome} />
+      {showChrome ? <Footer menu={shell.menu!} deviceType={shell.deviceType} /> : null}
 
       <Island name="page-analytics" mode="defer" eager props={pageMeta} />
     </>

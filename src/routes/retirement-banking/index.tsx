@@ -4,7 +4,7 @@ import { fetchRetirementBankingPage } from "../../services/pages";
 import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
-import { defaultPageMeta } from "../../lib/shell-data";
+import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
 import {
   generateMetaDataForPageWithDummySeoInfo,
   generateMetaDataForPageWithSeoInfo,
@@ -23,7 +23,7 @@ export default defineRoute<Data>({
   path: "/retirement-banking",
 
   cache: (ctx) =>
-    sharedUnlessBypass(ctx, ["retirement-banking", ctx.publicPath, locale(ctx.request)], {
+    sharedUnlessBypass(ctx, ["retirement-banking", ctx.publicPath, locale(ctx.request), layoutCacheFragment(ctx)], {
       ttl: 3600,
     }),
 

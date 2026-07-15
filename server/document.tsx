@@ -5,7 +5,7 @@ import { HeadClient } from "../src/components/head/head-client";
 import { MetadataHead } from "../src/components/head/metadata-head";
 import { RootLayout } from "../src/components/layout/root-layout";
 import { resolveDocumentMetadata } from "../src/lib/metadata/resolve";
-import { buildLayoutClientProps, defaultPageMeta } from "../src/lib/shell-data";
+import { buildShellData, defaultPageMeta } from "../src/lib/shell-data";
 import { config } from "./config";
 
 export type Assets = { js: string; css: string[] };
@@ -14,15 +14,15 @@ export type DocumentContext = {
   routeCtx: Ctx;
 };
 
-export function renderDocument<T>(
+export async function renderDocument<T>(
   route: Route<T>,
   data: T,
   assets: Assets,
   docCtx: DocumentContext,
-): string {
+): Promise<string> {
   const { routeCtx } = docCtx;
   const isBot = isBotRequest(routeCtx.request);
-  const shell = buildLayoutClientProps(routeCtx, { minimalChrome: route.minimalChrome });
+  const shell = await buildShellData(routeCtx, { minimalChrome: route.minimalChrome });
   const seo = resolveDocumentMetadata(route, data, routeCtx);
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??

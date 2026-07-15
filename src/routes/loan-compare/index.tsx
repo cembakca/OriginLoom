@@ -3,7 +3,7 @@ import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { cookie, device, locale } from "../../lib/request";
 import { Island } from "../../lib/island";
 import { getOffers, type Offer } from "../../services/offers";
-import { defaultPageMeta } from "../../lib/shell-data";
+import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
 import { publicAbsoluteUrl } from "../../lib/metadata/generate";
 import { FilterPanelShell } from "./components";
 
@@ -20,6 +20,7 @@ export default defineRoute<Data>({
       device(ctx.request),
       locale(ctx.request),
       cookie(ctx.request, "theme") ?? "light",
+      layoutCacheFragment(ctx),
     ]),
 
   loader: async (ctx) => {

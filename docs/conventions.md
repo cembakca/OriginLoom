@@ -55,6 +55,70 @@ See **HTML cache — `sharedUnlessBypass`** under Middleware pipeline, or [`src/
 1. Create `src/services/{domain}.ts` — async functions + types only
 2. Import from route loaders and API handlers
 
+## Header, Footer ve MenuList
+
+Next.js root layout menü fetch karşılığı: **`buildShellData`** — tek istek, Header + Footer SSR.
+
+### Veri akışı
+
+```
+UA → getDeviceType → "Desktop" | "Tablet" | "Mobile"
+       ↓
+GET /pages/menuitem/list   (header: device, CorrelationId)
+       ↓
+IMenuItems → RootLayout → Header + Footer (SSR)
+             layout-client → auth store seed
+             user-chrome island → Giriş / MO initials
+```
+
+| Kural | Detay |
+|---|---|
+| Tek fetch | Layout/document menüyü çeker; Header/Footer ayrı endpoint çağırmaz |
+| Tek nav tree | `headerItems` — desktop bar = hamburger içeriği |
+| Footer ayrı | `footerItems` + `itemType: 16` |
+| Auth chrome | Menü API'den gelmez — `user-chrome` island cookie okur |
+| Device | API header + shell seçimi + sıra alanı; ikinci menü listesi yok |
+
+### Device kırılımı
+
+| Katman | Desktop | Tablet | Mobile |
+|---|---|---|---|
+| API `device` header | Desktop | Tablet | Mobile |
+| Header shell | DesktopHeader + yatay nav | MobileHeader + accordion | MobileHeader + accordion |
+| Nav sıra | `displayOrder` | `mobileDisplayOrder` | `mobileDisplayOrder` |
+| Footer layout | kolon grid | grid (UA mobile değil) | accordion |
+| HTML cache key | `layoutCacheFragment(ctx)` — **zorunlu** | | |
+
+Tablet → mobile shell (Header'da ayrı Tablet branch yok); API'ye yine `Tablet` gider.
+
+### MenuItem modeli
+
+`src/lib/menu/types.ts` — `MenuItem`, `IMenuItems` (headerItems, hamburgerItems legacy, footerItems).
+
+### Cache (iki katman)
+
+| Katman | TTL | Key | Not |
+|---|---|---|---|
+| **Menu API cache** | `MENU_CACHE_TTL` (default 4h) | `menu:Desktop` / `menu:Tablet` / `menu:Mobile` | Menü nadiren değişir; auth HTML'i etkilemez |
+| **HTML cache** | route `sharedUnlessBypass` | route key + `layoutCacheFragment` | Shell device'a göre ayrı HTML |
+
+Auth durumunda sadece `user-chrome` (MO/initials) client'ta güncellenir; menü linkleri cached HTML'de kalır.
+
+```bash
+MENU_CACHE_TTL=14400   # saniye — menu API response cache
+```
+
+### Dosyalar
+
+| Dosya | Rol |
+|---|---|
+| `src/services/menu.ts` | GW fetch + menu API cache |
+| `src/lib/device.ts` | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
+| `src/lib/menu/utils.ts` | sort, filter, label |
+| `src/components/layout/header/` | Desktop / Mobile shell |
+| `src/components/layout/footer/` | Grid / accordion |
+| `src/islands/user-chrome.tsx` | Auth dropdown (defer, eager) |
+
 ## Metadata / head — iki kanal
 
 Next.js'teki **Metadata API** + **manuel `<head>`** ayrımının karşılığı.

@@ -8,6 +8,7 @@ export const config = {
   shutdownTimeoutMs: Number(process.env.SHUTDOWN_TIMEOUT_MS ?? 10_000),
   gtmContainerId: process.env.GTM_CONTAINER_ID ?? "",
   siteUrl: process.env.SITE_URL ?? "http://localhost:3005",
+  menuCacheTtl: Number(process.env.MENU_CACHE_TTL ?? 14_400),
 } as const;
 
 export function validateConfig(): void {

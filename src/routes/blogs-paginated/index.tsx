@@ -2,7 +2,7 @@ import { defineRoute } from "../../lib/types";
 import { sharedUnlessBypass } from "../../lib/cache-policy";
 import { locale } from "../../lib/request";
 import { Island } from "../../lib/island";
-import { defaultPageMeta } from "../../lib/shell-data";
+import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
 import { generateMetaDataForPageWithDummySeoInfo, publicAbsoluteUrl } from "../../lib/metadata/generate";
 import { getPaginatedBlogs, parsePageParam, type PaginatedBlogs } from "../../services/blogs";
 import { BlogList, PageSummary } from "./components";
@@ -17,6 +17,7 @@ export default defineRoute<PaginatedBlogs>({
       ctx.publicPath,
       ctx.url.searchParams.get("page") ?? "1",
       locale(ctx.request),
+      layoutCacheFragment(ctx),
     ]),
 
   loader: async (ctx) => {
