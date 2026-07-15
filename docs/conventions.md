@@ -6,15 +6,17 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 
 ## Klasör yapısı
 
-| Dizin                | Amaç                                                             |
-| -------------------- | ---------------------------------------------------------------- |
-| `src/routes/{name}/` | Sayfa klasörü — `index.tsx` içinde `defineRoute()` export edilir |
-| `src/islands/`       | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir  |
-| `src/components/`    | Paylaşılan SSR-güvenli UI (hook yok)                             |
-| `src/services/`      | Veri katmanı — loader ve API handler'lar burayı çağırır          |
-| `src/lib/`           | Saf yardımcılar (router, tipler, request helper'ları)            |
-| `server/`            | HTTP runtime — Vite'dan geçmez                                   |
-| `tests/`             | `server/` ve `src/lib/` yapısını yansıtır                        |
+| Dizin                   | Amaç                                                             |
+| ----------------------- | ---------------------------------------------------------------- |
+| `src/routes/{name}/`    | Sayfa klasörü — `index.tsx` içinde `defineRoute()` export edilir |
+| `src/islands/`          | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir  |
+| `src/components/`       | Paylaşılan SSR-güvenli UI (hook yok)                             |
+| `src/assets/svg/`       | SVG kaynakları — `npm run icons` ile TSX'e dönüşür               |
+| `src/components/icons/` | Otomatik üretilen icon bileşenleri (elle düzenleme)              |
+| `src/services/`         | Veri katmanı — loader ve API handler'lar burayı çağırır          |
+| `src/lib/`              | Saf yardımcılar (router, tipler, request helper'ları)            |
+| `server/`               | HTTP runtime — Vite'dan geçmez                                   |
+| `tests/`                | `server/` ve `src/lib/` yapısını yansıtır                        |
 
 ## İsimlendirme
 
@@ -393,6 +395,40 @@ cache: (ctx) => pageCachePolicy(PageCacheId.account, ctx),
 **Radix nerede?** Interaktif chrome island'larda: `mobile-menu` (Sheet), `footer-accordion` (Accordion), `user-chrome` (DropdownMenu). Header/Footer gövdesi SSR + Tailwind.
 
 **Yeni UI bileşeni:** `src/components/ui/` altına ekle; Radix primitive + Tailwind + `cn()`.
+
+---
+
+## SVG ikonları — otomatik TSX codegen
+
+Next.js'teki `@svgr/webpack` yerine build-time codegen kullanılır. Üretilen bileşenler hem **SSR** (`tsx` + `react-dom/server`) hem **client island** tarafında çalışır — Vite transform gerekmez.
+
+### Akış
+
+```
+src/assets/svg/brand-mark.svg     ← yalnızca bunu ekle / güncelle
+        ↓  npm run icons  (dev & build otomatik çalıştırır)
+src/components/icons/brand-mark.tsx
+src/components/icons/index.ts     ← barrel export (BrandMark)
+```
+
+| Kural       | Detay                                                                       |
+| ----------- | --------------------------------------------------------------------------- |
+| Kaynak      | `src/assets/svg/{kebab-name}.svg` — elle TSX yazma                          |
+| Çıktı       | `src/components/icons/{kebab-name}.tsx` — generated banner, commit et       |
+| Import      | `import { BrandMark } from "~/components/icons"`                            |
+| Renk        | SVGR `currentColor` — `className="text-brand-600"` ile boya                 |
+| UI ikonları | Chevron, menu vb. için `lucide-react` yeterli; marka/logo için SVG pipeline |
+| Silme       | SVG silinince codegen eski `.tsx`'i de temizler                             |
+
+### Komutlar
+
+```bash
+npm run icons          # manuel regenerate
+npm run dev            # icons → vite watch + server
+npm run build          # icons → vite build
+```
+
+Config: `.svgrrc.cjs` (TypeScript, `icon: true`, SVGO + `currentColor`).
 
 ---
 

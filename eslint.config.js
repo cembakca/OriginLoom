@@ -16,7 +16,7 @@ const browserRestrictedGlobals = {
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "eslint.config.js"],
+    ignores: ["dist/**", "node_modules/**", "coverage/**", "eslint.config.js", "scripts/**"],
   },
   eslint.configs.recommended,
   eslintConfigPrettier,

@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "icons": "node scripts/generate-icons.mjs",
+    "build": "npm run icons && vite build",
     "start": "node --import tsx/esm server/index.ts",
-    "dev": "concurrently -k \"vite build --watch\" \"tsx watch server/index.ts\"",
+    "dev": "npm run icons && concurrently -k \"vite build --watch\" \"tsx watch server/index.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@svgr/cli": "^8.1.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
