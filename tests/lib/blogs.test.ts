@@ -11,9 +11,14 @@ describe("blogs service", () => {
     expect(result.totalPages).toBe(4);
   });
 
-  it("returns page 2 posts", async () => {
+  it("returns page 2 posts (default date-desc)", async () => {
     const result = await getPaginatedBlogs(2);
     expect(result.page).toBe(2);
+    expect(result.posts[0]?.id).toBe("blog-18");
+  });
+
+  it("returns page 2 posts in chronological order", async () => {
+    const result = await getPaginatedBlogs(2, { orderBy: "date-asc" });
     expect(result.posts[0]?.id).toBe("blog-7");
   });
 

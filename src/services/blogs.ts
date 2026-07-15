@@ -9,12 +9,25 @@ export type Blog = {
   tags: string[];
 };
 
+export type BlogOrderBy = "date-desc" | "date-asc" | "title-asc" | "title-desc" | "read-time-desc";
+
+export const BLOG_ORDER_OPTIONS: Array<{ value: BlogOrderBy; label: string }> = [
+  { value: "date-desc", label: "En yeni" },
+  { value: "date-asc", label: "En eski" },
+  { value: "title-asc", label: "Başlık (A-Z)" },
+  { value: "title-desc", label: "Başlık (Z-A)" },
+  { value: "read-time-desc", label: "Okuma süresi" },
+];
+
+export const DEFAULT_BLOG_ORDER: BlogOrderBy = "date-desc";
+
 export type PaginatedBlogs = {
   posts: Blog[];
   page: number;
   pageSize: number;
   total: number;
   totalPages: number;
+  orderBy: BlogOrderBy;
 };
 
 const AUTHORS = ["Ayşe Kaya", "Mehmet Demir", "Zeynep Arslan", "Can Yıldız"];
@@ -36,23 +49,59 @@ const ALL_BLOGS: Blog[] = Array.from({ length: 24 }, (_, i) => {
 
 const DEFAULT_PAGE_SIZE = 6;
 
+const VALID_ORDER: BlogOrderBy[] = [
+  "date-desc",
+  "date-asc",
+  "title-asc",
+  "title-desc",
+  "read-time-desc",
+];
+
+export function parseOrderByParam(raw: string | null): BlogOrderBy {
+  if (raw && (VALID_ORDER as string[]).includes(raw)) return raw as BlogOrderBy;
+  return DEFAULT_BLOG_ORDER;
+}
+
+export function sortBlogs(blogs: readonly Blog[], orderBy: BlogOrderBy): Blog[] {
+  const copy = [...blogs];
+  switch (orderBy) {
+    case "date-asc":
+      return copy.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
+    case "date-desc":
+      return copy.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+    case "title-asc":
+      return copy.sort((a, b) => a.title.localeCompare(b.title, "tr"));
+    case "title-desc":
+      return copy.sort((a, b) => b.title.localeCompare(a.title, "tr"));
+    case "read-time-desc":
+      return copy.sort((a, b) => b.readTimeMin - a.readTimeMin);
+    default:
+      return copy;
+  }
+}
+
 export async function getPaginatedBlogs(
   page: number,
-  pageSize = DEFAULT_PAGE_SIZE,
+  options?: { pageSize?: number; orderBy?: BlogOrderBy },
 ): Promise<PaginatedBlogs> {
   await new Promise((r) => setTimeout(r, 10));
 
-  const total = ALL_BLOGS.length;
+  const pageSize = options?.pageSize ?? DEFAULT_PAGE_SIZE;
+  const orderBy = options?.orderBy ?? DEFAULT_BLOG_ORDER;
+  const sorted = sortBlogs(ALL_BLOGS, orderBy);
+
+  const total = sorted.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.max(1, Math.min(page, totalPages));
   const start = (safePage - 1) * pageSize;
 
   return {
-    posts: ALL_BLOGS.slice(start, start + pageSize),
+    posts: sorted.slice(start, start + pageSize),
     page: safePage,
     pageSize,
     total,
     totalPages,
+    orderBy,
   };
 }
 

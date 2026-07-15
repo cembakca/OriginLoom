@@ -3,6 +3,8 @@ import "./styles/globals.css";
 import type { ComponentType } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
+import { AppQueryProvider } from "~/lib/query/provider";
+
 type IslandModule = { default: ComponentType<Record<string, unknown>> };
 
 // Vite turns this into a code-split map. Each island is its own chunk, so a
@@ -19,11 +21,17 @@ async function mount(el: HTMLElement) {
   if (!load) return console.warn("[island] not found:", el.dataset.island);
   const { default: Comp } = await load();
 
+  const props = JSON.parse(el.dataset.props || "{}") as Record<string, unknown>;
+  const tree = (
+    <AppQueryProvider>
+      <Comp {...props} />
+    </AppQueryProvider>
+  );
+
   if (el.dataset.mode === "hydrate") {
-    hydrateRoot(el, <Comp {...JSON.parse(el.dataset.props || "{}")} />);
+    hydrateRoot(el, tree);
   } else {
-    // Keep SSR fallback visible until React commits — avoid empty flash (CLS).
-    createRoot(el).render(<Comp {...JSON.parse(el.dataset.props || "{}")} />);
+    createRoot(el).render(tree);
   }
 }
 

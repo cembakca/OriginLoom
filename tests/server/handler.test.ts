@@ -46,9 +46,13 @@ describe("handler", () => {
     expect(res.headers.get("x-cache")).toBe("BYPASS");
   });
 
-  it("returns 401 for account without auth", async () => {
+  it("serves account page shell without auth (client island handles 401)", async () => {
     const res = await handle(new Request("http://localhost/hesabim"), [accountRoute], assets);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-cache")).toBe("BYPASS");
+    const html = await res.text();
+    expect(html).toContain("Hesabım");
+    expect(html).toContain('data-island="account-dashboard"');
   });
 
   it("sets x-request-id when provided", async () => {

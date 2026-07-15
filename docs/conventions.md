@@ -401,7 +401,7 @@ IMenuItems → RootLayout → Header + Footer (SSR)
 | Tek fetch    | Layout/document menüyü çeker; Header/Footer ayrı endpoint çağırmaz |
 | Tek nav tree | `headerItems` — desktop bar = hamburger içeriği                    |
 | Footer ayrı  | `footerItems` + `itemType: 16`                                     |
-| Auth chrome  | Menü API'den gelmez — `user-chrome` island cookie okur             |
+| Auth chrome  | Menü API'den gelmez — `user-chrome` island `signed_in` cookie okur |
 | Device       | API header + shell seçimi + sıra alanı; ikinci menü listesi yok    |
 
 ### Device kırılımı
@@ -526,6 +526,57 @@ GTM_CONTAINER_ID=GTM-XXXXXX   # boş = GTM devre dışı
 
 ---
 
+## Client data fetching — TanStack Query
+
+Sunucu verisi **loader + `gatewayFetch`** ile kalır. Client-side dinamik veri (sıralama, kişisel panel) için **TanStack Query v5** kullanılır.
+
+### Katmanlar
+
+| Katman       | Dosya                            | Rol                                                        |
+| ------------ | -------------------------------- | ---------------------------------------------------------- |
+| Query client | `src/lib/query/client.ts`        | Singleton `QueryClient` (island'lar arası paylaşımlı)      |
+| Provider     | `src/lib/query/provider.tsx`     | `AppQueryProvider` — `entry.client.tsx` her island'ı sarar |
+| Query keys   | `src/lib/query/keys.ts`          | Merkezi key factory                                        |
+| Hooks        | `src/lib/query/hooks/*`          | `useBlogs`, `useAccountSummary`                            |
+| Client fetch | `src/lib/client/api-fetch.ts`    | `credentials: "include"` ile BFF çağrısı                   |
+| BFF (public) | `server/api/blogs.ts`            | `GET /api/blogs` — anonim, pipeline dışı                   |
+| BFF (auth)   | `server/api/internal/account.ts` | `GET /api/internal/account/summary` — cookie auth          |
+
+### Ne zaman hangi mod?
+
+| Senaryo                         | Pattern                                       |
+| ------------------------------- | --------------------------------------------- |
+| SEO + cache'lenen ilk içerik    | Route `loader` (SSR)                          |
+| URL ile değişen içerik (`page`) | SSR + `contentQueryParams` cache key          |
+| Client-only filtre (`orderBy`)  | `defer` island + TanStack Query + BFF         |
+| Kişisel / oturumlu veri         | `defer` island + TanStack + `/api/internal/*` |
+
+### Örnekler
+
+**Blog sıralama** — `src/islands/blog-explorer.tsx`
+
+- SSR: varsayılan sıralama (`date-desc`) loader'da, HTML cache'te
+- Client: `orderBy` değişince `useBlogs` → `GET /api/blogs?page=&orderBy=`
+- `orderBy` cache key'de **yok** (doğru)
+
+**Hesabım paneli** — `src/islands/account-dashboard.tsx`
+
+- SSR: yalnızca fallback shell (`defer`)
+- Client: `useAccountSummary` → `GET /api/internal/account/summary`
+- 401 → giriş gerekli mesajı (island içinde)
+
+### Yeni client query eklerken
+
+1. `src/lib/query/keys.ts` — key factory ekle
+2. `src/lib/query/hooks/use-*.ts` — hook yaz
+3. Gerekirse `server/api/*` BFF endpoint
+4. `src/islands/*.tsx` — `defer` veya `hydrate` island
+5. Route'ta `<Island mode="defer" props={…}>` + SSR fallback
+
+Loader'ı React Query ile değiştirme — HTML cache mimarisi bozulur.
+
+---
+
 ## Middleware pipeline
 
 Next.js `middleware.ts` karşılığı: [`server/middleware/pipeline.ts`](../server/middleware/pipeline.ts)
@@ -561,7 +612,28 @@ loader: async (ctx) => {
 
 ### Internal BFF
 
-`POST /api/internal/refresh` — token yenileme; pipeline bu path'te çalışır.
+| Endpoint                            | Açıklama                                            |
+| ----------------------------------- | --------------------------------------------------- |
+| `POST /api/internal/refresh`        | `refresh_token` → yeni access + session cookie'leri |
+| `GET /api/internal/auth/session`    | Client oturum durumu (`signedIn`, `displayName`)    |
+| `GET /api/internal/account/summary` | Auth + auto-refresh + hesap özeti                   |
+
+### Auth cookie modeli
+
+| Cookie          | httpOnly | Kim okur                 | Rol                            |
+| --------------- | -------- | ------------------------ | ------------------------------ |
+| `access_token`  | Evet     | Sunucu (middleware, BFF) | GW `Authorization`             |
+| `refresh_token` | Evet     | Sunucu                   | Access süresi dolunca yenileme |
+| `signed_in`     | Hayır    | Client island            | UI oturum göstergesi (`1`)     |
+| `account_text`  | Hayır    | Client island            | Header'da görünen isim         |
+
+**Neden client access token görmüyor?** Güvenlik için token'lar httpOnly. `user-chrome` ve `layout-client` **`signed_in`** cookie'sini okur — `access_token` değil.
+
+**Refresh akışı:**
+
+1. **Sayfa isteği** → middleware `runAuthCore`: access expire + refresh varsa yeniler, `Set-Cookie` döner
+2. **Client BFF (TanStack)** → `clientApiFetch` 401 alırsa `POST /api/internal/refresh` çağırır, isteği tekrarlar
+3. **BFF handler** → `authenticateBffRequest` aynı refresh mantığını uygular
 
 ---
 

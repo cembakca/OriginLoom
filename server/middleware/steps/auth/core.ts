@@ -2,10 +2,12 @@ import type { CookieJar } from "@server/middleware/cookie-jar";
 
 import {
   clearTokenCookies,
+  displayNameFromAccess,
   isAccessTokenExpired,
   mockRefresh,
   readTokens,
   refreshTokens,
+  setSessionCookies,
   setTokenCookies,
 } from "./helpers";
 
@@ -29,6 +31,8 @@ export async function runAuthCore(request: Request, jar: CookieJar): Promise<Aut
   }
 
   if (!access) return { cookies: jar };
+
+  setSessionCookies(jar, { displayName: displayNameFromAccess(access) });
 
   return {
     authorization: access.startsWith("Bearer ") ? access : `Bearer ${access}`,

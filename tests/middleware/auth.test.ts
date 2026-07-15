@@ -22,5 +22,7 @@ describe("auth helpers", () => {
     const outcome = await runAuthCore(request, jar);
     expect(outcome.authorization).toMatch(/^Bearer /);
     expect(jar.toHeaderStrings().some((c) => c.startsWith("access_token="))).toBe(true);
+    expect(jar.toHeaderStrings().some((c) => c.startsWith("signed_in=1"))).toBe(true);
+    expect(jar.toHeaderStrings().some((c) => c.startsWith("account_text="))).toBe(true);
   });
 });
