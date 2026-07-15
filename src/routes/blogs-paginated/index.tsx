@@ -45,13 +45,13 @@ export default defineRoute<PaginatedBlogs>({
     }),
 
   Component: ({ data }) => (
-    <>
-      <header style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ margin: "0 0 0.5rem" }}>Blog Yazıları</h1>
-        <p style={{ margin: 0, color: "#64748b" }}>
-          SSR + cache + React component örneği — <code>/blogs/paginated?page={data.page}</code>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-slate-900">Blog Yazıları</h1>
+        <p className="text-slate-600">
+          SSR + cache + island — <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm">/blogs/paginated?page={data.page}</code>
         </p>
-      </header>
+      </div>
 
       <PageSummary page={data.page} totalPages={data.totalPages} total={data.total} />
 
@@ -64,6 +64,6 @@ export default defineRoute<PaginatedBlogs>({
       >
         <PaginationShell page={data.page} totalPages={data.totalPages} />
       </Island>
-    </>
+    </div>
   ),
 });

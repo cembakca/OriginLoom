@@ -57,20 +57,22 @@ export default defineRoute<Data>({
     }),
 
   Component: ({ data }) => (
-    <>
-      <h1>{data.headline}</h1>
-      <p>
-        Internal route: <code>/retirement-banking</code>
-      </p>
-      <p>
-        Public URL: <code>{data.publicPath}</code>
-      </p>
-      <p>
-        Gateway auth: {data.authenticated ? "Bearer token iletildi" : "anonim"}
-      </p>
-      <p style={{ color: "#64748b" }}>
-        Anonim ziyaretçi cache HIT alır; token varsa BYPASS — kişisel SSR + gateway.
-      </p>
-    </>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-slate-900">{data.headline}</h1>
+        <p className="text-slate-600">
+          Gateway auth: {data.authenticated ? "Bearer token iletildi" : "anonim"}
+        </p>
+      </div>
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 space-y-1">
+        <p>
+          Internal: <code className="rounded bg-white px-1.5 py-0.5">/retirement-banking</code>
+        </p>
+        <p>
+          Public: <code className="rounded bg-white px-1.5 py-0.5">{data.publicPath}</code>
+        </p>
+        <p className="text-slate-500">Anonim cache HIT; token → BYPASS</p>
+      </div>
+    </div>
   ),
 });

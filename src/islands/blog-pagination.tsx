@@ -1,22 +1,9 @@
 import { useCallback } from "react";
+import { Button } from "~/components/ui/button";
+import { cn } from "~/lib/utils";
 
 type Props = { page: number; totalPages: number };
 
-const btnStyle = (active: boolean, disabled = false) =>
-  ({
-    padding: "0.5rem 0.875rem",
-    borderRadius: 8,
-    border: "1px solid #cbd5e1",
-    background: active ? "#0f172a" : "#fff",
-    color: active ? "#fff" : "#0f172a",
-    cursor: disabled ? "not-allowed" : active ? "default" : "pointer",
-    fontWeight: active ? 600 : 400,
-    opacity: disabled ? 0.5 : 1,
-  }) as const;
-
-/**
- * mode="hydrate". Markup matches `routes/blogs-paginated/pagination-shell.tsx`.
- */
 export default function BlogPagination({ page, totalPages }: Props) {
   const go = useCallback((nextPage: number) => {
     const url = new URL(location.href);
@@ -29,42 +16,33 @@ export default function BlogPagination({ page, totalPages }: Props) {
   return (
     <nav
       aria-label="Sayfalama"
-      style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1.5rem" }}
+      className="mt-6 flex flex-wrap gap-2"
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft" && page > 1) go(page - 1);
         if (e.key === "ArrowRight" && page < totalPages) go(page + 1);
       }}
       tabIndex={0}
     >
-      <button
-        type="button"
-        disabled={page <= 1}
-        onClick={() => go(page - 1)}
-        style={btnStyle(false, page <= 1)}
-      >
+      <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => go(page - 1)}>
         ← Önceki
-      </button>
+      </Button>
 
       {pages.map((p) => (
-        <button
+        <Button
           key={p}
-          type="button"
+          variant={p === page ? "default" : "secondary"}
+          size="sm"
           aria-current={p === page ? "page" : undefined}
           onClick={() => p !== page && go(p)}
-          style={btnStyle(p === page)}
+          className={cn(p === page && "pointer-events-none")}
         >
           {p}
-        </button>
+        </Button>
       ))}
 
-      <button
-        type="button"
-        disabled={page >= totalPages}
-        onClick={() => go(page + 1)}
-        style={btnStyle(false, page >= totalPages)}
-      >
+      <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => go(page + 1)}>
         Sonraki →
-      </button>
+      </Button>
     </nav>
   );
 }

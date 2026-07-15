@@ -1,5 +1,6 @@
 import { hydrateRoot, createRoot } from "react-dom/client";
 import type { ComponentType } from "react";
+import "./styles/globals.css";
 
 // Vite turns this into a code-split map. Each island is its own chunk, so a
 // page ships only the JS for the islands actually on it.

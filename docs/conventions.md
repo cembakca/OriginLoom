@@ -55,6 +55,19 @@ See **HTML cache — `sharedUnlessBypass`** under Middleware pipeline, or [`src/
 1. Create `src/services/{domain}.ts` — async functions + types only
 2. Import from route loaders and API handlers
 
+## UI — Tailwind + Radix
+
+| Katman | Teknoloji | Not |
+|---|---|---|
+| Stil | Tailwind CSS v4 (`@tailwindcss/vite`) | `src/styles/globals.css` — Vite build → SSR HTML class'ları |
+| Primitives | Radix UI | Sheet, Accordion, DropdownMenu |
+| UI kit | `src/components/ui/` | Button, Card, Badge, Sheet, Accordion, DropdownMenu |
+| Utils | `cn()` — `src/lib/utils.ts` | clsx + tailwind-merge |
+
+**Radix nerede?** Interaktif chrome island'larda: `mobile-menu` (Sheet), `footer-accordion` (Accordion), `user-chrome` (DropdownMenu). Header/Footer gövdesi SSR + Tailwind.
+
+**Yeni UI bileşeni:** `src/components/ui/` altına ekle; Radix primitive + Tailwind + `cn()`.
+
 ## Header, Footer ve MenuList
 
 Next.js root layout menü fetch karşılığı: **`buildShellData`** — tek istek, Header + Footer SSR.

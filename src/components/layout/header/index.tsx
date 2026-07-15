@@ -1,65 +1,40 @@
-import type { CSSProperties } from "react";
-import type { DeviceShell, DeviceType } from "../../../lib/device";
+import type { DeviceType } from "../../../lib/device";
 import { getDeviceShell } from "../../../lib/device";
 import type { IMenuItems } from "../../../lib/menu/types";
+import { serializeNavItems } from "../../../lib/menu/serialize";
 import { sortNavItems, topNavItems } from "../../../lib/menu/utils";
-import { NavBar, UserChromeSlot } from "./nav-parts";
+import { Container, Logo } from "~/components/ui/container";
+import { DesktopNavBar, MobileMenuSlot, UserChromeSlot } from "./nav-parts";
 
-const headerStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  padding: "0.75rem 1rem",
-  borderBottom: "1px solid #e2e8f0",
-};
-
-function DesktopHeader({ menu, shell }: { menu: IMenuItems; shell: DeviceShell }) {
+function DesktopHeader({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
+  const shell = getDeviceShell(deviceType);
   const items = sortNavItems(topNavItems(menu.headerItems), shell);
+
   return (
-    <header style={headerStyle} data-shell="desktop">
-      <a href="/" style={{ fontWeight: 700 }}>
-        Hangikredi
-      </a>
-      <NavBar items={items} shell={shell} />
-      <UserChromeSlot />
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur" data-shell="desktop">
+      <Container className="flex h-16 items-center justify-between gap-4">
+        <Logo />
+        <DesktopNavBar items={items} shell={shell} />
+        <div className="flex items-center gap-2">
+          <UserChromeSlot />
+        </div>
+      </Container>
     </header>
   );
 }
 
-function MobileHeader({ menu, shell }: { menu: IMenuItems; shell: DeviceShell }) {
+function MobileHeader({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
+  const shell = getDeviceShell(deviceType);
   const items = sortNavItems(topNavItems(menu.headerItems), shell);
+  const serialized = serializeNavItems(items);
+
   return (
-    <header style={headerStyle} data-shell="mobile">
-      <span style={{ fontSize: "0.875rem", color: "#64748b" }}>Menü</span>
-      <a href="/" style={{ fontWeight: 700 }}>
-        Hangikredi
-      </a>
-      <UserChromeSlot />
-      <div id="mobile-nav-panel" style={{ width: "100%" }}>
-        {/* SSR: aynı nav ağacı accordion — island hamburger toggle ileride eklenebilir */}
-        <details open style={{ marginTop: "0.5rem" }}>
-          <summary style={{ cursor: "pointer" }}>Navigasyon</summary>
-          <nav aria-label="Mobil menü">
-            <ul style={{ listStyle: "none", margin: "0.5rem 0 0", padding: 0 }}>
-              {items.map((item) => (
-                <li key={item.id} style={{ margin: "0.35rem 0" }}>
-                  <a href={item.url}>{item.hamburgerName ?? item.name}</a>
-                  {item.subMenuItemList?.map((sub) => (
-                    <a
-                      key={sub.id}
-                      href={sub.url}
-                      style={{ display: "block", marginLeft: "1rem", fontSize: "0.875rem" }}
-                    >
-                      {sub.hamburgerName ?? sub.name}
-                    </a>
-                  ))}
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </details>
-      </div>
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white" data-shell="mobile">
+      <Container className="flex h-14 items-center justify-between gap-3">
+        <MobileMenuSlot items={serialized} />
+        <Logo className="absolute left-1/2 -translate-x-1/2" />
+        <UserChromeSlot />
+      </Container>
     </header>
   );
 }
@@ -67,8 +42,8 @@ function MobileHeader({ menu, shell }: { menu: IMenuItems; shell: DeviceShell })
 export function Header({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
   const shell = getDeviceShell(deviceType);
   return shell === "desktop" ? (
-    <DesktopHeader menu={menu} shell={shell} />
+    <DesktopHeader menu={menu} deviceType={deviceType} />
   ) : (
-    <MobileHeader menu={menu} shell={shell} />
+    <MobileHeader menu={menu} deviceType={deviceType} />
   );
 }

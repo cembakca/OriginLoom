@@ -4,10 +4,10 @@ import { defineRoute } from "../../lib/types";
 import { neverCache } from "../../lib/cache-policy";
 import { defaultPageMeta } from "../../lib/shell-data";
 import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
+import { Badge } from "~/components/ui/badge";
+import { Card, CardContent } from "~/components/ui/card";
 
-type Data = {
-  user: UserProfile | null;
-};
+type Data = { user: UserProfile | null };
 
 export default defineRoute<Data>({
   path: "/hesabim",
@@ -17,23 +17,31 @@ export default defineRoute<Data>({
     if (!user) return { data: { user: null }, status: 401 };
     return { data: { user } };
   },
-  generateMetadata: (data, ctx) => ({
+  generateMetadata: (_data, ctx) => ({
     ...generateMetaDataForPageWithDummySeoInfo("/hesabim", ctx),
     robots: { index: false, follow: false },
   }),
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "account", { category: "account" }),
   Component: ({ data }) =>
     data.user ? (
-      <>
-        <h1>Hesabım</h1>
-        <p>Hoş geldin, {data.user.displayName}</p>
-      </>
+      <Card className="max-w-lg">
+        <CardContent className="space-y-2 pt-6">
+          <Badge>Hesap</Badge>
+          <h1 className="text-2xl font-bold">Hesabım</h1>
+          <p className="text-slate-600">
+            Hoş geldin, <span className="font-semibold text-slate-900">{data.user.displayName}</span>
+          </p>
+        </CardContent>
+      </Card>
     ) : (
-      <>
-        <h1>Giriş gerekli</h1>
-        <p>
-          Oturum açmak için <code>access_token</code> veya <code>refresh_token</code> cookie kullanın.
-        </p>
-      </>
+      <Card className="max-w-lg border-amber-200 bg-amber-50">
+        <CardContent className="space-y-2 pt-6">
+          <h1 className="text-2xl font-bold text-amber-950">Giriş gerekli</h1>
+          <p className="text-sm text-amber-900/80">
+            Oturum açmak için <code className="rounded bg-white/80 px-1">access_token</code> veya{" "}
+            <code className="rounded bg-white/80 px-1">refresh_token</code> cookie ekleyin.
+          </p>
+        </CardContent>
+      </Card>
     ),
 });

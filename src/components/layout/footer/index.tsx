@@ -1,75 +1,41 @@
 import type { DeviceType } from "../../../lib/device";
 import { getDeviceShell } from "../../../lib/device";
-import type { IMenuItems, MenuItem } from "../../../lib/menu/types";
+import type { IMenuItems } from "../../../lib/menu/types";
+import { serializeNavItems } from "../../../lib/menu/serialize";
 import { footerNavItems, linkRel, sortFooterItems } from "../../../lib/menu/utils";
+import { Container, Logo } from "~/components/ui/container";
+import { FooterAccordionSlot, NavLink } from "../header/nav-parts";
 
 export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
   const shell = getDeviceShell(deviceType);
   const items = sortFooterItems(footerNavItems(menu.footerItems), shell);
+  const serialized = serializeNavItems(items);
   const isMobile = shell === "mobile";
 
   return (
-    <footer
-      style={{
-        marginTop: "3rem",
-        padding: "2rem 1rem",
-        borderTop: "1px solid #e2e8f0",
-        color: "#64748b",
-      }}
-      data-shell={shell}
-    >
-      <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        <a href="/" style={{ fontWeight: 700, color: "#0f172a", fontSize: isMobile ? "1rem" : "1.125rem" }}>
-          Hangikredi
-        </a>
+    <footer className="mt-auto border-t border-slate-200 bg-white" data-shell={shell}>
+      <Container className="py-10">
+        <Logo className="mb-6" />
 
         {isMobile ? (
-          <div style={{ marginTop: "1rem" }}>
-            {items.map((col) => (
-              <details key={col.id} style={{ borderBottom: "1px solid #e2e8f0", padding: "0.5rem 0" }}>
-                <summary style={{ cursor: "pointer", fontWeight: 600 }}>{col.name}</summary>
-                <ul style={{ listStyle: "none", margin: "0.5rem 0 0", padding: 0 }}>
-                  {col.subMenuItemList?.map((link) => (
-                    <li key={link.id} style={{ margin: "0.25rem 0" }}>
-                      <a href={link.url} rel={linkRel(link.url)}>
-                        {link.name}
-                      </a>
-                    </li>
-                  )) ?? (
-                    <li>
-                      <a href={col.url} rel={linkRel(col.url)}>
-                        {col.name}
-                      </a>
-                    </li>
-                  )}
-                </ul>
-              </details>
-            ))}
-          </div>
+          <FooterAccordionSlot items={serialized} />
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-              gap: "1.5rem",
-              marginTop: "1.5rem",
-            }}
-          >
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {items.map((col) => (
               <div key={col.id}>
-                <strong style={{ display: "block", marginBottom: "0.5rem", color: "#0f172a" }}>{col.name}</strong>
-                <ul style={{ listStyle: "none", margin: 0, padding: 0, fontSize: "0.875rem" }}>
+                <h3 className="mb-3 text-sm font-semibold text-slate-900">{col.name}</h3>
+                <ul className="space-y-2 text-sm text-slate-600">
                   {col.subMenuItemList?.map((link) => (
-                    <li key={link.id} style={{ margin: "0.25rem 0" }}>
-                      <a href={link.url} rel={linkRel(link.url)}>
+                    <li key={link.id}>
+                      <NavLink href={link.url} rel={linkRel(link.url)}>
                         {link.name}
-                      </a>
+                      </NavLink>
                     </li>
                   )) ?? (
                     <li>
-                      <a href={col.url} rel={linkRel(col.url)}>
+                      <NavLink href={col.url} rel={linkRel(col.url)}>
                         {col.name}
-                      </a>
+                      </NavLink>
                     </li>
                   )}
                 </ul>
@@ -78,10 +44,10 @@ export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: Dev
           </div>
         )}
 
-        <p style={{ margin: "2rem 0 0", fontSize: "0.75rem", textAlign: "center" }}>
-          © Hangikredi — Bilgilendirme amaçlıdır.
+        <p className="mt-8 border-t border-slate-200 pt-6 text-center text-xs text-slate-500">
+          © {new Date().getFullYear()} Hangikredi — Bilgilendirme amaçlıdır.
         </p>
-      </div>
+      </Container>
     </footer>
   );
 }

@@ -4,6 +4,7 @@ import type { ShellData } from "../../lib/shell-data";
 import type { PageAnalyticsMeta } from "../../lib/analytics/types";
 import { Header } from "./header";
 import { Footer } from "./footer";
+import { Container } from "~/components/ui/container";
 
 export type RootLayoutProps = {
   shell: ShellData;
@@ -11,24 +12,23 @@ export type RootLayoutProps = {
   children: ReactNode;
 };
 
-/**
- * Application shell — menu SSR (Header/Footer), auth client island.
- * GTM bootstrap lives in document head.
- */
+/** Application shell — menu SSR + Radix islands for interactivity. */
 export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
   const showChrome = !shell.minimalChrome && shell.menu;
 
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       {showChrome ? <Header menu={shell.menu!} deviceType={shell.deviceType} /> : null}
 
       <Island name="layout-client" mode="defer" eager props={shell} />
 
-      <main id="page-main">{children}</main>
+      <main id="page-main" className="flex-1 py-8">
+        <Container>{children}</Container>
+      </main>
 
       {showChrome ? <Footer menu={shell.menu!} deviceType={shell.deviceType} /> : null}
 
       <Island name="page-analytics" mode="defer" eager props={pageMeta} />
-    </>
+    </div>
   );
 }
