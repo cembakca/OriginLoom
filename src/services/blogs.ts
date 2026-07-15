@@ -27,10 +27,10 @@ const ALL_BLOGS: Blog[] = Array.from({ length: 24 }, (_, i) => {
     slug: `blog-yazisi-${n}`,
     title: `SSR Kit ile Modern Web #${n}`,
     excerpt: `Sayfa ${Math.ceil(n / 6)} örneği — explicit cache key ve island mimarisiyle paginated blog listesi.`,
-    author: AUTHORS[i % AUTHORS.length],
+    author: AUTHORS[i % AUTHORS.length] ?? "Unknown",
     publishedAt: new Date(Date.UTC(2026, 0, n)).toISOString(),
     readTimeMin: 3 + (i % 5),
-    tags: [TAGS[i % TAGS.length], TAGS[(i + 2) % TAGS.length]],
+    tags: [TAGS[i % TAGS.length] ?? "web", TAGS[(i + 2) % TAGS.length] ?? "ssr"],
   };
 });
 

@@ -1,4 +1,5 @@
-import { config } from "../../../server/config";
+import { env } from "~/lib/env";
+
 import type { SiteMetadataConfig } from "./types";
 
 /** Root layout `export const metadata` karşılığı — statik site kimliği. */
@@ -10,12 +11,12 @@ export const siteMetadata: SiteMetadataConfig = {
   },
   description:
     "Kredi, mevduat ve bankacılık ürünlerini karşılaştır; sana en uygun finansal ürünü bul.",
-  baseUrl: config.siteUrl,
+  baseUrl: env.siteUrl,
   openGraph: {
     siteName: "Hangikredi",
     type: "website",
     locale: "tr_TR",
-    defaultImage: `${config.siteUrl}/og-default.png`,
+    defaultImage: `${env.siteUrl}/og-default.png`,
   },
   twitter: {
     card: "summary_large_image",

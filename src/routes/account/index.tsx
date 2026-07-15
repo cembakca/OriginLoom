@@ -1,11 +1,11 @@
-import type { UserProfile } from "../../services/user";
-import { fetchUserProfile } from "../../services/user";
-import { defineRoute } from "../../lib/types";
-import { neverCache } from "../../lib/cache-policy";
-import { defaultPageMeta } from "../../lib/shell-data";
-import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
+import { neverCache } from "~/lib/cache-policy";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { defaultPageMeta } from "~/lib/shell-data";
+import { defineRoute } from "~/lib/types";
+import type { UserProfile } from "~/services/user";
+import { fetchUserProfile } from "~/services/user";
 
 type Data = { user: UserProfile | null };
 
@@ -29,7 +29,8 @@ export default defineRoute<Data>({
           <Badge>Hesap</Badge>
           <h1 className="text-2xl font-bold">Hesabım</h1>
           <p className="text-slate-600">
-            Hoş geldin, <span className="font-semibold text-slate-900">{data.user.displayName}</span>
+            Hoş geldin,{" "}
+            <span className="font-semibold text-slate-900">{data.user.displayName}</span>
           </p>
         </CardContent>
       </Card>

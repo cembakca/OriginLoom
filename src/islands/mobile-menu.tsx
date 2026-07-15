@@ -1,4 +1,5 @@
 import { Menu } from "lucide-react";
+
 import {
   AccordionContent,
   AccordionItem,
@@ -43,12 +44,17 @@ export default function MobileMenu({ items }: Props) {
                           key={sub.id}
                           className="rounded-lg border border-brand-100 bg-brand-50 p-3 text-sm"
                         >
-                          <p className="font-semibold text-brand-800">{sub.hamburgerName ?? sub.name}</p>
+                          <p className="font-semibold text-brand-800">
+                            {sub.hamburgerName ?? sub.name}
+                          </p>
                           {sub.description ? (
                             <p className="mt-1 text-slate-600">{sub.description}</p>
                           ) : null}
                           {sub.url ? (
-                            <a href={sub.url} className="mt-2 inline-block text-brand-600 hover:underline">
+                            <a
+                              href={sub.url}
+                              className="mt-2 inline-block text-brand-600 hover:underline"
+                            >
                               Devam
                             </a>
                           ) : null}

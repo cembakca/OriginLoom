@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { gatewayFetch } from "../../src/lib/gateway-fetch";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { gatewayFetch } from "~/lib/gateway-fetch";
 
 describe("gatewayFetch", () => {
   const originalFetch = globalThis.fetch;
@@ -8,7 +9,10 @@ describe("gatewayFetch", () => {
     globalThis.fetch = vi.fn(async (_input, init) => {
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
-        headers: { Authorization: init?.headers instanceof Headers ? init.headers.get("Authorization") ?? "" : "" },
+        headers: {
+          Authorization:
+            init?.headers instanceof Headers ? (init.headers.get("Authorization") ?? "") : "",
+        },
       });
     }) as typeof fetch;
   });
@@ -26,7 +30,8 @@ describe("gatewayFetch", () => {
 
     expect(globalThis.fetch).toHaveBeenCalled();
     const call = vi.mocked(globalThis.fetch).mock.calls[0];
-    const init = call[1] as RequestInit;
+    expect(call).toBeDefined();
+    const init = call![1] as RequestInit;
     const headers = init.headers as Headers;
     expect(headers.get("Authorization")).toBe("Bearer test-token");
   });

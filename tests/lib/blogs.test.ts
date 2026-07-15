@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getPaginatedBlogs, parsePageParam } from "../../src/services/blogs";
+
+import { getPaginatedBlogs, parsePageParam } from "~/services/blogs";
 
 describe("blogs service", () => {
   it("returns first page by default", async () => {

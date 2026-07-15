@@ -1,5 +1,5 @@
-import type { MiddlewareStep, PipelineContext, PipelineResult } from "./types";
 import { CookieJar } from "./cookie-jar";
+import type { MiddlewareStep, PipelineContext, PipelineResult } from "./types";
 
 function mergeAcc(current: PipelineResult, patch: Partial<PipelineResult>): PipelineResult {
   if (patch.cookies) current.cookies.merge(patch.cookies);

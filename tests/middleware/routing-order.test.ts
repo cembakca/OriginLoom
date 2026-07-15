@@ -1,6 +1,7 @@
+import { lookupRedirect } from "@server/middleware/api/redirect-map";
 import { describe, expect, it } from "vitest";
-import { resolveRoute } from "../../src/routing/resolve";
-import { lookupRedirect } from "../../server/middleware/api/redirect-map";
+
+import { resolveRoute } from "~/routing/resolve";
 
 describe("CMS + static routing order", () => {
   it("CMS redirect resolves before static rewrite would apply", async () => {

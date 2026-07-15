@@ -1,11 +1,14 @@
 import { renderToString } from "react-dom/server";
-import type { Route, Ctx } from "../src/lib/types";
-import { GtmBootstrap, isBotRequest } from "../src/components/analytics/gtm-bootstrap";
-import { HeadClient } from "../src/components/head/head-client";
-import { MetadataHead } from "../src/components/head/metadata-head";
-import { RootLayout } from "../src/components/layout/root-layout";
-import { resolveDocumentMetadata } from "../src/lib/metadata/resolve";
-import { buildShellData, defaultPageMeta } from "../src/lib/shell-data";
+
+import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
+import { HeadClient } from "~/components/head/head-client";
+import { MetadataHead } from "~/components/head/metadata-head";
+import { RootLayout } from "~/components/layout/root-layout";
+import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
+import { buildShellData, defaultPageMeta } from "~/lib/shell-data";
+import { stripUndefined } from "~/lib/strip-undefined";
+import type { Ctx, Route } from "~/lib/types";
+
 import { config } from "./config";
 
 export type Assets = { js: string; css: string[] };
@@ -22,7 +25,10 @@ export async function renderDocument<T>(
 ): Promise<string> {
   const { routeCtx } = docCtx;
   const isBot = isBotRequest(routeCtx.request);
-  const shell = await buildShellData(routeCtx, { minimalChrome: route.minimalChrome });
+  const shell = await buildShellData(
+    routeCtx,
+    stripUndefined({ minimalChrome: route.minimalChrome }),
+  );
   const seo = resolveDocumentMetadata(route, data, routeCtx);
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??

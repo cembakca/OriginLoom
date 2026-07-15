@@ -1,39 +1,48 @@
+import { Menu } from "lucide-react";
 import type { ReactNode } from "react";
-import type { DeviceShell } from "../../../lib/device";
-import type { MenuItem } from "../../../lib/menu/types";
-import { navLabel } from "../../../lib/menu/utils";
-import { Island } from "../../../lib/island";
+
+import { Button } from "~/components/ui/button";
+import type { DeviceShell } from "~/lib/device";
+import { Island } from "~/lib/island";
+import type { NavItemProp } from "~/lib/menu/serialize";
+import type { MenuItem } from "~/lib/menu/types";
+import { navLabel } from "~/lib/menu/utils";
 import { cn } from "~/lib/utils";
-import { Logo } from "~/components/ui/container";
-import { serializeNavItems, type NavItemProp } from "../../../lib/menu/serialize";
+
+/** SSR fallback — island ile aynı boyut/stil (CLS önleme). */
+export function UserChromeFallback() {
+  return (
+    <Button variant="secondary" size="sm" asChild className="min-w-[5.5rem]">
+      <a href="/giris">Giriş yap</a>
+    </Button>
+  );
+}
 
 export function UserChromeSlot() {
   return (
-    <Island name="user-chrome" mode="defer" eager>
-      <a href="/giris" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-        Giriş yap
-      </a>
-    </Island>
+    <div className="flex h-10 shrink-0 items-center justify-end">
+      <Island name="user-chrome" mode="defer" eager>
+        <UserChromeFallback />
+      </Island>
+    </div>
   );
 }
 
 export function MobileMenuSlot({ items }: { items: NavItemProp[] }) {
   return (
-    <Island name="mobile-menu" mode="defer" eager props={{ items }}>
-      <button
-        type="button"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700"
-        aria-label="Menü"
-      >
-        ☰
-      </button>
-    </Island>
+    <div className="flex h-10 w-10 shrink-0 items-center justify-self-start">
+      <Island name="mobile-menu" mode="defer" eager props={{ items }}>
+        <Button variant="secondary" size="icon" aria-label="Menüyü aç" type="button">
+          <Menu className="h-5 w-5" />
+        </Button>
+      </Island>
+    </div>
   );
 }
 
 export function DesktopNavBar({ items, shell }: { items: MenuItem[]; shell: DeviceShell }) {
   return (
-    <nav aria-label="Ana menü" className="hidden items-center gap-1 lg:flex">
+    <nav aria-label="Ana menü" className="hidden min-h-10 flex-1 items-center gap-1 lg:flex">
       {items.map((item) => (
         <div key={item.id} className="group relative">
           <a
@@ -63,10 +72,16 @@ export function DesktopNavBar({ items, shell }: { items: MenuItem[]; shell: Devi
 
 export function MobileNavFallback({ items }: { items: NavItemProp[] }) {
   return (
-    <nav aria-label="Mobil menü" className="mt-3 space-y-1 border-t border-slate-200 pt-3 lg:hidden">
+    <nav
+      aria-label="Mobil menü"
+      className="mt-3 space-y-1 border-t border-slate-200 pt-3 lg:hidden"
+    >
       {items.map((item) => (
         <div key={item.id}>
-          <a href={item.url} className="block rounded-md px-2 py-2 text-sm font-medium text-slate-800">
+          <a
+            href={item.url}
+            className="block rounded-md px-2 py-2 text-sm font-medium text-slate-800"
+          >
             {item.hamburgerName ?? item.name}
           </a>
           {item.children?.map((sub) => (
@@ -121,7 +136,11 @@ export function NavLink({
   rel?: string;
 }) {
   return (
-    <a href={href} rel={rel} className={cn("hover:text-brand-600", className)}>
+    <a
+      href={href}
+      {...(rel !== undefined ? { rel } : {})}
+      className={cn("hover:text-brand-600", className)}
+    >
       {children}
     </a>
   );

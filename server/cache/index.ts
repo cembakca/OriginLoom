@@ -1,5 +1,7 @@
-import type { CachePolicy } from "../../src/lib/types";
-import { config } from "../config";
+import { config } from "@server/config";
+
+import type { CachePolicy } from "~/lib/types";
+
 import { MemoryStore } from "./memory";
 import { RedisStore } from "./redis";
 import type { CacheStore } from "./types";
@@ -14,7 +16,7 @@ export async function initCache(): Promise<CacheStore> {
       throw new Error("REDIS_URL is required when CACHE_BACKEND=redis");
     }
     const redis = new RedisStore(config.redisUrl);
-    await redis.ping!();
+    await redis.ping();
     store = redis;
   } else {
     store = new MemoryStore(config.cacheMaxEntries);
@@ -37,7 +39,9 @@ export function cacheKey(policy: CachePolicy): string | null {
   return policy.kind === "shared" ? policy.key.join("\u0000") : null;
 }
 
-export async function read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null> {
+export async function read(
+  key: string,
+): Promise<{ body: string; state: "fresh" | "stale" } | null> {
   return getCache().read(key);
 }
 

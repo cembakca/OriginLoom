@@ -8,7 +8,10 @@ declare global {
 }
 
 /** Push to dataLayer — immediate events bypass queue; gtm.dom/load handled by head bootstrap. */
-export function pushDataLayer(payload: Record<string, unknown>, priority: DataLayerPushPriority = "immediate"): void {
+export function pushDataLayer(
+  payload: Record<string, unknown>,
+  priority: DataLayerPushPriority = "immediate",
+): void {
   if (typeof window === "undefined") return;
   window.dataLayer = window.dataLayer || [];
 

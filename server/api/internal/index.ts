@@ -1,7 +1,7 @@
+import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
+import type { AppVariables } from "@server/middleware/request-id";
+import { mockRefresh, readTokens, setTokenCookies } from "@server/middleware/steps/auth/helpers";
 import type { Hono } from "hono";
-import { readTokens, mockRefresh, setTokenCookies } from "../../middleware/steps/auth/helpers";
-import { CookieJar, applyCookies } from "../../middleware/cookie-jar";
-import type { AppVariables } from "../../middleware/request-id";
 
 /** BFF token refresh — runs through pipeline on /api/internal/* paths. */
 export async function handleRefresh(request: Request): Promise<Response> {

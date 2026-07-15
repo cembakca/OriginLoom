@@ -4,8 +4,8 @@ import {
   AccordionRoot,
   AccordionTrigger,
 } from "~/components/ui/accordion";
-import { linkRel } from "~/lib/menu/utils";
 import type { NavItemProp } from "~/lib/menu/serialize";
+import { linkRel } from "~/lib/menu/utils";
 
 type Props = { items: NavItemProp[] };
 

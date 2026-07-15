@@ -1,4 +1,5 @@
 import { User } from "lucide-react";
+
 import { Button } from "~/components/ui/button";
 import {
   DropdownMenuContent,
@@ -16,7 +17,7 @@ import { Cookie } from "~/lib/cookies";
 export default function UserChrome() {
   if (!hasAuthCookies()) {
     return (
-      <Button variant="secondary" size="sm" asChild>
+      <Button variant="secondary" size="sm" asChild className="min-w-[5.5rem]">
         <a href="/giris">Giriş yap</a>
       </Button>
     );

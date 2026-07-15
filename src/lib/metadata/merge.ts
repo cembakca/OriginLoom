@@ -1,5 +1,7 @@
-import type { Ctx } from "../types";
-import { config } from "../../../server/config";
+import { env } from "~/lib/env";
+import { stripUndefined } from "~/lib/strip-undefined";
+import type { Ctx } from "~/lib/types";
+
 import { siteMetadata } from "./site-defaults";
 import type { PageMetadata, ResolvedMetadata, SiteMetadataConfig } from "./types";
 
@@ -15,7 +17,10 @@ function formatTitle(pageTitle: string | undefined, site: SiteMetadataConfig): s
   return site.title.template.replace("%s", pageTitle);
 }
 
-function robotsTag(robots: { index?: boolean; follow?: boolean }, site: SiteMetadataConfig): string {
+function robotsTag(
+  robots: { index?: boolean; follow?: boolean },
+  site: SiteMetadataConfig,
+): string {
   const index = robots.index ?? site.robots.index;
   const follow = robots.follow ?? site.robots.follow;
   return `${index ? "index" : "noindex"}, ${follow ? "follow" : "nofollow"}`;
@@ -24,7 +29,7 @@ function robotsTag(robots: { index?: boolean; follow?: boolean }, site: SiteMeta
 /** Layout metadata ⊎ page metadata → final head values. Page alanları layout'u ezer. */
 export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): ResolvedMetadata {
   const site = siteMetadata;
-  const base = config.siteUrl;
+  const base = env.siteUrl;
 
   const title = formatTitle(page?.title, site);
   const description = page?.description ?? site.description;
@@ -59,9 +64,9 @@ export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): Resolve
       description: twitterDescription,
       image: twitterImage,
     },
-    icons: {
+    icons: stripUndefined({
       icon: page?.icons?.icon ?? site.icons.icon,
       apple: page?.icons?.apple ?? site.icons.apple,
-    },
+    }),
   };
 }

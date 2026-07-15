@@ -1,6 +1,6 @@
-import type { CachePolicy, Ctx } from "./types";
-import { cookie } from "./request";
 import { Cookie } from "./cookies";
+import { cookie } from "./request";
+import type { CachePolicy, Ctx } from "./types";
 
 /**
  * Return true → HTML cache BYPASS (loader runs every time).
@@ -35,8 +35,8 @@ export function clearCacheBypassChecks(): void {
 export function isAuthenticated(ctx: Ctx): boolean {
   return Boolean(
     ctx.request.headers.get("Authorization") ||
-      cookie(ctx.request, Cookie.accessToken) ||
-      cookie(ctx.request, Cookie.refreshToken),
+    cookie(ctx.request, Cookie.accessToken) ||
+    cookie(ctx.request, Cookie.refreshToken),
   );
 }
 
@@ -50,11 +50,7 @@ registerCacheBypassCheck(isAuthenticated);
 function shouldBypass(ctx: Ctx, opts?: SharedCacheOptions): boolean {
   if (opts?.never) return true;
 
-  const local = opts?.bypass
-    ? Array.isArray(opts.bypass)
-      ? opts.bypass
-      : [opts.bypass]
-    : [];
+  const local = opts?.bypass ? (Array.isArray(opts.bypass) ? opts.bypass : [opts.bypass]) : [];
 
   return [...globalBypassChecks, ...local].some((check) => check(ctx));
 }

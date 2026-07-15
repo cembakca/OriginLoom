@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+
 import {
   generateMetaDataForPageWithDummySeoInfo,
   generateMetaDataForPageWithSeoInfo,
-} from "../../src/lib/metadata/generate";
-import { mergeMetadata } from "../../src/lib/metadata/merge";
-import type { Ctx } from "../../src/lib/types";
+} from "~/lib/metadata/generate";
+import { mergeMetadata } from "~/lib/metadata/merge";
+import type { Ctx } from "~/lib/types";
 
 const ctx = (publicPath = "/emekli-bankaciligi"): Ctx => ({
   request: new Request(`http://localhost:3005${publicPath}`),

@@ -22,8 +22,10 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
     if (p.startsWith(":")) {
       const optional = p.endsWith("?");
       const name = p.slice(1).replace(/\?$/, "");
-      if (i < seg.length) params[name] = decodeURIComponent(seg[i++]);
-      else if (!optional) return null;
+      if (i < seg.length) {
+        const segment = seg[i++];
+        if (segment !== undefined) params[name] = decodeURIComponent(segment);
+      } else if (!optional) return null;
     } else {
       if (seg[i] !== p) return null;
       i++;

@@ -1,10 +1,14 @@
+import { closeCache, initCache } from "@server/cache";
+import { handle } from "@server/handler";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { handle } from "../../server/handler";
-import { closeCache, initCache } from "../../server/cache";
-import home from "../../src/routes/home";
-import account from "../../src/routes/account";
+
+import type { Route } from "~/lib/types";
+import account from "~/routes/account";
+import home from "~/routes/home";
 
 const assets = { js: "/assets/entry.client.js", css: [] };
+const homeRoute = home as Route;
+const accountRoute = account as Route;
 
 describe("handler", () => {
   beforeEach(async () => {
@@ -18,17 +22,17 @@ describe("handler", () => {
   });
 
   it("returns 404 for unknown paths", async () => {
-    const res = await handle(new Request("http://localhost/unknown"), [home], assets);
+    const res = await handle(new Request("http://localhost/unknown"), [homeRoute], assets);
     expect(res.status).toBe(404);
   });
 
   it("serves cached pages with HIT on second request", async () => {
     const req = new Request("http://localhost/");
-    const first = await handle(req, [home], assets);
+    const first = await handle(req, [homeRoute], assets);
     expect(first.status).toBe(200);
     expect(first.headers.get("x-cache")).toBe("MISS");
 
-    const second = await handle(req, [home], assets);
+    const second = await handle(req, [homeRoute], assets);
     expect(second.status).toBe(200);
     expect(second.headers.get("x-cache")).toBe("HIT");
   });
@@ -37,18 +41,18 @@ describe("handler", () => {
     const req = new Request("http://localhost/hesabim", {
       headers: { Authorization: "Bearer test-token-1234" },
     });
-    const res = await handle(req, [account], assets);
+    const res = await handle(req, [accountRoute], assets);
     expect(res.status).toBe(200);
     expect(res.headers.get("x-cache")).toBe("BYPASS");
   });
 
   it("returns 401 for account without auth", async () => {
-    const res = await handle(new Request("http://localhost/hesabim"), [account], assets);
+    const res = await handle(new Request("http://localhost/hesabim"), [accountRoute], assets);
     expect(res.status).toBe(401);
   });
 
   it("sets x-request-id when provided", async () => {
-    const res = await handle(new Request("http://localhost/"), [home], assets, {
+    const res = await handle(new Request("http://localhost/"), [homeRoute], assets, {
       requestId: "req-123",
     });
     expect(res.headers.get("x-request-id")).toBe("req-123");

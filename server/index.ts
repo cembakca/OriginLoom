@@ -1,26 +1,30 @@
+import { readFileSync } from "node:fs";
+
 import type { ServerType } from "@hono/node-server";
-import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { readFileSync } from "node:fs";
-import { handle } from "./handler";
-import type { Assets } from "./document";
-import { routes } from "../src/routes";
-import { config, validateConfig } from "./config";
-import { initCache, closeCache, pingCache } from "./cache";
+import { Hono } from "hono";
+
+import { stripUndefined } from "~/lib/strip-undefined";
+import { routes } from "~/routes";
+
 // Extend HTML cache bypass at bootstrap, e.g.:
-// import { registerCacheBypassCheck, hasPid } from "../src/lib/cache-policy";
+// import { registerCacheBypassCheck, hasPid } from "~/lib/cache-policy";
 // registerCacheBypassCheck(hasPid);
 import { mountApi } from "./api";
-import { securityMiddleware } from "./middleware/security";
-import { requestId, type AppVariables } from "./middleware/request-id";
+import { closeCache, initCache, pingCache } from "./cache";
+import { config, validateConfig } from "./config";
+import type { Assets } from "./document";
+import { handle } from "./handler";
+import { logError, logger } from "./logger";
 import {
   finalizePipelineResponse,
   finalizeSsrResponse,
   runPipeline,
   shouldUsePipeline,
 } from "./middleware/pipeline";
-import { logger, logError } from "./logger";
+import { type AppVariables, requestId } from "./middleware/request-id";
+import { securityMiddleware } from "./middleware/security";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
@@ -103,7 +107,7 @@ function createApp(assets: Assets) {
 
       const ssr = await handle(pipeline.request, routes, assets, {
         requestId,
-        trackingId: pipeline.trackingId,
+        ...stripUndefined({ trackingId: pipeline.trackingId }),
       });
       const res = finalizeSsrResponse(ssr, pipeline);
       if (requestId) res.headers.set("x-request-id", requestId);
@@ -116,11 +120,14 @@ function createApp(assets: Assets) {
   return app;
 }
 
+type ManifestChunk = { isEntry?: boolean; file: string; css?: string[] };
+
 function readAssets(): Assets {
-  const manifest = JSON.parse(readFileSync("dist/client/.vite/manifest.json", "utf8"));
-  const entry = Object.values<{ isEntry?: boolean; file: string; css?: string[] }>(manifest).find(
-    (chunk) => chunk.isEntry,
-  );
+  const manifest = JSON.parse(readFileSync("dist/client/.vite/manifest.json", "utf8")) as Record<
+    string,
+    ManifestChunk
+  >;
+  const entry = Object.values(manifest).find((chunk) => chunk.isEntry);
   if (!entry) throw new Error("Vite manifest entry not found — run npm run build first");
   return {
     js: "/" + entry.file,

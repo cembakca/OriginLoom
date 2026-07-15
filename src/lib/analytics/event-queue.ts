@@ -82,7 +82,10 @@ export function signalReactReady(): void {
   if (!loadReleased && loadQueue.length > 0) releaseLoad();
 }
 
-export function pushWithPriority(payload: Record<string, unknown>, priority: DataLayerPushPriority): void {
+export function pushWithPriority(
+  payload: Record<string, unknown>,
+  priority: DataLayerPushPriority,
+): void {
   window.dataLayer = window.dataLayer || [];
 
   if (priority === "immediate") {

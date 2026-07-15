@@ -1,12 +1,13 @@
-import { defineRoute } from "../../lib/types";
-import { sharedUnlessBypass } from "../../lib/cache-policy";
-import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
-import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
+import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { defineRoute } from "~/lib/types";
 
 export default defineRoute<{ publicPath: string }>({
   path: "/remote-customer-obtain",
 
-  cache: (ctx) => sharedUnlessBypass(ctx, ["remote-customer-obtain", ctx.publicPath, layoutCacheFragment(ctx)]),
+  cache: (ctx) =>
+    sharedUnlessBypass(ctx, ["remote-customer-obtain", ctx.publicPath, layoutCacheFragment(ctx)]),
 
   loader: async (ctx) => ({ data: { publicPath: ctx.publicPath } }),
 

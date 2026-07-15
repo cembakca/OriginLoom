@@ -1,4 +1,5 @@
 import { renderToString } from "react-dom/server";
+
 import type { Assets } from "./document";
 
 export function renderErrorPage(assets: Assets): string {

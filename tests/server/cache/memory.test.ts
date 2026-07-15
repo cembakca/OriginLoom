@@ -1,5 +1,5 @@
+import { MemoryStore } from "@server/cache/memory";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryStore } from "../../../server/cache/memory";
 
 describe("MemoryStore", () => {
   afterEach(() => {

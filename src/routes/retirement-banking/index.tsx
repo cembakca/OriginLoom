@@ -1,15 +1,15 @@
-import type { UserProfile } from "../../services/user";
-import { fetchUserProfile } from "../../services/user";
-import { fetchRetirementBankingPage } from "../../services/pages";
-import { defineRoute } from "../../lib/types";
-import { sharedUnlessBypass } from "../../lib/cache-policy";
-import { locale } from "../../lib/request";
-import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
+import { sharedUnlessBypass } from "~/lib/cache-policy";
 import {
   generateMetaDataForPageWithDummySeoInfo,
   generateMetaDataForPageWithSeoInfo,
-} from "../../lib/metadata/generate";
-import type { SeoInfo } from "../../lib/metadata/types";
+} from "~/lib/metadata/generate";
+import type { SeoInfo } from "~/lib/metadata/types";
+import { locale } from "~/lib/request";
+import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { defineRoute } from "~/lib/types";
+import { fetchRetirementBankingPage } from "~/services/pages";
+import type { UserProfile } from "~/services/user";
+import { fetchUserProfile } from "~/services/user";
 
 type Data = {
   publicPath: string;
@@ -23,9 +23,13 @@ export default defineRoute<Data>({
   path: "/retirement-banking",
 
   cache: (ctx) =>
-    sharedUnlessBypass(ctx, ["retirement-banking", ctx.publicPath, locale(ctx.request), layoutCacheFragment(ctx)], {
-      ttl: 3600,
-    }),
+    sharedUnlessBypass(
+      ctx,
+      ["retirement-banking", ctx.publicPath, locale(ctx.request), layoutCacheFragment(ctx)],
+      {
+        ttl: 3600,
+      },
+    ),
 
   loader: async (ctx) => {
     const [user, page] = await Promise.all([

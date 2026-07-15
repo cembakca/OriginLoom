@@ -1,14 +1,15 @@
-import type { Route } from "../lib/types";
-import home from "./home";
+import type { Route } from "~/lib/types";
+
 import account from "./account";
-import loanCompare from "./loan-compare";
 import blogsPaginated from "./blogs-paginated";
+import home from "./home";
+import loanCompare from "./loan-compare";
 import recourseRedirect from "./recourse-redirect";
-import retirementBanking from "./retirement-banking";
 import remoteCustomerObtain from "./remote-customer-obtain";
+import retirementBanking from "./retirement-banking";
 
 /** The route table. Order matters: first match wins. */
-export const routes: Route[] = [
+export const routes = [
   home,
   account,
   recourseRedirect,
@@ -16,4 +17,4 @@ export const routes: Route[] = [
   blogsPaginated,
   retirementBanking,
   remoteCustomerObtain,
-];
+] as Route[];

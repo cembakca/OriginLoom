@@ -19,11 +19,11 @@ effect, because no code exists to produce one.
 
 ```ts
 type Route<T> = {
-  path: string
-  cache?: (ctx) => CachePolicy      // pure, sync, runs BEFORE the loader
-  loader: (ctx) => Promise<{ data: T }>
-  Component: (props: { data: T }) => ReactElement
-}
+  path: string;
+  cache?: (ctx) => CachePolicy; // pure, sync, runs BEFORE the loader
+  loader: (ctx) => Promise<{ data: T }>;
+  Component: (props: { data: T }) => ReactElement;
+};
 ```
 
 `cache()` is the entire caching mechanism. It sees the `Request` and returns a

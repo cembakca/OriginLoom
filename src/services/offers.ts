@@ -15,7 +15,7 @@ export async function getOffers(q: {
       id: `${bank}-${q.amount}`,
       bank,
       rate,
-      monthly: Math.round((q.amount * (1 + rate / 100 * 36)) / 36),
+      monthly: Math.round((q.amount * (1 + (rate / 100) * 36)) / 36),
     };
   });
 }

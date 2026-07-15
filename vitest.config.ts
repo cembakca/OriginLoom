@@ -1,5 +1,6 @@
-import { defineConfig } from "vitest/config";
 import { resolve } from "node:path";
+
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
@@ -7,6 +8,6 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
   },
   resolve: {
-    alias: { "~": resolve(__dirname, "src") },
+    alias: { "~": resolve(__dirname, "src"), "@server": resolve(__dirname, "server") },
   },
 });

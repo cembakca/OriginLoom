@@ -1,23 +1,20 @@
-import { shouldRunPipeline } from "./matcher";
 import { applyCookies, mergeResponseHeaders } from "./cookie-jar";
-import { authStep } from "./steps/auth";
-import { sessionStep } from "./steps/session";
-import { redirectionStep } from "./steps/redirection";
+import { shouldRunPipeline } from "./matcher";
 import { createInitialResult, runSequential } from "./sequential";
+import { authStep } from "./steps/auth";
+import { redirectionStep } from "./steps/redirection";
+import { sessionStep } from "./steps/session";
 import type { MiddlewareStep, PipelineResult } from "./types";
 
 const pipelineSteps: MiddlewareStep[] = [authStep, sessionStep, redirectionStep];
 
-export async function runPipeline(
-  request: Request,
-  requestId?: string,
-): Promise<PipelineResult> {
+export async function runPipeline(request: Request, requestId?: string): Promise<PipelineResult> {
   const url = new URL(request.url);
   const ctx = {
     url,
     pathname: url.pathname,
     publicPath: url.pathname,
-    requestId,
+    ...(requestId !== undefined ? { requestId } : {}),
   };
 
   const acc = createInitialResult(request);

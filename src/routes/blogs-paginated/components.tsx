@@ -1,6 +1,6 @@
-import type { Blog } from "../../services/blogs";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import type { Blog } from "~/services/blogs";
 
 export function BlogCard({ blog }: { blog: Blog }) {
   const date = new Date(blog.publishedAt).toLocaleDateString("tr-TR", {

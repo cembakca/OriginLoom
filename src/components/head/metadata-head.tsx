@@ -1,4 +1,4 @@
-import type { ResolvedMetadata } from "../../lib/metadata/types";
+import type { ResolvedMetadata } from "~/lib/metadata/types";
 
 /** Metadata API çıktısı → HTML head tag'leri. GTM/analytics burada değil. */
 export function MetadataHead({ meta }: { meta: ResolvedMetadata }) {

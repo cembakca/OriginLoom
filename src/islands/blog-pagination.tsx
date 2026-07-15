@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 
@@ -40,7 +41,12 @@ export default function BlogPagination({ page, totalPages }: Props) {
         </Button>
       ))}
 
-      <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => go(page + 1)}>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={page >= totalPages}
+        onClick={() => go(page + 1)}
+      >
         Sonraki →
       </Button>
     </nav>

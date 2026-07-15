@@ -2,7 +2,11 @@ import { Button } from "~/components/ui/button";
 
 export function FilterPanelShell({ amount }: { amount: number }) {
   return (
-    <form action="" method="get" className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <form
+      action=""
+      method="get"
+      className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    >
       <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
         Tutar (TL)
         <input

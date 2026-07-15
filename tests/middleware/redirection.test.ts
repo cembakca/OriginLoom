@@ -1,7 +1,7 @@
+import { createInitialResult } from "@server/middleware/sequential";
+import { redirectionStep } from "@server/middleware/steps/redirection";
+import type { PipelineContext } from "@server/middleware/types";
 import { describe, expect, it } from "vitest";
-import { redirectionStep } from "../../server/middleware/steps/redirection";
-import { createInitialResult } from "../../server/middleware/sequential";
-import type { PipelineContext } from "../../server/middleware/types";
 
 describe("redirection step", () => {
   it("returns 410 for gone paths", async () => {

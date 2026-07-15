@@ -1,4 +1,4 @@
-import { gatewayFetch } from "../lib/gateway-fetch";
+import { gatewayFetch } from "~/lib/gateway-fetch";
 
 export type UserProfile = {
   initials: string;

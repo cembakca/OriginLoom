@@ -2,15 +2,15 @@
 
 ## Folder layout
 
-| Directory | Purpose |
-|---|---|
-| `src/routes/{name}/` | One folder per page — `index.tsx` exports `defineRoute()` |
-| `src/islands/` | Client-only widgets — one file per island, auto-discovered by Vite |
-| `src/components/` | Shared SSR-safe UI (no hooks) |
-| `src/services/` | Data layer — loaders and API handlers call these |
-| `src/lib/` | Pure utilities (router, types, request helpers) |
-| `server/` | HTTP runtime — never goes through Vite |
-| `tests/` | Mirrors `server/` and `src/lib/` |
+| Directory            | Purpose                                                            |
+| -------------------- | ------------------------------------------------------------------ |
+| `src/routes/{name}/` | One folder per page — `index.tsx` exports `defineRoute()`          |
+| `src/islands/`       | Client-only widgets — one file per island, auto-discovered by Vite |
+| `src/components/`    | Shared SSR-safe UI (no hooks)                                      |
+| `src/services/`      | Data layer — loaders and API handlers call these                   |
+| `src/lib/`           | Pure utilities (router, types, request helpers)                    |
+| `server/`            | HTTP runtime — never goes through Vite                             |
+| `tests/`             | Mirrors `server/` and `src/lib/`                                   |
 
 ## Naming
 
@@ -57,12 +57,12 @@ See **HTML cache — `sharedUnlessBypass`** under Middleware pipeline, or [`src/
 
 ## UI — Tailwind + Radix
 
-| Katman | Teknoloji | Not |
-|---|---|---|
-| Stil | Tailwind CSS v4 (`@tailwindcss/vite`) | `src/styles/globals.css` — Vite build → SSR HTML class'ları |
-| Primitives | Radix UI | Sheet, Accordion, DropdownMenu |
-| UI kit | `src/components/ui/` | Button, Card, Badge, Sheet, Accordion, DropdownMenu |
-| Utils | `cn()` — `src/lib/utils.ts` | clsx + tailwind-merge |
+| Katman     | Teknoloji                             | Not                                                         |
+| ---------- | ------------------------------------- | ----------------------------------------------------------- |
+| Stil       | Tailwind CSS v4 (`@tailwindcss/vite`) | `src/styles/globals.css` — Vite build → SSR HTML class'ları |
+| Primitives | Radix UI                              | Sheet, Accordion, DropdownMenu                              |
+| UI kit     | `src/components/ui/`                  | Button, Card, Badge, Sheet, Accordion, DropdownMenu         |
+| Utils      | `cn()` — `src/lib/utils.ts`           | clsx + tailwind-merge                                       |
 
 **Radix nerede?** Interaktif chrome island'larda: `mobile-menu` (Sheet), `footer-accordion` (Accordion), `user-chrome` (DropdownMenu). Header/Footer gövdesi SSR + Tailwind.
 
@@ -84,23 +84,23 @@ IMenuItems → RootLayout → Header + Footer (SSR)
              user-chrome island → Giriş / MO initials
 ```
 
-| Kural | Detay |
-|---|---|
-| Tek fetch | Layout/document menüyü çeker; Header/Footer ayrı endpoint çağırmaz |
-| Tek nav tree | `headerItems` — desktop bar = hamburger içeriği |
-| Footer ayrı | `footerItems` + `itemType: 16` |
-| Auth chrome | Menü API'den gelmez — `user-chrome` island cookie okur |
-| Device | API header + shell seçimi + sıra alanı; ikinci menü listesi yok |
+| Kural        | Detay                                                              |
+| ------------ | ------------------------------------------------------------------ |
+| Tek fetch    | Layout/document menüyü çeker; Header/Footer ayrı endpoint çağırmaz |
+| Tek nav tree | `headerItems` — desktop bar = hamburger içeriği                    |
+| Footer ayrı  | `footerItems` + `itemType: 16`                                     |
+| Auth chrome  | Menü API'den gelmez — `user-chrome` island cookie okur             |
+| Device       | API header + shell seçimi + sıra alanı; ikinci menü listesi yok    |
 
 ### Device kırılımı
 
-| Katman | Desktop | Tablet | Mobile |
-|---|---|---|---|
-| API `device` header | Desktop | Tablet | Mobile |
-| Header shell | DesktopHeader + yatay nav | MobileHeader + accordion | MobileHeader + accordion |
-| Nav sıra | `displayOrder` | `mobileDisplayOrder` | `mobileDisplayOrder` |
-| Footer layout | kolon grid | grid (UA mobile değil) | accordion |
-| HTML cache key | `layoutCacheFragment(ctx)` — **zorunlu** | | |
+| Katman              | Desktop                                  | Tablet                   | Mobile                   |
+| ------------------- | ---------------------------------------- | ------------------------ | ------------------------ |
+| API `device` header | Desktop                                  | Tablet                   | Mobile                   |
+| Header shell        | DesktopHeader + yatay nav                | MobileHeader + accordion | MobileHeader + accordion |
+| Nav sıra            | `displayOrder`                           | `mobileDisplayOrder`     | `mobileDisplayOrder`     |
+| Footer layout       | kolon grid                               | grid (UA mobile değil)   | accordion                |
+| HTML cache key      | `layoutCacheFragment(ctx)` — **zorunlu** |                          |                          |
 
 Tablet → mobile shell (Header'da ayrı Tablet branch yok); API'ye yine `Tablet` gider.
 
@@ -110,10 +110,10 @@ Tablet → mobile shell (Header'da ayrı Tablet branch yok); API'ye yine `Tablet
 
 ### Cache (iki katman)
 
-| Katman | TTL | Key | Not |
-|---|---|---|---|
+| Katman             | TTL                           | Key                                            | Not                                         |
+| ------------------ | ----------------------------- | ---------------------------------------------- | ------------------------------------------- |
 | **Menu API cache** | `MENU_CACHE_TTL` (default 4h) | `menu:Desktop` / `menu:Tablet` / `menu:Mobile` | Menü nadiren değişir; auth HTML'i etkilemez |
-| **HTML cache** | route `sharedUnlessBypass` | route key + `layoutCacheFragment` | Shell device'a göre ayrı HTML |
+| **HTML cache**     | route `sharedUnlessBypass`    | route key + `layoutCacheFragment`              | Shell device'a göre ayrı HTML               |
 
 Auth durumunda sadece `user-chrome` (MO/initials) client'ta güncellenir; menü linkleri cached HTML'de kalır.
 
@@ -123,14 +123,14 @@ MENU_CACHE_TTL=14400   # saniye — menu API response cache
 
 ### Dosyalar
 
-| Dosya | Rol |
-|---|---|
-| `src/services/menu.ts` | GW fetch + menu API cache |
-| `src/lib/device.ts` | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
-| `src/lib/menu/utils.ts` | sort, filter, label |
-| `src/components/layout/header/` | Desktop / Mobile shell |
-| `src/components/layout/footer/` | Grid / accordion |
-| `src/islands/user-chrome.tsx` | Auth dropdown (defer, eager) |
+| Dosya                           | Rol                                                      |
+| ------------------------------- | -------------------------------------------------------- |
+| `src/services/menu.ts`          | GW fetch + menu API cache                                |
+| `src/lib/device.ts`             | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
+| `src/lib/menu/utils.ts`         | sort, filter, label                                      |
+| `src/components/layout/header/` | Desktop / Mobile shell                                   |
+| `src/components/layout/footer/` | Grid / accordion                                         |
+| `src/islands/user-chrome.tsx`   | Auth dropdown (defer, eager)                             |
 
 ## Metadata / head — iki kanal
 
@@ -138,12 +138,12 @@ Next.js'teki **Metadata API** + **manuel `<head>`** ayrımının karşılığı.
 
 ### Kanal 1 — Metadata API (`generateMetadata`)
 
-| Katman | Dosya | Ne |
-|---|---|---|
-| Site defaults | `src/lib/metadata/site-defaults.ts` | title template, description, OG/Twitter site, icons, robots |
-| Route override | `route.generateMetadata(data, ctx)` | title, description, canonical, robots, OG/Twitter sayfa |
-| Merge | `src/lib/metadata/merge.ts` | layout ⊎ page — page ezer |
-| HTML | `src/components/head/metadata-head.tsx` | `<title>`, meta, canonical, OG, Twitter |
+| Katman         | Dosya                                   | Ne                                                          |
+| -------------- | --------------------------------------- | ----------------------------------------------------------- |
+| Site defaults  | `src/lib/metadata/site-defaults.ts`     | title template, description, OG/Twitter site, icons, robots |
+| Route override | `route.generateMetadata(data, ctx)`     | title, description, canonical, robots, OG/Twitter sayfa     |
+| Merge          | `src/lib/metadata/merge.ts`             | layout ⊎ page — page ezer                                   |
+| HTML           | `src/components/head/metadata-head.tsx` | `<title>`, meta, canonical, OG, Twitter                     |
 
 ```ts
 // Loader'da seoInfo fetch et — generateMetadata ayrı API çağırmasın
@@ -160,31 +160,31 @@ generateMetadata: (data, ctx) =>
 
 **seoInfo alanları → Metadata:**
 
-| seoInfo | Metadata | HTML |
-|---|---|---|
-| `title` | `title` | `<title>` (+ `%s \| Hangikredi` template) |
-| `metaDescription` | `description` | `<meta name="description">` |
-| `canonicalUrl` | `canonical` | `<link rel="canonical">` |
-| `noindex` | `robots.index` | `<meta name="robots">` |
-| `image` | `openGraph.image` / `twitter.image` | og:image, twitter:image |
+| seoInfo           | Metadata                            | HTML                                      |
+| ----------------- | ----------------------------------- | ----------------------------------------- |
+| `title`           | `title`                             | `<title>` (+ `%s \| Hangikredi` template) |
+| `metaDescription` | `description`                       | `<meta name="description">`               |
+| `canonicalUrl`    | `canonical`                         | `<link rel="canonical">`                  |
+| `noindex`         | `robots.index`                      | `<meta name="robots">`                    |
+| `image`           | `openGraph.image` / `twitter.image` | og:image, twitter:image                   |
 
 ### Kanal 2 — Manuel head (teknik bootstrap)
 
-| Bileşen | Sorumluluk |
-|---|---|
-| `HeadClient` | dns-prefetch, preconnect (GTM, CDN) |
-| `GtmBootstrap` | dataLayer, EventQueue, hk.tracking, gtm.js |
-| `layout-client` / `page-analytics` | Store + pageview (metadata dışı) |
+| Bileşen                            | Sorumluluk                                 |
+| ---------------------------------- | ------------------------------------------ |
+| `HeadClient`                       | dns-prefetch, preconnect (GTM, CDN)        |
+| `GtmBootstrap`                     | dataLayer, EventQueue, hk.tracking, gtm.js |
+| `layout-client` / `page-analytics` | Store + pageview (metadata dışı)           |
 
 **SEO meta ≠ GTM.** Analytics script'leri `generateMetadata`'ya girmez.
 
 ### Metadata dışı
 
-| Şey | Nerede |
-|---|---|
-| JSON-LD / breadcrumb | Body — `PageSchema` (gelecek) |
-| GTM pageview | `page-analytics` island |
-| H1 / hero | Route `Component` (`headingTitle` metadata'dan ayrı) |
+| Şey                  | Nerede                                               |
+| -------------------- | ---------------------------------------------------- |
+| JSON-LD / breadcrumb | Body — `PageSchema` (gelecek)                        |
+| GTM pageview         | `page-analytics` island                              |
+| H1 / hero            | Route `Component` (`headingTitle` metadata'dan ayrı) |
 
 ### Env
 
@@ -209,13 +209,13 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı. Tek root shell tüm rou
 
 ### Dosya haritası
 
-| Next.js | ssr-kit | Sorumluluk |
-|---|---|---|
-| `app/layout.tsx` | `server/document.tsx` + `RootLayout` | HTML shell, GTM bootstrap |
-| `layout.client.tsx` | `src/islands/layout-client.tsx` | Chrome + store seed (defer, eager) |
-| `page.tsx` | `src/routes/*/index.tsx` loader + Component | Veri fetch + SSR UI |
-| `page.client.tsx` | `src/islands/page-analytics.tsx` | **Sadece** page-view dataLayer |
-| Container | route `Component` + `<Island />` | UI + interaktivite |
+| Next.js             | ssr-kit                                     | Sorumluluk                         |
+| ------------------- | ------------------------------------------- | ---------------------------------- |
+| `app/layout.tsx`    | `server/document.tsx` + `RootLayout`        | HTML shell, GTM bootstrap          |
+| `layout.client.tsx` | `src/islands/layout-client.tsx`             | Chrome + store seed (defer, eager) |
+| `page.tsx`          | `src/routes/*/index.tsx` loader + Component | Veri fetch + SSR UI                |
+| `page.client.tsx`   | `src/islands/page-analytics.tsx`            | **Sadece** page-view dataLayer     |
+| Container           | route `Component` + `<Island />`            | UI + interaktivite                 |
 
 ### GTM bootstrap (root only)
 
@@ -254,13 +254,13 @@ Login state `layout-client` store'dan okunur — pageview'den **önce** seed edi
 
 ### Cache + analytics
 
-| Veri | SSR HTML'de? | Neden |
-|---|---|---|
-| GTM container ID | Evet | Herkes aynı |
-| `user_tracking_id` | **Hayır** | Cookie'den client okur |
-| `isSignedIn` / token | **Hayır** | layout-client cookie okur |
-| `pageMeta` (category, path) | Evet (island props) | Cache key parçası / anonim |
-| Kişisel user adı | BYPASS route'larda SSR OK | `neverCache()` veya token BYPASS |
+| Veri                        | SSR HTML'de?              | Neden                            |
+| --------------------------- | ------------------------- | -------------------------------- |
+| GTM container ID            | Evet                      | Herkes aynı                      |
+| `user_tracking_id`          | **Hayır**                 | Cookie'den client okur           |
+| `isSignedIn` / token        | **Hayır**                 | layout-client cookie okur        |
+| `pageMeta` (category, path) | Evet (island props)       | Cache key parçası / anonim       |
+| Kişisel user adı            | BYPASS route'larda SSR OK | `neverCache()` veya token BYPASS |
 
 Anonim ziyaretçi cached HTML alır → layout-client + page-analytics client'ta cookie'den kimlik okur → doğru GTM context.
 
@@ -283,13 +283,13 @@ Next.js `middleware.ts` karşılığı: [`server/middleware/pipeline.ts`](../ser
 
 **Sıra:** auth → session/tracking → CMS redirect → (handler) static rules.ts → SSR
 
-| Adım | Dosya | Ne yapar |
-|---|---|---|
-| Auth | `server/middleware/steps/auth/` | Token oku/yenile, `Authorization` inject, cookie yaz |
-| Session | `server/middleware/steps/session/` | gclid/utm/theme → cookie, tracking UUID, `x-pathname` |
-| CMS redirect | `server/middleware/steps/redirection/` | GW redirect map, 410/301 terminal |
-| Static routing | `src/routing/rules.ts` | Config redirect/rewrite/proxy |
-| SSR loader | `src/services/*` + `gatewayFetch` | GW'ye token ile istek |
+| Adım           | Dosya                                  | Ne yapar                                              |
+| -------------- | -------------------------------------- | ----------------------------------------------------- |
+| Auth           | `server/middleware/steps/auth/`        | Token oku/yenile, `Authorization` inject, cookie yaz  |
+| Session        | `server/middleware/steps/session/`     | gclid/utm/theme → cookie, tracking UUID, `x-pathname` |
+| CMS redirect   | `server/middleware/steps/redirection/` | GW redirect map, 410/301 terminal                     |
+| Static routing | `src/routing/rules.ts`                 | Config redirect/rewrite/proxy                         |
+| SSR loader     | `src/services/*` + `gatewayFetch`      | GW'ye token ile istek                                 |
 
 ### Matcher (2 seviye)
 
@@ -307,7 +307,7 @@ import { fetchUserProfile } from "../../services/user";
 loader: async (ctx) => {
   const user = await fetchUserProfile(ctx.request); // GW + Bearer token
   return { data: { user } };
-}
+};
 ```
 
 **Cache kuralı:** Token (veya kayıtlı bypass check) varsa HTML cache **BYPASS**; anonim ziyaretçi **shared cache** (HIT/MISS). Bypass kriterleri cache key'e girmez.
@@ -326,11 +326,11 @@ cache: (ctx) => sharedUnlessBypass(ctx, ["page-id", ctx.publicPath, locale(ctx.r
 cache: () => neverCache(),
 ```
 
-| Ziyaretçi | x-cache | Davranış |
-|---|---|---|
-| Anonim | MISS → HIT | Paylaşılan HTML cache |
-| Token / Authorization | BYPASS | Her istekte loader + render |
-| `neverCache()` route | BYPASS | Her zaman |
+| Ziyaretçi             | x-cache    | Davranış                    |
+| --------------------- | ---------- | --------------------------- |
+| Anonim                | MISS → HIT | Paylaşılan HTML cache       |
+| Token / Authorization | BYPASS     | Her istekte loader + render |
+| `neverCache()` route  | BYPASS     | Her zaman                   |
 
 ### Esnek bypass registry
 
@@ -353,6 +353,7 @@ cache: (ctx) =>
 ```
 
 **Kurallar:**
+
 - Bypass check'ler cache **key'e girmez** — sadece cache'e girip girmeme kararı verirler
 - Kişisel veri cached HTML'de olmamalı; oturumlu isteklerde loader GW'den çeker
 - `Cookie` isimleri: [`src/lib/cookies.ts`](../src/lib/cookies.ts)
@@ -365,11 +366,11 @@ cache: (ctx) =>
 
 Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](../src/routing/rules.ts)
 
-| Next.js | ssr-kit | Davranış |
-|---|---|---|
-| `redirects()` | `redirects[]` | Tarayıcı URL değişir (301/308) |
+| Next.js                 | ssr-kit                                        | Davranış                                          |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------- |
+| `redirects()`           | `redirects[]`                                  | Tarayıcı URL değişir (301/308)                    |
 | `rewrites()` (internal) | `rewrites[]` + `destination: "/internal-path"` | URL aynı kalır, route matcher internal path görür |
-| `rewrites()` (external) | `rewrites[]` + `destination: "http://…"` | Proxy — istek backend/CDN'e iletilir |
+| `rewrites()` (external) | `rewrites[]` + `destination: "http://…"`       | Proxy — istek backend/CDN'e iletilir              |
 
 **Pipeline sırası:** redirect → rewrite/proxy → route match → SSR
 
@@ -388,11 +389,90 @@ export const rewrites = [
   { source: "/api/:path*", destination: `${GATEWAY_URL}/:path*` }, // proxy
 ];
 
-export const redirects = [
-  { source: "/eski-sayfa", destination: "/yeni-sayfa", status: 301 },
-];
+export const redirects = [{ source: "/eski-sayfa", destination: "/yeni-sayfa", status: 301 }];
 ```
 
 Pattern syntax: `:param` (tek segment), `:path*` (kalan path).
 
 `server/api/internal/*` BFF route'ları rewrite'dan **önce** mount edilir — pipeline çalışır. Genel `/api/*` proxy rewrite ile GW'ye gider, pipeline atlanır.
+
+## Tooling — TS / ESLint / Prettier
+
+Katı TypeScript, ESLint 9 (flat config), Prettier ve EditorConfig. CI'da hepsi zorunlu.
+
+### TypeScript
+
+| Dosya                 | Amaç                                          |
+| --------------------- | --------------------------------------------- |
+| `tsconfig.base.json`  | Paylaşılan `compilerOptions` (sıkı bayraklar) |
+| `tsconfig.json`       | Uygulama kodu — `src`, `server`, `tests`      |
+| `tsconfig.node.json`  | Vite / Vitest / ESLint config dosyaları       |
+| `tests/tsconfig.json` | Vitest globals (test dosyaları)               |
+
+Sıkı bayraklar: `verbatimModuleSyntax`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `isolatedModules`.
+
+Path alias:
+
+| Alias       | Hedef      | Kullanım                        |
+| ----------- | ---------- | ------------------------------- |
+| `~/*`       | `src/*`    | Uygulama kodu, testler          |
+| `@server/*` | `server/*` | Server runtime, server testleri |
+
+**Kural:** `../` ile üst dizine çıkan import **yasak** (ESLint `no-restricted-imports`). Aynı klasör içi `./` serbest; katmanlar arası geçişte alias kullan.
+
+Örnekler:
+
+```ts
+import { defineRoute } from "~/lib/types"; // src/lib/types
+import { handle } from "@server/handler"; // server/handler
+import { FooterAccordionSlot } from "~/components/layout/header/nav-parts";
+```
+
+### Import sırası
+
+ESLint `simple-import-sort` otomatik sıralar:
+
+1. Node builtins
+2. External paketler
+3. `~` alias (`src/`)
+4. `@server` alias
+5. Relative import'lar — yalnızca `./` (aynı klasör)
+
+Value/type import ayrımı zorunlu (`verbatimModuleSyntax` + `@typescript-eslint/consistent-type-imports`).
+
+### Mimari sınırlar (ESLint)
+
+| Kaynak                           | Yasak hedef      | Gerekçe                          |
+| -------------------------------- | ---------------- | -------------------------------- |
+| `server/**`                      | `src/islands/**` | Server client bundle'a girmemeli |
+| `src/components/**`, `routes/**` | `src/islands/**` | Island wrapper üzerinden kullan  |
+| `src/lib/**`                     | `server/**`      | Katman sınırı                    |
+| `src/islands/**`                 | `server/**`      | Client server kodu okumaz        |
+
+Runtime env paylaşımı: `src/lib/env.ts` — metadata ve diğer `src/lib` modülleri `server/config` import etmez.
+
+### SSR vs island
+
+| Alan                                 | Browser API (`window`, `document`, `localStorage`) |
+| ------------------------------------ | -------------------------------------------------- |
+| `src/routes/**`, `src/components/**` | **Yasak** (ESLint error)                           |
+| `src/islands/**`, `entry.client.tsx` | Serbest                                            |
+
+### Komutlar
+
+```bash
+npm run typecheck    # tsc --noEmit
+npm run lint         # eslint .
+npm run lint:fix     # eslint . --fix (import sort dahil)
+npm run format       # prettier --write .
+npm run format:check # prettier --check .
+npm run ci           # typecheck → lint → format:check → test → build
+```
+
+### Prettier
+
+Double quote, semicolon, `trailingComma: "all"`, `printWidth: 100`, LF satır sonu. `.editorconfig` ile uyumlu.
+
+### CI
+
+`npm run ci` sırası: typecheck → lint → format:check → test → build. PR merge öncesi yeşil olmalı.

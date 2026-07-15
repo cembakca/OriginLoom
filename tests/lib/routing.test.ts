@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyPattern, matchPattern } from "../../src/routing/pattern";
-import { resolveRouteWith } from "../../src/routing/resolve";
+
+import { applyPattern, matchPattern } from "~/routing/pattern";
+import { resolveRouteWith } from "~/routing/resolve";
 
 describe("routing pattern", () => {
   it("matches static paths", () => {
@@ -19,7 +20,9 @@ describe("routing pattern", () => {
   });
 
   it("applies destination template", () => {
-    expect(applyPattern("/recourse/:page/redirect", { page: "kredi" })).toBe("/recourse/kredi/redirect");
+    expect(applyPattern("/recourse/:page/redirect", { page: "kredi" })).toBe(
+      "/recourse/kredi/redirect",
+    );
   });
 });
 

@@ -1,5 +1,5 @@
+import { shouldRunPipeline } from "@server/middleware/matcher";
 import { describe, expect, it } from "vitest";
-import { shouldRunPipeline } from "../../server/middleware/matcher";
 
 describe("shouldRunPipeline", () => {
   it("skips static assets", () => {

@@ -1,5 +1,7 @@
 import Redis from "ioredis";
-import type { CachePolicy } from "../../src/lib/types";
+
+import type { CachePolicy } from "~/lib/types";
+
 import type { CacheEntry, CacheStore } from "./types";
 
 export class RedisStore implements CacheStore {
@@ -18,7 +20,7 @@ export class RedisStore implements CacheStore {
     const raw = await this.redis.get(this.redisKey(key));
     if (!raw) return null;
 
-    const entry: CacheEntry = JSON.parse(raw);
+    const entry = JSON.parse(raw) as CacheEntry;
     const now = Date.now();
     if (now < entry.freshUntil) return { body: entry.body, state: "fresh" };
     if (now < entry.staleUntil) return { body: entry.body, state: "stale" };

@@ -1,4 +1,5 @@
 import type { HTMLAttributes } from "react";
+
 import { cn } from "~/lib/utils";
 
 export function Container({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -7,7 +8,10 @@ export function Container({ className, ...props }: HTMLAttributes<HTMLDivElement
 
 export function Logo({ className }: { className?: string }) {
   return (
-    <a href="/" className={cn("inline-flex items-center gap-2 font-bold text-brand-700", className)}>
+    <a
+      href="/"
+      className={cn("inline-flex items-center gap-2 font-bold text-brand-700", className)}
+    >
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm text-white">
         HK
       </span>

@@ -1,7 +1,8 @@
-import type { DeviceType } from "../lib/device";
-import type { IMenuItems, MenuItem } from "../lib/menu/types";
-import { gatewayFetch } from "../lib/gateway-fetch";
-import * as cache from "../../server/cache";
+import * as cache from "@server/cache";
+
+import type { DeviceType } from "~/lib/device";
+import { gatewayFetch } from "~/lib/gateway-fetch";
+import type { IMenuItems, MenuItem } from "~/lib/menu/types";
 
 const MENU_CACHE_TTL = Number(process.env.MENU_CACHE_TTL ?? 14_400); // 4h default
 const MENU_CACHE_SWR = Number(process.env.MENU_CACHE_SWR ?? 86_400);

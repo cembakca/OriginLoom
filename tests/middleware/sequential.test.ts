@@ -1,10 +1,6 @@
+import { createInitialResult, runSequential } from "@server/middleware/sequential";
+import type { MiddlewareStep, PipelineContext } from "@server/middleware/types";
 import { describe, expect, it, vi } from "vitest";
-import { CookieJar } from "../../server/middleware/cookie-jar";
-import {
-  createInitialResult,
-  runSequential,
-} from "../../server/middleware/sequential";
-import type { MiddlewareStep, PipelineContext, PipelineResult } from "../../server/middleware/types";
 
 const ctx: PipelineContext = {
   url: new URL("http://localhost/test"),
@@ -25,7 +21,11 @@ describe("runSequential", () => {
       return { request: new Request(acc.request.url, { headers }) };
     };
 
-    const result = await runSequential([step1, step2], ctx, createInitialResult(new Request("http://localhost/test")));
+    const result = await runSequential(
+      [step1, step2],
+      ctx,
+      createInitialResult(new Request("http://localhost/test")),
+    );
     expect(result.request.headers.get("x-step")).toBe("2");
   });
 
@@ -51,7 +51,11 @@ describe("runSequential", () => {
       return { cookies: acc.cookies };
     };
 
-    const result = await runSequential([step], ctx, createInitialResult(new Request("http://localhost/test")));
+    const result = await runSequential(
+      [step],
+      ctx,
+      createInitialResult(new Request("http://localhost/test")),
+    );
     expect(result.cookies.toHeaderStrings().some((c) => c.startsWith("a=1"))).toBe(true);
   });
 });

@@ -1,10 +1,10 @@
-import type { DeviceType } from "../../../lib/device";
-import { getDeviceShell } from "../../../lib/device";
-import type { IMenuItems } from "../../../lib/menu/types";
-import { serializeNavItems } from "../../../lib/menu/serialize";
-import { footerNavItems, linkRel, sortFooterItems } from "../../../lib/menu/utils";
+import { FooterAccordionSlot, NavLink } from "~/components/layout/header/nav-parts";
 import { Container, Logo } from "~/components/ui/container";
-import { FooterAccordionSlot, NavLink } from "../header/nav-parts";
+import type { DeviceType } from "~/lib/device";
+import { getDeviceShell } from "~/lib/device";
+import { serializeNavItems } from "~/lib/menu/serialize";
+import type { IMenuItems } from "~/lib/menu/types";
+import { footerNavItems, linkRel, sortFooterItems } from "~/lib/menu/utils";
 
 export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
   const shell = getDeviceShell(deviceType);
@@ -25,17 +25,25 @@ export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: Dev
               <div key={col.id}>
                 <h3 className="mb-3 text-sm font-semibold text-slate-900">{col.name}</h3>
                 <ul className="space-y-2 text-sm text-slate-600">
-                  {col.subMenuItemList?.map((link) => (
-                    <li key={link.id}>
-                      <NavLink href={link.url} rel={linkRel(link.url)}>
-                        {link.name}
-                      </NavLink>
-                    </li>
-                  )) ?? (
+                  {col.subMenuItemList?.map((link) => {
+                    const rel = linkRel(link.url);
+                    return (
+                      <li key={link.id}>
+                        <NavLink href={link.url} {...(rel ? { rel } : {})}>
+                          {link.name}
+                        </NavLink>
+                      </li>
+                    );
+                  }) ?? (
                     <li>
-                      <NavLink href={col.url} rel={linkRel(col.url)}>
-                        {col.name}
-                      </NavLink>
+                      {(() => {
+                        const rel = linkRel(col.url);
+                        return (
+                          <NavLink href={col.url} {...(rel ? { rel } : {})}>
+                            {col.name}
+                          </NavLink>
+                        );
+                      })()}
                     </li>
                   )}
                 </ul>

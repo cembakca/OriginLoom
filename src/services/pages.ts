@@ -1,5 +1,5 @@
-import { gatewayFetch } from "../lib/gateway-fetch";
-import type { SeoInfo } from "../lib/metadata/types";
+import { gatewayFetch } from "~/lib/gateway-fetch";
+import type { SeoInfo } from "~/lib/metadata/types";
 
 export type RetirementBankingPage = {
   headline: string;

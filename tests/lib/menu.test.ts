@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getDeviceShell, getDeviceType } from "../../src/lib/device";
-import { sortNavItems, topNavItems, footerNavItems, linkRel } from "../../src/lib/menu/utils";
-import type { MenuItem } from "../../src/lib/menu/types";
+
+import { getDeviceShell, getDeviceType } from "~/lib/device";
+import type { MenuItem } from "~/lib/menu/types";
+import { footerNavItems, linkRel, sortNavItems, topNavItems } from "~/lib/menu/utils";
 
 describe("device", () => {
   it("maps desktop UA to Desktop shell", () => {

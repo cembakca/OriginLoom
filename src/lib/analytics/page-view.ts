@@ -1,7 +1,9 @@
-import { Cookie } from "../cookies";
-import { readCookie } from "../client/cookies";
-import { getOriginalLocation, setOriginalLocation } from "../stores/session-store";
-import { getUserInfo } from "../stores/user-info-store";
+import { readCookie } from "~/lib/client/cookies";
+import { Cookie } from "~/lib/cookies";
+import { getOriginalLocation, setOriginalLocation } from "~/lib/stores/session-store";
+import { getUserInfo } from "~/lib/stores/user-info-store";
+import { stripUndefined } from "~/lib/strip-undefined";
+
 import { pushDataLayer, signalReactReady } from "./data-layer";
 import type { PageAnalyticsMeta, PageDetails } from "./types";
 
@@ -13,12 +15,14 @@ export function buildPageDetails(meta: PageAnalyticsMeta): PageDetails {
   const user = getUserInfo();
   return {
     pageType: meta.pageType,
-    category: meta.category,
-    mid: meta.mid,
-    sub: meta.sub,
     platform: "web",
     loginState: user.isSignedIn,
     bot: readCookie(Cookie.botFlag) === "1",
+    ...stripUndefined({
+      category: meta.category,
+      mid: meta.mid,
+      sub: meta.sub,
+    }),
   };
 }
 

@@ -1,11 +1,12 @@
-import { match } from "../src/lib/match";
-import type { Route } from "../src/lib/types";
-import { resolveRoute } from "../src/routing";
-import { renderDocument, type Assets } from "./document";
+import { match } from "~/lib/match";
+import type { Ctx, Route } from "~/lib/types";
+import { resolveRoute } from "~/routing";
+
+import * as cache from "./cache";
+import { type Assets, renderDocument } from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
 import { proxyRequest } from "./proxy";
-import * as cache from "./cache";
 
 export type HandleContext = {
   requestId?: string;
@@ -33,8 +34,7 @@ export async function handle(
     const resolution = resolveRoute(url);
 
     if (resolution.kind === "redirect") {
-      logRequest({
-        requestId,
+      logRequest(requestId, {
         path: url.pathname,
         status: resolution.status,
         cache: "REDIRECT",
@@ -45,8 +45,7 @@ export async function handle(
 
     if (resolution.kind === "proxy") {
       const proxied = await proxyRequest(request, resolution.url);
-      logRequest({
-        requestId,
+      logRequest(requestId, {
         path: url.pathname,
         status: proxied.status,
         cache: "PROXY",
@@ -61,8 +60,7 @@ export async function handle(
 
     const m = match(routes, resolution.pathname);
     if (!m) {
-      logRequest({
-        requestId,
+      logRequest(requestId, {
         path: url.pathname,
         status: 404,
         cache: "NONE",
@@ -71,12 +69,12 @@ export async function handle(
       return new Response("Not found", { status: 404 });
     }
 
-    const routeCtx = {
+    const routeCtx: Ctx = {
       request,
       params: m.params,
       url: internalUrl,
       publicPath: resolution.publicPath,
-      trackingId: ctx.trackingId,
+      ...(ctx.trackingId !== undefined ? { trackingId: ctx.trackingId } : {}),
     };
     const { route } = m;
 
@@ -90,8 +88,7 @@ export async function handle(
           void revalidate(key, route, routeCtx, policy, assets, requestId);
         }
         const state = hit.state === "fresh" ? "HIT" : "STALE";
-        logRequest({
-          requestId,
+        logRequest(requestId, {
           path: url.pathname,
           status: 200,
           cache: state,
@@ -109,8 +106,7 @@ export async function handle(
     }
 
     const cacheState = key ? "MISS" : "BYPASS";
-    logRequest({
-      requestId,
+    logRequest(requestId, {
       path: url.pathname,
       status: result.status ?? 200,
       cache: cacheState,
@@ -120,8 +116,7 @@ export async function handle(
     return html(body, result.status ?? 200, policy, cacheState, result.headers, requestId);
   } catch (err) {
     logError(err, { requestId, path: url.pathname });
-    logRequest({
-      requestId,
+    logRequest(requestId, {
       path: url.pathname,
       status: 500,
       cache: "ERROR",
@@ -168,12 +163,17 @@ function html(
   return new Response(body, { status, headers });
 }
 
-function logRequest(fields: {
-  requestId?: string;
-  path: string;
-  status: number;
-  cache: string;
-  durationMs: number;
-}) {
-  logger.info("request", fields);
+function logRequest(
+  requestId: string | undefined,
+  fields: {
+    path: string;
+    status: number;
+    cache: string;
+    durationMs: number;
+  },
+) {
+  logger.info("request", {
+    ...fields,
+    ...(requestId !== undefined ? { requestId } : {}),
+  });
 }

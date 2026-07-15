@@ -12,6 +12,7 @@ export function matchPattern(pattern: string, pathname: string): Record<string, 
 
   for (let pi = 0; pi < pat.length; pi++) {
     const p = pat[pi];
+    if (p === undefined) return null;
 
     if (p.endsWith("*")) {
       const name = p.slice(1, -1); // :path* → path
@@ -22,8 +23,10 @@ export function matchPattern(pattern: string, pathname: string): Record<string, 
     if (p.startsWith(":")) {
       const optional = p.endsWith("?");
       const name = p.slice(1).replace(/\?$/, "");
-      if (i < seg.length) params[name] = decodeURIComponent(seg[i++]);
-      else if (!optional) return null;
+      if (i < seg.length) {
+        const segment = seg[i++];
+        if (segment !== undefined) params[name] = decodeURIComponent(segment);
+      } else if (!optional) return null;
       continue;
     }
 

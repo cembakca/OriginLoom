@@ -18,7 +18,7 @@ vi.mock("ioredis", () => ({
   })),
 }));
 
-import { RedisStore } from "../../../server/cache/redis";
+import { RedisStore } from "@server/cache/redis";
 
 describe("RedisStore", () => {
   beforeEach(() => {
@@ -35,6 +35,6 @@ describe("RedisStore", () => {
 
   it("pings successfully", async () => {
     const store = new RedisStore("redis://localhost:6379");
-    await expect(store.ping!()).resolves.toBe(true);
+    await expect(store.ping()).resolves.toBe(true);
   });
 });

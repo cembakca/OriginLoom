@@ -1,9 +1,10 @@
-import { cookie } from "../../../../src/lib/request";
-import { storeBotVisit } from "../../api/bot-store";
-import { sanitizeUuid, sanitizeValue } from "../../sanitize";
-import type { MiddlewareStep } from "../../types";
-import { Cookie } from "../../types";
-import { cloneRequestWithHeaders } from "../../sequential";
+import { storeBotVisit } from "@server/middleware/api/bot-store";
+import { sanitizeUuid, sanitizeValue } from "@server/middleware/sanitize";
+import { cloneRequestWithHeaders } from "@server/middleware/sequential";
+import type { MiddlewareStep } from "@server/middleware/types";
+import { Cookie } from "@server/middleware/types";
+
+import { cookie } from "~/lib/request";
 
 const BOT_UA = /bot|crawl|spider|slurp|bingpreview/i;
 
@@ -31,7 +32,7 @@ export const sessionStep: MiddlewareStep = async (ctx, acc) => {
     if (value) jar.set(name, value, { maxAge: 86_400 * 30 });
   }
 
-  let trackingId =
+  const trackingId =
     sanitizeUuid(cookie(acc.request, Cookie.userTrackingId)) ?? crypto.randomUUID();
   if (!cookie(acc.request, Cookie.userTrackingId)) {
     jar.set(Cookie.userTrackingId, trackingId, { maxAge: 86_400 * 365 });

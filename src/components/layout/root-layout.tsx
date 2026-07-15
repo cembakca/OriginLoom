@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
-import { Island } from "../../lib/island";
-import type { ShellData } from "../../lib/shell-data";
-import type { PageAnalyticsMeta } from "../../lib/analytics/types";
-import { Header } from "./header";
-import { Footer } from "./footer";
+
 import { Container } from "~/components/ui/container";
+import type { PageAnalyticsMeta } from "~/lib/analytics/types";
+import { Island } from "~/lib/island";
+import type { ShellData } from "~/lib/shell-data";
+
+import { Footer } from "./footer";
+import { Header } from "./header";
 
 export type RootLayoutProps = {
   shell: ShellData;

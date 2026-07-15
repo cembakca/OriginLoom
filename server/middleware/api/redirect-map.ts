@@ -1,8 +1,7 @@
 import { gatewayFetch } from "./gateway";
 
 export type CmsRedirectRule =
-  | { kind: "redirect"; destination: string; status: number }
-  | { kind: "gone" };
+  { kind: "redirect"; destination: string; status: number } | { kind: "gone" };
 
 /** Mock CMS map — replace body with gatewayFetch('/redirects?path=…') in production. */
 const MOCK_MAP: Record<string, CmsRedirectRule> = {

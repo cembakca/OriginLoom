@@ -1,6 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
 import { forwardRef } from "react";
+
 import { cn } from "~/lib/utils";
 
 export const DropdownMenuRoot = DropdownMenu.Root;
@@ -57,7 +58,11 @@ export const DropdownMenuSeparator = forwardRef<
   ElementRef<typeof DropdownMenu.Separator>,
   ComponentPropsWithoutRef<typeof DropdownMenu.Separator>
 >(({ className, ...props }, ref) => (
-  <DropdownMenu.Separator ref={ref} className={cn("-mx-1 my-1 h-px bg-slate-200", className)} {...props} />
+  <DropdownMenu.Separator
+    ref={ref}
+    className={cn("-mx-1 my-1 h-px bg-slate-200", className)}
+    {...props}
+  />
 ));
 DropdownMenuSeparator.displayName = "DropdownMenuSeparator";
 

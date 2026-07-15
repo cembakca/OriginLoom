@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+
 import type { PageAnalyticsMeta } from "./analytics/types";
 import type { PageMetadata } from "./metadata/types";
 
@@ -26,8 +27,7 @@ export type Ctx = {
  * mechanism — there is no inference step that can override it.
  */
 export type CachePolicy =
-  | { kind: "none" }
-  | { kind: "shared"; ttl: number; swr?: number; key: string[] };
+  { kind: "none" } | { kind: "shared"; ttl: number; swr?: number; key: string[] };
 
 export type LoaderResult<T> = {
   data: T;
@@ -35,7 +35,7 @@ export type LoaderResult<T> = {
   headers?: Record<string, string>;
 };
 
-export type Route<T = any> = {
+export type Route<T = unknown> = {
   path: string;
 
   /**

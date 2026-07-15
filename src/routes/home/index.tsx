@@ -1,24 +1,33 @@
-import { defineRoute } from "../../lib/types";
-import { sharedUnlessBypass } from "../../lib/cache-policy";
-import { locale } from "../../lib/request";
-import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
-import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { locale } from "~/lib/request";
+import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { defineRoute } from "~/lib/types";
 
 const links = [
-  { href: "/ihtiyac-kredisi/istanbul?amount=75000", label: "İhtiyaç kredisi", desc: "Cache + island filter örneği" },
+  {
+    href: "/ihtiyac-kredisi/istanbul?amount=75000",
+    label: "İhtiyaç kredisi",
+    desc: "Cache + island filter örneği",
+  },
   { href: "/hesabim", label: "Hesabım", desc: "neverCache + auth" },
   { href: "/blogs/paginated?page=2", label: "Blog paginated", desc: "SSR pagination island" },
   { href: "/emekli-bankaciligi", label: "Emekli bankacılığı", desc: "Rewrite + seoInfo metadata" },
-  { href: "/basvuru/kredi/yonlendirme", label: "Başvuru yönlendirme", desc: "Minimal chrome route" },
+  {
+    href: "/basvuru/kredi/yonlendirme",
+    label: "Başvuru yönlendirme",
+    desc: "Minimal chrome route",
+  },
   { href: "/eski-emeklilik", label: "CMS redirect", desc: "301 redirect test" },
   { href: "/kaldirildi", label: "410 Gone", desc: "Terminal CMS response" },
 ];
 
 export default defineRoute<{ locale: string }>({
   path: "/",
-  cache: (ctx) => sharedUnlessBypass(ctx, ["home", locale(ctx.request), layoutCacheFragment(ctx)], { ttl: 3600 }),
+  cache: (ctx) =>
+    sharedUnlessBypass(ctx, ["home", locale(ctx.request), layoutCacheFragment(ctx)], { ttl: 3600 }),
   loader: async (ctx) => ({ data: { locale: locale(ctx.request) } }),
   generateMetadata: (_data, ctx) => generateMetaDataForPageWithDummySeoInfo("/", ctx),
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "home", { category: "landing" }),
@@ -43,7 +52,9 @@ export default defineRoute<{ locale: string }>({
                 <CardDescription>{link.desc}</CardDescription>
               </CardHeader>
               <CardContent>
-                <code className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">{link.href}</code>
+                <code className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                  {link.href}
+                </code>
               </CardContent>
             </Card>
           </a>

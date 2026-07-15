@@ -1,5 +1,6 @@
-import type { MiddlewareStep } from "../../types";
-import { cloneRequestWithHeaders } from "../../sequential";
+import { cloneRequestWithHeaders } from "@server/middleware/sequential";
+import type { MiddlewareStep } from "@server/middleware/types";
+
 import { runAuthCore } from "./core";
 
 export const authStep: MiddlewareStep = async (ctx, acc) => {

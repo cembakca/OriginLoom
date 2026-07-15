@@ -1,4 +1,5 @@
-import type { CachePolicy } from "../../src/lib/types";
+import type { CachePolicy } from "~/lib/types";
+
 import type { CacheEntry, CacheStore } from "./types";
 
 export class MemoryStore implements CacheStore {

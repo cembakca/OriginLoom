@@ -1,3 +1,5 @@
+import { stripUndefined } from "~/lib/strip-undefined";
+
 import type { MenuItem } from "./types";
 
 /** Island props — serializable nav snapshot. */
@@ -16,9 +18,11 @@ export function serializeNavItems(items: MenuItem[]): NavItemProp[] {
     id: item.id,
     name: item.name,
     url: item.url,
-    hamburgerName: item.hamburgerName,
-    description: item.description,
-    menuDisplayType: item.menuDisplayType,
-    children: item.subMenuItemList?.length ? serializeNavItems(item.subMenuItemList) : undefined,
+    ...stripUndefined({
+      hamburgerName: item.hamburgerName,
+      description: item.description,
+      menuDisplayType: item.menuDisplayType,
+    }),
+    ...(item.subMenuItemList?.length ? { children: serializeNavItems(item.subMenuItemList) } : {}),
   }));
 }

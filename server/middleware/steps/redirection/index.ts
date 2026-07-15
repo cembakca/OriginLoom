@@ -1,6 +1,9 @@
-import { lookupRedirect } from "../../api/redirect-map";
-import { storeBotVisit } from "../../api/bot-store";
-import type { MiddlewareStep } from "../../types";
+import { storeBotVisit } from "@server/middleware/api/bot-store";
+import { lookupRedirect } from "@server/middleware/api/redirect-map";
+import type { MiddlewareStep } from "@server/middleware/types";
+
+import { stripUndefined } from "~/lib/strip-undefined";
+
 import { renderGonePage } from "./gone";
 
 export const redirectionStep: MiddlewareStep = async (ctx, acc) => {
@@ -9,14 +12,23 @@ export const redirectionStep: MiddlewareStep = async (ctx, acc) => {
 
   const ua = acc.request.headers.get("user-agent") ?? "";
   if (/bot|crawl|spider/i.test(ua)) {
-    storeBotVisit({ pathname: ctx.publicPath, userAgent: ua, trackingId: acc.trackingId });
+    storeBotVisit(
+      stripUndefined({
+        pathname: ctx.publicPath,
+        userAgent: ua,
+        trackingId: acc.trackingId,
+      }),
+    );
   }
 
   if (rule.kind === "gone") {
     return {
       response: new Response(renderGonePage(), {
         status: 410,
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300" },
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "public, max-age=300",
+        },
       }),
     };
   }

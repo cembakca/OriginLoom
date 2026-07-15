@@ -1,10 +1,11 @@
-import { defineRoute } from "../../lib/types";
-import { sharedUnlessBypass } from "../../lib/cache-policy";
-import { locale } from "../../lib/request";
-import { Island } from "../../lib/island";
-import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
-import { generateMetaDataForPageWithDummySeoInfo, publicAbsoluteUrl } from "../../lib/metadata/generate";
-import { getPaginatedBlogs, parsePageParam, type PaginatedBlogs } from "../../services/blogs";
+import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { Island } from "~/lib/island";
+import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { locale } from "~/lib/request";
+import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { defineRoute } from "~/lib/types";
+import { getPaginatedBlogs, type PaginatedBlogs, parsePageParam } from "~/services/blogs";
+
 import { BlogList, PageSummary } from "./components";
 import { PaginationShell } from "./pagination-shell";
 
@@ -49,7 +50,10 @@ export default defineRoute<PaginatedBlogs>({
       <div className="space-y-2">
         <h1 className="text-3xl font-bold text-slate-900">Blog Yazıları</h1>
         <p className="text-slate-600">
-          SSR + cache + island — <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm">/blogs/paginated?page={data.page}</code>
+          SSR + cache + island —{" "}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm">
+            /blogs/paginated?page={data.page}
+          </code>
         </p>
       </div>
 

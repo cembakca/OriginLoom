@@ -1,10 +1,12 @@
-import type { Ctx } from "../types";
-import { config } from "../../../server/config";
+import { env } from "~/lib/env";
+import { stripUndefined } from "~/lib/strip-undefined";
+import type { Ctx } from "~/lib/types";
+
 import type { PageMetadata, SeoInfo } from "./types";
 
 /** Public absolute URL from browser-visible path. */
 export function publicAbsoluteUrl(ctx: Ctx, path?: string): string {
-  const base = config.siteUrl.replace(/\/$/, "");
+  const base = env.siteUrl.replace(/\/$/, "");
   const p = path ?? ctx.publicPath;
   return `${base}${p.startsWith("/") ? p : `/${p}`}`;
 }
@@ -48,21 +50,21 @@ export function generateMetaDataForPageWithSeoInfo(seoInfo: SeoInfo, ctx: Ctx): 
   const image = seoInfo.image;
 
   return {
-    title,
-    description,
+    ...(title !== undefined ? { title } : {}),
+    ...(description !== undefined ? { description } : {}),
     canonical,
-    robots: seoInfo.noindex ? { index: false, follow: true } : undefined,
-    openGraph: {
+    ...(seoInfo.noindex ? { robots: { index: false, follow: true } as const } : {}),
+    openGraph: stripUndefined({
       title: title ?? undefined,
       description,
       url: canonical,
       image,
-    },
-    twitter: {
+    }),
+    twitter: stripUndefined({
       title: title ?? undefined,
       description,
       image,
-    },
+    }),
   };
 }
 

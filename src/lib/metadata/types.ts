@@ -63,7 +63,9 @@ export type ResolvedMetadata = {
   description: string;
   canonical: string;
   robots: string;
-  openGraph: Required<Pick<NonNullable<PageMetadata["openGraph"]>, "title" | "description" | "url">> &
+  openGraph: Required<
+    Pick<NonNullable<PageMetadata["openGraph"]>, "title" | "description" | "url">
+  > &
     NonNullable<PageMetadata["openGraph"]>;
   twitter: Required<Pick<NonNullable<PageMetadata["twitter"]>, "card" | "title" | "description">> &
     NonNullable<PageMetadata["twitter"]>;

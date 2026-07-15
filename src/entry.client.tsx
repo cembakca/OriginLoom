@@ -1,12 +1,15 @@
-import { hydrateRoot, createRoot } from "react-dom/client";
-import type { ComponentType } from "react";
 import "./styles/globals.css";
+
+import type { ComponentType } from "react";
+import { createRoot, hydrateRoot } from "react-dom/client";
+
+type IslandModule = { default: ComponentType<Record<string, unknown>> };
 
 // Vite turns this into a code-split map. Each island is its own chunk, so a
 // page ships only the JS for the islands actually on it.
-const registry = import.meta.glob<{ default: ComponentType<any> }>("./islands/*.tsx");
+const registry = import.meta.glob<IslandModule>("./islands/*.tsx");
 
-const byName = new Map<string, () => Promise<{ default: ComponentType<any> }>>();
+const byName = new Map<string, () => Promise<IslandModule>>();
 for (const [path, load] of Object.entries(registry)) {
   byName.set(path.slice("./islands/".length, -".tsx".length), load);
 }
@@ -19,7 +22,7 @@ async function mount(el: HTMLElement) {
   if (el.dataset.mode === "hydrate") {
     hydrateRoot(el, <Comp {...JSON.parse(el.dataset.props || "{}")} />);
   } else {
-    el.replaceChildren();
+    // Keep SSR fallback visible until React commits — avoid empty flash (CLS).
     createRoot(el).render(<Comp {...JSON.parse(el.dataset.props || "{}")} />);
   }
 }

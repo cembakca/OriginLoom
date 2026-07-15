@@ -1,17 +1,19 @@
-import { defineRoute } from "../../lib/types";
-import { sharedUnlessBypass } from "../../lib/cache-policy";
-import { defaultPageMeta } from "../../lib/shell-data";
-import { generateMetaDataForPageWithDummySeoInfo } from "../../lib/metadata/generate";
+import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { defaultPageMeta } from "~/lib/shell-data";
+import { defineRoute } from "~/lib/types";
 
 export default defineRoute<{ page: string; publicPath: string }>({
   path: "/recourse/:page/redirect",
   minimalChrome: true,
 
-  cache: (ctx) =>
-    sharedUnlessBypass(ctx, ["recourse-redirect", ctx.params.page, ctx.publicPath]),
+  cache: (ctx) => {
+    const page = ctx.params.page ?? "";
+    return sharedUnlessBypass(ctx, ["recourse-redirect", page, ctx.publicPath]);
+  },
 
   loader: async (ctx) => ({
-    data: { page: ctx.params.page, publicPath: ctx.publicPath },
+    data: { page: ctx.params.page ?? "", publicPath: ctx.publicPath },
   }),
 
   generateMetadata: (data, ctx) => ({

@@ -1,13 +1,14 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+
 import {
   clearCacheBypassChecks,
+  hasPid,
   isAuthenticated,
   registerCacheBypassCheck,
   sharedUnlessBypass,
-  hasPid,
-} from "../../src/lib/cache-policy";
-import { Cookie } from "../../src/lib/cookies";
-import type { Ctx } from "../../src/lib/types";
+} from "~/lib/cache-policy";
+import { Cookie } from "~/lib/cookies";
+import type { Ctx } from "~/lib/types";
 
 function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {
   const url = new URL(request.url);
@@ -42,7 +43,9 @@ describe("cache-policy", () => {
 
   it("returns none when access_token cookie is present", () => {
     const policy = sharedUnlessBypass(
-      ctx(new Request("http://localhost/page", { headers: { cookie: `${Cookie.accessToken}=abc` } })),
+      ctx(
+        new Request("http://localhost/page", { headers: { cookie: `${Cookie.accessToken}=abc` } }),
+      ),
       ["page"],
     );
     expect(policy.kind).toBe("none");

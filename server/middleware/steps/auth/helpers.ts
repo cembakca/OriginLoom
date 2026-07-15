@@ -1,16 +1,18 @@
-import { cookie } from "../../../../src/lib/request";
-import { Cookie } from "../../types";
-import type { CookieJar } from "../../cookie-jar";
+import type { CookieJar } from "@server/middleware/cookie-jar";
+import { Cookie } from "@server/middleware/types";
+
+import { cookie } from "~/lib/request";
+import { stripUndefined } from "~/lib/strip-undefined";
 
 const REFRESH_COOLDOWN_MS = 5_000;
 let lastRefreshAt = 0;
 let refreshInFlight: Promise<{ access: string; refresh: string } | null> | null = null;
 
 export function readTokens(request: Request): { access?: string; refresh?: string } {
-  return {
+  return stripUndefined({
     access: cookie(request, Cookie.accessToken),
     refresh: cookie(request, Cookie.refreshToken),
-  };
+  });
 }
 
 /** Heuristic: treat malformed or expired JWT as needing refresh. */
@@ -19,8 +21,11 @@ export function isAccessTokenExpired(token: string | undefined): boolean {
   const parts = token.split(".");
   if (parts.length < 2) return true;
 
+  const payloadSegment = parts[1];
+  if (!payloadSegment) return true;
+
   try {
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as {
+    const payload = JSON.parse(Buffer.from(payloadSegment, "base64url").toString("utf8")) as {
       exp?: number;
     };
     if (!payload.exp) return false;

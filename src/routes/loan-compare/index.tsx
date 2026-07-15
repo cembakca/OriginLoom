@@ -1,12 +1,13 @@
-import { defineRoute } from "../../lib/types";
-import { sharedUnlessBypass } from "../../lib/cache-policy";
-import { cookie, device, locale } from "../../lib/request";
-import { Island } from "../../lib/island";
-import { getOffers, type Offer } from "../../services/offers";
-import { defaultPageMeta, layoutCacheFragment } from "../../lib/shell-data";
-import { publicAbsoluteUrl } from "../../lib/metadata/generate";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { sharedUnlessBypass } from "~/lib/cache-policy";
+import { Island } from "~/lib/island";
+import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { cookie, device, locale } from "~/lib/request";
+import { defaultPageMeta, layoutCacheFragment } from "~/lib/shell-data";
+import { defineRoute } from "~/lib/types";
+import { getOffers, type Offer } from "~/services/offers";
+
 import { FilterPanelShell } from "./components";
 
 type Data = { offers: Offer[]; amount: number; city: string; theme: string };
@@ -43,17 +44,29 @@ export default defineRoute<Data>({
     const title = `${data.city.charAt(0).toUpperCase()}${data.city.slice(1)} ihtiyaç kredisi`;
     const description = `${data.city} için ${data.offers.length} kredi teklifini karşılaştır.`;
     const url = publicAbsoluteUrl(ctx);
-    return { title, description, canonical: url, openGraph: { title, description, url }, twitter: { title, description } };
+    return {
+      title,
+      description,
+      canonical: url,
+      openGraph: { title, description, url },
+      twitter: { title, description },
+    };
   },
 
   pageMeta: (data, ctx) =>
-    defaultPageMeta(ctx, "loan-compare", { category: "credit", mid: "ihtiyac-kredisi", sub: data.city }),
+    defaultPageMeta(ctx, "loan-compare", {
+      category: "credit",
+      mid: "ihtiyac-kredisi",
+      sub: data.city,
+    }),
 
   Component: ({ data }) => (
     <div className="space-y-6" data-theme={data.theme}>
       <div className="space-y-2">
         <Badge>{data.city.toUpperCase()}</Badge>
-        <h1 className="text-3xl font-bold capitalize text-slate-900">{data.city} ihtiyaç kredisi</h1>
+        <h1 className="text-3xl font-bold capitalize text-slate-900">
+          {data.city} ihtiyaç kredisi
+        </h1>
         <p className="text-slate-600">{data.offers.length} teklif listeleniyor</p>
       </div>
 

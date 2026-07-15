@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cookie, device, locale } from "../../src/lib/request";
+
+import { cookie, device, locale } from "~/lib/request";
 
 describe("request helpers", () => {
   it("reads cookies", () => {

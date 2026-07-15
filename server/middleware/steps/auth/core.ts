@@ -1,4 +1,5 @@
-import type { CookieJar } from "../../cookie-jar";
+import type { CookieJar } from "@server/middleware/cookie-jar";
+
 import {
   clearTokenCookies,
   isAccessTokenExpired,

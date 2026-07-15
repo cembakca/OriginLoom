@@ -1,5 +1,7 @@
 /** Central cookie names — re-export from shared lib. */
-export { Cookie } from "../../src/lib/cookies";
+export { Cookie } from "~/lib/cookies";
+
+import type { CookieJar } from "./cookie-jar";
 
 export type PipelineContext = {
   url: URL;
@@ -20,7 +22,7 @@ export type PipelineResult = {
   /** Terminal response — redirect, 410, etc. Pipeline stops. */
   response?: Response;
   request: Request;
-  cookies: import("./cookie-jar").CookieJar;
+  cookies: CookieJar;
   responseHeaders: Headers;
   trackingId?: string;
 };
