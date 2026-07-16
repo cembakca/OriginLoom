@@ -18,13 +18,18 @@ describe("redirection step", () => {
 
   it("returns redirect for CMS rules", async () => {
     const ctx: PipelineContext = {
-      url: new URL("http://localhost/eski-emeklilik?ref=1"),
+      url: new URL("http://localhost/eski-emeklilik?q=kredi&source=incoming"),
       pathname: "/eski-emeklilik",
       publicPath: "/eski-emeklilik",
       clientIp: "127.0.0.1",
     };
-    const acc = createInitialResult(new Request("http://localhost/eski-emeklilik?ref=1"));
+    const acc = createInitialResult(
+      new Request("http://localhost/eski-emeklilik?q=kredi&source=incoming"),
+    );
     const patch = await redirectionStep(ctx, acc);
     expect(patch?.response?.status).toBe(301);
+    expect(patch?.response?.headers.get("location")).toBe(
+      "http://localhost/emekli-bankaciligi?q=kredi&source=legacy",
+    );
   });
 });

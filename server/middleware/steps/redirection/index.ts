@@ -1,6 +1,8 @@
 import { lookupRedirect } from "@server/middleware/api/redirect-map";
 import type { MiddlewareStep } from "@server/middleware/types";
 
+import { mergeSearchParams } from "~/routing";
+
 import { renderGonePage } from "./gone";
 
 export const redirectionStep: MiddlewareStep = async (ctx, _acc) => {
@@ -20,7 +22,8 @@ export const redirectionStep: MiddlewareStep = async (ctx, _acc) => {
   }
 
   const dest = new URL(rule.destination, ctx.url.origin);
-  dest.search = ctx.url.search;
+  dest.search = mergeSearchParams(ctx.url.searchParams, dest.searchParams);
+  dest.hash = "";
 
   return {
     response: Response.redirect(dest.toString(), rule.status),

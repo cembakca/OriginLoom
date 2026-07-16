@@ -900,6 +900,19 @@ korunur ve destination query ile birleştirilir, çakışmada destination değer
 `pathname` ve `search` alanlarını ayrı taşır. Parametreler URL-safe encode edilir; yalnız `:path*`
 birden fazla segmenti koruyabilir.
 
+Query birleştirme yalnız statik rules için yazılmaz. [`mergeSearchParams()`](../src/routing/query.ts)
+statik redirect, internal/external rewrite ve CMS redirect'in ortak utility'sidir. Kontrat:
+
+- Incoming anahtarlar korunur.
+- Destination'da bulunan anahtar incoming'deki aynı anahtarın bütün değerlerini ezer.
+- Destination'ın kendi duplicate değerleri ve sırası korunur.
+- Destination fragment'i taşınmaz; server `Location` ve proxy hedefinden silinir.
+
+Çalışan mock örneği: destination `/emekli-bankaciligi?source=legacy#cms-fragment`, request
+`/eski-emeklilik?q=kredi&source=incoming` ise sonuç
+`/emekli-bankaciligi?q=kredi&source=legacy` olur. CMS redirect kodunda
+`dest.search = ctx.url.search` kullanma.
+
 Uygulama bootstrap sırasında rule tablosunu doğrular. Duplicate veya gölgelenmiş rule, bilinmeyen
 destination parametresi, geçersiz pattern ve self-rewrite server'ın başlamasını engeller. Desteklenen
 alt küme `:param`, final `:param?` ve final `:path*` biçimleridir; koşullu ve fazlı rewrite semantiği

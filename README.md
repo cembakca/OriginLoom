@@ -87,6 +87,17 @@ Gateway'i tek başına başlatmak için:
 npm run mock-gw
 ```
 
+Çalışan CMS redirect/query merge örneği:
+
+```text
+http://127.0.0.1:3005/eski-emeklilik?q=kredi&source=incoming
+  → 301
+http://127.0.0.1:3005/emekli-bankaciligi?q=kredi&source=legacy
+```
+
+Mock destination içindeki `source=legacy` incoming değeri ezer; `q=kredi` korunur ve CMS
+destination fragment'i redirect sonucuna taşınmaz.
+
 Redis/SWR/purge davranışını production'a yakın test etmek için (opsiyonel):
 
 ```bash

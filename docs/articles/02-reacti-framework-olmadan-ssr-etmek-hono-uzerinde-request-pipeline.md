@@ -402,6 +402,20 @@ Aralarındaki fark önemlidir:
 - **Rewrite:** Tarayıcıdaki URL değişmez; route matcher başka bir internal path görür.
 - **Proxy:** Request dış bir origin’e iletilir; upstream response kullanıcıya döner.
 
+Üç kolun query semantiği de ortak olmalıdır. Incoming query korunur, fakat destination'da açıkça
+yazılmış bir anahtar aynı incoming anahtarın bütün değerlerini ezer. Bu algoritma yalnız statik
+rewrite kodunda kalırsa CMS redirect kolayca `dest.search = request.search` yapıp destination
+query'sini kaybedebilir. Bu nedenle statik redirect/rewrite/proxy ile gateway kaynaklı CMS redirect
+aynı `mergeSearchParams()` utility'sini kullanır. Destination fragment'i HTTP request'ten gelen bir
+durum olmadığı ve server-side routing kontratına dahil edilmediği için `Location` veya proxy hedefinde
+taşınmaz.
+
+```text
+mock CMS destination: /emekli-bankaciligi?source=legacy#cms-fragment
+request:              /eski-emeklilik?q=kredi&source=incoming
+result:               /emekli-bankaciligi?q=kredi&source=legacy
+```
+
 Örneğin `/emekli-bankaciligi`, internal olarak `/retirement-banking` route’una rewrite edilebilir.
 React component internal path üzerinden bulunur fakat canonical URL ve cache key tarayıcının gördüğü
 `publicPath` üzerinden kurulabilir.

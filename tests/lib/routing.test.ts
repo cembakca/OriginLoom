@@ -124,11 +124,11 @@ describe("resolveRoute", () => {
   });
 
   it("supports external redirects and merges their query", () => {
-    const result = resolveRouteWith(new URL("http://localhost/old?campaign=incoming"), {
+    const result = resolveRouteWith(new URL("http://localhost/old?q=kredi&campaign=incoming"), {
       redirects: [
         {
           source: "/old",
-          destination: "https://example.com/new?campaign=configured",
+          destination: "https://example.com/new?campaign=configured#ignored",
           status: 307,
         },
       ],
@@ -137,7 +137,7 @@ describe("resolveRoute", () => {
 
     expect(result).toEqual({
       kind: "redirect",
-      url: "https://example.com/new?campaign=configured",
+      url: "https://example.com/new?q=kredi&campaign=configured",
       status: 307,
     });
   });

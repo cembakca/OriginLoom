@@ -296,8 +296,11 @@ gizlenmez.
 
 Incoming query destination query ile birleştirilir; aynı anahtar iki tarafta da varsa açıkça yazılmış
 destination değeri kazanır. Internal rewrite sonucu `pathname` ve `search` olarak ayrı taşınır;
-query hiçbir zaman pathname içine gömülmez. Named parametreler tek path segmenti olarak encode edilir,
-yalnız `:path*` segment sınırlarını korur.
+query hiçbir zaman pathname içine gömülmez. Aynı `mergeSearchParams()` utility'si statik
+redirect/rewrite/proxy ve gateway'den gelen CMS redirect için kullanılır; iki redirect kaynağı farklı
+semantik uygulayamaz. Destination fragment'i server redirect/proxy kontratının parçası değildir ve
+`Location` üretilmeden önce silinir. Named parametreler tek path segmenti olarak encode edilir, yalnız
+`:path*` segment sınırlarını korur.
 
 Server başlamadan önce rule tablosu doğrulanır. Geçersiz pattern/destination, bilinmeyen destination
 parametresi, self-rewrite, semantik duplicate ve daha önceki redirect/catch-all tarafından tamamen

@@ -1,4 +1,5 @@
 import { applyPattern, buildExternalUrl, isExternalUrl, matchPattern } from "./pattern";
+import { mergeSearchParams } from "./query";
 import { createRewrites, redirects, rewrites } from "./rules";
 import type { RouteResolution } from "./types";
 
@@ -36,6 +37,7 @@ export function resolveRouteWith(
       : applyPattern(rule.destination, params);
     const target = new URL(dest, url.origin);
     target.search = mergeSearchParams(url.searchParams, target.searchParams);
+    target.hash = "";
 
     return {
       kind: "redirect",
@@ -67,15 +69,4 @@ export function resolveRouteWith(
   }
 
   return { kind: "none", pathname: publicPath, publicPath };
-}
-
-/** Incoming query is preserved; an explicit destination value wins for the same key. */
-function mergeSearchParams(incoming: URLSearchParams, destination: URLSearchParams): string {
-  const merged = new URLSearchParams(incoming);
-  const destinationKeys = new Set(destination.keys());
-
-  for (const key of destinationKeys) merged.delete(key);
-  for (const [key, value] of destination) merged.append(key, value);
-
-  return merged.toString();
 }

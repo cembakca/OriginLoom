@@ -112,7 +112,14 @@ const retirementBankingPage = {
 };
 
 const redirects = new Map([
-  ["/eski-emeklilik", { type: "redirect", destination: "/emekli-bankaciligi", status: 301 }],
+  [
+    "/eski-emeklilik",
+    {
+      type: "redirect",
+      destination: "/emekli-bankaciligi?source=legacy#cms-fragment",
+      status: 301,
+    },
+  ],
   ["/kaldirildi", { type: "gone" }],
 ]);
 
