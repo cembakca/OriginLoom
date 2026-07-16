@@ -33,7 +33,7 @@ export class CookieJar {
   }
 
   merge(other: CookieJar): void {
-    for (const [name, entry] of (other as unknown as { entries: Map<string, Entry> }).entries) {
+    for (const [name, entry] of other.entries) {
       this.entries.set(name, entry);
     }
   }

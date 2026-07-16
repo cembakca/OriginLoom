@@ -1,7 +1,14 @@
 import { CookieJar } from "@server/middleware/cookie-jar";
 import { runAuthCore } from "@server/middleware/steps/auth/core";
-import { isAccessTokenExpired } from "@server/middleware/steps/auth/helpers";
-import { describe, expect, it } from "vitest";
+import { isAccessTokenExpired, refreshTokens } from "@server/middleware/steps/auth/helpers";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const originalNodeEnv = process.env.NODE_ENV;
+
+afterEach(() => {
+  process.env.NODE_ENV = originalNodeEnv;
+  vi.unstubAllGlobals();
+});
 
 describe("auth helpers", () => {
   it("detects expired JWT", () => {
@@ -24,5 +31,41 @@ describe("auth helpers", () => {
     expect(jar.toHeaderStrings().some((c) => c.startsWith("access_token="))).toBe(true);
     expect(jar.toHeaderStrings().some((c) => c.startsWith("signed_in=1"))).toBe(true);
     expect(jar.toHeaderStrings().some((c) => c.startsWith("account_text="))).toBe(true);
+  });
+
+  it("fails closed when refresh fails in production", async () => {
+    process.env.NODE_ENV = "production";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+
+    const jar = new CookieJar();
+    const request = new Request("http://localhost/", {
+      headers: { cookie: "refresh_token=invalid-refresh" },
+    });
+
+    const outcome = await runAuthCore(request, jar);
+    expect(outcome.authorization).toBeUndefined();
+    expect(jar.toHeaderStrings()).toContain("refresh_token=; Max-Age=0; Path=/");
+    expect(jar.toHeaderStrings()).not.toContainEqual(expect.stringMatching(/^signed_in=1/));
+  });
+
+  it("does not share an in-flight refresh across different tokens", async () => {
+    const resolvers: Array<(response: Response) => void> = [];
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = refreshTokens("refresh-user-a");
+    const second = refreshTokens("refresh-user-b");
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    resolvers[0]?.(Response.json({ accessToken: "access-a", refreshToken: "rotated-a" }));
+    resolvers[1]?.(Response.json({ accessToken: "access-b", refreshToken: "rotated-b" }));
+
+    await expect(first).resolves.toEqual({ access: "access-a", refresh: "rotated-a" });
+    await expect(second).resolves.toEqual({ access: "access-b", refresh: "rotated-b" });
   });
 });

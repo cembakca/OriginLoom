@@ -1,4 +1,5 @@
 import { assetCdnOrigin } from "@server/assets";
+import { buildShellData } from "@server/services/shell-data";
 import { renderToString } from "react-dom/server";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
@@ -6,7 +7,7 @@ import { HeadClient } from "~/components/head/head-client";
 import { MetadataHead } from "~/components/head/metadata-head";
 import { RootLayout } from "~/components/layout/root-layout";
 import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
-import { buildShellData, defaultPageMeta } from "~/lib/shell-data";
+import { defaultPageMeta } from "~/lib/shell-data";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx, Route } from "~/lib/types";
 

@@ -1,94 +1,98 @@
 # ssr-kit
 
-Full-document React SSR. No meta-framework, no RSC, no route classification.
+Hono ve React 19 üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı.
 
-## The whole idea
+## Mimari
 
-Four steps. All four are your code.
+Bir sayfa isteği sırasıyla şu katmanlardan geçer:
 
-1. Hono hands you the standard `Request`
-2. A plain function reads cookies/headers/query from it and fetches data
-3. `renderToString` turns the data into HTML
-4. You return the HTML
+1. Hono request-id ve güvenlik middleware'lerini çalıştırır.
+2. Auth, session ve CMS redirection pipeline'ı request'i zenginleştirir.
+3. Routing katmanı redirect, internal rewrite veya gateway proxy kararı verir.
+4. Route cache policy hesaplanır; uygun GET isteğinde HTML cache okunur.
+5. MISS durumunda loader çalışır ve React document render edilir.
+6. Etkileşimli alanlar bağımsız island chunk'ları olarak hydrate/mount edilir.
 
-There is no layer that watches what you read from the `Request`. Reading a
-cookie is exactly as consequential as `JSON.parse` — it cannot have a side
-effect, because no code exists to produce one.
+## Dizinler
 
-## The contract
+```text
+server/
+  adapters/       Gateway gibi dış sistem adapter'ları
+  api/            Public ve internal BFF endpointleri
+  cache/          Memory/Redis cache implementasyonları
+  middleware/     Request pipeline adımları
+  routes/         Loader, cache ve metadata içeren SSR route tanımları
+  services/       Server-only veri orkestrasyonu
+  handler.ts      Route çözümleme, cache ve render akışı
+  document.tsx    Tam HTML document render'ı
+
+src/
+  routes/         Route'ların SSR-safe sunum/shell bileşenleri
+  islands/        Client-side etkileşim giriş noktaları
+  components/     SSR-safe UI bileşenleri
+  lib/            Paylaşılan saf tip, kontrat ve yardımcılar
+
+tests/            src ve server yapısını izleyen Vitest testleri
+```
+
+## Route kontratı
 
 ```ts
 type Route<T> = {
   path: string;
-  cache?: (ctx) => CachePolicy; // pure, sync, runs BEFORE the loader
-  loader: (ctx) => Promise<{ data: T }>;
+  cache?: (ctx: Ctx) => CachePolicy;
+  loader: (ctx: Ctx) => Promise<{ data: T; status?: number }>;
   Component: (props: { data: T }) => ReactElement;
 };
 ```
 
-`cache()` is the entire caching mechanism. It sees the `Request` and returns a
-key. Whatever is in the key fragments the cache. Whatever is not in the key
-does not. Omit `cache()` and the route is never cached — nothing to opt out of.
+Cache key yalnızca normalize edilmiş, HTML çıktısını gerçekten değiştiren değerlerden oluşturulmalıdır. Auth token veya kullanıcıya özel veri ortak HTML cache'e girmez.
 
-See `src/routes/loan-compare.tsx`: it reads two cookies and three headers.
-`theme` is in the key, so two HTML variants exist. `sid` is not, so signed-in
-and anonymous visitors are served the same cached bytes.
+## Geliştirme
 
-Per-user content lives in `<Island mode="defer">` — the server never renders
-it, so it never enters the cached HTML.
+```bash
+npm ci
+npm run dev
+```
 
-## Files
+Uygulama varsayılan olarak `http://localhost:3005` adresinde çalışır.
 
-    server/
-      index.ts      Hono. 25 lines. c.req.raw is the standard Request.
-      handler.ts    The pipeline. Read it top to bottom; there is nothing else.
-      document.tsx  renderToString of <html>. One <script> tag. No payload.
-      cache.ts      HTML cache. Swap the Map for Redis to share across pods.
-    src/
-      lib/types.ts    The contract above.
-      lib/match.ts    The router. 30 lines.
-      lib/request.ts  cookie() / device() / locale(). Nothing clever.
-      lib/island.tsx  hydrate | defer
-      entry.client.tsx  Island mounter. import.meta.glob -> one chunk per island.
-      routes/         Route table + three example routes.
-      islands/        One file per island.
+## Kontroller
 
-~450 lines total, including examples.
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+npm run test:coverage
+npm run build
+npm run ci
+```
 
-## Run
+## Ortam değişkenleri
 
-    npm install
-    npm run build      # vite builds ONLY the client islands
-    npm start          # http://localhost:3005
+Temel değişkenler:
 
-    npm run dev        # vite --watch + tsx watch
+- `PORT` — HTTP portu, varsayılan `3005`
+- `GATEWAY_URL` — backend gateway adresi
+- `CACHE_BACKEND` — `memory` veya `redis`; production yalnızca `redis` kabul eder
+- `CACHE_REQUIRED` — `true` ise Redis problemi readiness'i başarısız yapar; varsayılan fail-open
+- `REDIS_URL` — Redis seçildiğinde zorunlu
+- `CACHE_MAX_ENTRIES` — memory cache kapasitesi
+- `CACHE_PURGE_SECRET` — production purge endpoint yetkilendirmesi
+- `MENU_CACHE_TTL` / `MENU_CACHE_SWR` — menü cache süreleri
+- `SITE_URL` — canonical URL tabanı
+- `RELEASE_ID` — release/Git SHA; Redis HTML cache namespace'i
+- `GATEWAY_TIMEOUT_MS` — gateway/proxy timeout'u
+- `PROXY_BODY_LIMIT_BYTES` — `/api/*` istek gövdesi üst sınırı
+- `TRUST_PROXY` — yalnızca güvenilir ingress arkasında forwarded IP header'larını etkinleştirir
+- `REDIRECT_ALLOWED_HOSTS` — virgülle ayrılmış harici redirect host allowlist'i
+- `REDIRECT_CACHE_MAX_ENTRIES` — redirect lookup cache üst sınırı
+- `SWR_REVALIDATION_ATTEMPTS` — background revalidation toplam deneme sayısı
+- `SWR_REVALIDATION_BACKOFF_MS` — retry için başlangıç backoff süresi
+- `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında aktif revalidation bekleme süresi
+- `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
 
-## Verify the claim
+Runtime mock'ları yalnızca `development` ve `test` ortamlarında çalışır. Production gateway hataları mock içerik veya sahte oturum üretmez.
 
-    # anonymous
-    curl -sD- -o/dev/null 'localhost:3005/ihtiyac-kredisi/istanbul?amount=75000' | grep x-cache
-    # -> MISS, then HIT
-
-    # same URL with a session cookie
-    curl -sD- -o/dev/null -H 'Cookie: sid=abc' 'localhost:3005/ihtiyac-kredisi/istanbul?amount=75000' | grep x-cache
-    # -> HIT.  The cookie was read. Nothing was demoted.
-
-    # a cookie you deliberately put in the key
-    curl -sD- -o/dev/null -H 'Cookie: theme=dark' 'localhost:3005/ihtiyac-kredisi/istanbul?amount=75000' | grep x-cache
-    # -> MISS. Because you asked for it.
-
-## Measured on this scaffold (1 core, Node 22)
-
-    renderToString, loan page      168 µs   -> ~5,900 renders/s/thread
-    HTTP, cache hit                         ~14,000 req/s
-    HTML size                      1.4 KB   1 <script> tag, no inline payload
-
-## What you have to build yourself
-
-    next/image      -> imgproxy sidecar + an <Img> wrapper
-    next/font       -> @fontsource + manual <link rel=preload>
-    i18n routing    -> strip the prefix before match(). ~40 lines.
-    link prefetch   -> not present. public pages are MPA by design.
-    error boundary  -> wrap handle() in try/catch, render an error route
-
-This is the real cost. A few hundred lines, times 14 projects, maintained by you.
+Detaylı cache ve geliştirme kuralları için [docs/conventions.md](docs/conventions.md) belgesine bakın.

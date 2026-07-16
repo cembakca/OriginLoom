@@ -1,3 +1,4 @@
+import { runtimeMocksEnabled } from "@server/config";
 import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
 import { runAuthCore } from "@server/middleware/steps/auth/core";
 import {
@@ -47,7 +48,10 @@ export async function forceTokenRefresh(request: Request): Promise<BffAuthResult
   }
 
   let refreshed = await refreshTokens(tokens.refresh);
-  if (!refreshed) refreshed = mockRefresh(tokens.refresh);
+  if (!refreshed && runtimeMocksEnabled()) refreshed = mockRefresh(tokens.refresh);
+  if (!refreshed) {
+    return { request, cookies: jar, authorized: false };
+  }
 
   setTokenCookies(jar, refreshed.access, refreshed.refresh);
   setSessionCookies(jar, { displayName: displayNameFromAccess(refreshed.access) });

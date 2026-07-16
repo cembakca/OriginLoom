@@ -4,7 +4,7 @@ import {
   parseListKeysQuery,
   parsePurgeBody,
 } from "@server/cache/purge";
-import { config } from "@server/config";
+import { config, purgeSecurityConfig } from "@server/config";
 import type { AppVariables } from "@server/middleware/request-id";
 import type { Context } from "hono";
 
@@ -17,8 +17,7 @@ function json(data: unknown, status = 200): Response {
 
 /** Bearer veya X-Cache-Purge-Token ile doğrulama. Prod'da secret zorunlu. */
 export function assertPurgeAuthorized(request: Request): Response | null {
-  const secret = process.env.CACHE_PURGE_SECRET;
-  const isProduction = (process.env.NODE_ENV ?? "development") === "production";
+  const { secret, isProduction } = purgeSecurityConfig();
 
   if (!secret) {
     if (isProduction) {

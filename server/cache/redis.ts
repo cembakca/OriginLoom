@@ -1,3 +1,4 @@
+import { logger } from "@server/logger";
 import Redis from "ioredis";
 
 import type { CachePolicy } from "~/lib/types";
@@ -6,10 +7,19 @@ import type { CacheEntry, CacheStore, ListKeysOptions, ListKeysResult } from "./
 
 export class RedisStore implements CacheStore {
   private redis: Redis;
-  private readonly prefix = "ssr:";
+  private readonly prefix: string;
 
-  constructor(url: string) {
-    this.redis = new Redis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+  constructor(url: string, namespace = "development") {
+    this.redis = new Redis(url, {
+      maxRetriesPerRequest: 1,
+      lazyConnect: true,
+      enableOfflineQueue: false,
+      connectTimeout: 2_000,
+    });
+    this.redis.on("error", (error) => {
+      logger.warn("redis connection error", { error: error.message });
+    });
+    this.prefix = `ssr:${encodeURIComponent(namespace)}:`;
   }
 
   private redisKey(key: string): string {
@@ -24,7 +34,18 @@ export class RedisStore implements CacheStore {
     const raw = await this.redis.get(this.redisKey(key));
     if (!raw) return null;
 
-    const entry = JSON.parse(raw) as CacheEntry;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      await this.redis.del(this.redisKey(key));
+      return null;
+    }
+    if (!isCacheEntry(parsed)) {
+      await this.redis.del(this.redisKey(key));
+      return null;
+    }
+    const entry = parsed;
     const now = Date.now();
     if (now < entry.freshUntil) return { body: entry.body, state: "fresh" };
     if (now < entry.staleUntil) return { body: entry.body, state: "stale" };
@@ -102,8 +123,36 @@ export class RedisStore implements CacheStore {
     return (await this.redis.ping()) === "PONG";
   }
 
+  async acquireLock(key: string, ttlMs: number): Promise<string | null> {
+    const token = crypto.randomUUID();
+    const result = await this.redis.set(`${this.prefix}lock:${key}`, token, "PX", ttlMs, "NX");
+    return result === "OK" ? token : null;
+  }
+
+  async releaseLock(key: string, token: string): Promise<void> {
+    await this.redis.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      1,
+      `${this.prefix}lock:${key}`,
+      token,
+    );
+  }
+
   async close(): Promise<void> {
     if (this.redis.status === "end") return;
-    await this.redis.quit();
+    if (this.redis.status === "ready") await this.redis.quit();
+    else this.redis.disconnect();
   }
+}
+
+function isCacheEntry(value: unknown): value is CacheEntry {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Record<string, unknown>;
+  return (
+    typeof entry.body === "string" &&
+    typeof entry.freshUntil === "number" &&
+    Number.isFinite(entry.freshUntil) &&
+    typeof entry.staleUntil === "number" &&
+    Number.isFinite(entry.staleUntil)
+  );
 }

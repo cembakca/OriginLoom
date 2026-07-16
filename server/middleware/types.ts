@@ -8,6 +8,7 @@ export type PipelineContext = {
   pathname: string;
   publicPath: string;
   requestId?: string;
+  clientIp: string;
 };
 
 export type CookieOptions = {

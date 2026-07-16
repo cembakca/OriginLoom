@@ -1,4 +1,4 @@
-import type { BlogOrderBy } from "~/services/blogs";
+import type { BlogOrderBy } from "~/lib/contracts/blogs";
 
 export const queryKeys = {
   blogs: {

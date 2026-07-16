@@ -1,4 +1,4 @@
-import { getPaginatedBlogs, parseOrderByParam, parsePageParam } from "~/services/blogs";
+import { getPaginatedBlogs, parseOrderByParam, parsePageParam } from "@server/services/blogs";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {

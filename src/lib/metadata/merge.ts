@@ -1,4 +1,3 @@
-import { env } from "~/lib/env";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx } from "~/lib/types";
 
@@ -28,8 +27,8 @@ function robotsTag(
 
 /** Layout metadata ⊎ page metadata → final head values. Page alanları layout'u ezer. */
 export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): ResolvedMetadata {
-  const site = siteMetadata;
-  const base = env.siteUrl;
+  const base = ctx.siteUrl ?? ctx.url.origin;
+  const site = siteMetadata(base);
 
   const title = formatTitle(page?.title, site);
   const description = page?.description ?? site.description;

@@ -21,6 +21,8 @@ export interface CacheStore {
   deleteByPrefix(prefix: string): Promise<number>;
   flushAll(): Promise<number>;
   listKeys(options: ListKeysOptions): Promise<ListKeysResult>;
+  acquireLock?(key: string, ttlMs: number): Promise<string | null>;
+  releaseLock?(key: string, token: string): Promise<void>;
   ping?(): Promise<boolean>;
   close?(): Promise<void>;
 }

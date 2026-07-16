@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { ClientApiError, clientApiFetch } from "~/lib/client/api-fetch";
+import type { AccountSummary } from "~/lib/contracts/account";
 import { queryKeys } from "~/lib/query/keys";
-import type { AccountSummary } from "~/services/account";
 
 export function fetchAccountSummaryApi(): Promise<AccountSummary> {
   return clientApiFetch<AccountSummary>("/api/internal/account/summary");

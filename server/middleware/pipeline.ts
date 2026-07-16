@@ -8,12 +8,17 @@ import type { MiddlewareStep, PipelineResult } from "./types";
 
 const pipelineSteps: MiddlewareStep[] = [authStep, sessionStep, redirectionStep];
 
-export async function runPipeline(request: Request, requestId?: string): Promise<PipelineResult> {
+export async function runPipeline(
+  request: Request,
+  requestId: string | undefined,
+  clientIp: string,
+): Promise<PipelineResult> {
   const url = new URL(request.url);
   const ctx = {
     url,
     pathname: url.pathname,
     publicPath: url.pathname,
+    clientIp,
     ...(requestId !== undefined ? { requestId } : {}),
   };
 

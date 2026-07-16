@@ -1,5 +1,6 @@
 import { neverCache, sharedUnlessBypass } from "~/lib/cache-policy";
 import { contentQueryCacheFragment, type ContentQueryConfig } from "~/lib/cache-query-params";
+import { parseLoanAmount, parsePage, parseTheme } from "~/lib/content-values";
 import { Cookie } from "~/lib/cookies";
 import type { DeviceType } from "~/lib/device";
 import { deviceCacheFragment } from "~/lib/device";
@@ -32,15 +33,17 @@ export type PageCacheDefinition = {
   /** SSR HTML'i değiştiren query param allowlist — utm/gclid vb. asla ekleme. */
   contentQueryParams?: readonly string[];
   contentQueryDefaults?: Record<string, string>;
+  contentQueryNormalize?: ContentQueryConfig["normalize"];
   buildKey: (ctx: Ctx) => string[];
 };
 
 const DEFAULT_TTL = 300;
-const DEFAULT_SWR = 86_400;
+const DEFAULT_SWR = 3_600;
 
 function queryPart(entry: PageCacheDefinition, ctx: Ctx): string {
   const config: ContentQueryConfig = { include: entry.contentQueryParams! };
   if (entry.contentQueryDefaults) config.defaults = entry.contentQueryDefaults;
+  if (entry.contentQueryNormalize) config.normalize = entry.contentQueryNormalize;
   return contentQueryCacheFragment(ctx, config);
 }
 
@@ -62,6 +65,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     contentQueryParams: ["amount"],
     contentQueryDefaults: { amount: "50000" },
+    contentQueryNormalize: { amount: (raw) => String(parseLoanAmount(raw)) },
     buildKey: (ctx) => {
       const entry = pageCacheRegistry[PageCacheId.loanCompare];
       return [
@@ -70,7 +74,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
         queryPart(entry, ctx),
         deviceCacheFragment(ctx.request),
         locale(ctx.request),
-        cookie(ctx.request, Cookie.theme) ?? "light",
+        parseTheme(cookie(ctx.request, Cookie.theme)),
         layoutCacheFragment(ctx),
       ];
     },
@@ -83,6 +87,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     contentQueryParams: ["page"],
     contentQueryDefaults: { page: "1" },
+    contentQueryNormalize: { page: (raw) => String(parsePage(raw)) },
     buildKey: (ctx) => {
       const entry = pageCacheRegistry[PageCacheId.blogsPaginated];
       return [
@@ -175,12 +180,20 @@ export function listPageCachePrefixes(): Array<{
 
 export const CACHE_KEY_SEP = "\0";
 
+function escapePart(part: string): string {
+  return part.replaceAll("%", "%25").replaceAll(CACHE_KEY_SEP, "%00");
+}
+
+function unescapePart(part: string): string {
+  return part.replaceAll("%00", CACHE_KEY_SEP).replaceAll("%25", "%");
+}
+
 export function formatCacheKey(parts: string[]): string {
-  return parts.join(CACHE_KEY_SEP);
+  return parts.map(escapePart).join(CACHE_KEY_SEP);
 }
 
 export function parseCacheKey(key: string): string[] {
-  return key.split(CACHE_KEY_SEP);
+  return key.split(CACHE_KEY_SEP).map(unescapePart);
 }
 
 /** Purge API / operasyon için okunabilir gösterim (kopyalanabilir). */

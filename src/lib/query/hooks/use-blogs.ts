@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { clientApiFetch } from "~/lib/client/api-fetch";
+import type { BlogOrderBy, PaginatedBlogs } from "~/lib/contracts/blogs";
 import { queryKeys } from "~/lib/query/keys";
-import type { BlogOrderBy, PaginatedBlogs } from "~/services/blogs";
 
 type BlogsQueryParams = {
   page: number;

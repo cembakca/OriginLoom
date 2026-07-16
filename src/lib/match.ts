@@ -24,7 +24,13 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
       const name = p.slice(1).replace(/\?$/, "");
       if (i < seg.length) {
         const segment = seg[i++];
-        if (segment !== undefined) params[name] = decodeURIComponent(segment);
+        if (segment !== undefined) {
+          try {
+            params[name] = decodeURIComponent(segment);
+          } catch {
+            return null;
+          }
+        }
       } else if (!optional) return null;
     } else {
       if (seg[i] !== p) return null;

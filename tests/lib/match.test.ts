@@ -32,6 +32,10 @@ describe("match", () => {
     expect(match(routes, "/unknown")).toBeNull();
   });
 
+  it("treats malformed percent-encoded params as no match", () => {
+    expect(match(routes, "/blog/%E0%A4%A")).toBeNull();
+  });
+
   it("returns first match in route table order", () => {
     const ordered = [stub("/a/:id"), stub("/a/special")];
     expect(match(ordered, "/a/special")?.route.path).toBe("/a/:id");

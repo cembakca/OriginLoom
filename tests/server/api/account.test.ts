@@ -1,7 +1,14 @@
 import { handleAccountSummaryApi } from "@server/api/internal/account";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Cookie } from "~/lib/cookies";
+
+const originalNodeEnv = process.env.NODE_ENV;
+
+afterEach(() => {
+  process.env.NODE_ENV = originalNodeEnv;
+  vi.unstubAllGlobals();
+});
 
 describe("account summary API", () => {
   it("returns 401 without auth cookie", async () => {
@@ -46,5 +53,18 @@ describe("account summary API", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("set-cookie")).toMatch(/access_token=/);
+  });
+
+  it("returns 401 instead of mock account data when gateway rejects production token", async () => {
+    process.env.NODE_ENV = "production";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+
+    const res = await handleAccountSummaryApi(
+      new Request("http://localhost/api/internal/account/summary", {
+        headers: { cookie: `${Cookie.accessToken}=arbitrary-token` },
+      }),
+    );
+
+    expect(res.status).toBe(401);
   });
 });

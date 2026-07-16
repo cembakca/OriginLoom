@@ -46,6 +46,19 @@ describe("cache-query-params", () => {
     expect(fragment).toBe("page=1");
   });
 
+  it("normalizes equivalent values before building the cache key", () => {
+    const normalize = { amount: (value: string | null) => String(Number(value ?? 50_000)) };
+    const first = contentQueryCacheFragment(ctx("http://localhost/?amount=50000"), {
+      include: ["amount"],
+      normalize,
+    });
+    const second = contentQueryCacheFragment(ctx("http://localhost/?amount=5e4"), {
+      include: ["amount"],
+      normalize,
+    });
+    expect(first).toBe(second);
+  });
+
   it("ignores utm for same page cache key", () => {
     const a = contentQueryCacheFragment(ctx("http://localhost/blogs/paginated?page=1&utm=a"), {
       include: ["page"],

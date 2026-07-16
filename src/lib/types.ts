@@ -3,6 +3,18 @@ import type { ReactElement } from "react";
 import type { PageAnalyticsMeta } from "./analytics/types";
 import type { PageMetadata } from "./metadata/types";
 
+type RouteComponent<T> = {
+  bivarianceHack(props: { data: T }): ReactElement;
+}["bivarianceHack"];
+
+type RouteDataCallback<T, R> = {
+  bivarianceHack(data: T, ctx: Ctx): R;
+}["bivarianceHack"];
+
+type RouteTitleCallback<T> = {
+  bivarianceHack(data: T): string;
+}["bivarianceHack"];
+
 /**
  * Everything a route is allowed to know about the incoming request.
  * `request` is the standard WHATWG Request. There is no wrapper, no proxy,
@@ -15,6 +27,8 @@ export type Ctx = {
   url: URL;
   /** Browser-visible path before rewrite. Use in cache keys and canonical URLs. */
   publicPath: string;
+  /** Public origin injected by the server; used for canonical/OG URLs. */
+  siteUrl?: string;
   /** Set by session middleware when pipeline runs. */
   trackingId?: string;
 };
@@ -50,19 +64,19 @@ export type Route<T = unknown> = {
   /** Runs on cache miss. Free to be async and to hit your API. */
   loader: (ctx: Ctx) => Promise<LoaderResult<T>>;
 
-  Component: (props: { data: T }) => ReactElement;
+  Component: RouteComponent<T>;
 
   /**
    * Route SEO override (Next.js generateMetadata karşılığı).
    * Loader'dan gelen seoInfo ile beslenir — ayrı fetch yapma.
    */
-  generateMetadata?: (data: T, ctx: Ctx) => PageMetadata;
+  generateMetadata?: RouteDataCallback<T, PageMetadata>;
 
   /** @deprecated Prefer generateMetadata */
-  title?: (data: T) => string;
+  title?: RouteTitleCallback<T>;
 
   /** GTM page-view metadata — cache-safe fields only (no trackingId / tokens). */
-  pageMeta?: (data: T, ctx: Ctx) => PageAnalyticsMeta;
+  pageMeta?: RouteDataCallback<T, PageAnalyticsMeta>;
 
   /** Minimal chrome for redirect / terminal routes. */
   minimalChrome?: boolean;

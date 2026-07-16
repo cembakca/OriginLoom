@@ -15,6 +15,7 @@ vi.mock("ioredis", () => ({
     ping: vi.fn(async () => "PONG"),
     connect: vi.fn(async () => {}),
     quit: vi.fn(async () => {}),
+    on: vi.fn(),
   })),
 }));
 
@@ -36,5 +37,12 @@ describe("RedisStore", () => {
   it("pings successfully", async () => {
     const store = new RedisStore("redis://localhost:6379");
     await expect(store.ping()).resolves.toBe(true);
+  });
+
+  it("deletes malformed entries and treats them as a miss", async () => {
+    redisData.set("ssr:development:broken", "not-json");
+    const store = new RedisStore("redis://localhost:6379");
+    await expect(store.read("broken")).resolves.toBeNull();
+    expect(redisData.has("ssr:development:broken")).toBe(false);
   });
 });

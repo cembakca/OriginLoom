@@ -1,3 +1,4 @@
+import { runtimeMocksEnabled } from "@server/config";
 import type { CookieJar } from "@server/middleware/cookie-jar";
 
 import {
@@ -22,7 +23,11 @@ export async function runAuthCore(request: Request, jar: CookieJar): Promise<Aut
 
   if (isAccessTokenExpired(access) && tokens.refresh) {
     let refreshed = await refreshTokens(tokens.refresh);
-    if (!refreshed) refreshed = mockRefresh(tokens.refresh);
+    if (!refreshed && runtimeMocksEnabled()) refreshed = mockRefresh(tokens.refresh);
+    if (!refreshed) {
+      clearTokenCookies(jar);
+      return { cookies: jar };
+    }
     access = refreshed.access;
     setTokenCookies(jar, refreshed.access, refreshed.refresh);
   } else if (!access && !tokens.refresh) {

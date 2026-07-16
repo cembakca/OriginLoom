@@ -6,17 +6,19 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 
 ## Klasör yapısı
 
-| Dizin                   | Amaç                                                             |
-| ----------------------- | ---------------------------------------------------------------- |
-| `src/routes/{name}/`    | Sayfa klasörü — `index.tsx` içinde `defineRoute()` export edilir |
-| `src/islands/`          | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir  |
-| `src/components/`       | Paylaşılan SSR-güvenli UI (hook yok)                             |
-| `src/assets/svg/`       | SVG kaynakları — `npm run icons` ile TSX'e dönüşür               |
-| `src/components/icons/` | Otomatik üretilen icon bileşenleri (elle düzenleme)              |
-| `src/services/`         | Veri katmanı — loader ve API handler'lar burayı çağırır          |
-| `src/lib/`              | Saf yardımcılar (router, tipler, request helper'ları)            |
-| `server/`               | HTTP runtime — Vite'dan geçmez                                   |
-| `tests/`                | `server/` ve `src/lib/` yapısını yansıtır                        |
+| Dizin                   | Amaç                                                            |
+| ----------------------- | --------------------------------------------------------------- |
+| `server/routes/`        | Loader, cache, metadata ve route tablosu                        |
+| `src/routes/{name}/`    | Route'a özel SSR-safe sunum/shell bileşenleri                   |
+| `src/islands/`          | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir |
+| `src/components/`       | Paylaşılan SSR-güvenli UI (hook yok)                            |
+| `src/assets/svg/`       | SVG kaynakları — `npm run icons` ile TSX'e dönüşür              |
+| `src/components/icons/` | Otomatik üretilen icon bileşenleri (elle düzenlenmez)           |
+| `src/lib/`              | Saf yardımcılar, kontratlar ve request helper'ları              |
+| `server/adapters/`      | Gateway ve dış sistem adapter'ları                              |
+| `server/services/`      | Cache/gateway kullanan server-only veri orkestrasyonu           |
+| `server/`               | HTTP runtime — production'da Vite ile Node.js bundle'ı olur     |
+| `tests/`                | `server/` ve `src/lib/` yapısını yansıtır                       |
 
 ## İsimlendirme
 
@@ -27,10 +29,10 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 
 ## Yeni sayfa (route) ekleme
 
-1. `src/routes/{feature}/index.tsx` oluştur — `defineRoute()` kullan
-2. Gerekirse aynı klasörde `components.tsx` ile SSR markup ekle
-3. Ağır loader mantığını `loader.ts`'e ayır (isteğe bağlı)
-4. `src/routes/index.ts`'e kaydet — sıra önemli (ilk eşleşen kazanır)
+1. `server/routes/{feature}.tsx` oluştur — `defineRoute()` kullan
+2. Sunum bileşenlerini `src/routes/{feature}/components.tsx` içinde tut
+3. Veri erişimini `server/services/` üzerinden yap
+4. `server/routes/index.ts`'e kaydet — sıra önemli (ilk eşleşen kazanır)
 5. Etkileşim için: `src/islands/{name}.tsx` + route içinde `<Island />`
 
 ## Yeni island ekleme
@@ -66,12 +68,13 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 
 1. `server/api/{name}.ts` — handler fonksiyonu
 2. `server/api/index.ts` içinde mount et
-3. `src/services/` çağır — route loader ile mantığı paylaş
+3. Server-side orkestrasyon gerekiyorsa `server/services/` çağır
 
 ## Servis ekleme
 
-1. `src/services/{domain}.ts` — yalnızca async fonksiyonlar + tipler
-2. Route loader ve API handler'lardan import et
+1. Paylaşılan kontratları `src/lib/contracts/` altında tut
+2. Tüm servis implementasyonlarını `server/services/` altında tut
+3. Client/island kodu yalnızca kontratları kullanır; server servisi import etmez
 
 ---
 
@@ -98,11 +101,11 @@ Aynı Redis instance (veya geliştirmede bellek store) **iki ayrı cache katman�
 | **HTML cache**     | SSR ile üretilmiş tam sayfa HTML'i  | `home\0tr\0desktop` (route parçaları `\0` ile birleşir) | Route başına (ör. 300s – 3600s)      |
 | **Menü API cache** | Gateway'den gelen `IMenuItems` JSON | `menu:Desktop` / `menu:Tablet` / `menu:Mobile`          | `MENU_CACHE_TTL` (varsayılan 4 saat) |
 
-Redis'teki fiziksel key'ler `ssr:` öneki ile saklanır (`server/cache/redis.ts`):
+Redis'teki fiziksel key'ler release bazlı `ssr:<release-id>:` namespace'i ile saklanır (`server/cache/redis.ts`):
 
 ```
-ssr:home\0tr\0desktop     → HTML gövdesi + freshUntil / staleUntil
-ssr:menu:Desktop          → menü JSON
+ssr:<release-id>:home\0tr\0desktop     → HTML gövdesi + freshUntil / staleUntil
+ssr:<release-id>:menu:Desktop          → menü JSON
 ```
 
 ### Bellek vs Redis
@@ -118,9 +121,13 @@ ssr:menu:Desktop          → menü JSON
 CACHE_BACKEND=redis          # memory | redis
 REDIS_URL=redis://redis:6379 # redis seçiliyken zorunlu
 CACHE_MAX_ENTRIES=2000       # yalnızca memory backend
+CACHE_REQUIRED=false         # true ise Redis readiness için zorunlu
 CACHE_PURGE_SECRET=...       # prod'da purge API için zorunlu
 MENU_CACHE_TTL=14400         # menü cache süresi (saniye)
 MENU_CACHE_SWR=86400         # menü stale-while-revalidate (saniye)
+SWR_REVALIDATION_ATTEMPTS=3
+SWR_REVALIDATION_BACKOFF_MS=250
+SWR_DRAIN_TIMEOUT_MS=5000
 ```
 
 Docker Compose (`docker-compose.yml`) Redis'i ayağa kaldırır; app servisi `REDIS_URL=redis://redis:6379` ile bağlanır. Sağlık kontrolü: `GET /readyz` cache ping'i yapar (`pingCache()`).
@@ -128,6 +135,8 @@ Docker Compose (`docker-compose.yml`) Redis'i ayağa kaldırır; app servisi `RE
 ### Bellek mi Redis mi? (route bazlı değil)
 
 `CACHE_BACKEND` **tüm uygulama için tek** bir ayardır — HTML cache ve menü cache aynı store'u kullanır. Route bazında “bu sayfa memory, şu sayfa redis” ayrımı yoktur.
+
+Production config `memory` backend'i reddeder. Redis erişilemezse adapter memory store'a düşmez; read/write fail-open davranıp cache miss üretirken ioredis yeniden bağlanmayı sürdürür. Böylece birden fazla pod bağımsız cache üretmez. SWR işleri Redis lock ile podlar arasında tekilleştirilir, retry/backoff uygular ve graceful shutdown sırasında drain edilir.
 
 | Soru                                    | Cevap                                                                                                       |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -180,7 +189,7 @@ Yeni sayfa eklerken:
 | `recourse-redirect`      | `/recourse/:page/redirect` | shared    | `recourse-redirect`, page, publicPath                               | 300s  |
 | `account`                | `/hesabim`                 | **never** | — (cache'e yazılmaz)                                                | —     |
 
-Mantıksal key = parçaların `\0` (null) ile birleşimi. Örnek ana sayfa: `home\0tr\0desktop`. Redis fiziksel key: `ssr:home\0tr\0desktop`.
+Mantıksal key = escape edilmiş parçaların `\0` (null) ile birleşimi. Örnek ana sayfa: `home\0tr\0desktop`. Redis fiziksel key: `ssr:<release-id>:home\0tr\0desktop`.
 
 #### Menü cache
 
@@ -190,7 +199,7 @@ Mantıksal key = parçaların `\0` (null) ile birleşimi. Örnek ana sayfa: `hom
 | `menu:Tablet`  | GW menü JSON (tablet)                | `MENU_CACHE_TTL` |
 | `menu:Mobile`  | GW menü JSON (mobile)                | `MENU_CACHE_TTL` |
 
-Menü fetch: [`src/services/menu.ts`](../src/services/menu.ts) — `menuCacheKey()` import eder, key tanımını tekrarlamaz.
+Menü fetch: [`server/services/menu.ts`](../server/services/menu.ts) — `menuCacheKey()` import eder, key tanımını tekrarlamaz.
 
 #### Key parçası kuralları
 
@@ -228,15 +237,15 @@ Yani TTL dolunca cache anında “kırılmaz”; önce stale servis, arka planda
 
 ### Dosyalar
 
-| Dosya                     | Rol                                                    |
-| ------------------------- | ------------------------------------------------------ |
-| `server/cache/index.ts`   | Store seçimi (memory / redis), read / write / cacheKey |
-| `server/cache/redis.ts`   | ioredis adapter, `ssr:` prefix                         |
-| `server/cache/memory.ts`  | Geliştirme için in-memory adapter                      |
-| `src/lib/cache-keys.ts`   | Merkezi cache key registry + `pageCachePolicy`         |
-| `src/lib/cache-policy.ts` | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)  |
-| `src/services/menu.ts`    | Menü fetch + aynı cache store kullanımı                |
-| `server/handler.ts`       | Cache okuma, SWR revalidate, MISS'te render            |
+| Dosya                     | Rol                                                            |
+| ------------------------- | -------------------------------------------------------------- |
+| `server/cache/index.ts`   | Store seçimi (memory / redis), read / write / cacheKey         |
+| `server/cache/redis.ts`   | ioredis adapter, release bazlı `ssr:<release-id>:` namespace'i |
+| `server/cache/memory.ts`  | Geliştirme için in-memory adapter                              |
+| `src/lib/cache-keys.ts`   | Merkezi cache key registry + `pageCachePolicy`                 |
+| `src/lib/cache-policy.ts` | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)          |
+| `server/services/menu.ts` | Menü fetch + aynı cache store kullanımı                        |
+| `server/handler.ts`       | Cache okuma, SWR revalidate, MISS'te render                    |
 
 ---
 
@@ -291,12 +300,12 @@ Docker ortamında:
 docker compose exec redis redis-cli
 
 # Tüm ssr cache'ini sil (dikkat: menü + tüm sayfa HTML)
-KEYS ssr:*
+KEYS ssr:<release-id>:*
 # veya production'da SCAN kullan:
-SCAN 0 MATCH ssr:* COUNT 100
+SCAN 0 MATCH ssr:<release-id>:* COUNT 100
 
 # Tek key sil (key içinde \0 karakteri olabilir — KEYS çıktısından kopyala)
-DEL "ssr:menu:Desktop"
+DEL "ssr:<release-id>:menu:Desktop"
 
 # Geliştirme ortamında her şeyi sıfırla
 FLUSHDB
@@ -317,7 +326,7 @@ HTML cache key tanımı [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) içi
 Yayın sonrası o sayfayı hemen tazelemek için purge API ile prefix veya tam key kullan. Prefix için ilk segment (`home`, `loan`, `menu:` …) yeterlidir; [`listPageCachePrefixes()`](../src/lib/cache-keys.ts) operasyon referansıdır.
 
 ```bash
-docker compose exec redis redis-cli DEL "ssr:menu:Desktop" "ssr:menu:Tablet" "ssr:menu:Mobile"
+docker compose exec redis redis-cli DEL "ssr:docker-compose:menu:Desktop" "ssr:docker-compose:menu:Tablet" "ssr:docker-compose:menu:Mobile"
 ```
 
 Menü ve layout değiştiyse hem menü key'lerini hem ilgili HTML key'lerini silmek gerekir.
@@ -476,7 +485,7 @@ Tablet → mobile shell; API'ye yine `Tablet` gider.
 
 | Dosya                           | Rol                                                      |
 | ------------------------------- | -------------------------------------------------------- |
-| `src/services/menu.ts`          | GW fetch + menü API cache                                |
+| `server/services/menu.ts`       | GW fetch + menü API cache                                |
 | `src/lib/device.ts`             | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
 | `src/lib/menu/utils.ts`         | sort, filter, label                                      |
 | `src/components/layout/header/` | Desktop / Mobile shell                                   |
@@ -545,13 +554,13 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 
 ### Dosya haritası
 
-| Next.js             | ssr-kit                                     | Sorumluluk                   |
-| ------------------- | ------------------------------------------- | ---------------------------- |
-| `app/layout.tsx`    | `server/document.tsx` + `RootLayout`        | HTML shell, GTM bootstrap    |
-| `layout.client.tsx` | `src/islands/layout-client.tsx`             | Chrome + store seed          |
-| `page.tsx`          | `src/routes/*/index.tsx` loader + Component | Veri fetch + SSR UI          |
-| `page.client.tsx`   | `src/islands/page-analytics.tsx`            | Yalnızca page-view dataLayer |
-| Container           | route `Component` + `<Island />`            | UI + etkileşim               |
+| Next.js             | ssr-kit                                | Sorumluluk                   |
+| ------------------- | -------------------------------------- | ---------------------------- |
+| `app/layout.tsx`    | `server/document.tsx` + `RootLayout`   | HTML shell, GTM bootstrap    |
+| `layout.client.tsx` | `src/islands/layout-client.tsx`        | Chrome + store seed          |
+| `page.tsx`          | `server/routes/*.tsx` + `src/routes/*` | Loader/metadata + SSR UI     |
+| `page.client.tsx`   | `src/islands/page-analytics.tsx`       | Yalnızca page-view dataLayer |
+| Container           | route `Component` + `<Island />`       | UI + etkileşim               |
 
 ### Cache + analytics
 
@@ -641,7 +650,7 @@ Next.js `middleware.ts` karşılığı: [`server/middleware/pipeline.ts`](../ser
 | Session        | `server/middleware/steps/session/`     | gclid/utm/theme → cookie, tracking UUID              |
 | CMS redirect   | `server/middleware/steps/redirection/` | GW redirect map, 410/301                             |
 | Static routing | `src/routing/rules.ts`                 | Config redirect/rewrite/proxy                        |
-| SSR loader     | `src/services/*` + `gatewayFetch`      | GW'ye token ile istek                                |
+| SSR loader     | `server/services/*` + gateway adapter  | GW'ye token ile istek                                |
 
 ### Matcher (2 seviye)
 
@@ -653,8 +662,7 @@ Next.js `middleware.ts` karşılığı: [`server/middleware/pipeline.ts`](../ser
 Middleware `Authorization` header inject eder:
 
 ```ts
-import { gatewayFetch } from "~/lib/gateway-fetch";
-import { fetchUserProfile } from "~/services/user";
+import { fetchUserProfile } from "@server/services/user";
 
 loader: async (ctx) => {
   const user = await fetchUserProfile(ctx.request);
@@ -748,14 +756,14 @@ import { handle } from "@server/handler";
 
 ### Mimari sınırlar (ESLint)
 
-| Kaynak                           | Yasak hedef      | Gerekçe                          |
-| -------------------------------- | ---------------- | -------------------------------- |
-| `server/**`                      | `src/islands/**` | Server client bundle'a girmemeli |
-| `src/components/**`, `routes/**` | `src/islands/**` | Island wrapper üzerinden kullan  |
-| `src/lib/**`                     | `server/**`      | Katman sınırı                    |
-| `src/islands/**`                 | `server/**`      | Client server kodu okumaz        |
+| Kaynak                                  | Yasak hedef      | Gerekçe                          |
+| --------------------------------------- | ---------------- | -------------------------------- |
+| `server/**`                             | `src/islands/**` | Server client bundle'a girmemeli |
+| `src/components/**`, `server/routes/**` | `src/islands/**` | Island wrapper üzerinden kullan  |
+| `src/lib/**`                            | `server/**`      | Katman sınırı                    |
+| `src/islands/**`                        | `server/**`      | Client server kodu okumaz        |
 
-Runtime env: `src/lib/env.ts` — `src/lib` modülleri `server/config` import etmez.
+Runtime env yalnızca `server/config.ts` tarafından okunur; public origin gibi gerekli değerler saf `src/lib` fonksiyonlarına context üzerinden aktarılır.
 
 ---
 
@@ -780,7 +788,7 @@ CDN (veya origin /assets/*) → Cache-Control: immutable, max-age=31536000
 | `server/assets.ts`                   | `readAssets()`, `assetUrl()`, `assetCdnOrigin()` |
 | `server/document.tsx`                | CDN `preconnect` + manifest URL'leri             |
 | `server/middleware/static-assets.ts` | Origin `/assets/*` için immutable header         |
-| `src/lib/env.ts`                     | `ASSET_CDN_URL`                                  |
+| `server/config.ts`                   | `ASSET_CDN_URL`                                  |
 
 ### Env
 
@@ -798,10 +806,10 @@ ASSET_CDN_URL=https://cdn.hangikredi.com
 
 ### SSR vs island
 
-| Alan                                 | Browser API        |
-| ------------------------------------ | ------------------ |
-| `src/routes/**`, `src/components/**` | **Yasak** (ESLint) |
-| `src/islands/**`, `entry.client.tsx` | Serbest            |
+| Alan                                                     | Browser API        |
+| -------------------------------------------------------- | ------------------ |
+| `server/routes/**`, `src/routes/**`, `src/components/**` | **Yasak** (ESLint) |
+| `src/islands/**`, `entry.client.tsx`                     | Serbest            |
 
 ### Komutlar
 
@@ -811,5 +819,5 @@ npm run lint
 npm run lint:fix
 npm run format
 npm run format:check
-npm run ci    # typecheck → lint → format:check → test → build
+npm run ci    # typecheck → lint → format:check → test → build → smoke
 ```

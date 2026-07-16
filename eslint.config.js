@@ -104,6 +104,11 @@ export default tseslint.config(
               message: "src/lib must not import server code.",
             },
             {
+              target: "./src",
+              from: "./server",
+              message: "Shared/client source must not import server code.",
+            },
+            {
               target: "./src/islands",
               from: "./server",
               message: "Islands must not import server code.",
@@ -129,7 +134,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["server/**/*.ts"],
+    files: ["server/**/*.{ts,tsx}"],
     languageOptions: {
       globals: globals.node,
     },
@@ -147,7 +152,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/**/*.tsx"],
+    files: ["src/**/*.tsx", "server/routes/**/*.tsx"],
     plugins: { react, "react-hooks": reactHooks },
     rules: {
       ...react.configs.recommended.rules,
@@ -167,7 +172,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/routes/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+    files: [
+      "server/routes/**/*.{ts,tsx}",
+      "src/routes/**/*.{ts,tsx}",
+      "src/components/**/*.{ts,tsx}",
+    ],
     ignores: ["src/components/ui/**"],
     languageOptions: {
       globals: browserRestrictedGlobals,

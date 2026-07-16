@@ -66,6 +66,12 @@ describe("cache-keys", () => {
     ]);
   });
 
+  it("escapes separators inside key parts without collisions", () => {
+    const key = formatCacheKey(["a\0b", "100%"]);
+    expect(toCacheKeyApiEntry(key).parts).toEqual(["a\0b", "100%"]);
+    expect(key).not.toBe(formatCacheKey(["a", "b", "100%"]));
+  });
+
   it("returns shared policy with registry key parts for home", () => {
     const policy = pageCachePolicy(
       PageCacheId.home,

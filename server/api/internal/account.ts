@@ -1,6 +1,5 @@
 import { authenticateBffRequest, withBffAuthCookies } from "@server/api/internal/auth-bff";
-
-import { fetchAccountSummary } from "~/services/account";
+import { fetchAccountSummary } from "@server/services/account";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {

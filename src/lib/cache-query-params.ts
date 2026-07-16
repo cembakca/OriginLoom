@@ -23,6 +23,8 @@ export type ContentQueryConfig = {
   include: readonly string[];
   /** Param yokken cache key'de kullanılacak sabit değerler. */
   defaults?: Record<string, string>;
+  /** Cache key'e girmeden önce domain değerini canonical biçime çevirir. */
+  normalize?: Record<string, (value: string | null) => string>;
 };
 
 export function isTrackingQueryParam(name: string): boolean {
@@ -52,7 +54,8 @@ export function contentQueryCacheFragment(ctx: Ctx, config: ContentQueryConfig):
   if (config.include.length === 0) return "-";
 
   const parts = config.include.map((name) => {
-    const value = ctx.url.searchParams.get(name) ?? config.defaults?.[name] ?? "-";
+    const raw = ctx.url.searchParams.get(name);
+    const value = config.normalize?.[name]?.(raw) ?? raw ?? config.defaults?.[name] ?? "-";
     return `${name}=${value}`;
   });
 

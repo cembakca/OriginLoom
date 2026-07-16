@@ -111,12 +111,21 @@ async function writeBarrel(svgFiles) {
   await writeFile(join(OUT_DIR, "index.ts"), content);
 }
 
+function formatOutputs() {
+  const prettierBin = join(ROOT, "node_modules/prettier/bin/prettier.cjs");
+  execFileSync(process.execPath, [prettierBin, "--write", OUT_DIR], {
+    cwd: ROOT,
+    stdio: "ignore",
+  });
+}
+
 async function main() {
   const svgFiles = await listSvgFiles();
   await removeStaleOutputs(svgFiles);
   await runSvgr(svgFiles);
   await stampGeneratedFiles(svgFiles);
   await writeBarrel(svgFiles);
+  formatOutputs();
 
   const count = svgFiles.length;
   console.log(`[icons] ${count} SVG → ${count} TSX (${OUT_DIR})`);

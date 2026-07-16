@@ -12,6 +12,11 @@ describe("request helpers", () => {
     expect(cookie(req, "missing")).toBeUndefined();
   });
 
+  it("ignores malformed encoded cookie values", () => {
+    const req = new Request("http://localhost/", { headers: { cookie: "theme=%E0%A4%A" } });
+    expect(cookie(req, "theme")).toBeUndefined();
+  });
+
   it("detects mobile user agents", () => {
     const mobile = new Request("http://localhost/", {
       headers: { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" },

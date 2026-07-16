@@ -3,6 +3,7 @@ import type { Ctx, Route } from "~/lib/types";
 import { resolveRoute } from "~/routing";
 
 import * as cache from "./cache";
+import { config } from "./config";
 import { type Assets, renderDocument } from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
@@ -11,7 +12,25 @@ import { proxyRequest } from "./proxy";
 export type HandleContext = {
   requestId?: string;
   trackingId?: string;
+  clientIp?: string;
 };
+
+const revalidationsInFlight = new Map<string, Promise<void>>();
+
+export async function drainRevalidations(timeoutMs: number): Promise<boolean> {
+  const pending = [...revalidationsInFlight.values()];
+  if (pending.length === 0) return true;
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const completed = Promise.allSettled(pending).then(() => true);
+  const deadline = new Promise<boolean>((resolve) => {
+    timeout = setTimeout(() => resolve(false), timeoutMs);
+    timeout.unref?.();
+  });
+  const drained = await Promise.race([completed, deadline]);
+  if (timeout) clearTimeout(timeout);
+  return drained;
+}
 
 /**
  * The whole request pipeline. Read it top to bottom — there is nothing else.
@@ -31,7 +50,7 @@ export async function handle(
   const requestId = ctx.requestId;
 
   try {
-    const resolution = resolveRoute(url);
+    const resolution = resolveRoute(url, config.gatewayUrl);
 
     if (resolution.kind === "redirect") {
       logRequest(requestId, {
@@ -44,7 +63,7 @@ export async function handle(
     }
 
     if (resolution.kind === "proxy") {
-      const proxied = await proxyRequest(request, resolution.url);
+      const proxied = await proxyRequest(request, resolution.url, ctx.clientIp);
       logRequest(requestId, {
         path: url.pathname,
         status: proxied.status,
@@ -74,6 +93,7 @@ export async function handle(
       params: m.params,
       url: internalUrl,
       publicPath: resolution.publicPath,
+      siteUrl: config.siteUrl,
       ...(ctx.trackingId !== undefined ? { trackingId: ctx.trackingId } : {}),
     };
     const { route } = m;
@@ -85,7 +105,7 @@ export async function handle(
       const hit = await cache.read(key);
       if (hit) {
         if (hit.state === "stale") {
-          void revalidate(key, route, routeCtx, policy, assets, requestId);
+          scheduleRevalidation(key, route, routeCtx, policy, assets, requestId);
         }
         const state = hit.state === "fresh" ? "HIT" : "STALE";
         logRequest(requestId, {
@@ -101,7 +121,7 @@ export async function handle(
     const result = await route.loader(routeCtx);
     const docCtx = { routeCtx };
     const body = await renderDocument(route, result.data, assets, docCtx);
-    if (key && (result.status ?? 200) === 200) {
+    if (key && request.method === "GET" && (result.status ?? 200) === 200) {
       await cache.write(key, body, policy);
     }
 
@@ -128,6 +148,22 @@ export async function handle(
   }
 }
 
+function scheduleRevalidation(
+  key: string,
+  route: Route,
+  routeCtx: Parameters<Route["loader"]>[0],
+  policy: ReturnType<NonNullable<Route["cache"]>>,
+  assets: Assets,
+  requestId?: string,
+): void {
+  if (revalidationsInFlight.has(key)) return;
+
+  const pending = revalidate(key, route, routeCtx, policy, assets, requestId).finally(() => {
+    if (revalidationsInFlight.get(key) === pending) revalidationsInFlight.delete(key);
+  });
+  revalidationsInFlight.set(key, pending);
+}
+
 async function revalidate(
   key: string,
   route: Route,
@@ -136,12 +172,39 @@ async function revalidate(
   assets: Assets,
   requestId?: string,
 ) {
+  const lockToken = await cache.acquireRevalidationLock(key);
+  if (!lockToken) return;
   try {
-    const result = await route.loader(routeCtx);
-    await cache.write(key, await renderDocument(route, result.data, assets, { routeCtx }), policy);
-  } catch (err) {
-    logError(err, { requestId, key, msg: "revalidate failed" });
+    for (let attempt = 1; attempt <= config.revalidationAttempts; attempt++) {
+      try {
+        const result = await route.loader(routeCtx);
+        if ((result.status ?? 200) !== 200) {
+          throw new Error(`revalidation loader returned ${result.status ?? 200}`);
+        }
+        const body = await renderDocument(route, result.data, assets, { routeCtx });
+        if (!(await cache.write(key, body, policy)))
+          throw new Error("revalidation cache write failed");
+        return;
+      } catch (error) {
+        logError(error, {
+          requestId,
+          key,
+          attempt,
+          maxAttempts: config.revalidationAttempts,
+          msg: "revalidate attempt failed",
+        });
+        if (attempt < config.revalidationAttempts) {
+          await delay(config.revalidationBackoffMs * 2 ** (attempt - 1));
+        }
+      }
+    }
+  } finally {
+    await cache.releaseRevalidationLock(key, lockToken);
   }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function html(

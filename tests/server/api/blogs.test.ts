@@ -1,7 +1,6 @@
 import { handleBlogsApi } from "@server/api/blogs";
+import { getPaginatedBlogs, parseOrderByParam, sortBlogs } from "@server/services/blogs";
 import { describe, expect, it } from "vitest";
-
-import { getPaginatedBlogs, parseOrderByParam, sortBlogs } from "~/services/blogs";
 
 describe("blogs API", () => {
   it("returns paginated blogs as JSON", async () => {

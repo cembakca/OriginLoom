@@ -6,6 +6,12 @@ metadata:
     app: ssr-kit
 spec:
   replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: ssr-kit
@@ -13,11 +19,33 @@ spec:
     metadata:
       labels:
         app: ssr-kit
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "3005"
     spec:
+      automountServiceAccountToken: false
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: ssr-kit
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ssr-kit
-          image: ssr-kit:latest
+          # CI must replace this with the pushed image digest.
+          image: ghcr.io/example/ssr-kit@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 3005
           envFrom:
@@ -44,3 +72,14 @@ spec:
               port: 3005
             initialDelaySeconds: 5
             periodSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 3005
+            failureThreshold: 30
+            periodSeconds: 2
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+      terminationGracePeriodSeconds: 30

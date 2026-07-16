@@ -6,6 +6,7 @@ const ctx: PipelineContext = {
   url: new URL("http://localhost/test"),
   pathname: "/test",
   publicPath: "/test",
+  clientIp: "127.0.0.1",
 };
 
 describe("runSequential", () => {

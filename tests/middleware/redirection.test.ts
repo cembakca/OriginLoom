@@ -9,6 +9,7 @@ describe("redirection step", () => {
       url: new URL("http://localhost/kaldirildi"),
       pathname: "/kaldirildi",
       publicPath: "/kaldirildi",
+      clientIp: "127.0.0.1",
     };
     const acc = createInitialResult(new Request("http://localhost/kaldirildi"));
     const patch = await redirectionStep(ctx, acc);
@@ -20,6 +21,7 @@ describe("redirection step", () => {
       url: new URL("http://localhost/eski-emeklilik?ref=1"),
       pathname: "/eski-emeklilik",
       publicPath: "/eski-emeklilik",
+      clientIp: "127.0.0.1",
     };
     const acc = createInitialResult(new Request("http://localhost/eski-emeklilik?ref=1"));
     const patch = await redirectionStep(ctx, acc);

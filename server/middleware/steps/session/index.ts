@@ -4,17 +4,10 @@ import { cloneRequestWithHeaders } from "@server/middleware/sequential";
 import type { MiddlewareStep } from "@server/middleware/types";
 import { Cookie } from "@server/middleware/types";
 
+import { parseTheme } from "~/lib/content-values";
 import { cookie } from "~/lib/request";
 
 const BOT_UA = /bot|crawl|spider|slurp|bingpreview/i;
-
-function clientIp(request: Request): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "127.0.0.1"
-  );
-}
 
 export const sessionStep: MiddlewareStep = async (ctx, acc) => {
   const jar = acc.cookies;
@@ -25,7 +18,10 @@ export const sessionStep: MiddlewareStep = async (ctx, acc) => {
     [Cookie.utmSource, sanitizeValue(url.searchParams.get("utm_source"))],
     [Cookie.utmCampaign, sanitizeValue(url.searchParams.get("utm_campaign"))],
     [Cookie.resource, sanitizeValue(url.searchParams.get("resource"))],
-    [Cookie.theme, sanitizeValue(url.searchParams.get("theme"))],
+    [
+      Cookie.theme,
+      url.searchParams.has("theme") ? parseTheme(url.searchParams.get("theme")) : undefined,
+    ],
   ];
 
   for (const [name, value] of queryCookies) {
@@ -47,7 +43,7 @@ export const sessionStep: MiddlewareStep = async (ctx, acc) => {
 
   const headers = new Headers(acc.request.headers);
   headers.set("x-pathname", ctx.publicPath);
-  headers.set("x-client-ip", clientIp(acc.request));
+  headers.set("x-client-ip", ctx.clientIp);
 
   const responseHeaders = new Headers(acc.responseHeaders);
   responseHeaders.set("x-tracking-id", trackingId);

@@ -1,6 +1,5 @@
+import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { gatewayFetch } from "~/lib/gateway-fetch";
 
 describe("gatewayFetch", () => {
   const originalFetch = globalThis.fetch;
@@ -26,7 +25,7 @@ describe("gatewayFetch", () => {
       headers: { Authorization: "Bearer test-token" },
     });
 
-    await gatewayFetch(request, "/user/profile");
+    await gatewayFetchForRequest(request, "/user/profile");
 
     expect(globalThis.fetch).toHaveBeenCalled();
     const call = vi.mocked(globalThis.fetch).mock.calls[0];

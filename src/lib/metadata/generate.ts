@@ -1,4 +1,3 @@
-import { env } from "~/lib/env";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx } from "~/lib/types";
 
@@ -6,7 +5,7 @@ import type { PageMetadata, SeoInfo } from "./types";
 
 /** Public absolute URL from browser-visible path. */
 export function publicAbsoluteUrl(ctx: Ctx, path?: string): string {
-  const base = env.siteUrl.replace(/\/$/, "");
+  const base = (ctx.siteUrl ?? ctx.url.origin).replace(/\/$/, "");
   const p = path ?? ctx.publicPath;
   return `${base}${p.startsWith("/") ? p : `/${p}`}`;
 }

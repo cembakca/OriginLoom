@@ -1,5 +1,3 @@
-import { fetchMenuList } from "~/services/menu";
-
 import type { PageAnalyticsMeta } from "./analytics/types";
 import { Cookie } from "./cookies";
 import type { DeviceType } from "./device";
@@ -39,17 +37,6 @@ export function buildLayoutClientProps(
 }
 
 /** Root layout shell — tek menu fetch, Header + Footer SSR'da kullanır. */
-export async function buildShellData(
-  ctx: Ctx,
-  opts?: { minimalChrome?: boolean },
-): Promise<ShellData> {
-  const base = buildLayoutClientProps(ctx, opts);
-  if (base.minimalChrome) return { ...base, menu: null };
-
-  const menu = await fetchMenuList(ctx.request, base.deviceType);
-  return { ...base, menu };
-}
-
 /** HTML cache key'e ekle — shell device'a göre değişir. */
 export function layoutCacheFragment(ctx: Ctx): string {
   return deviceCacheFragment(ctx.request);

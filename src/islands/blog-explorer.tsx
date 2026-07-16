@@ -1,13 +1,13 @@
 import { useState } from "react";
 
-import { useBlogs } from "~/lib/query/hooks/use-blogs";
-import { BlogList, PageSummary } from "~/routes/blogs-paginated/components";
 import {
   BLOG_ORDER_OPTIONS,
   type BlogOrderBy,
   DEFAULT_BLOG_ORDER,
   type PaginatedBlogs,
-} from "~/services/blogs";
+} from "~/lib/contracts/blogs";
+import { useBlogs } from "~/lib/query/hooks/use-blogs";
+import { BlogList, PageSummary } from "~/routes/blogs-paginated/components";
 
 type Props = {
   page: number;

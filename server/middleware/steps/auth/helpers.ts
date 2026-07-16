@@ -1,12 +1,11 @@
+import { gatewayFetch } from "@server/adapters/gateway";
 import type { CookieJar } from "@server/middleware/cookie-jar";
 import { Cookie } from "@server/middleware/types";
 
 import { cookie } from "~/lib/request";
 import { stripUndefined } from "~/lib/strip-undefined";
 
-const REFRESH_COOLDOWN_MS = 5_000;
-let lastRefreshAt = 0;
-let refreshInFlight: Promise<{ access: string; refresh: string } | null> | null = null;
+const refreshesInFlight = new Map<string, Promise<{ access: string; refresh: string } | null>>();
 
 function useSecureCookies(): boolean {
   return (process.env.NODE_ENV ?? "development") === "production";
@@ -82,15 +81,11 @@ export function clearTokenCookies(jar: CookieJar): void {
 export async function refreshTokens(
   refreshToken: string,
 ): Promise<{ access: string; refresh: string } | null> {
-  const now = Date.now();
-  if (now - lastRefreshAt < REFRESH_COOLDOWN_MS && refreshInFlight) {
-    return refreshInFlight;
-  }
+  const existing = refreshesInFlight.get(refreshToken);
+  if (existing) return existing;
 
-  lastRefreshAt = now;
-  refreshInFlight = (async () => {
+  const refresh = (async () => {
     try {
-      const { gatewayFetch } = await import("../../api/gateway");
       const res = await gatewayFetch("/auth/refresh", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -107,11 +102,14 @@ export async function refreshTokens(
       return null;
     }
   })();
+  refreshesInFlight.set(refreshToken, refresh);
 
   try {
-    return await refreshInFlight;
+    return await refresh;
   } finally {
-    refreshInFlight = null;
+    if (refreshesInFlight.get(refreshToken) === refresh) {
+      refreshesInFlight.delete(refreshToken);
+    }
   }
 }
 

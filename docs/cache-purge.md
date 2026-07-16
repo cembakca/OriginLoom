@@ -42,7 +42,7 @@ environment:
 
 ## Key formatı
 
-API'de kullanılan key'ler **mantıksal key**'lerdir — Redis'teki `ssr:` önekini yazmazsın.
+API'de kullanılan key'ler **mantıksal key**'lerdir — Redis'teki `ssr:<release-id>:` namespace'ini yazmazsın.
 
 | Tür            | Mantıksal key örneği | Ne cache'ler                                |
 | -------------- | -------------------- | ------------------------------------------- |
@@ -251,7 +251,7 @@ Tam liste: `listPageCachePrefixes()` — [`src/lib/cache-keys.ts`](../src/lib/ca
 
 #### Mod 4 — Tüm cache'i sil
 
-`ssr:` altındaki **tüm** entry'leri siler (HTML + menü + diğer):
+Aktif release'in `ssr:<release-id>:` namespace'i altındaki **tüm** entry'leri siler (HTML + menü + diğer):
 
 ```bash
 curl -s -X POST \
@@ -272,7 +272,7 @@ curl -s -X POST \
 }
 ```
 
-> Redis'te yalnızca `ssr:*` pattern'i silinir — `FLUSHDB` kullanılmaz; aynı Redis instance'ında başka uygulama varsa etkilenmez.
+> Redis'te yalnızca aktif `ssr:<release-id>:*` pattern'i silinir — `FLUSHDB` kullanılmaz; başka uygulamalar ve diğer release'ler etkilenmez.
 
 ---
 
@@ -391,6 +391,6 @@ curl -sf -X POST \
 | `server/cache/redis.ts`              | Redis SCAN + DEL          |
 | `server/cache/memory.ts`             | Bellek store purge        |
 | `src/lib/cache-keys.ts`              | Cache key registry        |
-| `src/lib/env.ts`                     | `CACHE_PURGE_SECRET`      |
+| `server/config.ts`                   | `CACHE_PURGE_SECRET`      |
 
 Genel cache mimarisi: [`conventions.md`](./conventions.md#redis-ve-cache-altyapısı)

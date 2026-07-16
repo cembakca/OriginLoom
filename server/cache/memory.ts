@@ -4,8 +4,13 @@ import type { CacheEntry, CacheStore, ListKeysOptions, ListKeysResult } from "./
 
 export class MemoryStore implements CacheStore {
   private store = new Map<string, CacheEntry>();
+  private locks = new Map<string, { token: string; expiresAt: number }>();
 
   constructor(private maxEntries: number) {}
+
+  get size(): number {
+    return this.store.size;
+  }
 
   async read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null> {
     const entry = this.store.get(key);
@@ -21,7 +26,7 @@ export class MemoryStore implements CacheStore {
 
   async write(key: string, body: string, policy: CachePolicy): Promise<void> {
     if (policy.kind !== "shared") return;
-    if (this.store.size >= this.maxEntries) {
+    if (!this.store.has(key) && this.store.size >= this.maxEntries) {
       this.store.delete(this.store.keys().next().value!);
     }
 
@@ -78,8 +83,20 @@ export class MemoryStore implements CacheStore {
   async ping(): Promise<boolean> {
     return true;
   }
+
+  async acquireLock(key: string, ttlMs: number): Promise<string | null> {
+    const current = this.locks.get(key);
+    if (current && current.expiresAt > Date.now()) return null;
+    const token = crypto.randomUUID();
+    this.locks.set(key, { token, expiresAt: Date.now() + ttlMs });
+    return token;
+  }
+
+  async releaseLock(key: string, token: string): Promise<void> {
+    if (this.locks.get(key)?.token === token) this.locks.delete(key);
+  }
 }
 
 export function memorySize(store: MemoryStore): number {
-  return (store as unknown as { store: Map<string, CacheEntry> }).store.size;
+  return store.size;
 }
