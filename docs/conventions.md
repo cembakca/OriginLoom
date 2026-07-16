@@ -876,7 +876,24 @@ Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](..
 | `rewrites()` (internal) | `rewrites[]` + internal destination | URL aynı, route internal path görür |
 | `rewrites()` (external) | `rewrites[]` + external URL         | Proxy — istek backend'e iletilir    |
 
-**Pipeline sırası:** redirect → rewrite/proxy → route match → SSR
+**Pipeline sırası:** public URL normalization → redirect → rewrite/proxy → route match → SSR
+
+[`normalizePublicUrl()`](../src/routing/public-url.ts) route matching, CMS/static redirect, rewrite ve
+cache lookup'tan önce çalışır:
+
+- `/foo/`, `/foo//` ve `//foo///` tek slash/trailing-slash politikasına göre 308 ile canonical path'e
+  gider. Root `/` olarak kalır.
+- Query parametreleri ve sıraları değiştirilmeden redirect location'a taşınır.
+- Segmentler Unicode NFC'ye normalize edilir; percent-encoded unreserved eşdeğerleri tek biçime iner.
+- Malformed percent-encoding ile encoded `/` (`%2F`) veya `\` (`%5C`) `400` üretir; matcher'a ve
+  cache'e ulaşmaz.
+- Case varsayılan olarak korunur. Global lowercase uygulama. Gerçekten case-insensitive olan bir
+  route/prefix için açık `casePolicy: "lowercase"` kullan ve test ekle.
+
+Normalizasyon Hono seviyesinde API/static/SSR girişlerinin tamamını korur; `handle()` içindeki ikinci
+kontrol doğrudan handler çağrıları ve gelecekteki alternatif transport adapter'ları için
+defense-in-depth'tir. Normalizasyon redirect'i `private, no-store` ve `x-cache: REDIRECT`; invalid URL
+yanıtı `400`, `private, no-store` ve `x-cache: BYPASS` taşır.
 
 Routing rule'ları tek geçişte çözülür; destination tekrar rule tablosundan geçirilmez. Incoming query
 korunur ve destination query ile birleştirilir, çakışmada destination değeri kazanır. Internal rewrite

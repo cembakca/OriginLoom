@@ -90,6 +90,10 @@ oturum doğrulamak isteyen akışlar içindir; global layout tarafından çağr�
 Tek bir `handle()` fonksiyonu. Yukarıdan aşağıya okunabilir, yan yol yok:
 
 ```
+0. normalizePublicUrl(url)
+   ├─ non-canonical → 308
+   └─ malformed / encoded separator → 400
+
 1. resolveRoute(url)
    ├─ "redirect"  → Response.redirect()
    ├─ "proxy"     → proxyRequest()
@@ -280,6 +284,12 @@ rewrites: [
 ```
 
 Redirect'ler rewrite'lardan önce çalışır. Dış URL (`http://...`) varsa proxy, iç URL varsa rewrite.
+Bu tablodan da önce `normalizePublicUrl()` çalışır. Ardışık slash tek slash'a iner, root dışındaki
+trailing slash kaldırılır, segmentler Unicode NFC biçimine normalize edilir ve query byte sırası
+korunur. Normal olmayan URL `308` ile tek public kimliğe gider; malformed percent-encoding ile
+percent-encoded `/` veya `\` separator `400` alır. Global lowercase uygulanmaz: route case-sensitive
+kalır; gerçek bir ürün ihtiyacı varsa `casePolicy: "lowercase"` yalnız ilgili route/prefix policy'sinde
+açılabilir.
 Routing çözümlemesi bilinçli olarak **tek geçişlidir**: rewrite destination'ı ikinci kez rule tablosuna
 sokulmaz, doğrudan uygulama router'ına verilir. Böylece zincir/döngü davranışı konfigürasyon sırasına
 gizlenmez.

@@ -426,6 +426,14 @@ type Ctx = {
 Registry gerekli route’larda `publicPath` değerini key’e ekler. Böylece route matching ile cache
 identity aynı URL semantiğine zorla bağlanmaz.
 
+Fakat `publicPath` ham request path'i olarak bırakılamaz. Matcher boş segmentleri atarsa `/foo`,
+`/foo/` ve `/foo//` aynı route'a ulaşırken üç Redis key'i ve üç canonical kimliği doğabilir. Request
+pipeline bu nedenle rule resolution ve cache lookup'tan önce `normalizePublicUrl()` çalıştırır:
+ardışık slash birleşir, trailing slash kaldırılır, Unicode NFC'ye normalize edilir ve normal olmayan
+adres query korunarak `308` alır. Malformed percent-encoding ve encoded `/` veya `\` separator `400`
+ile cache'e ulaşmadan reddedilir. Case ise global değiştirilmez; lowercase yalnız route bazında açık
+bir ürün kontratı varsa opt-in olmalıdır.
+
 ## Key serialization da correctness problemidir
 
 Key parçalarını basitçe `:` ile birleştirmek collision üretebilir:

@@ -377,6 +377,17 @@ component ağacı ve convention’lar arasında dağılmıyor.
 Next.js daha önce redirects ve rewrites için hazır bir sözlük sunuyordu. Çıkıştan sonra bu semantiği
 kendimiz tanımladık:
 
+Fakat rule tablosundan önce bir adım daha gerekir: public URL kimliği. Matcher'ın boş segmentleri
+görmezden gelmesi `/foo`, `/foo/` ve `/foo//` adreslerini aynı component'e ulaştırabilir; cache ve
+canonical ise ham `publicPath` yüzünden bunları farklı belge sanabilir. Bu nedenle Hono girişinde ve
+SSR handler'da defense-in-depth olarak `normalizePublicUrl()` çalışıyor.
+
+Normalizasyon ardışık slash'leri birleştiriyor, root dışındaki trailing slash'i kaldırıyor, Unicode
+segmentleri NFC'ye getiriyor ve query sırasını koruyarak normal olmayan URL'yi `308` ile tek kimliğe
+yönlendiriyor. Malformed percent-encoding ile encoded slash/backslash ise yorumlanmıyor; `400`
+üretiliyor. Case korunuyor. Lowercase ancak case-insensitive olduğu açıkça bilinen bir route/prefix
+için opt-in policy olabilir; Türkçe ve case-sensitive slug'lara global dönüşüm uygulanmıyor.
+
 ```ts
 type RouteResolution =
   | { kind: "redirect"; url: string; status: 301 | 302 | 307 | 308 }

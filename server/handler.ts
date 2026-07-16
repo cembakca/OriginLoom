@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { match } from "~/lib/match";
 import type { Ctx, LoaderResult, Route } from "~/lib/types";
-import { resolveRoute } from "~/routing";
+import { normalizePublicUrl, resolveRoute } from "~/routing";
 
 import * as cache from "./cache";
 import { config } from "./config";
@@ -12,6 +12,7 @@ import { logError, logger } from "./logger";
 import { observeRevalidation } from "./metrics";
 import { setActiveHttpRoute, SpanKind, SpanStatusCode, withSpan } from "./observability";
 import { proxyRequest } from "./proxy";
+import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
 import { renderNotFoundDocument, renderRouteErrorDocument } from "./route-boundary";
 
 export type HandleContext = {
@@ -40,9 +41,10 @@ export async function drainRevalidations(timeoutMs: number): Promise<boolean> {
 /**
  * The whole request pipeline. Read it top to bottom — there is nothing else.
  *
- *   1. resolve redirects / rewrites / proxy  (src/routing/rules.ts)
- *   2. match internal path → route
- *   3. cache → loader → render
+ *   1. normalize browser-visible URL identity (308 or 400)
+ *   2. resolve redirects / rewrites / proxy  (src/routing/rules.ts)
+ *   3. match internal path → route
+ *   4. cache → loader → render
  */
 export async function handle(
   request: Request,
@@ -55,6 +57,26 @@ export async function handle(
   const requestId = ctx.requestId;
 
   try {
+    const normalized = normalizePublicUrl(url);
+    if (normalized.kind === "invalid") {
+      logRequest(requestId, {
+        path: url.pathname,
+        status: 400,
+        cache: "BYPASS",
+        durationMs: Date.now() - started,
+      });
+      return publicUrlErrorResponse(requestId);
+    }
+    if (normalized.kind === "redirect") {
+      logRequest(requestId, {
+        path: url.pathname,
+        status: 308,
+        cache: "REDIRECT",
+        durationMs: Date.now() - started,
+      });
+      return publicUrlRedirectResponse(normalized.location, requestId);
+    }
+
     const resolution = resolveRoute(url, config.gatewayUrl);
 
     if (resolution.kind === "redirect") {

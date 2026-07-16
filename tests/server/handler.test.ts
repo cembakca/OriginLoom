@@ -42,6 +42,55 @@ describe("handler", () => {
     expect(body).toContain('data-island="layout-client"');
   });
 
+  it("redirects a non-canonical public path before matching, rewrites and cache lookup", async () => {
+    let cacheCalls = 0;
+    let loaderCalls = 0;
+    const route: Route = {
+      path: "/foo",
+      cache: () => {
+        cacheCalls++;
+        return { kind: "shared", ttl: 60, key: ["foo"] };
+      },
+      loader: async () => {
+        loaderCalls++;
+        return { data: {} };
+      },
+      Component: () => createElement("p", null, "foo"),
+    };
+
+    const response = await handle(new Request("http://localhost/foo//?b=2&a=1"), [route], assets, {
+      requestId: "normalize-1",
+    });
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("http://localhost/foo?b=2&a=1");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("x-cache")).toBe("REDIRECT");
+    expect(response.headers.get("x-request-id")).toBe("normalize-1");
+    expect(cacheCalls).toBe(0);
+    expect(loaderCalls).toBe(0);
+  });
+
+  it("rejects malformed encoding and encoded separators before route matching", async () => {
+    for (const path of ["/foo%ZZ", "/foo%2Fbar", "/foo%5Cbar"]) {
+      const response = await handle(new Request(`http://localhost${path}`), [homeRoute], assets);
+      expect(response.status).toBe(400);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("x-cache")).toBe("BYPASS");
+    }
+  });
+
+  it("normalizes the public URL before configured redirect and rewrite rules", async () => {
+    const response = await handle(
+      new Request("http://localhost/eski-emeklilik//?ref=1"),
+      [homeRoute],
+      assets,
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("http://localhost/eski-emeklilik?ref=1");
+  });
+
   it("renders loader notFound with the route shell and never caches it", async () => {
     let loaderCalls = 0;
     const route: Route = {

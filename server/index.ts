@@ -9,6 +9,7 @@ import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
 
 import { stripUndefined } from "~/lib/strip-undefined";
+import { normalizePublicUrl } from "~/routing";
 import { createRewrites, redirects } from "~/routing/rules";
 import { validateRoutingRules } from "~/routing/validate";
 
@@ -34,6 +35,7 @@ import { type AppVariables, requestId } from "./middleware/request-id";
 import { securityMiddleware } from "./middleware/security";
 import { staticAssetCacheHeaders } from "./middleware/static-assets";
 import { SpanStatusCode, withRequestSpan } from "./observability";
+import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
 import { routes } from "./routes";
 
 let shuttingDown = false;
@@ -113,6 +115,16 @@ function createApp(assets: Assets) {
       c.res.headers.get("x-cache") ?? "NONE",
       performance.now() - started,
     );
+  });
+  app.use("*", async (c, next) => {
+    const normalized = normalizePublicUrl(new URL(c.req.url));
+    if (normalized.kind === "invalid") {
+      return publicUrlErrorResponse(c.get("requestId"));
+    }
+    if (normalized.kind === "redirect") {
+      return publicUrlRedirectResponse(normalized.location, c.get("requestId"));
+    }
+    await next();
   });
   app.use(
     "/api/*",
