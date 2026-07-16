@@ -1,8 +1,11 @@
 import { closeCache, initCache } from "@server/cache";
 import { drainRevalidations, handle } from "@server/handler";
 import account from "@server/routes/account";
+import blogsPaginated from "@server/routes/blogs-paginated";
 import home from "@server/routes/home";
+import loanCompare from "@server/routes/loan-compare";
 import mediaPipeline from "@server/routes/media-pipeline";
+import recourseRedirect from "@server/routes/recourse-redirect";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +15,9 @@ const assets = { js: "/assets/entry.client.js", css: [], fonts: [] };
 const homeRoute = home as Route;
 const accountRoute = account as Route;
 const mediaPipelineRoute = mediaPipeline as Route;
+const blogsPaginatedRoute = blogsPaginated as Route;
+const loanCompareRoute = loanCompare as Route;
+const recourseRedirectRoute = recourseRedirect as Route;
 
 describe("handler", () => {
   beforeEach(async () => {
@@ -187,6 +193,78 @@ describe("handler", () => {
 
     expect(first.headers.get("x-cache")).toBe("MISS");
     expect(second.headers.get("x-cache")).toBe("HIT");
+  });
+
+  it("rejects out-of-range page values before they can populate shared cache", async () => {
+    const request = new Request("http://localhost/blogs/paginated?page=1001");
+    const first = await handle(request, [blogsPaginatedRoute], assets);
+    const second = await handle(request, [blogsPaginatedRoute], assets);
+
+    expect(first.status).toBe(404);
+    expect(first.headers.get("x-cache")).toBe("BYPASS");
+    expect(second.headers.get("x-cache")).toBe("BYPASS");
+  });
+
+  it("validates route-domain params before cache policy and loader execution", async () => {
+    let cacheCalls = 0;
+    let loaderCalls = 0;
+    const route: Route = {
+      path: "/catalog/:slug",
+      validateParams: async () => false,
+      cache: () => {
+        cacheCalls++;
+        return { kind: "shared", ttl: 60, key: ["catalog"] };
+      },
+      loader: async () => {
+        loaderCalls++;
+        return { data: {} };
+      },
+      Component: () => createElement("p", null, "unreachable"),
+      minimalChrome: true,
+    };
+
+    const response = await handle(
+      new Request("http://localhost/catalog/not-in-registry"),
+      [route],
+      assets,
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("x-cache")).toBe("BYPASS");
+    expect(cacheCalls).toBe(0);
+    expect(loaderCalls).toBe(0);
+  });
+
+  it("redirects non-canonical page values without a cache lookup", async () => {
+    const response = await handle(
+      new Request("http://localhost/blogs/paginated?page=001&utm_source=test"),
+      [blogsPaginatedRoute],
+      assets,
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("x-cache")).toBe("BYPASS");
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/blogs/paginated?utm_source=test",
+    );
+  });
+
+  it("rejects unbounded cache-key route params", async () => {
+    const invalidCity = await handle(
+      new Request("http://localhost/ihtiyac-kredisi/random-unique-city"),
+      [loanCompareRoute],
+      assets,
+    );
+    const invalidRecourse = await handle(
+      new Request("http://localhost/basvuru/random-unique-page/yonlendirme"),
+      [recourseRedirectRoute],
+      assets,
+    );
+
+    expect(invalidCity.status).toBe(404);
+    expect(invalidCity.headers.get("x-cache")).toBe("BYPASS");
+    expect(invalidRecourse.status).toBe(404);
+    expect(invalidRecourse.headers.get("x-cache")).toBe("BYPASS");
   });
 
   it("renders the responsive, unoptimized and font pipeline demo", async () => {

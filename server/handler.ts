@@ -103,6 +103,29 @@ export async function handle(
     const { route } = m;
     setActiveHttpRoute(request.method, route.path);
 
+    const validateParams = route.validateParams;
+    if (
+      validateParams &&
+      !(await withSpan(
+        "route.validate_params",
+        { kind: SpanKind.INTERNAL, attributes: { "http.route": route.path } },
+        async () => validateParams(routeCtx),
+      ))
+    ) {
+      const body = await withSpan(
+        "ssr.render.not_found",
+        { kind: SpanKind.INTERNAL, attributes: { "http.route": route.path } },
+        () => renderNotFoundDocument(assets, routeCtx, route),
+      );
+      logRequest(requestId, {
+        path: url.pathname,
+        status: 404,
+        cache: "BYPASS",
+        durationMs: Date.now() - started,
+      });
+      return html(body, 404, { kind: "none" }, "BYPASS", undefined, requestId);
+    }
+
     const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };
     const key = cache.cacheKey(policy);
 

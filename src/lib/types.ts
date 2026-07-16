@@ -77,6 +77,12 @@ export type Route<T = unknown> = {
   path: string;
 
   /**
+   * Resolves dynamic route-domain membership before cache lookup. False is a
+   * route 404 and can never read or populate a page cache entry.
+   */
+  validateParams?: (ctx: Ctx) => boolean | Promise<boolean>;
+
+  /**
    * Runs BEFORE the loader. Pure, synchronous, cheap.
    *
    * This is the answer to "reading a cookie changes how the page renders".

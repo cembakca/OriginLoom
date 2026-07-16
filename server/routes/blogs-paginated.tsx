@@ -1,29 +1,44 @@
 import { getPaginatedBlogs } from "@server/services/blogs";
 
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { parsePage } from "~/lib/content-values";
+import { neverCache } from "~/lib/cache-policy";
+import { resolvePageParam } from "~/lib/content-values";
 import { DEFAULT_BLOG_ORDER, type PaginatedBlogs } from "~/lib/contracts/blogs";
 import { Island } from "~/lib/island";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute } from "~/lib/types";
+import { defineRoute, notFound, redirect } from "~/lib/types";
 import { BlogExplorerShell } from "~/routes/blogs-paginated/blog-explorer-shell";
 import { PaginationShell } from "~/routes/blogs-paginated/pagination-shell";
 
 export default defineRoute<PaginatedBlogs>({
   path: "/blogs/paginated",
 
-  cache: (ctx) => pageCachePolicy(PageCacheId.blogsPaginated, ctx),
+  cache: (ctx) =>
+    resolvePageParam(ctx.url.searchParams.get("page")).kind === "valid"
+      ? pageCachePolicy(PageCacheId.blogsPaginated, ctx)
+      : neverCache(),
 
   loader: async (ctx) => {
-    const page = parsePage(ctx.url.searchParams.get("page"));
+    const pageParam = resolvePageParam(ctx.url.searchParams.get("page"));
+    if (pageParam.kind === "invalid") return notFound();
+    if (pageParam.kind === "redirect") {
+      const canonical = new URL(ctx.url);
+      if (pageParam.page === 1) canonical.searchParams.delete("page");
+      else canonical.searchParams.set("page", String(pageParam.page));
+      return redirect(`${canonical.pathname}${canonical.search}`, 308);
+    }
+
+    const page = pageParam.page;
     const data = await getPaginatedBlogs(page, { orderBy: DEFAULT_BLOG_ORDER });
+    if (data.totalPages > 0 && page > data.totalPages) return notFound();
     return { data };
   },
 
   generateMetadata: (data, ctx) => {
     const title = `Blog — Sayfa ${data.page}`;
-    const url = publicAbsoluteUrl(ctx);
+    const canonicalPath = data.page === 1 ? ctx.publicPath : `${ctx.publicPath}?page=${data.page}`;
+    const url = publicAbsoluteUrl(ctx, canonicalPath);
     return {
       title,
       description: `Finans ve bankacılık blog yazıları — sayfa ${data.page}.`,

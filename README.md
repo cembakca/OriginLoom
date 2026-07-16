@@ -147,7 +147,9 @@ Structured loglar `service`, `releaseId`, aktif `traceId` ve `spanId` alanların
 
 `/metrics`, bounded-label Prometheus metrikleri sunar: request/cache/gateway/revalidation sayaç ve
 latency histogramları, gateway timeout/error outcome'ları, event-loop lag, CPU, heap/RSS, uptime ve
-release bilgisi. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı yapılmaz.
+release bilgisi. Cache write'ları ayrıca route bazında body/key byte histogramı ile bounded distinct
+key observation gauge'i üretir; örnek alarmlar `k8s/prometheus-rules.yaml` içindedir. `requestId`, raw
+URL ve kullanıcı bilgisi metric label'ı yapılmaz.
 
 ## Image ve font pipeline
 

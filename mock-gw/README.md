@@ -21,6 +21,7 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 | GET    | `/user/profile`             | Bearer token profil doğrular |
 | GET    | `/account/summary`          | Korumalı hesap özeti         |
 | GET    | `/pages/menuitem/list`      | Header/footer menüsü         |
+| GET    | `/routing/domains`          | Route iş-domain snapshot'ı   |
 | GET    | `/pages/retirement-banking` | Sayfa + SEO içeriği          |
 | GET    | `/cms/redirects?path=...`   | Redirect/gone kuralı         |
 | GET    | `/offers?...`               | Kredi teklifleri             |
@@ -29,3 +30,7 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 
 Bu servis gerçek bir IAM veya içerik gateway'i değildir; yalnızca uygulamanın HTTP
 sözleşmelerini uçtan uca çalıştırmak için deterministik cevaplar verir.
+
+Kredi şehirleri ve başvuru sayfaları gibi iş-domain değerlerinin kaynağı deployment env'i
+değildir. Mock geliştirme ortamında `/routing/domains` bu sahipliği temsil eder; gerçek sistemde
+aynı kontrat gateway veya CMS tarafından beslenir.

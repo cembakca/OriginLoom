@@ -8,6 +8,10 @@ const quiet = process.env.MOCK_GW_QUIET === "1";
 const AUTHORS = ["Ayşe Kaya", "Mehmet Demir", "Zeynep Arslan", "Can Yıldız"];
 const TAGS = ["react", "ssr", "web", "performance", "typescript", "cache"];
 const BANKS = ["Ziraat", "İş Bankası", "Garanti BBVA", "Akbank", "Yapı Kredi", "QNB"];
+const routeDomains = {
+  loanCities: ["istanbul", "ankara", "izmir"],
+  recoursePages: ["kredi"],
+};
 
 const blogs = Array.from({ length: 24 }, (_, index) => {
   const number = index + 1;
@@ -209,6 +213,9 @@ async function route(request, response) {
   if (request.method === "GET" && url.pathname === "/pages/menuitem/list") {
     return json(response, 200, menu);
   }
+  if (request.method === "GET" && url.pathname === "/routing/domains") {
+    return json(response, 200, routeDomains);
+  }
   if (request.method === "GET" && url.pathname === "/pages/retirement-banking") {
     return json(response, 200, retirementBankingPage);
   }
@@ -265,6 +272,10 @@ async function route(request, response) {
     });
   }
   if (request.method === "GET" && url.pathname === "/offers") {
+    const city = url.searchParams.get("city") ?? "";
+    if (!routeDomains.loanCities.includes(city)) {
+      return json(response, 404, { error: "unknown city" });
+    }
     const amount = Math.max(1, Number(url.searchParams.get("amount") ?? 50_000));
     const offers = BANKS.map((bank, index) => {
       const rate = 3.29 + index * 0.17;

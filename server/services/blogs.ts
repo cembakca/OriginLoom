@@ -1,7 +1,16 @@
 import { gatewayFetch } from "@server/adapters/gateway";
 
-import { parsePage } from "~/lib/content-values";
-import { type BlogOrderBy, DEFAULT_BLOG_ORDER, type PaginatedBlogs } from "~/lib/contracts/blogs";
+import { MAX_PAGE, parsePage } from "~/lib/content-values";
+import {
+  type Blog,
+  type BlogOrderBy,
+  DEFAULT_BLOG_ORDER,
+  type PaginatedBlogs,
+} from "~/lib/contracts/blogs";
+
+const MAX_PAGE_SIZE = 100;
+const MAX_TOTAL_ITEMS = 1_000_000;
+const MAX_TEXT_LENGTH = 4_000;
 
 const VALID_ORDER: BlogOrderBy[] = [
   "date-desc",
@@ -20,9 +29,14 @@ export async function getPaginatedBlogs(
   page: number,
   options?: { pageSize?: number; orderBy?: BlogOrderBy },
 ): Promise<PaginatedBlogs> {
+  const boundedPage = parsePage(String(page));
+  const requestedPageSize = options?.pageSize ?? 6;
+  const boundedPageSize = Number.isFinite(requestedPageSize)
+    ? Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(requestedPageSize)))
+    : 6;
   const search = new URLSearchParams({
-    page: String(page),
-    pageSize: String(options?.pageSize ?? 6),
+    page: String(boundedPage),
+    pageSize: String(boundedPageSize),
     orderBy: options?.orderBy ?? DEFAULT_BLOG_ORDER,
   });
   const response = await gatewayFetch(`/blogs?${search}`);
@@ -42,11 +56,39 @@ function isPaginatedBlogs(data: unknown): data is PaginatedBlogs {
   const value = data as Record<string, unknown>;
   return (
     Array.isArray(value.posts) &&
-    typeof value.page === "number" &&
-    typeof value.pageSize === "number" &&
-    typeof value.total === "number" &&
-    typeof value.totalPages === "number" &&
+    value.posts.length <= MAX_PAGE_SIZE &&
+    value.posts.every(isBlog) &&
+    isIntegerInRange(value.page, 1, MAX_PAGE) &&
+    isIntegerInRange(value.pageSize, 1, MAX_PAGE_SIZE) &&
+    value.posts.length <= value.pageSize &&
+    isIntegerInRange(value.total, 0, MAX_TOTAL_ITEMS) &&
+    isIntegerInRange(value.totalPages, 0, MAX_PAGE) &&
     typeof value.orderBy === "string" &&
     (VALID_ORDER as string[]).includes(value.orderBy)
   );
+}
+
+function isBlog(value: unknown): value is Blog {
+  if (!value || typeof value !== "object") return false;
+  const blog = value as Record<string, unknown>;
+  return (
+    isBoundedString(blog.id, 256) &&
+    isBoundedString(blog.slug, 256) &&
+    isBoundedString(blog.title, 500) &&
+    isBoundedString(blog.excerpt, MAX_TEXT_LENGTH) &&
+    isBoundedString(blog.author, 256) &&
+    isBoundedString(blog.publishedAt, 128) &&
+    isIntegerInRange(blog.readTimeMin, 0, 10_000) &&
+    Array.isArray(blog.tags) &&
+    blog.tags.length <= 20 &&
+    blog.tags.every((tag) => isBoundedString(tag, 100))
+  );
+}
+
+function isIntegerInRange(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+function isBoundedString(value: unknown, max: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= max;
 }

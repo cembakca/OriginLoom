@@ -8,19 +8,37 @@ function gatewayUrl(path: string): string {
 
 describe("external mock gateway", () => {
   it("serves public content contracts", async () => {
-    const [health, menu, offers, blogs, redirect] = await Promise.all([
+    const [health, menu, routeDomains, offers, blogs, redirect] = await Promise.all([
       fetch(gatewayUrl("/healthz")),
       fetch(gatewayUrl("/pages/menuitem/list")),
+      fetch(gatewayUrl("/routing/domains")),
       fetch(gatewayUrl("/offers?amount=50000&city=istanbul&device=Desktop")),
       fetch(gatewayUrl("/blogs?page=1&pageSize=6&orderBy=date-desc")),
       fetch(gatewayUrl("/cms/redirects?path=%2Feski-emeklilik")),
     ]);
 
-    expect([health.status, menu.status, offers.status, blogs.status, redirect.status]).toEqual([
-      200, 200, 200, 200, 200,
-    ]);
+    expect([
+      health.status,
+      menu.status,
+      routeDomains.status,
+      offers.status,
+      blogs.status,
+      redirect.status,
+    ]).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(await routeDomains.json()).toEqual({
+      loanCities: ["istanbul", "ankara", "izmir"],
+      recoursePages: ["kredi"],
+    });
     expect((await offers.json()) as unknown[]).toHaveLength(6);
     expect(((await blogs.json()) as { posts: unknown[] }).posts).toHaveLength(6);
+  });
+
+  it("rejects offer requests outside the gateway-owned city domain", async () => {
+    const response = await fetch(
+      gatewayUrl("/offers?amount=50000&city=random-unique-city&device=Desktop"),
+    );
+
+    expect(response.status).toBe(404);
   });
 
   it("supports login, profile, account and refresh contracts", async () => {

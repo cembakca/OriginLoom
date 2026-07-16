@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ssr-kit-cache-cardinality
+  labels:
+    app: ssr-kit
+spec:
+  groups:
+    - name: ssr-kit.cache
+      rules:
+        - alert: SsrCacheCardinalityWindowNearLimit
+          expr: max by (route) (ssr_cache_distinct_keys_observed) > 1600
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "SSR cache key cardinality is approaching its observation limit"
+            description: "Route {{ $labels.route }} has observed more than 1600 distinct keys in one process."
+
+        - alert: SsrCacheCardinalityOverflow
+          expr: sum by (route) (increase(ssr_cache_cardinality_overflow_total[5m])) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "SSR cache key cardinality exceeded the bounded observation window"
+            description: "Route {{ $labels.route }} is producing unbounded or unexpectedly diverse cache keys."
+
+        - alert: SsrCacheEntryBodyTooLarge
+          expr: histogram_quantile(0.95, sum by (route, le) (rate(ssr_cache_entry_body_bytes_bucket[10m]))) > 524288
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "SSR cached HTML body p95 exceeds 512 KiB"
+            description: "Route {{ $labels.route }} is producing unusually large cached responses."

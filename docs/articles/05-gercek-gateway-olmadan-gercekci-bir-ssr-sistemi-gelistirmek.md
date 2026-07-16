@@ -203,6 +203,18 @@ Blog endpoint’i pagination, `pageSize`, `orderBy`, toplam kayıt ve toplam say
 Redirect endpoint’i kural yoksa `404`, taşınmış URL için `301`, kaldırılmış içerik için `gone`
 semantiği verir.
 
+Bu semantik artık boyut limitlerini de kapsıyor. Consumer `page` ve `totalPages` alanlarını yalnız
+number olduğu için kabul etmiyor: integer/aralık kontrolü, maksimum 100 item, bounded text/tag
+alanları ve `posts.length <= pageSize` ilişkisi doğrulanıyor. Böylece mock küçük ve düzgün veri
+döndürürken gerçek provider'ın yanlışlıkla milyonluk `totalPages`, aşırı büyük array veya sınırsız
+string göndermesi React render ve cache memory problemine dönüşmeden gateway sınırında reddediliyor.
+
+Benzer biçimde route input'ları mock'un her değere cevap verebilmesine güvenmiyor. Mock gateway de
+gerçek provider gibi `/routing/domains` snapshot'ı yayınlıyor; kredi şehirleri ve başvuru sayfalarının
+source-of-truth'u bu kontrat. Uygulama snapshot'ı Redis'te kısa süreli cache'leyip page cache
+lookup'tan önce doğruluyor. İş-domain değerlerini env'e taşımıyoruz: gerçek gateway geldiğinde aynı
+endpoint CMS/provider verisinden üretilecek, deployment config'i içerik veritabanına dönüşmeyecek.
+
 Gerçekçi olan blog yazısının başlığı değil, consumer kodunun gerçekten query oluşturması, JSON parse
 etmesi, schema guard’dan geçmesi ve status code’a göre branch almasıdır.
 

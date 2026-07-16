@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import { Button } from "~/components/ui/button";
+import { buildPaginationItems } from "~/lib/pagination";
 import { cn } from "~/lib/utils";
 
 type Props = { page: number; totalPages: number };
@@ -12,7 +13,7 @@ export default function BlogPagination({ page, totalPages }: Props) {
     location.href = url.toString();
   }, []);
 
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  const items = buildPaginationItems(page, totalPages);
 
   return (
     <nav
@@ -28,18 +29,28 @@ export default function BlogPagination({ page, totalPages }: Props) {
         ← Önceki
       </Button>
 
-      {pages.map((p) => (
-        <Button
-          key={p}
-          variant={p === page ? "default" : "secondary"}
-          size="sm"
-          aria-current={p === page ? "page" : undefined}
-          onClick={() => p !== page && go(p)}
-          className={cn(p === page && "pointer-events-none")}
-        >
-          {p}
-        </Button>
-      ))}
+      {items.map((item) =>
+        item.kind === "ellipsis" ? (
+          <span
+            key={`ellipsis-${item.key}`}
+            aria-hidden="true"
+            className="px-1 py-2 text-slate-500"
+          >
+            …
+          </span>
+        ) : (
+          <Button
+            key={item.page}
+            variant={item.page === page ? "default" : "secondary"}
+            size="sm"
+            aria-current={item.page === page ? "page" : undefined}
+            onClick={() => item.page !== page && go(item.page)}
+            className={cn(item.page === page && "pointer-events-none")}
+          >
+            {item.page}
+          </Button>
+        ),
+      )}
 
       <Button
         variant="secondary"

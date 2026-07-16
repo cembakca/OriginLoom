@@ -1,7 +1,7 @@
 import type { Span } from "@opentelemetry/api";
 import { config } from "@server/config";
 import { logError, logger } from "@server/logger";
-import { observeCacheOperation } from "@server/metrics";
+import { observeCacheEntryWrite, observeCacheOperation } from "@server/metrics";
 import { SpanKind, withSpan } from "@server/observability";
 
 import { formatCacheKey } from "~/lib/cache-keys";
@@ -70,6 +70,7 @@ export async function read(
 export async function write(key: string, body: string, policy: CachePolicy): Promise<boolean> {
   try {
     await runCacheOperation("write", () => getCache().write(key, body, policy));
+    observeCacheEntryWrite(key, body);
     return true;
   } catch (error) {
     logError(error, { msg: "cache write failed", key });

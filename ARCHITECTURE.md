@@ -184,6 +184,22 @@ kullanıcıya özel `x-tracking-id` response header'ı yayınlanmaz. İleride ed
 ayrı, opt-in bir özellik olarak normalized vary header'ları ve cookie stripping kontratıyla
 tasarlanmalıdır.
 
+Cache cardinality request input'uyla sınırsız büyüyemez. Public pagination `1..1000` aralığındadır;
+eksik `page` canonical page 1, `page=1` ve zero-padded değerler 308 canonical redirect, malformed veya
+limit dışı değerler 404 üretir. Redirect/404 kararı cache lookup'tan önce policy'yi `none` yaptığı
+için bu URL'ler Redis entry oluşturmaz. `city` ve recourse `page` iş-domain değerleri deployment
+env'inden gelmez; gateway/CMS'in `/routing/domains` snapshot'ı otoritedir. Snapshot runtime shape ve
+64 karakterlik lowercase slug sınırından geçip Redis'te beş dakika tutulur. Route'un async
+`validateParams` kontratı bu registry'yi page cache lookup'tan önce kontrol eder. Gateway blog
+response'u page, pageSize, totalPages, array ve string üst sınırlarıyla doğrulanır; pagination en
+fazla dokuz görünür öğe üretir.
+
+Her başarılı cache write route label'ı kontrollü olacak şekilde body byte, key byte ve process başına
+bounded distinct-key observation metriği üretir. `k8s/prometheus-rules.yaml`, 2000 key'lik gözlem
+penceresinin %80'i, overflow ve 512 KiB p95 body boyutu için alarm örneklerini içerir. Bu gauge Redis
+keyspace'in kesin sayacı değil, pod-local erken uyarıdır; kesin operasyonel envanter purge/list API
+veya Redis exporter üzerinden alınır.
+
 Her entry şu yapıdadır:
 
 ```typescript

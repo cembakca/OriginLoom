@@ -231,17 +231,53 @@ Yeni sayfa eklerken:
 3. Route'ta `pageCachePolicy(PageCacheId.yeniSayfa, ctx)` kullan
 4. Purge için ilk key segment'ini (`id`) prefix olarak kullan
 
+### Cache cardinality ve route input sınırı
+
+Cache key'e giren request değeri yalnız sanitize edilmez; iş-domain otoritesinden doğrulanır. Şehir
+ve başvuru türü deployment env'i değildir. Gateway/CMS `/routing/domains` snapshot'ını sağlar;
+`server/services/route-domains.ts` shape, maksimum item sayısı ve 64 karakterlik lowercase slug
+sınırını doğrulayıp snapshot'ı Redis'te beş dakika cache'ler.
+
+Dynamic route bu kontrolü `validateParams(ctx)` ile tanımlar. Handler bu async preflight'ı page cache
+lookup'tan önce çalıştırır; false sonucu route-level 404 ve `BYPASS` üretir. Böylece source-of-truth
+gateway/CMS'te kalırken rastgele slug page cache key'i, content loader veya SSR document üretmez.
+Registry gateway'i kullanılamıyorsa değerleri env fallback'iyle tahmin etmek yerine request hata
+yoluna gider; eski/yeni domain drift'i gizlenmez.
+
+Pagination kontratı:
+
+- Maksimum public page `1000`.
+- Query yoksa canonical page 1.
+- `page=1`, `page=001` gibi değerler normalized URL'ye 308 gider.
+- Malformed, sıfır, negatif veya limit dışı değerler 404 olur.
+- Gateway `totalPages` ve `pageSize` değerleri de aynı kapalı limitlerden geçer.
+- UI bütün sayfaları `Array.from()` ile üretmez; `1 … current±2 … last` penceresi en fazla dokuz
+  öğedir.
+
+Cache write metrikleri `route` için yalnız registry ID, `menu` veya `other` label'ını kullanır; raw
+path/key label yapılmaz:
+
+- `ssr_cache_entry_body_bytes`
+- `ssr_cache_key_bytes`
+- `ssr_cache_distinct_keys_observed`
+- `ssr_cache_cardinality_overflow_total`
+
+Distinct gauge pod başına, process başladığından beri görülen ve 2000 key ile sınırlandırılmış erken
+uyarıdır; Redis'teki kesin mevcut key sayısı değildir. Prometheus Operator kullanılan ortamlarda
+`k8s/prometheus-rules.yaml` uygulanır. Gateway domain registry büyüdüğünde cardinality bütçesi ve
+alarm eşiği birlikte review edilmelidir.
+
 #### Sayfa HTML cache tablosu
 
-| `PageCacheId`            | Path                       | Strateji  | Key parçaları (sırayla)                                             | TTL   |
-| ------------------------ | -------------------------- | --------- | ------------------------------------------------------------------- | ----- |
-| `home`                   | `/`                        | shared    | `home`, locale, layout                                              | 3600s |
-| `loan`                   | `/ihtiyac-kredisi/:city?`  | shared    | `loan`, city, **`page=…` allowlist**, device, locale, theme, layout | 300s  |
-| `blogs-paginated`        | `/blogs/paginated`         | shared    | `blogs-paginated`, publicPath, **`page=…`**, locale, layout         | 300s  |
-| `retirement-banking`     | `/retirement-banking`      | shared    | `retirement-banking`, publicPath, locale, layout                    | 3600s |
-| `remote-customer-obtain` | `/remote-customer-obtain`  | shared    | `remote-customer-obtain`, publicPath, layout                        | 300s  |
-| `recourse-redirect`      | `/recourse/:page/redirect` | shared    | `recourse-redirect`, page, publicPath                               | 300s  |
-| `account`                | `/hesabim`                 | **never** | — (cache'e yazılmaz)                                                | —     |
+| `PageCacheId`            | Path                       | Strateji  | Key parçaları (sırayla)                                               | TTL   |
+| ------------------------ | -------------------------- | --------- | --------------------------------------------------------------------- | ----- |
+| `home`                   | `/`                        | shared    | `home`, locale, layout                                                | 3600s |
+| `loan`                   | `/ihtiyac-kredisi/:city?`  | shared    | `loan`, city, **`amount=…` allowlist**, device, locale, theme, layout | 300s  |
+| `blogs-paginated`        | `/blogs/paginated`         | shared    | `blogs-paginated`, publicPath, **`page=…`**, locale, layout           | 300s  |
+| `retirement-banking`     | `/retirement-banking`      | shared    | `retirement-banking`, publicPath, locale, layout                      | 3600s |
+| `remote-customer-obtain` | `/remote-customer-obtain`  | shared    | `remote-customer-obtain`, publicPath, layout                          | 300s  |
+| `recourse-redirect`      | `/recourse/:page/redirect` | shared    | `recourse-redirect`, page, publicPath                                 | 300s  |
+| `account`                | `/hesabim`                 | **never** | — (cache'e yazılmaz)                                                  | —     |
 
 Mantıksal key = escape edilmiş parçaların `\0` (null) ile birleşimi. Örnek ana sayfa: `home\0tr\0desktop`. Redis fiziksel key: `ssr:<release-id>:home\0tr\0desktop`.
 

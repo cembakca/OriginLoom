@@ -493,6 +493,31 @@ Response üzerinde bunları şu şekilde görüyoruz:
 `MISS` ile `BYPASS` ayrımı operasyon için önemlidir. Sürekli `MISS` beklenmeyen key cardinality’si,
 Redis problemi veya yetersiz TTL gösterebilir. `BYPASS` ise route’un bilinçli politikasıdır.
 
+### Cardinality'yi key formatı değil, input domain'i sınırlar
+
+Bir parametreyi 64 karakterde kesmek key boyutunu sınırlar; farklı key sayısını sınırlamaz. Örneğin
+`/ihtiyac-kredisi/random-1`, `random-2`, `random-3` hâlâ sonsuz bir Redis entry akışına dönüşebilir.
+Bu nedenle kredi şehirleri ve başvuru sayfaları deployment env'inde tutulan bir allowlist'ten değil,
+gateway/CMS'in yayınladığı route-domain snapshot'ından doğrulanıyor. İş verisini env'e koymak iki
+source-of-truth, config drift ve her içerik değişiminde deployment zorunluluğu üretirdi. Snapshot
+runtime guard'dan geçiyor ve Redis'te kısa süreli paylaşılıyor.
+
+Route'un `validateParams(ctx)` preflight'ı page cache lookup'tan önce çalışıyor. Registry'de olmayan
+değer route-level 404 ve `BYPASS` üretiyor; content loader ve SSR page cache'e ulaşmıyor. Cache lookup
+loader'dan önce olduğu için kontrolü yalnız loader'a koymak yeterli olmazdı. Bu ayrı route kontratı,
+async domain doğrulamasının cache policy'nin saf ve senkron sorumluluğuna sızmasını da engelliyor.
+
+Pagination da bounded domain kullanır. Public `page` aralığı `1..1000`; explicit `page=1` ve
+zero-padded değerler canonical 308, malformed veya limit dışı değerler 404 olur. Gateway'in
+`totalPages` alanı aynı üst sınırdan geçer ve UI `Array.from({length: totalPages})` yerine en fazla
+dokuz öğelik `1 … current±2 … last` penceresi üretir.
+
+Koruma yalnız validation değildir; gözlemlenebilir olmalıdır. Başarılı write'larda route label'ı kapalı
+bir setten seçilerek cache body/key byte histogramları ve pod-local bounded distinct-key gauge'i
+üretiliyor. Gözlem penceresi dolarsa key'leri bellekte sınırsız tutmak yerine overflow counter artar.
+Prometheus alarmı %80 eşik, overflow ve 512 KiB p95 HTML boyutunu izler. Bu gauge kesin Redis keyspace
+sayımı değil erken uyarıdır; kesin envanter Redis exporter veya kontrollü SCAN/list API işidir.
+
 ## Stale-while-revalidate neden iki ayrı süre kullanır?
 
 TTL tek başına kullanıldığında süre dolduğu anda ilk kullanıcı bütün loader ve render maliyetini

@@ -1,4 +1,5 @@
 import {
+  observeCacheEntryWrite,
   observeCacheOperation,
   observeGatewayRequest,
   observeRequest,
@@ -36,5 +37,16 @@ describe("production metrics", () => {
     expect(metrics).toContain("process_resident_memory_bytes");
     expect(metrics).toContain("process_cpu_user_seconds_total");
     expect(metrics).toContain('ssr_release_info{service="ssr-kit",release="development"} 1');
+  });
+
+  it("exports bounded cache cardinality and entry size metrics", () => {
+    observeCacheEntryWrite("loan\0istanbul\0amount=50000", "<html>bounded</html>");
+    observeCacheEntryWrite("loan\0istanbul\0amount=50000", "<html>updated</html>");
+
+    const metrics = renderMetrics();
+    expect(metrics).toContain('ssr_cache_entry_body_bytes_count{route="loan"} 2');
+    expect(metrics).toContain('ssr_cache_key_bytes_count{route="loan"} 2');
+    expect(metrics).toContain('ssr_cache_distinct_keys_observed{route="loan"} 1');
+    expect(metrics).toContain("ssr_cache_cardinality_overflow_total");
   });
 });

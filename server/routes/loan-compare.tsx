@@ -1,4 +1,5 @@
 import { getOffers } from "@server/services/offers";
+import { isKnownLoanCity } from "@server/services/route-domains";
 
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -16,6 +17,8 @@ type Data = { offers: Offer[]; amount: number; city: string; theme: string };
 
 export default defineRoute<Data>({
   path: "/ihtiyac-kredisi/:city?",
+
+  validateParams: (ctx) => isKnownLoanCity(ctx.params.city ?? "istanbul"),
 
   cache: (ctx) => pageCachePolicy(PageCacheId.loanCompare, ctx),
 
