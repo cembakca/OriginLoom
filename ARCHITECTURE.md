@@ -58,12 +58,12 @@ Klasik **cookie-based JWT + server-side refresh** (BFF pattern).
 
 **Cookie şeması:**
 
-| Cookie          | httpOnly | Amaç                                  |
-| --------------- | -------- | ------------------------------------- |
-| `access_token`  | evet     | JWT, loader'lar tarafından kullanılır |
-| `refresh_token` | evet     | Token yenileme                        |
-| `signed_in`     | hayır    | UI ("Hesabım" / "Giriş Yap")          |
-| `account_text`  | hayır    | Display name island'ları için         |
+| Cookie          | httpOnly | Amaç                                   |
+| --------------- | -------- | -------------------------------------- |
+| `access_token`  | evet     | JWT, loader'lar tarafından kullanılır  |
+| `refresh_token` | evet     | Token yenileme                         |
+| `signed_in`     | hayır    | İlk render için doğrulanmamış UI ipucu |
+| `account_text`  | hayır    | İlk render için doğrulanmamış ad ipucu |
 
 **Akış:**
 
@@ -72,6 +72,15 @@ Klasik **cookie-based JWT + server-side refresh** (BFF pattern).
 3. Refresh başarılıysa: yeni token'ları `httpOnly` cookie'lere yaz, `Authorization: Bearer ...` header'ı request'e inject et
 4. Refresh başarısızsa (production): tüm auth cookie'leri sil (`Max-Age=0`), anonim devam et
 5. Refresh başarısızsa (dev/test): mock JWT türet, devam et
+
+`signed_in` ve `account_text` yetkilendirme kaynağı değildir; kullanıcı bunları değiştirebilir.
+Client ilk render'da yalnızca bu ipuçlarını kullanır; public sayfalarda ek bir session isteği atmaz.
+Korumalı bir BFF isteği gerektiğinde HttpOnly credential'lar doğrulanır ve başarılı profil yanıtı
+cookie'lerle reaktif kullanıcı store'unu günceller. Gateway'in `401` yanıtı stale access/UI state'ini
+temizler fakat refresh token'ı korur; client bir kez refresh edip isteği tekrarlar. Refresh de
+başarısızsa tüm auth cookie'leri ve UI state'i temizlenir. Geçici gateway/network hataları (`5xx`)
+kullanıcıyı yanlışlıkla çıkış yaptırmaz. `/api/internal/auth/session` endpoint'i gerektiğinde açıkça
+oturum doğrulamak isteyen akışlar içindir; global layout tarafından çağrılmaz.
 
 **Kritik detay — in-flight deduplication:** Aynı `refresh_token` için eş zamanlı birden fazla refresh isteği gelse (`refreshesInFlight` Map'i) ikinci çağrı aynı Promise'i bekler, gateway'e iki istek gitmez. Aynı pattern handler'daki SWR revalidation için de geçerlidir.
 
@@ -122,14 +131,19 @@ type CachePolicy =
 
 #### Bypass Mantığı — `src/lib/cache-policy.ts`
 
-Global bypass check'ler kaydedilir. Default olarak `isAuthenticated` aktif:
+Cache bypass, HTML'in gerçekten kişiselleşip kişiselleşmediğine göre route bazında tanımlanır:
 
 ```
-access_token cookie | refresh_token cookie | Authorization header
-  → CachePolicy { kind: "none" }  (authenticated kullanıcı asla cached HTML almaz)
+public cache-safe route + auth token → shared cache
+kişiselleştirilmiş SSR route + auth token → CachePolicy { kind: "none" }
+account gibi never route → CachePolicy { kind: "none" }
 ```
 
-Yeni bypass kuralı eklemek için:
+`signed_in` cache kararında kullanılmaz; kullanıcı tarafından değiştirilebilen bir UI ipucudur.
+Örneğin `retirementBanking` registry kaydı `bypassAuth: true` kullanır. Header ve kişisel dashboard
+defer island olduğu için diğer public HTML route'larında token varlığı tek başına cache'i bypass etmez.
+
+Gerçekten bütün route'ları etkileyen yeni bir bypass kuralı eklemek için:
 
 ```typescript
 registerCacheBypassCheck(hasPid); // segment bazlı, PID cookie'si varsa bypass
@@ -242,12 +256,12 @@ Vite `import.meta.glob("./islands/*.tsx")` ile tüm island'ları code-split eder
 
 Client-side TanStack Query hook'ları bu endpoint'leri çağırır:
 
-| Endpoint                            | Açıklama                                        |
-| ----------------------------------- | ----------------------------------------------- |
-| `GET /api/internal/auth/session`    | `signed_in` + `account_text` cookie'lerini okur |
-| `POST /api/internal/refresh`        | Client 401 sonrası token refresh                |
-| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats     |
-| `POST /api/internal/cache/purge`    | Cache purge, secret token ile korunur           |
+| Endpoint                            | Açıklama                                     |
+| ----------------------------------- | -------------------------------------------- |
+| `GET /api/internal/auth/session`    | HttpOnly oturumu gateway profiliyle doğrular |
+| `POST /api/internal/refresh`        | Client 401 sonrası token refresh             |
+| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats  |
+| `POST /api/internal/cache/purge`    | Cache purge, secret token ile korunur        |
 
 Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanılır — pipeline'daki auth mantığını tekrar çalıştırır, gerekiyorsa refresh eder, Authorization inject eder.
 

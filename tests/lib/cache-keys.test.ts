@@ -12,11 +12,8 @@ import {
   pageCacheRegistry,
   toCacheKeyApiEntry,
 } from "~/lib/cache-keys";
-import {
-  clearCacheBypassChecks,
-  isAuthenticated,
-  registerCacheBypassCheck,
-} from "~/lib/cache-policy";
+import { clearCacheBypassChecks } from "~/lib/cache-policy";
+import { Cookie } from "~/lib/cookies";
 import type { Ctx } from "~/lib/types";
 
 function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {
@@ -33,7 +30,6 @@ function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {
 describe("cache-keys", () => {
   beforeEach(() => {
     clearCacheBypassChecks();
-    registerCacheBypassCheck(isAuthenticated);
   });
 
   it("covers every PageCacheId in the registry", () => {
@@ -82,6 +78,32 @@ describe("cache-keys", () => {
       expect(policy.key[0]).toBe("home");
       expect(policy.ttl).toBe(3600);
     }
+  });
+
+  it("keeps cache-safe public pages shared when auth tokens exist", () => {
+    const policy = pageCachePolicy(
+      PageCacheId.home,
+      ctx(
+        new Request("http://localhost/", {
+          headers: { cookie: `${Cookie.accessToken}=active; ${Cookie.refreshToken}=refresh` },
+        }),
+        { publicPath: "/" },
+      ),
+    );
+    expect(policy.kind).toBe("shared");
+  });
+
+  it("bypasses authenticated SSR on routes that render personalized data", () => {
+    const policy = pageCachePolicy(
+      PageCacheId.retirementBanking,
+      ctx(
+        new Request("http://localhost/emekli-bankaciligi", {
+          headers: { cookie: `${Cookie.accessToken}=active` },
+        }),
+        { publicPath: "/emekli-bankaciligi" },
+      ),
+    );
+    expect(policy.kind).toBe("none");
   });
 
   it("returns none for account (never cache)", () => {

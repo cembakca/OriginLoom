@@ -1,3 +1,5 @@
+import { seedUserInfo } from "~/lib/stores/user-info-store";
+
 const REFRESH_PATH = "/api/internal/refresh";
 
 /** Client island'lardan BFF / public API çağrıları — cookie oturumu taşır. */
@@ -33,6 +35,7 @@ export async function clientApiFetch<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401) seedUserInfo({ isSignedIn: false });
     const message = await res.text().catch(() => res.statusText);
     throw new ClientApiError(res.status, message || `HTTP ${res.status}`);
   }

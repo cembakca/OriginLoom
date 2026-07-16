@@ -1,4 +1,9 @@
-import { authenticateBffRequest, withBffAuthCookies } from "@server/api/internal/auth-bff";
+import {
+  authenticateBffRequest,
+  challengeBffSession,
+  confirmBffSession,
+  withBffAuthCookies,
+} from "@server/api/internal/auth-bff";
 import { fetchAccountSummary } from "@server/services/account";
 
 function json(data: unknown, status = 200): Response {
@@ -15,12 +20,17 @@ export async function handleAccountSummaryApi(request: Request): Promise<Respons
     return withBffAuthCookies(json({ error: "Yetkisiz" }, 401), auth.cookies);
   }
 
-  const summary = await fetchAccountSummary(auth.request);
-  if (!summary) {
+  const result = await fetchAccountSummary(auth.request);
+  if (result.kind === "unauthorized") {
+    challengeBffSession(auth.cookies);
     return withBffAuthCookies(json({ error: "Yetkisiz" }, 401), auth.cookies);
   }
+  if (result.kind === "unavailable") {
+    return withBffAuthCookies(json({ error: "Hesap servisi kullanılamıyor" }, 503), auth.cookies);
+  }
 
-  return withBffAuthCookies(json(summary), auth.cookies);
+  confirmBffSession(auth.cookies, result.summary.profile);
+  return withBffAuthCookies(json(result.summary), auth.cookies);
 }
 
 export function mountAccountApi(app: {

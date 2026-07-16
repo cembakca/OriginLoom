@@ -46,7 +46,11 @@ export const config = {
 
 export function runtimeMocksEnabled(): boolean {
   const currentEnv = process.env.NODE_ENV ?? config.nodeEnv;
-  return currentEnv === "development" || currentEnv === "test";
+  return (
+    currentEnv === "development" ||
+    currentEnv === "test" ||
+    booleanEnv("ENABLE_RUNTIME_MOCKS", false)
+  );
 }
 
 /** Read at request time so rotated secrets can be injected without coupling API code to process.env. */

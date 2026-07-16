@@ -253,21 +253,23 @@ Yani TTL dolunca cache anında “kırılmaz”; önce stale servis, arka planda
 
 Projede iki farklı kavram vardır; karıştırılmamalı:
 
-| Kavram           | Ne zaman                                                 | Sonuç                                                        |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------------------------ |
-| **Bypass**       | Oturumlu istek, `neverCache()` route, özel bypass kuralı | Bu istek cache'e **bakmaz/yazmaz** (`x-cache: BYPASS`)       |
-| **Invalidation** | İçerik değişti, eski HTML'i silmek istiyorsun            | Cache'teki **entry silinir**; sonraki anonim istek MISS alır |
+| Kavram           | Ne zaman                                              | Sonuç                                                        |
+| ---------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
+| **Bypass**       | Kişisel SSR, `neverCache()` route, özel bypass kuralı | Bu istek cache'e **bakmaz/yazmaz** (`x-cache: BYPASS`)       |
+| **Invalidation** | İçerik değişti, eski HTML'i silmek istiyorsun         | Cache'teki **entry silinir**; sonraki anonim istek MISS alır |
 
 ### 1. İstek bazlı bypass (cache'e hiç girme)
 
-Anonim ziyaretçi cache'lenir; oturumlu ziyaretçi her seferinde taze render alır:
+Cache-safe public HTML, oturum cookie'leri bulunsa da shared cache kullanır:
 
 ```ts
 // src/lib/cache-keys.ts — merkezi registry
 cache: (ctx) => pageCachePolicy(PageCacheId.home, ctx),
 ```
 
-Test etmek için tarayıcıda cookie gönder veya `Authorization: Bearer …` header'ı ekle → `x-cache: BYPASS` görürsün.
+SSR çıktısı oturuma göre değişen registry kayıtlarında `bypassAuth: true` kullanılır. Bu route'larda
+token veya `Authorization` header'ı → `x-cache: BYPASS` üretir. `signed_in` hiçbir zaman cache
+kararına katılmaz.
 
 Kişisel sayfalar tamamen cache dışı:
 
@@ -363,7 +365,7 @@ Detaylı kullanım, örnekler ve operasyon senaryoları: **[`docs/cache-purge.md
 | `HIT`                | Fresh cache'ten servis edildi                            |
 | `STALE`              | Eski cache servis edildi, arka planda revalidate başladı |
 | `MISS`               | Cache yoktu, render edildi ve yazıldı                    |
-| `BYPASS`             | Cache atlandı (oturum / neverCache / bypass kuralı)      |
+| `BYPASS`             | Cache atlandı (kişisel SSR / neverCache / bypass kuralı) |
 | `NONE`               | Route eşleşmedi (404)                                    |
 | `REDIRECT` / `PROXY` | SSR cache devreye girmedi                                |
 
@@ -376,7 +378,7 @@ Detay: [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) (registry) + [`src/li
 ```ts
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 
-// Standart sayfa — anonim cache'lenir, oturumlu BYPASS
+// Kişiselleştirilmiş SSR — registry'de bypassAuth: true
 cache: (ctx) => pageCachePolicy(PageCacheId.retirementBanking, ctx),
 
 // Kişisel sayfa — registry'de strategy: "never"
@@ -387,7 +389,7 @@ cache: (ctx) => pageCachePolicy(PageCacheId.account, ctx),
 
 - Key parçalarını route dosyasında **inline yazma** — registry'ye ekle
 - Bypass check'ler cache **key'e girmez** — yalnızca cache'e girip girmeme kararı verir
-- Kişisel veri cached HTML'de olmamalı; oturumlu isteklerde loader GW'den çeker
+- Kişisel veri cached HTML'de olmamalı; SSR kişiselleşiyorsa `bypassAuth: true`, değilse defer island kullan
 - Cookie isimleri: [`src/lib/cookies.ts`](../src/lib/cookies.ts)
 
 ---
@@ -564,13 +566,13 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 
 ### Cache + analytics
 
-| Veri                 | SSR HTML'de?              | Neden                                            |
-| -------------------- | ------------------------- | ------------------------------------------------ |
-| GTM container ID     | Evet                      | Herkes aynı                                      |
-| `user_tracking_id`   | **Hayır**                 | Cookie'den client okur                           |
-| `isSignedIn` / token | **Hayır**                 | layout-client cookie okur                        |
-| `pageMeta`           | Evet (island props)       | Yalnızca içerik alanları; utm/search client-side |
-| Kişisel user adı     | BYPASS route'larda SSR OK | `neverCache()` veya token BYPASS                 |
+| Veri                 | SSR HTML'de?        | Neden                                            |
+| -------------------- | ------------------- | ------------------------------------------------ |
+| GTM container ID     | Evet                | Herkes aynı                                      |
+| `user_tracking_id`   | **Hayır**           | Cookie'den client okur                           |
+| `isSignedIn` / token | **Hayır**           | layout-client cookie okur                        |
+| `pageMeta`           | Evet (island props) | Yalnızca içerik alanları; utm/search client-side |
+| Kişisel user adı     | Tercihen hayır      | Defer island; SSR gerekiyorsa auth-bypass route  |
 
 ### Env
 

@@ -2,6 +2,7 @@ import { runtimeMocksEnabled } from "@server/config";
 import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
 import { runAuthCore } from "@server/middleware/steps/auth/core";
 import {
+  clearTokenCookies,
   displayNameFromAccess,
   mockRefresh,
   readTokens,
@@ -9,6 +10,8 @@ import {
   setSessionCookies,
   setTokenCookies,
 } from "@server/middleware/steps/auth/helpers";
+
+import { Cookie } from "~/lib/cookies";
 
 export type BffAuthResult = {
   request: Request;
@@ -39,17 +42,36 @@ export function withBffAuthCookies(response: Response, jar: CookieJar): Response
   return applyCookies(response, jar);
 }
 
+/** Synchronize client-readable hints only after an authoritative gateway response. */
+export function confirmBffSession(jar: CookieJar, profile: { displayName: string }): void {
+  setSessionCookies(jar, profile);
+}
+
+/** A gateway rejection invalidates both HttpOnly credentials and UI hints. */
+export function rejectBffSession(jar: CookieJar): void {
+  clearTokenCookies(jar);
+}
+
+/** Preserve refresh capability after an access-token challenge; clear only stale UI/access state. */
+export function challengeBffSession(jar: CookieJar): void {
+  jar.delete(Cookie.accessToken);
+  jar.delete(Cookie.signedIn);
+  jar.delete(Cookie.accountText);
+}
+
 /** Client 401 sonrası — refresh_token ile yeni access üretir. */
 export async function forceTokenRefresh(request: Request): Promise<BffAuthResult> {
   const jar = new CookieJar();
   const tokens = readTokens(request);
   if (!tokens.refresh) {
+    rejectBffSession(jar);
     return { request, cookies: jar, authorized: false };
   }
 
   let refreshed = await refreshTokens(tokens.refresh);
   if (!refreshed && runtimeMocksEnabled()) refreshed = mockRefresh(tokens.refresh);
   if (!refreshed) {
+    rejectBffSession(jar);
     return { request, cookies: jar, authorized: false };
   }
 

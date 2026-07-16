@@ -3,9 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { ClientApiError, clientApiFetch } from "~/lib/client/api-fetch";
 import type { AccountSummary } from "~/lib/contracts/account";
 import { queryKeys } from "~/lib/query/keys";
+import { seedUserInfo } from "~/lib/stores/user-info-store";
 
-export function fetchAccountSummaryApi(): Promise<AccountSummary> {
-  return clientApiFetch<AccountSummary>("/api/internal/account/summary");
+export async function fetchAccountSummaryApi(): Promise<AccountSummary> {
+  const summary = await clientApiFetch<AccountSummary>("/api/internal/account/summary");
+  seedUserInfo({
+    isSignedIn: true,
+    displayName: summary.profile.displayName,
+    initials: summary.profile.initials,
+  });
+  return summary;
 }
 
 /** Kişisel hesap özeti — defer island, pipeline auth ile BFF. */

@@ -6,8 +6,8 @@ import type { CachePolicy, Ctx } from "./types";
  * Return true → HTML cache BYPASS (loader runs every time).
  * Checks run in registration order; any match skips cache.
  *
- * Today: access/refresh token or Authorization header.
- * Tomorrow: register `hasPid`, segment cookie, etc. via `registerCacheBypassCheck`.
+ * Register only concerns that affect every shared route. Route-specific personalization belongs
+ * in the route registry via a local bypass check.
  */
 export type CacheBypassCheck = (ctx: Ctx) => boolean;
 
@@ -31,7 +31,7 @@ export function clearCacheBypassChecks(): void {
   globalBypassChecks.length = 0;
 }
 
-/** Default: middleware-injected Authorization or auth cookies present. */
+/** Authoritative auth presence for routes whose SSR HTML actually varies by session. */
 export function isAuthenticated(ctx: Ctx): boolean {
   return Boolean(
     ctx.request.headers.get("Authorization") ||
@@ -45,8 +45,6 @@ export function hasPid(ctx: Ctx): boolean {
   return Boolean(cookie(ctx.request, Cookie.pid));
 }
 
-registerCacheBypassCheck(isAuthenticated);
-
 function shouldBypass(ctx: Ctx, opts?: SharedCacheOptions): boolean {
   if (opts?.never) return true;
 
@@ -57,7 +55,7 @@ function shouldBypass(ctx: Ctx, opts?: SharedCacheOptions): boolean {
 
 /**
  * Anonymous visitors → shared HTML cache (HIT/MISS).
- * Bypass check passes (token, pid, …) → `{ kind: "none" }` (x-cache: BYPASS).
+ * A configured route/global bypass check passes → `{ kind: "none" }` (x-cache: BYPASS).
  */
 export function sharedUnlessBypass(
   ctx: Ctx,

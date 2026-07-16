@@ -30,14 +30,14 @@ export async function runAuthCore(request: Request, jar: CookieJar): Promise<Aut
     }
     access = refreshed.access;
     setTokenCookies(jar, refreshed.access, refreshed.refresh);
+    // A successful refresh is authoritative; synchronize the UI hint cookies.
+    setSessionCookies(jar, { displayName: displayNameFromAccess(refreshed.access) });
   } else if (!access && !tokens.refresh) {
     clearTokenCookies(jar);
     return { cookies: jar };
   }
 
   if (!access) return { cookies: jar };
-
-  setSessionCookies(jar, { displayName: displayNameFromAccess(access) });
 
   return {
     authorization: access.startsWith("Bearer ") ? access : `Bearer ${access}`,

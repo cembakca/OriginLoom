@@ -1,4 +1,4 @@
-import { neverCache, sharedUnlessBypass } from "~/lib/cache-policy";
+import { isAuthenticated, neverCache, sharedUnlessBypass } from "~/lib/cache-policy";
 import { contentQueryCacheFragment, type ContentQueryConfig } from "~/lib/cache-query-params";
 import { parseLoanAmount, parsePage, parseTheme } from "~/lib/content-values";
 import { Cookie } from "~/lib/cookies";
@@ -30,6 +30,8 @@ export type PageCacheDefinition = {
   strategy: PageCacheStrategy;
   ttl?: number;
   swr?: number;
+  /** True only when authenticated SSR output differs from anonymous HTML. */
+  bypassAuth?: boolean;
   /** SSR HTML'i değiştiren query param allowlist — utm/gclid vb. asla ekleme. */
   contentQueryParams?: readonly string[];
   contentQueryDefaults?: Record<string, string>;
@@ -105,6 +107,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Emekli bankacılığı",
     path: "/retirement-banking",
     strategy: "shared",
+    bypassAuth: true,
     ttl: 3600,
     buildKey: (ctx) => [
       "retirement-banking",
@@ -147,6 +150,7 @@ export function pageCachePolicy(id: PageCacheId, ctx: Ctx): CachePolicy {
   return sharedUnlessBypass(ctx, entry.buildKey(ctx), {
     ttl: entry.ttl ?? DEFAULT_TTL,
     swr: entry.swr ?? DEFAULT_SWR,
+    ...(entry.bypassAuth ? { bypass: isAuthenticated } : {}),
   });
 }
 

@@ -1,4 +1,5 @@
 import { User } from "lucide-react";
+import { useSyncExternalStore } from "react";
 
 import { Button } from "~/components/ui/button";
 import {
@@ -10,12 +11,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { hasAuthCookies, readCookie } from "~/lib/client/cookies";
-import { Cookie } from "~/lib/cookies";
+import { getUserInfo, subscribeUserInfo } from "~/lib/stores/user-info-store";
 
-/** Auth chrome — Radix DropdownMenu; menü API'den gelmez. */
+/** Auth chrome — UI hints render immediately, authoritative session updates the store. */
 export default function UserChrome() {
-  if (!hasAuthCookies()) {
+  const user = useSyncExternalStore(subscribeUserInfo, getUserInfo, getUserInfo);
+
+  if (!user.isSignedIn) {
     return (
       <Button variant="secondary" size="sm" asChild className="min-w-[5.5rem]">
         <a href="/giris">Giriş yap</a>
@@ -23,8 +25,8 @@ export default function UserChrome() {
     );
   }
 
-  const accountText = readCookie(Cookie.accountText) ?? "Hesabım";
-  const initials = accountText.slice(0, 2).toUpperCase();
+  const accountText = user.displayName ?? "Hesabım";
+  const initials = user.initials ?? accountText.slice(0, 2).toUpperCase();
 
   return (
     <DropdownMenuRoot>

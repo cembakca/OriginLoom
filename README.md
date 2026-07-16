@@ -75,6 +75,7 @@ Temel değişkenler:
 
 - `PORT` — HTTP portu, varsayılan `3005`
 - `GATEWAY_URL` — backend gateway adresi
+- `ENABLE_RUNTIME_MOCKS` — `true` ise gateway fixture/fallback'larını production build'de de açar; yalnızca yerel/demo ortamları için
 - `CACHE_BACKEND` — `memory` veya `redis`; production yalnızca `redis` kabul eder
 - `CACHE_REQUIRED` — `true` ise Redis problemi readiness'i başarısız yapar; varsayılan fail-open
 - `REDIS_URL` — Redis seçildiğinde zorunlu
@@ -93,6 +94,8 @@ Temel değişkenler:
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında aktif revalidation bekleme süresi
 - `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
 
-Runtime mock'ları yalnızca `development` ve `test` ortamlarında çalışır. Production gateway hataları mock içerik veya sahte oturum üretmez.
+Runtime mock'ları varsayılan olarak yalnızca `development` ve `test` ortamlarında çalışır. Yerel Docker
+Compose, gerçek gateway hazır olana kadar `ENABLE_RUNTIME_MOCKS=true` kullanır. Gerçek production
+ortamında bu bayrak verilmemeli; gateway hataları mock içerik veya sahte oturum üretmemelidir.
 
 Detaylı cache ve geliştirme kuralları için [docs/conventions.md](docs/conventions.md) belgesine bakın.

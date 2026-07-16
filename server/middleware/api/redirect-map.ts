@@ -1,5 +1,5 @@
 import { gatewayFetch } from "@server/adapters/gateway";
-import { config } from "@server/config";
+import { config, runtimeMocksEnabled } from "@server/config";
 import { logger } from "@server/logger";
 
 export type CmsRedirectRule =
@@ -43,6 +43,7 @@ function parseRule(value: unknown): CmsRedirectRule | null {
 
 export async function lookupRedirect(pathname: string): Promise<CmsRedirectRule | null> {
   if (MOCK_MAP[pathname]) return MOCK_MAP[pathname];
+  if (runtimeMocksEnabled()) return null;
 
   const cached = cache.get(pathname);
   if (cached && cached.expiresAt > Date.now()) return cached.value;

@@ -9,10 +9,7 @@ export function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match[1] ?? "") : undefined;
 }
 
-/**
- * Oturum kontrolü — access/refresh httpOnly olduğu için document.cookie'de görünmez.
- * Middleware'in yazdığı `signed_in` + `account_text` cookie'lerini okur.
- */
+/** Optimistic UI hint only; authorization and final session state come from the BFF. */
 export function hasAuthCookies(): boolean {
   return readCookie(Cookie.signedIn) === "1";
 }

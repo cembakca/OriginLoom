@@ -19,6 +19,8 @@ services:
       CACHE_BACKEND: redis
       CACHE_REQUIRED: "false"
       REDIS_URL: redis://redis:6379
+      # Local Compose production build'i, gerçek gateway hazır olana kadar fixture kullanır.
+      ENABLE_RUNTIME_MOCKS: ${ENABLE_RUNTIME_MOCKS:-true}
       GATEWAY_URL: ${GATEWAY_URL:-http://host.docker.internal:8080}
       GTM_CONTAINER_ID: GTM-XXXXXX
       SITE_URL: http://localhost:3005

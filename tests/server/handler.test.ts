@@ -39,6 +39,17 @@ describe("handler", () => {
     expect(second.headers.get("x-cache")).toBe("HIT");
   });
 
+  it("serves cache-safe public HTML from shared cache even when auth is present", async () => {
+    const req = new Request("http://localhost/", {
+      headers: { Authorization: "Bearer test-token-1234" },
+    });
+    const first = await handle(req, [homeRoute], assets);
+    const second = await handle(req, [homeRoute], assets);
+
+    expect(first.headers.get("x-cache")).toBe("MISS");
+    expect(second.headers.get("x-cache")).toBe("HIT");
+  });
+
   it("bypasses cache for uncached routes", async () => {
     const req = new Request("http://localhost/hesabim", {
       headers: { Authorization: "Bearer test-token-1234" },

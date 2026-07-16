@@ -1,7 +1,12 @@
-import { Cookie } from "~/lib/cookies";
-import { cookie } from "~/lib/request";
-
-import { forceTokenRefresh, withBffAuthCookies } from "./auth-bff";
+import {
+  authenticateBffRequest,
+  challengeBffSession,
+  confirmBffSession,
+  forceTokenRefresh,
+  rejectBffSession,
+  withBffAuthCookies,
+} from "@server/api/internal/auth-bff";
+import { fetchUserProfileResult } from "@server/services/user";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -10,15 +15,32 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-/** Client-readable oturum durumu — httpOnly token'lar JS'te görünmez. */
+/** Authoritative UI session: HttpOnly credentials + gateway profile decide the result. */
 export async function handleAuthSessionApi(request: Request): Promise<Response> {
-  const signedIn = cookie(request, Cookie.signedIn) === "1";
-  const displayName = cookie(request, Cookie.accountText);
+  const auth = await authenticateBffRequest(request);
+  if (!auth.authorized) {
+    rejectBffSession(auth.cookies);
+    return withBffAuthCookies(json({ signedIn: false }, 401), auth.cookies);
+  }
 
-  return json({
-    signedIn,
-    ...(displayName ? { displayName } : {}),
-  });
+  const result = await fetchUserProfileResult(auth.request);
+  if (result.kind === "unauthorized") {
+    challengeBffSession(auth.cookies);
+    return withBffAuthCookies(json({ signedIn: false }, 401), auth.cookies);
+  }
+  if (result.kind === "unavailable") {
+    return withBffAuthCookies(json({ error: "Oturum servisi kullanılamıyor" }, 503), auth.cookies);
+  }
+
+  confirmBffSession(auth.cookies, result.profile);
+  return withBffAuthCookies(
+    json({
+      signedIn: true,
+      displayName: result.profile.displayName,
+      initials: result.profile.initials,
+    }),
+    auth.cookies,
+  );
 }
 
 export function mountAuthSessionApi(app: {

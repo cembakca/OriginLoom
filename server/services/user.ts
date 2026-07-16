@@ -3,22 +3,50 @@ import { runtimeMocksEnabled } from "@server/config";
 
 import type { UserProfile } from "~/lib/contracts/account";
 
-export async function fetchUserProfile(request: Request): Promise<UserProfile | null> {
+export type UserProfileResult =
+  { kind: "ok"; profile: UserProfile } | { kind: "unauthorized" } | { kind: "unavailable" };
+
+export async function fetchUserProfileResult(request: Request): Promise<UserProfileResult> {
   const auth = request.headers.get("authorization");
-  if (!auth) return null;
+  if (!auth) return { kind: "unauthorized" };
 
   try {
     const res = await gatewayFetchForRequest(request, "/user/profile");
-    if (!res.ok) return runtimeMocksEnabled() ? mockProfile(auth) : null;
+    if (res.status === 401 || res.status === 403) {
+      return runtimeMocksEnabled()
+        ? { kind: "ok", profile: mockProfile(auth) }
+        : { kind: "unauthorized" };
+    }
+    if (!res.ok) {
+      return runtimeMocksEnabled()
+        ? { kind: "ok", profile: mockProfile(auth) }
+        : { kind: "unavailable" };
+    }
+
     const data: unknown = await res.json();
-    if (!isUserProfilePayload(data)) return runtimeMocksEnabled() ? mockProfile(auth) : null;
+    if (!isUserProfilePayload(data)) {
+      return runtimeMocksEnabled()
+        ? { kind: "ok", profile: mockProfile(auth) }
+        : { kind: "unavailable" };
+    }
     return {
-      displayName: data.displayName,
-      initials: data.initials ?? data.displayName.slice(0, 2).toUpperCase(),
+      kind: "ok",
+      profile: {
+        displayName: data.displayName,
+        initials: data.initials ?? data.displayName.slice(0, 2).toUpperCase(),
+      },
     };
   } catch {
-    return runtimeMocksEnabled() ? mockProfile(auth) : null;
+    return runtimeMocksEnabled()
+      ? { kind: "ok", profile: mockProfile(auth) }
+      : { kind: "unavailable" };
   }
+}
+
+/** SSR callers that can gracefully render without a profile. */
+export async function fetchUserProfile(request: Request): Promise<UserProfile | null> {
+  const result = await fetchUserProfileResult(request);
+  return result.kind === "ok" ? result.profile : null;
 }
 
 function isUserProfilePayload(data: unknown): data is { displayName: string; initials?: string } {

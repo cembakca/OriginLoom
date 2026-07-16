@@ -24,7 +24,6 @@ function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {
 describe("cache-policy", () => {
   beforeEach(() => {
     clearCacheBypassChecks();
-    registerCacheBypassCheck(isAuthenticated);
   });
 
   it("returns shared cache for anonymous visitors", () => {
@@ -33,20 +32,21 @@ describe("cache-policy", () => {
     if (policy.kind === "shared") expect(policy.key).toEqual(["page"]);
   });
 
-  it("returns none when Authorization header is present", () => {
+  it("keeps cache-safe public HTML shared when Authorization is present", () => {
     const policy = sharedUnlessBypass(
       ctx(new Request("http://localhost/page", { headers: { Authorization: "Bearer x" } })),
       ["page"],
     );
-    expect(policy.kind).toBe("none");
+    expect(policy.kind).toBe("shared");
   });
 
-  it("returns none when access_token cookie is present", () => {
+  it("supports route-local auth bypass for personalized SSR", () => {
     const policy = sharedUnlessBypass(
       ctx(
         new Request("http://localhost/page", { headers: { cookie: `${Cookie.accessToken}=abc` } }),
       ),
       ["page"],
+      { bypass: isAuthenticated },
     );
     expect(policy.kind).toBe("none");
   });

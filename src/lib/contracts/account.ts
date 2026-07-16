@@ -3,6 +3,9 @@ export type UserProfile = {
   displayName: string;
 };
 
+export type AuthSession =
+  { signedIn: false } | { signedIn: true; displayName: string; initials: string };
+
 export type AccountActivity = {
   id: string;
   label: string;
