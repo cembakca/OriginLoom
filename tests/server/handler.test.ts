@@ -172,6 +172,8 @@ describe("handler", () => {
     expect(body).toContain('imageSrcSet="/assets/media/home-hero-480');
     expect(body).toContain('fetchPriority="high"');
     expect(body).toContain('width="1600" height="900"');
+    expect(body).toContain("&quot;publicPath&quot;:&quot;\\/&quot;");
+    expect(body).not.toContain("&quot;publicPath&quot;:&quot;/&quot;");
   });
 
   it("serves cache-safe public HTML from shared cache even when auth is present", async () => {

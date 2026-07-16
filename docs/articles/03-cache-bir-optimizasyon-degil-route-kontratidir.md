@@ -915,6 +915,19 @@ Route policy → logical key → Redis HTML → HTTP Response
 
 Bu sadeliğin bedelini kendi runtime’ımızın bakımını üstlenerek ödüyoruz.
 
+## Cache edilen HTML yalnız body değil, crawl inventory de taşır
+
+Full-document cache'e yazılan response, island hydration payload'larını da içerir. Bir `publicPath`
+veya CMS URL'si `data-props` içinde ham `/...` olarak tekrar ederse bu tekrar yalnız tek request'in
+sorunu değildir; aynı HTML HIT ve STALE cevaplarıyla geniş kullanıcı ve crawler trafiğine dağıtılır.
+Bu nedenle embedded JSON serialization cache correctness'in SEO tarafındaki devamıdır.
+
+Çözüm cache key'e yeni boyut eklemek değildir. Gerçek linkler aynı kalır; link olmayan JSON değerleri
+`serializeEmbeddedJson()` ile `\/` biçimine getirilir. Parse edilen runtime değeri değişmediği için
+cache identity, hydration props ve component davranışı aynı kalır. Değişen yalnız crawler-visible
+wire representation'dır. Böylece purge, TTL veya canonical ile sonradan temizlemeye çalışmak yerine
+istenmeyen URL adayını document üretilirken ortadan kaldırırız.
+
 ## Sonuç: Cache key, sayfanın veri sınıflandırmasıdır
 
 ## Güncel uygulama notu: HTML cache ile media cache aynı şey değildir
@@ -973,3 +986,5 @@ selective hydration ve kişiselleştirmeyi shared HTML’den ayırmanın JavaScr
 - [RFC 5861 — stale-while-revalidate ve stale-if-error](https://www.rfc-editor.org/rfc/rfc5861.html)
 - [Redis distributed locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/)
 - [Redis `SET` komutu](https://redis.io/docs/latest/commands/set/)
+- [Google crawl budget management](https://developers.google.com/crawling/docs/crawl-budget)
+- [RFC 8259 — JSON solidus escape](https://www.rfc-editor.org/rfc/rfc8259)

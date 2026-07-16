@@ -359,6 +359,25 @@ Gerçek bir responsive transformation servisi varsa bunun endpoint’i `IMAGE_TR
 verilir. Böylece “CDN kullanıyorum” bilgisi, örtük biçimde “runtime dönüşüm istiyorum” kararına
 dönüşmez. `/medya-pipeline` sayfası iki yolu ve self-host fontları çalışan HTML üzerinde gösterir.
 
+## Güncel uygulama notu: `__NEXT_DATA__` deneyiminden embedded JSON kontratına
+
+Next.js döneminde yalnız rendering ve cache kararlarıyla değil, document source içindeki veri
+yüzeyiyle de uğraştık. `__NEXT_DATA__` payload'ında `/kategori`, `/arama?...` veya `https://...` gibi
+route-benzeri string'ler gerçek anchor olmasalar bile crawler-visible HTML'in parçasıydı. Büyük URL
+envanterinde bu tekrarları crawler'ın yorumuna bırakmak yerine yalnız bizim ürettiğimiz semantik
+`<a href>` linklerinin keşif otoritesi olmasını istedik.
+
+Yeni runtime'da aynı risk island `data-props` alanında yeniden oluşabilirdi. Bu yüzden çözüm component
+bazlı değil, document serialization kontratı oldu: HTML'e gömülen JSON `serializeEmbeddedJson()` ile
+üretiliyor ve bütün `/` karakterleri JSON'un geçerli `\/` solidus escape'ine dönüştürülüyor. Client
+`JSON.parse` ile okuduğunda değer tekrar normal slash oluyor; gerçek link, canonical, sitemap, API
+response veya Redis verisi değişmiyor.
+
+Google gerçek crawlable link için `<a href>` biçimini öneriyor; ayrıca gereksiz ve duplicate URL
+envanterinin crawl kaynaklarını tüketebileceğini belirtiyor. Buradaki escape katmanı robots veya
+canonical yerine geçmiyor. Amacı link olmayan hydration verisini gerçek link envanterinden fiziksel
+olarak ayırmak.
+
 ## Her proje Next.js’ten çıkmalı mı?
 
 Hayır.
@@ -403,3 +422,6 @@ kontratı, metadata üretimi ve full-document SSR.
 - [Next.js Cache Components](https://nextjs.org/docs/app/getting-started/partial-prerendering)
 - [Next.js `use cache` directive](https://nextjs.org/docs/app/api-reference/directives/use-cache)
 - [Next.js caching — previous model](https://nextjs.org/docs/app/guides/caching-without-cache-components)
+- [Google crawlable link best practices](https://developers.google.com/search/docs/crawling-indexing/links-crawlable)
+- [Google crawl budget management](https://developers.google.com/crawling/docs/crawl-budget)
+- [RFC 8259 — JSON solidus escape](https://www.rfc-editor.org/rfc/rfc8259)

@@ -168,6 +168,15 @@ export default tseslint.config(
       "react/jsx-key": "error",
       "react/no-array-index-key": "warn",
       "react/prop-types": "off",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "JSXAttribute > JSXExpressionContainer > CallExpression[callee.object.name='JSON'][callee.property.name='stringify']",
+          message:
+            "Do not embed JSON.stringify output in HTML. Use serializeEmbeddedJson() so URL-like values and HTML boundaries are escaped.",
+        },
+      ],
     },
   },
   {

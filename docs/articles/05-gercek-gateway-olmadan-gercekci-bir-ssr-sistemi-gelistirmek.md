@@ -868,6 +868,23 @@ kontrattır; tek `src` kullanır, runtime proxy oluşturmaz. Self-host fontlar `
 yayınlanabilir ve üçüncü taraf font origin’ine ihtiyaç duymaz. `/medya-pipeline` route’u deployment
 sonrası bu bağlantıların hızlı smoke kontrolünü yapabileceğimiz bir gösterim sayfasıdır.
 
+## Güncel production sınırı: crawler-visible embedded data
+
+Production smoke yalnız status, cache header ve asset dosyalarını kontrol etmez. SSR document'taki
+island payload'larının wire formatı da deployment invariant'ıdır. Gateway'den veya route context'ten
+gelen `/...` değerleri HTML'e embedded JSON olarak yazılıyorsa `\/` görünmeli; aynı değer client'ta
+parse edildiğinde tekrar `/...` olmalıdır.
+
+Bu ayrım mock ile gerçek gateway arasında özellikle önemlidir. Mock içerik URL alanlarını yeterince
+çeşitlendirmezse serializer regresyonu production CMS verisi gelene kadar görünmeyebilir. Testler bu
+yüzden relative path, absolute URL, nested menu URL, `</script>` benzeri boundary değeri ve
+round-trip davranışını doğrudan kontrat olarak kapsar. ESLint de yeni JSX payload'larının merkezi
+serializer'ı atlamasını engeller.
+
+Google'ın crawl budget rehberi gereksiz URL inventory'sini azaltmayı öneriyor. Embedded JSON escaping
+tek başına crawl budget stratejisi değildir; canonical, sitemap, doğru 404/410 ve gerçek anchor
+disipliniyle birlikte savunma katmanıdır.
+
 ## Sonuç: Gerçek sistem, gerçek veri gelmeden de inşa edilebilir
 
 Gerçek gateway olmadan gerçek bankacılık verisi üretemeyiz. Gerçek IAM güvenliğini, production
@@ -907,3 +924,5 @@ varmış gibi davranmaya zorlamasıydı.
 - [OpenTelemetry metrics](https://opentelemetry.io/docs/concepts/signals/metrics/)
 - [Prometheus client/exposition rehberi](https://prometheus.io/docs/instrumenting/writing_clientlibs/)
 - [Consumer-Driven Contracts — Martin Fowler](https://martinfowler.com/articles/consumerDrivenContracts.html)
+- [Google crawl budget management](https://developers.google.com/crawling/docs/crawl-budget)
+- [RFC 8259 — JSON standardı](https://www.rfc-editor.org/rfc/rfc8259)

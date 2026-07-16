@@ -81,6 +81,17 @@ Bu script önce Compose'taki `app` ve `mock-gw` container'larını durdurur, yal
 `docker compose up -d --wait redis` ile hazırlar ve sonra `npm run dev` çalıştırır. Script
 kapatıldığında Redis açık kalır; sonraki kod değişikliklerinde `compose down` gerekmez.
 
+## Embedded JSON ve crawl kontratı
+
+Island hydration prop'ları crawler-visible HTML'e yazılmadan önce `serializeEmbeddedJson()` ile
+serialize edilir. Route-benzeri `/...` değerleri JSON'un geçerli `\/` escape'iyle çıkar; browser
+`JSON.parse` sırasında bunları otomatik olarak tekrar `/...` haline getirir. Böylece gerçek
+`<a href>` linkleri değişmeden kalırken `data-props` içindeki publicPath, pathname, menu URL ve içerik
+alanları ikinci bir URL inventory'si oluşturmaz.
+
+Serializer ayrıca `<`, `>`, `&`, U+2028 ve U+2029 karakterlerini güvenli JSON escape'lerine çevirir.
+Bu kural yalnız HTML'e embedded JSON içindir; API body, Redis ve log serialization'ına uygulanmaz.
+
 ## Kontroller
 
 ```bash

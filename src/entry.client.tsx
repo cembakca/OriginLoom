@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
 import { reportClientError } from "~/lib/client/error-telemetry";
+import { parseEmbeddedJson } from "~/lib/embedded-json";
 import { AppQueryProvider } from "~/lib/query/provider";
 
 type IslandModule = { default: ComponentType<Record<string, unknown>> };
@@ -24,7 +25,7 @@ async function mount(el: HTMLElement) {
     if (!load) throw new Error(`Island module not found: ${island}`);
     const { default: Comp } = await load();
 
-    const props = JSON.parse(el.dataset.props || "{}") as Record<string, unknown>;
+    const props = parseEmbeddedJson<Record<string, unknown>>(el.dataset.props || "{}");
     const tree = (
       <AppQueryProvider>
         <Comp {...props} />

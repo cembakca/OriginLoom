@@ -569,7 +569,7 @@ Bu nedenle interactive alanları island olarak işaretliyoruz:
   data-island={name}
   data-mode={mode}
   data-eager={eager ? "" : undefined}
-  data-props={JSON.stringify(props ?? {})}
+  data-props={serializeEmbeddedJson(props ?? {})}
 >
   {mode === "hydrate" ? children : <div data-fallback="">{children}</div>}
 </div>
@@ -594,6 +594,25 @@ ve client ilk çıktısının aynı olması gerektiğini ve mismatch’lerin bug
 vurguluyor. Bu nedenle `hydrate` modunda render sırasında `window`, anlık tarih veya rastgele değer
 gibi iki ortamda farklı sonuç üreten girdiler kullanmıyoruz. Böyle bir ihtiyaç varsa değer server’dan
 prop olarak taşınmalı ya da component `defer` moduna alınmalı.
+
+### Document source da bir URL inventory'sidir
+
+Framework olmadan SSR kurarken yalnız DOM ağacının değil, HTML source'a gömülen bootstrap verisinin de
+sahibi oluruz. Island prop'larında `publicPath`, `pathname`, menu URL'leri ve CMS içerikleri bulunabilir.
+Bunları ham `JSON.stringify()` ile `data-props` içine yazmak, gerçek link olmayan route-benzeri
+string'leri crawler-visible document'ta tekrarlar.
+
+Pipeline bu yüzden HTML serialization aşamasında iki farklı URL sınıfı üretir:
+
+```text
+Navigasyon URL'si     → <a href="/kredi">             → ham ve crawlable
+Hydration JSON değeri → {"publicPath":"\/kredi"}     → escaped, JSON.parse ile okunur
+```
+
+`serializeEmbeddedJson()` solidus yanında `<`, `>`, `&`, U+2028 ve U+2029 karakterlerini de escape
+eder. Client `parseEmbeddedJson()` kullanır; özel unescape algoritması yoktur. RFC 8259 solidus'un
+`\/` biçiminde temsil edilebileceğini tanımlar. ESLint JSX'e doğrudan `JSON.stringify()` gömülmesini
+reddeder ve full-document test HTML source'ta ham slash-prefixed prop bulunmadığını doğrular.
 
 ## 15. Hata sınırı React component’inden önce başlar
 
@@ -776,4 +795,6 @@ ayrılması.
 - [Vite server-side rendering rehberi](https://vite.dev/guide/ssr.html)
 - [MDN responsive images](https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Responsive_images)
 - [React image preload seçenekleri](https://react.dev/reference/react-dom/preload)
+- [Google JavaScript SEO temelleri](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics)
+- [RFC 8259 — JSON standardı](https://www.rfc-editor.org/rfc/rfc8259)
 - [Node.js Web API globals](https://nodejs.org/api/globals.html)

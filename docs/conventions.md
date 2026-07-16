@@ -594,6 +594,41 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 | `pageMeta`           | Evet (island props) | Yalnızca içerik alanları; utm/search client-side |
 | Kişisel user adı     | Tercihen hayır      | Defer island; SSR gerekiyorsa auth-bypass route  |
 
+### HTML'e embedded JSON ve crawler-visible URL'ler
+
+HTML içine hydration, analytics veya bootstrap verisi gömülüyorsa doğrudan `JSON.stringify()`
+kullanmak yasaktır. Tek otorite `src/lib/embedded-json.ts` içindeki `serializeEmbeddedJson()`
+fonksiyonudur.
+
+```tsx
+// Yanlış
+data-props={JSON.stringify(props)}
+
+// Doğru — Island zaten merkezi olarak uygular
+data-props={serializeEmbeddedJson(props)}
+```
+
+Kurallar:
+
+1. `/path` ve `https://host/path` gibi JSON stringlerindeki bütün solidus karakterleri HTML source'ta
+   `\/` olmalıdır.
+2. Client manuel `replace()` yapmaz; `parseEmbeddedJson()`/`JSON.parse()` standard JSON escape'lerini
+   geri açar.
+3. `<`, `>`, `&`, U+2028 ve U+2029 aynı serializer tarafından escape edilir.
+4. Gerçek navigasyon linkleri (`<a href>`), asset URL'leri (`src`, `srcset`), canonical ve sitemap
+   kesinlikle dönüştürülmez.
+5. API response, gateway request, Redis cache ve log JSON'u bu serializer'ı kullanmaz; crawler-visible
+   HTML değildir.
+6. Yeni bir `data-*`, `<script type="application/json">` veya inline bootstrap payload'ı eklenirse
+   `serializeEmbeddedJson()` zorunludur ve source-output + round-trip testi yazılmalıdır.
+7. Island prop'ları public, küçük ve JSON-serializable olmalıdır; token veya kişisel veri escape
+   edilerek güvenli hale gelmez.
+
+ESLint JSX attribute içinde doğrudan `JSON.stringify()` kullanımını build sırasında reddeder.
+Solidus escape'in JSON standardındaki karşılığı için
+[RFC 8259](https://www.rfc-editor.org/rfc/rfc8259), URL inventory yaklaşımı için
+[Google crawl budget rehberi](https://developers.google.com/crawling/docs/crawl-budget) referanstır.
+
 ### Env
 
 ```bash

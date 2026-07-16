@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { serializeEmbeddedJson } from "~/lib/embedded-json";
+
 /**
  * `hydrate` — server renders it, client wakes it up.
  *   Interactive, but identical for every visitor. Safe inside cached HTML.
@@ -30,7 +32,7 @@ export function Island({
       data-island={name}
       data-mode={mode}
       data-eager={eager ? "" : undefined}
-      data-props={JSON.stringify(props ?? {})}
+      data-props={serializeEmbeddedJson(props ?? {})}
     >
       {mode === "hydrate" ? children : <div data-fallback="">{children}</div>}
     </div>

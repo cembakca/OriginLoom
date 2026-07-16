@@ -101,7 +101,7 @@ export function Island({ name, mode = "hydrate", props, eager, children }: Islan
       data-island={name}
       data-mode={mode}
       data-eager={eager ? "" : undefined}
-      data-props={JSON.stringify(props ?? {})}
+      data-props={serializeEmbeddedJson(props ?? {})}
     >
       {mode === "hydrate" ? children : <div data-fallback="">{children}</div>}
     </div>
@@ -122,6 +122,34 @@ ve secret içermemeli.
 React attribute değerlerini HTML için escape eder; yine de bu alanı güven sınırı olarak görmüyoruz.
 DOM’a yazılan her veri kullanıcı tarafından okunabilir ve değiştirilebilir. Access token, refresh
 token, kişisel hesap verisi veya server-only karar island prop’una konmaz.
+
+### Island props link değildir: embedded JSON wire formatı
+
+`layout-client` island'ı `publicPath` ve `pathname`, mobile menu island'ı gerçek linklerin client
+kopyalarını, analytics island'ı ise page metadata taşır. Bu değerlerin browser'daki karşılığı normal
+`/path` olmalıdır; fakat HTML source'ta link olmayan payload'ın ikinci bir URL inventory'si gibi
+görünmesini istemiyoruz.
+
+Merkezi serializer şu dönüşümü uygular:
+
+```ts
+serializeEmbeddedJson({ publicPath: "/blogs/paginated?page=2" });
+// {"publicPath":"\/blogs\/paginated?page=2"}
+
+parseEmbeddedJson(serialized);
+// { publicPath: "/blogs/paginated?page=2" }
+```
+
+Bu double encoding değildir. `\/`, JSON standardında `/` karakterinin eşdeğer escape temsilidir.
+DOM `dataset.props` değeri backslash'ı korur; `JSON.parse` bunu slash'a çevirir. Manuel
+`replaceAll("\\/", "/")` yapılmaz; böyle bir adım nested değerlerde hata riski üretir ve JSON parser'ın
+zaten verdiği garantiyi tekrarlar.
+
+Serializer bütün island'ların geçtiği `Island` component'inde olduğu için `layout-client`,
+`page-analytics`, menu/footer, blog ve gelecekteki island'lar aynı kontratı kullanır. Gerçek fallback
+`<a href>` linkleri escape edilmez; crawler'a göstermek istediğimiz linkler onlar olduğu için ham
+kalır. `<`, `>`, `&`, U+2028 ve U+2029 escape'leri de aynı boundary'de uygulanır. Escape bir security
+sınırı değildir: secret veya kişisel veri island prop'una yine konamaz.
 
 ## İki mode, iki farklı doğruluk kontratı
 
@@ -895,3 +923,5 @@ hangi koşulları gerektirdiği.
 - [MDN secure cookie configuration](https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies)
 - [TanStack Query retries](https://tanstack.com/query/latest/docs/framework/react/guides/query-retries)
 - [TanStack Query query keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys)
+- [Google crawlable link best practices](https://developers.google.com/search/docs/crawling-indexing/links-crawlable)
+- [RFC 8259 — JSON standardı](https://www.rfc-editor.org/rfc/rfc8259)

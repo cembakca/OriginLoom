@@ -275,7 +275,40 @@ aynı-origin `/api/internal/client-errors` endpointinde boyut ve alan allowlist'
 loguna `releaseId`, request ID ve client error ID ile yazılır. Telemetry gönderiminin başarısız olması
 island mount akışını bozmaz.
 
-Render edilen HTML'de `<div data-island="mobile-menu" data-mode="hydrate" data-props='{"items":[...]}'>` olarak çıkar.
+Render edilen HTML'de örneğin
+`<div data-island="mobile-menu" data-mode="hydrate" data-props='{"items":[{"url":"\/kredi"}]}'>`
+olarak çıkar.
+
+#### Embedded JSON ve crawl inventory kontratı
+
+Island prop'ları gerçek link değildir; hydration/mount sırasında client'a taşınan public veridir.
+Buna rağmen `/blogs?...` veya `https://...` gibi ham URL-benzeri string'lerin crawler-visible HTML
+içinde tekrar görünmesi istenmeyen URL keşfi ve gereksiz crawl denemeleri üretebilir. Gerçek navigasyon
+otoritesi yalnız semantik `<a href>`, canonical ve sitemap'tir.
+
+Bu nedenle HTML'e gömülen bütün island JSON'u `serializeEmbeddedJson()` üzerinden geçer:
+
+```text
+publicPath: /blogs/paginated?page=2
+        ↓ serializeEmbeddedJson
+HTML:       \/blogs\/paginated?page=2
+        ↓ dataset.props + JSON.parse
+Client:     /blogs/paginated?page=2
+```
+
+`\/` RFC 8259'a göre geçerli solidus escape'idir; client manuel string replacement yapmaz,
+`JSON.parse` orijinal değeri geri üretir. Aynı serializer `<`, `>`, `&`, U+2028 ve U+2029
+karakterlerini de JSON escape biçimine dönüştürür. Böylece kontrat ileride data attribute'tan inline
+JSON/script container'a taşınsa da HTML/script boundary güvenliği korunur.
+
+Kapsam yalnız crawler-visible HTML'e embedded JSON'dur. Gerçek `href`/`src`, API JSON response'ları,
+Redis entry'leri ve structured loglar değiştirilmez. ESLint, JSX içinde doğrudan `JSON.stringify()`
+gömülmesini engeller; unit ve full-document testleri hem escaped source'u hem client round-trip'ini
+korur.
+
+Referanslar: [RFC 8259 JSON string grammar](https://www.rfc-editor.org/rfc/rfc8259),
+[Google crawlable link best practices](https://developers.google.com/search/docs/crawling-indexing/links-crawlable),
+[Google crawl budget management](https://developers.google.com/crawling/docs/crawl-budget).
 
 | mode      | Server                 | Client                                                 |
 | --------- | ---------------------- | ------------------------------------------------------ |
