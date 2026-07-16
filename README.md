@@ -66,9 +66,13 @@ npm ci
 npm run dev
 ```
 
-Bu komut uygulamayı `http://localhost:3005`, bağımsız mock gateway'i ise
-`http://localhost:4002` adresinde çalıştırır. Client modülleri `http://127.0.0.1:5174`
-üzerindeki gerçek Vite development server'dan gelir. Browser'da yalnız Hono adresini açın.
+Bu komut uygulamayı `http://127.0.0.1:3005`, bağımsız mock gateway'i ise
+`http://127.0.0.1:4002` adresinde çalıştırır. Client modülleri `http://127.0.0.1:5174`
+üzerindeki gerçek Vite development server'dan gelir. Browser'da bu adresi açın —
+`localhost` ile `127.0.0.1` karışımı CSS/asset gecikmesine yol açabilir.
+
+Development modunda Tailwind CSS, `<head>` içinde Vite üzerinden blocking stylesheet
+olarak yüklenir; böylece full reload'da layout kayması (FOUC) oluşmaz.
 Cache in-memory çalışır; process restart sonrası sıfırlanır.
 
 - `src/islands` ve client bağımlılıkları React Fast Refresh ile state'i koruyarak güncellenir.

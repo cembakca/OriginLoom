@@ -13,15 +13,20 @@ export function assetUrl(path: string): string {
   return base ? `${base}${normalized}` : normalized;
 }
 
+const DEV_GLOBALS_CSS = "/src/styles/globals.css";
+
 export function readAssets(): Assets {
   if (config.viteDevServerUrl) {
+    const viteOrigin = config.viteDevServerUrl.replace(/\/$/, "");
     return {
-      js: `${config.viteDevServerUrl}/src/entry.client.tsx`,
-      css: [],
+      js: `${viteOrigin}/src/entry.client.tsx`,
+      // Head'de blocking stylesheet — full reload'da FOUC/layout shift olmasın.
+      // entry.client.tsx import'u HMR için kalır.
+      css: [`${viteOrigin}${DEV_GLOBALS_CSS}`],
       fonts: readFontAssets(),
       development: {
-        client: `${config.viteDevServerUrl}/@vite/client`,
-        reactRefresh: `${config.viteDevServerUrl}/@react-refresh`,
+        client: `${viteOrigin}/@vite/client`,
+        reactRefresh: `${viteOrigin}/@react-refresh`,
       },
     };
   }

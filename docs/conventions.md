@@ -138,7 +138,8 @@ NODE_ENV=development
 CACHE_BACKEND=memory
 CACHE_MAX_ENTRIES=2000
 GATEWAY_URL=http://127.0.0.1:4002
-SITE_URL=http://localhost:3005
+SITE_URL=http://127.0.0.1:3005
+VITE_DEV_SERVER_URL=http://127.0.0.1:5174
 CACHE_PURGE_SECRET=dev-purge-secret
 ```
 

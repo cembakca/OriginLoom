@@ -40,7 +40,7 @@ describe("assetUrl", () => {
     const assets = readAssets();
     expect(assets).toMatchObject({
       js: "http://127.0.0.1:5174/src/entry.client.tsx",
-      css: [],
+      css: ["http://127.0.0.1:5174/src/styles/globals.css"],
       development: {
         client: "http://127.0.0.1:5174/@vite/client",
         reactRefresh: "http://127.0.0.1:5174/@react-refresh",

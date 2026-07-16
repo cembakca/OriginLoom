@@ -75,8 +75,11 @@ export async function renderDocumentView({
   const seo = metadata;
 
   const cdnOrigin = assetCdnOrigin();
+  const viteOrigin = assets.development
+    ? new URL(assets.development.client).origin
+    : null;
   const preconnectOrigins = [
-    ...new Set([cdnOrigin, ...imageCdnOrigins()].filter(Boolean)),
+    ...new Set([cdnOrigin, viteOrigin, ...imageCdnOrigins()].filter(Boolean)),
   ] as string[];
 
   const html = renderToString(
