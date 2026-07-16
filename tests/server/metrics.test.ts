@@ -2,8 +2,10 @@ import {
   observeCacheEntryWrite,
   observeCacheOperation,
   observeGatewayRequest,
+  observeInvalidGatewayPayload,
   observeRequest,
   observeRevalidation,
+  observeShellDegradation,
   renderMetrics,
 } from "@server/metrics";
 import { describe, expect, it } from "vitest";
@@ -14,6 +16,8 @@ describe("production metrics", () => {
     observeGatewayRequest(0, 25, "timeout");
     observeCacheOperation("redis", "read", "success", 3);
     observeRevalidation("success", 42);
+    observeInvalidGatewayPayload("offers", "schema");
+    observeShellDegradation("menu", "invalid_payload");
 
     const metrics = renderMetrics();
 
@@ -27,6 +31,12 @@ describe("production metrics", () => {
     );
     expect(metrics).toContain(
       'ssr_cache_revalidation_duration_milliseconds_count{outcome="success"}',
+    );
+    expect(metrics).toContain(
+      'ssr_gateway_invalid_payload_total{contract="offers",reason="schema"}',
+    );
+    expect(metrics).toContain(
+      'ssr_shell_degraded_total{component="menu",reason="invalid_payload"}',
     );
   });
 

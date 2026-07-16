@@ -1,6 +1,10 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
 
 import type { UserProfile } from "~/lib/contracts/account";
+import { isBoundedString, isRecord } from "~/lib/runtime-schema";
+
+const INVALID_PROFILE = "Profile gateway returned an invalid payload";
 
 export type UserProfileResult =
   { kind: "ok"; profile: UserProfile } | { kind: "unauthorized" } | { kind: "unavailable" };
@@ -15,8 +19,8 @@ export async function fetchUserProfileResult(request: Request): Promise<UserProf
     }
     if (!res.ok) return { kind: "unavailable" };
 
-    const data: unknown = await res.json();
-    if (!isUserProfilePayload(data)) return { kind: "unavailable" };
+    const payload = await readGatewayJson(res, "profile", INVALID_PROFILE);
+    const data = requireGatewayPayload("profile", payload, isUserProfilePayload, INVALID_PROFILE);
     return {
       kind: "ok",
       profile: {
@@ -36,10 +40,10 @@ export async function fetchUserProfile(request: Request): Promise<UserProfile | 
 }
 
 function isUserProfilePayload(data: unknown): data is { displayName: string; initials?: string } {
-  if (!data || typeof data !== "object") return false;
-  const value = data as Record<string, unknown>;
   return (
-    typeof value.displayName === "string" &&
-    (value.initials === undefined || typeof value.initials === "string")
+    isRecord(data) &&
+    isBoundedString(data.displayName, 120) &&
+    data.displayName.trim().length > 0 &&
+    (data.initials === undefined || isBoundedString(data.initials, 8))
   );
 }

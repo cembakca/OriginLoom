@@ -1,10 +1,12 @@
 import { gatewayFetch } from "@server/adapters/gateway";
 import * as cache from "@server/cache";
+import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
 
 import { isBoundedRouteSlug } from "~/lib/content-values";
 
 const ROUTE_DOMAINS_CACHE_KEY = "route-domains";
 const MAX_DOMAIN_VALUES = 500;
+const INVALID_ROUTE_DOMAINS = "Route domains gateway returned an invalid payload";
 
 export type RouteDomains = {
   loanCities: string[];
@@ -41,10 +43,10 @@ export async function fetchRouteDomains(): Promise<RouteDomains> {
   const response = await gatewayFetch("/routing/domains");
   if (!response.ok) throw new Error(`Route domains gateway returned ${response.status}`);
 
-  const payload: unknown = await response.json();
-  if (!isRouteDomains(payload))
-    throw new Error("Route domains gateway returned an invalid payload");
-  const domains = normalizeRouteDomains(payload);
+  const payload = await readGatewayJson(response, "route_domains", INVALID_ROUTE_DOMAINS);
+  const domains = normalizeRouteDomains(
+    requireGatewayPayload("route_domains", payload, isRouteDomains, INVALID_ROUTE_DOMAINS),
+  );
   if (key) await cache.write(key, JSON.stringify(domains), policy);
   return domains;
 }

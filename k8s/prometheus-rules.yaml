@@ -34,3 +34,12 @@ spec:
           annotations:
             summary: "SSR cached HTML body p95 exceeds 512 KiB"
             description: "Route {{ $labels.route }} is producing unusually large cached responses."
+
+        - alert: SsrGatewayInvalidPayload
+          expr: sum by (contract, reason) (increase(ssr_gateway_invalid_payload_total[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Gateway response violated an SSR consumer contract"
+            description: "Contract {{ $labels.contract }} rejected a gateway payload because of {{ $labels.reason }}."

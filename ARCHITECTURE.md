@@ -213,12 +213,23 @@ gateway item'ında `external: true` ise ve HTTPS kullanıyorsa geçerlidir. `mai
 bu açık external kontratında kabul edilir. `javascript:`, `data:`, `file:`, protocol-relative URL,
 backslash/control karakteri, credential ve 2048 karakteri aşan değerler reddedilir.
 
-Menü payload'ı `server/services/menu.ts` sınırında gerçek runtime shape kontrolünden geçer: zorunlu
-alan tipleri, string limitleri, maksimum üç seviye, seviye başına 50 ve payload genelinde 200 item
-sınırı uygulanır. CMS `seoInfo` için `src/lib/metadata/schema.ts` aynı görevi görür. Canonical ve
+Gateway JSON cevapları `server/gateway-payload.ts` ortak sınırından geçer. Her endpoint'in byte
+bütçesi response okunmadan `Content-Length`, okunduktan sonra gerçek UTF-8 byte boyutuyla uygulanır;
+bozuk JSON ile schema ve size ihlalleri ayrı nedenlerdir. Küçük `src/lib/runtime-schema.ts` katmanı
+bounded string/array, record ve finite number kontrollerini ortaklaştırır. Offers, blogs, menu,
+page/SEO, route-domain, profile, account, auth refresh ve CMS redirect kontratlarının tamamı bu
+sınırı kullanır. Menü ayrıca maksimum üç seviye, seviye başına 50 ve payload genelinde 200 item
+sınırı uygular. CMS `seoInfo` için `src/lib/metadata/schema.ts` aynı görevi görür. Canonical ve
 `og:url` yalnız `SITE_URL` origin'ine resolve edilebilir; dış HTTPS yalnız OG/Twitter image gibi medya
 alanlarında kabul edilir. Final metadata merge policy'yi yeniden uyguladığı için eski cache girdisi
 veya route-level metadata da bu sınırı aşamaz.
+
+Failure politikası kritikliğe göre açıktır: route'un ana içeriği olan offer/blog/page/domain
+payload'ı geçersizse route hata yoluna gider; menü gibi kritik olmayan shell verisi boş ve geçerli bir
+menu modeliyle degrade olur. Profile/account/auth doğrulaması geçersiz payload'ı oturum doğrulanmış
+saymaz; CMS redirect ise kural yokmuş gibi devam eder. Her red `contract` ve kapalı
+`json|schema|size` label'larıyla `ssr_gateway_invalid_payload_total` metriğini, shell fallback'i de
+`ssr_shell_degraded_total` metriğini artırır.
 
 Her entry şu yapıdadır:
 
@@ -459,7 +470,8 @@ korunur ve gateway'e inject edilir. Üretilen request ID tracing kapalıyken de 
 gateway'e taşınır. Structured loglar `releaseId`, `traceId` ve `spanId` ile trace-log korelasyonu
 sağlar; release aynı zamanda OTel resource `service.version` değeridir.
 
-`/metrics` request, gateway, cache operation ve SWR revalidation için bounded-label counter ve
+`/metrics` request, gateway, gateway payload rejection, shell degradation, cache operation ve SWR
+revalidation için bounded-label counter ve
 histogram üretir. Gateway outcome label'ları `success`, `client_error`, `server_error`, `timeout` ve
 `network_error` ile dashboard/alert tarafında hata oranının hesaplanmasını sağlar. Event-loop p50/p95/
 p99 lag, CPU, RSS/heap, uptime ve release info process metrikleri de aynı endpoint'tedir. Request ID,
@@ -531,6 +543,12 @@ subset davranışlarını aynı SSR document içinde görünür kılan executabl
 **Production telemetry:** Request loglarının ötesinde OpenTelemetry lifecycle, distributed trace
 propagation, SSR/gateway/cache/loader/render span'leri, latency histogramları ve process metrikleri
 vardır. Collector, dashboard, alert ve retention politikası deployment platformunun sorumluluğudur.
+
+**Gateway payload güven sınırı:** Bütün gateway JSON consumer'ları endpoint byte bütçesi ve runtime
+schema ile korunur. String/collection/depth/numeric sınırlar render veya cache'e ulaşmadan uygulanır;
+`NaN`/`Infinity` ve aşırı `totalPages` kabul edilmez. Contract fixture'ları, malformed JSON, size
+testleri ve deterministik mutation-fuzz corpus'u CI'da çalışır. `k8s/prometheus-rules.yaml` geçersiz
+payload metriği için provider drift alarmı içerir.
 
 ### Açık Riskler ve Eksikler
 

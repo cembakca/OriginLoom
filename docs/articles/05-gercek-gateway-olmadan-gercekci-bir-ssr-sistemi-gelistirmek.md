@@ -229,16 +229,23 @@ const data = (await response.json()) as Offer[];
 TypeScript network’ten gelen JSON’u doğrulamaz. Bu nedenle service katmanı `unknown` ile başlıyor:
 
 ```ts
-const data: unknown = await response.json();
-if (!isOffersPayload(data)) {
-  throw new Error("Offers gateway returned an invalid payload");
-}
-return data;
+const data = await readGatewayJson(response, "offers", INVALID_OFFERS);
+return requireGatewayPayload("offers", data, isOffersPayload, INVALID_OFFERS);
 ```
 
-Menu, blogs, account ve profile için de en az consumer’ın kullandığı alanlar runtime’da kontrol
-ediliyor. Bu “just enough validation” yaklaşımı, provider yeni opsiyonel alan eklediğinde gereksiz
-kırılma üretmeden ihtiyaç duyduğumuz shape’i koruyor.
+Bu ortak okuma sınırı endpoint'e özel byte bütçesini önce `Content-Length`, sonra gerçek UTF-8 body
+boyutuyla uygular; malformed JSON, aşırı body ve schema ihlalini ayrı nedenler olarak ölçer. Offers,
+blogs, menu, page/SEO, route-domain, account, profile, auth refresh ve CMS redirect consumer'larının
+tamamı aynı kapıdan geçer. Guard'lar string uzunluğu, array item sayısı, nested depth, güvenli integer
+ve finite numeric aralıkları kontrol eder; `1e400` ile oluşan `Infinity` de geçerli “number” sayılmaz.
+Bu “just enough validation” yaklaşımı, provider yeni opsiyonel alan eklediğinde gereksiz kırılma
+üretmeden consumer'ın gerçekten kullandığı shape'i koruyor.
+
+Kritiklik ayrıca schema'dan bağımsız bir kontrattır. Offer veya sayfa içeriği bozuksa route'un başarılı
+HTML üretmesi doğru değildir. Menü bozuksa ise bütün sayfayı 500 yapmak yerine shell boundary boş,
+shape-valid bir menüyle render eder. Profile/account/auth geçersiz payload'ı authenticated state
+olarak kabul etmez; CMS redirect lookup'u kural yokmuş gibi degrade olur. Böylece fallback görünmez
+bir fixture değil, ölçülen ve önceden tanımlanmış bir failure davranışıdır.
 
 Fakat elle yazılmış guard’ların sınırı var. Deep nested schema, union error body ve format kuralları
 büyüdükçe OpenAPI-generated validator veya schema library daha güvenli hale gelir. Final entegrasyon
@@ -507,6 +514,13 @@ Production-bundle smoke
   → build artifact + process startup + temel request pipeline
 ```
 
+Contract suite ayrıca gerçekçi happy-path fixture'larını, endpoint byte limitini, malformed JSON'u ve
+deterministik mutation-fuzz corpus'unu çalıştırır. Fuzz corpus; boş/uzun string, collection overflow,
+negatif/aralık dışı numeric ve `NaN`/`Infinity` eşdeğerlerini consumer guard'ına taşır. Bir red
+`ssr_gateway_invalid_payload_total{contract,reason}` metriğini artırır; kritik olmayan shell fallback'i
+ayrıca `ssr_shell_degraded_total` üretir. Böylece gerçek provider rollout'undaki contract drift yalnız
+bir 500 oranı içinde kaybolmaz.
+
 Örneğin menu service testi stubbed `503` ile local fixture’a düşülmediğini doğruluyor. Mock gateway
 testi gerçek menu endpoint’inin başarılı shape döndürdüğünü kanıtlıyor. İkisi birlikte happy path ve
 failure policy’sini kapsıyor.
@@ -681,8 +695,8 @@ Bu ilk sürüm daha sonra gerçek instrumentation katmanına yükseltildi. `serv
 OpenTelemetry SDK lifecycle'ını yönetiyor; inbound request, loader, SSR render, gateway, Redis/cache
 ve SWR revalidation ayrı span'ler üretiyor. W3C trace context gateway'e taşınırken structured loglar
 aktif `traceId`, `spanId` ve release kimliğini içeriyor. `/metrics` artık request, gateway, cache ve
-revalidation latency histogramlarının yanında gateway timeout/error outcome'larını ve process/
-event-loop metriklerini de sunuyor.
+revalidation latency histogramlarının yanında gateway timeout/error outcome'larını, payload
+rejection/shell degradation sayaçlarını ve process/event-loop metriklerini de sunuyor.
 
 Metrics hâlâ doğası gereği process-local'dir; Prometheus her replica'yı scrape edip aggregate
 etmelidir. Collector deployment'ı, dashboard, alert, retention ve error log PII/token redaction

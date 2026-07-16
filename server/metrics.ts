@@ -53,6 +53,8 @@ const gatewayRequests: CounterMap = new Map();
 const cacheOperations: CounterMap = new Map();
 const revalidations: CounterMap = new Map();
 const cacheCardinalityOverflows: CounterMap = new Map();
+const invalidGatewayPayloads: CounterMap = new Map();
+const shellDegradations: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
 const requestDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheResponseDurations = new Histogram(DURATION_BUCKETS_MS);
@@ -100,6 +102,20 @@ export function observeGatewayRequest(
   const labels = `status_class="${statusClass(status)}",outcome="${outcome}"`;
   increment(gatewayRequests, labels);
   gatewayDurations.observe(`outcome="${outcome}"`, durationMs);
+}
+
+export function observeInvalidGatewayPayload(
+  contract: string,
+  reason: "json" | "schema" | "size",
+): void {
+  increment(invalidGatewayPayloads, `contract="${escapeLabel(contract)}",reason="${reason}"`);
+}
+
+export function observeShellDegradation(
+  component: "menu",
+  reason: "gateway_error" | "invalid_payload",
+): void {
+  increment(shellDegradations, `component="${component}",reason="${reason}"`);
 }
 
 export function observeCacheOperation(
@@ -184,6 +200,16 @@ export function renderMetrics(): string {
       "End-to-end response duration by cache state",
     ),
     ...counterLines("ssr_gateway_requests_total", "Gateway requests by outcome", gatewayRequests),
+    ...counterLines(
+      "ssr_gateway_invalid_payload_total",
+      "Gateway payloads rejected by the runtime contract",
+      invalidGatewayPayloads,
+    ),
+    ...counterLines(
+      "ssr_shell_degraded_total",
+      "Non-critical shell components rendered with controlled fallback data",
+      shellDegradations,
+    ),
     ...gatewayDurations.lines(
       "ssr_gateway_request_duration_milliseconds",
       "Gateway request duration",

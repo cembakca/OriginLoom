@@ -1,6 +1,7 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import * as cache from "@server/cache";
 import { config } from "@server/config";
+import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 
 import { menuCacheKey } from "~/lib/cache-keys";
 import { normalizeMetadataImageUrl, normalizeNavigationUrl } from "~/lib/content-url";
@@ -12,6 +13,7 @@ const MAX_MENU_ITEMS = 200;
 const MAX_ITEMS_PER_LEVEL = 50;
 const MAX_LABEL_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 500;
+const INVALID_MENU = "Menu gateway returned an invalid payload";
 
 /** Public menu endpoint — device header ile tek fetch; uzun TTL API cache. */
 export async function fetchMenuList(request: Request, device: DeviceType): Promise<IMenuItems> {
@@ -58,10 +60,8 @@ async function fetchMenuFromGateway(request: Request, device: DeviceType): Promi
 
   if (!res.ok) throw new Error(`Menu gateway returned ${res.status}`);
 
-  const data: unknown = await res.json();
-  const menu = parseMenuPayload(data);
-  if (!menu) throw new Error("Menu gateway returned an invalid payload");
-  return menu;
+  const data = await readGatewayJson(res, "menu", INVALID_MENU);
+  return parseGatewayPayload("menu", data, parseMenuPayload, INVALID_MENU);
 }
 
 function parseMenuPayload(data: unknown): IMenuItems | null {

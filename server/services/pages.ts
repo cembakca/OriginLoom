@@ -1,5 +1,6 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import { config } from "@server/config";
+import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 
 import { parseSeoInfo } from "~/lib/metadata/schema";
 import type { SeoInfo } from "~/lib/metadata/types";
@@ -10,6 +11,9 @@ export type RetirementBankingPage = {
   seoInfo: SeoInfo | null;
 };
 
+type PagePayload = { headline?: string; seoInfo?: SeoInfo };
+const INVALID_PAGE = "Page gateway returned an invalid payload";
+
 /** Page + seoInfo tek fetch — loader ve generateMetadata aynı data'yı kullanır. */
 export async function fetchRetirementBankingPage(request: Request): Promise<RetirementBankingPage> {
   const authenticated = Boolean(request.headers.get("Authorization"));
@@ -17,9 +21,8 @@ export async function fetchRetirementBankingPage(request: Request): Promise<Reti
   const res = await gatewayFetchForRequest(request, "/pages/retirement-banking");
   if (!res.ok) throw new Error(`Page gateway returned ${res.status}`);
 
-  const data: unknown = await res.json();
-  const page = parsePagePayload(data);
-  if (!page) throw new Error("Page gateway returned an invalid payload");
+  const data = await readGatewayJson(res, "page", INVALID_PAGE);
+  const page = parseGatewayPayload("page", data, parsePagePayload, INVALID_PAGE);
 
   return {
     headline: page.headline ?? page.seoInfo?.headingTitle ?? "Emekli Bankacılığı",
@@ -28,7 +31,7 @@ export async function fetchRetirementBankingPage(request: Request): Promise<Reti
   };
 }
 
-function parsePagePayload(data: unknown): { headline?: string; seoInfo?: SeoInfo } | null {
+function parsePagePayload(data: unknown): PagePayload | null {
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
   const value = data as Record<string, unknown>;
   if (

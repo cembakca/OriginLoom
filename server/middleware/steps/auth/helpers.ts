@@ -1,11 +1,14 @@
 import { gatewayFetch } from "@server/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
 import type { CookieJar } from "@server/middleware/cookie-jar";
 import { Cookie } from "@server/middleware/types";
 
 import { cookie } from "~/lib/request";
+import { isBoundedString, isRecord } from "~/lib/runtime-schema";
 import { stripUndefined } from "~/lib/strip-undefined";
 
 const refreshesInFlight = new Map<string, Promise<{ access: string; refresh: string } | null>>();
+const INVALID_REFRESH = "Auth refresh gateway returned an invalid payload";
 
 function useSecureCookies(): boolean {
   return (process.env.NODE_ENV ?? "development") === "production";
@@ -94,8 +97,13 @@ export async function refreshTokens(
 
       if (!res.ok) return null;
 
-      const data = (await res.json()) as { accessToken?: string; refreshToken?: string };
-      if (!data.accessToken || !data.refreshToken) return null;
+      const payload = await readGatewayJson(res, "auth_refresh", INVALID_REFRESH);
+      const data = requireGatewayPayload(
+        "auth_refresh",
+        payload,
+        isRefreshPayload,
+        INVALID_REFRESH,
+      );
 
       return { access: data.accessToken, refresh: data.refreshToken };
     } catch {
@@ -111,4 +119,12 @@ export async function refreshTokens(
       refreshesInFlight.delete(refreshToken);
     }
   }
+}
+
+function isRefreshPayload(value: unknown): value is { accessToken: string; refreshToken: string } {
+  return (
+    isRecord(value) &&
+    isBoundedString(value.accessToken, 16_384, 8) &&
+    isBoundedString(value.refreshToken, 16_384, 8)
+  );
 }

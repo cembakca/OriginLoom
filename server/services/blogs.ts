@@ -1,4 +1,5 @@
 import { gatewayFetch } from "@server/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
 
 import { MAX_PAGE, parsePage } from "~/lib/content-values";
 import {
@@ -11,6 +12,7 @@ import {
 const MAX_PAGE_SIZE = 100;
 const MAX_TOTAL_ITEMS = 1_000_000;
 const MAX_TEXT_LENGTH = 4_000;
+const INVALID_BLOGS = "Blogs gateway returned an invalid payload";
 
 const VALID_ORDER: BlogOrderBy[] = [
   "date-desc",
@@ -42,8 +44,8 @@ export async function getPaginatedBlogs(
   const response = await gatewayFetch(`/blogs?${search}`);
   if (!response.ok) throw new Error(`Blogs gateway returned ${response.status}`);
 
-  const data: unknown = await response.json();
-  if (!isPaginatedBlogs(data)) throw new Error("Blogs gateway returned an invalid payload");
+  const payload = await readGatewayJson(response, "blogs", INVALID_BLOGS);
+  const data = requireGatewayPayload("blogs", payload, isPaginatedBlogs, INVALID_BLOGS);
   if (boundedPage <= data.totalPages && data.page !== boundedPage) {
     throw new Error("Blogs gateway returned a mismatched page");
   }

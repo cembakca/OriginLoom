@@ -90,6 +90,25 @@ return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor
 2. Tüm servis implementasyonlarını `server/services/` altında tut
 3. Client/island kodu yalnızca kontratları kullanır; server servisi import etmez
 
+### Gateway payload kontratı
+
+Gateway'den gelen JSON TypeScript cast'iyle güvenilir hale gelmez. Yeni veya değişen her JSON
+endpoint'i şu kuralları uygular:
+
+1. `server/gateway-payload.ts` içindeki kapalı contract listesine endpoint ve byte bütçesi eklenir.
+2. Response yalnız `readGatewayJson()` ile okunur; doğrudan `response.json()` kullanılmaz.
+3. Guard/parser girdisi `unknown` kalır. `src/lib/runtime-schema.ts` ile string uzunluğu, collection
+   item sayısı, finite/integer sayı ve nested depth sınırlandırılır.
+4. URL alanları ayrıca `src/lib/content-url.ts` veya metadata URL policy'sinden geçer.
+5. Kritik route verisi invalid payload'da hata üretir. Yalnız önceden non-critical ilan edilmiş shell
+   verisi servis sınırının üstünde kontrollü, shape-valid fallback'e düşebilir.
+6. Yeni kontrata happy-path fixture, limit testleri, malformed/oversized body ve mutation-fuzz corpus'u
+   eklenir.
+
+Contract adı ve red nedeni (`json`, `schema`, `size`) bounded metric label'larıdır. Request URL'si,
+payload değeri, kullanıcı kimliği veya hata mesajı metric label'ına eklenmez. Geçersiz payload'ı logda
+ham olarak yazmak da token/PII sızıntısı yaratabileceği için yasaktır.
+
 ---
 
 ## Redis ve cache altyapısı
