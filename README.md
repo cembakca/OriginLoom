@@ -111,6 +111,31 @@ Structured loglar `service`, `releaseId`, aktif `traceId` ve `spanId` alanların
 latency histogramları, gateway timeout/error outcome'ları, event-loop lag, CPU, heap/RSS, uptime ve
 release bilgisi. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı yapılmaz.
 
+## Image ve font pipeline
+
+`npm run media`, `server/media.config.json` içindeki yerel görselleri build-time Sharp ile responsive
+AVIF, WebP ve JPEG varyantlarına dönüştürür. Çıktılar içerik hash'li olarak
+`dist/client/assets/media/` altına, boyut/format bilgisi ise `asset-pipeline.json` manifest'ine yazılır.
+`ResponsiveImage` intrinsic `width`/`height` ve `sizes` olmadan kullanılamaz; normal görseller lazy,
+LCP görselleri eager/high priority yüklenir. Route'un `preloadImages` callback'i LCP adayını document
+head'e `imagesrcset`/`imagesizes` preload olarak taşır.
+
+`IMAGE_CDN_URL=https://cdn.example.com/images` doğrudan dosya prefix'idir. Responsive build
+varyantları ve `UnoptimizedImage` kaynakları bu prefix altında sunulabilir; unoptimized kullanım tek
+`src` üretir, görseli yeniden encode etmez ve runtime proxy'ye sokmaz. Prefix'in path kısmı korunur.
+
+Gerçek bir image transformation servisi varsa ayrıca
+`IMAGE_TRANSFORM_URL=https://images.example.com/transform` tanımlanır. Builder endpoint'e encode
+edilmiş `url`, `w`, `q` ve `format` query parametrelerini ekler. Vendor kontratı farklıysa yalnız
+`buildImageCdnUrl()` adapter'ı değiştirilir. İki değişken bağımsızdır: CDN prefix kullanmak responsive
+transformer kullanmayı zorunlu kılmaz.
+
+Canlı karşılaştırma ve font weight/subset örnekleri `/medya-pipeline` sayfasındadır.
+
+Inter variable font browser'da dış istek üretmeden self-host edilir. Build yalnız `latin` ve
+`latin-ext` WOFF2 subsetlerini kopyalar, dosyaları hash'ler, preload ve `@font-face` tanımlarını
+manifest üzerinden üretir; font lisansı build çıktısına dahildir.
+
 ## Ortam değişkenleri
 
 Temel değişkenler:
@@ -139,8 +164,14 @@ Temel değişkenler:
 - `SWR_REVALIDATION_BACKOFF_MS` — retry için başlangıç backoff süresi
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında aktif revalidation bekleme süresi
 - `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
+- `IMAGE_CDN_URL` — opsiyonel, dönüşümsüz image dosyaları için CDN prefix'i; path korunur
+- `IMAGE_TRANSFORM_URL` — opsiyonel responsive image transformation endpoint'i
 - `VITE_DEV_SERVER_URL` — yalnız development orchestrator tarafından kullanılan Vite origin'i;
   production'da tanımlanması config hatasıdır
+
+Local Docker testinde `localhost:3005` gibi bare loopback image URL'leri otomatik olarak
+`http://localhost:3005` biçimine normalize edilir. HTTP istisnası yalnız `localhost`, `127.0.0.1` ve
+`[::1]` için geçerlidir; uzak production CDN ve transformer adresleri HTTPS olmak zorundadır.
 
 Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. `mock-gw/` bağımsız bir Node servisi
 olarak 4002 portunda çalışır; Docker Compose uygulamayı bu servise bağlar. Gerçek gateway hazır

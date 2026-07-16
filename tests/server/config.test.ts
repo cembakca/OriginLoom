@@ -70,4 +70,53 @@ describe("server config", () => {
       }),
     ).rejects.toThrow("VITE_DEV_SERVER_URL is not allowed in production");
   });
+
+  it("requires HTTPS for a production image CDN", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        RELEASE_ID: "release-1",
+        IMAGE_CDN_URL: "http://images.example.com/transform",
+      }),
+    ).rejects.toThrow("Production IMAGE_CDN_URL must use https");
+  });
+
+  it("normalizes and permits a bare localhost image CDN for local production containers", async () => {
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: "production",
+      CACHE_BACKEND: "redis",
+      REDIS_URL: "redis://localhost:6379",
+      GATEWAY_URL: "https://gateway.example.com",
+      SITE_URL: "https://www.example.com",
+      CACHE_PURGE_SECRET: "secret",
+      RELEASE_ID: "release-1",
+      IMAGE_CDN_URL: "localhost:3005/images/",
+    };
+    vi.resetModules();
+    const { config, validateConfig } = await import("@server/config");
+
+    expect(config.imageCdnUrl).toBe("http://localhost:3005/images");
+    expect(() => validateConfig()).not.toThrow();
+  });
+
+  it("requires HTTPS for a production image transformer", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        RELEASE_ID: "release-1",
+        IMAGE_TRANSFORM_URL: "http://images.example.com/transform",
+      }),
+    ).rejects.toThrow("Production IMAGE_TRANSFORM_URL must use https");
+  });
 });

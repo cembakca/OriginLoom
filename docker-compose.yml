@@ -35,6 +35,11 @@ services:
       CACHE_PURGE_SECRET: ${CACHE_PURGE_SECRET:-dev-purge-secret}
       # Statik JS/CSS CDN — boş bırakılırsa origin /assets kullanılır
       # ASSET_CDN_URL: https://cdn.hangikredi.com
+      # Dönüşümsüz image dosyaları için path-preserving CDN prefix
+      # IMAGE_CDN_URL: https://cdn.hangikredi.com/images
+      IMAGE_CDN_URL: http://localhost:3005
+      # Responsive image transformer — url,w,q,format query kontratı
+      # IMAGE_TRANSFORM_URL: https://images.hangikredi.com/transform
     depends_on:
       mock-gw:
         condition: service_healthy

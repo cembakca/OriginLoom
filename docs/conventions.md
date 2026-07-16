@@ -858,6 +858,43 @@ ASSET_CDN_URL=https://cdn.hangikredi.com
 
 **Deploy notu:** CDN bucket'ına `dist/client/assets/` içeriğini build sonrası sync et; manifest ile eşleşen hash'li dosyalar gerekli.
 
+### Responsive image ekleme
+
+1. Orijinal dosyayı `src/assets/images/` altına koy.
+2. Intrinsic `width`, `height`, responsive width allowlist ve kaliteyi `server/media.config.json`
+   içine ekle.
+3. `npm run media` çalıştır; source metadata config boyutuyla uyuşmazsa build fail eder.
+4. Server route loader'ında `responsiveImage(id)` ile manifest kaydını al.
+5. UI'da `ResponsiveImage` kullan ve gerçek layout'a uygun `sizes` ver.
+6. Yalnız gerçek LCP adayı için `priority` ve route `preloadImages` tanımla.
+
+Raw `<img>` kullanma. İstisna ancak compile-time sabit SVG ikon gibi responsive raster pipeline'ın
+anlamsız olduğu varlıklardır. Gateway/CDN görsellerinde dahi intrinsic width ve height zorunludur.
+Kullanıcıdan gelen URL doğrudan image transformation endpoint'ine eklenmez; `buildImageCdnUrl()` URL
+encoding yapar ve width/quality değerlerini doğrular. Transformer kullanımı `IMAGE_TRANSFORM_URL` ile
+açılır.
+
+### Unoptimized CDN image ekleme
+
+1. Dönüşüm istemeyen kaynak için `unoptimizedImage(id)` + `UnoptimizedImage` kullan.
+2. `width`/`height` manifestten gelir; unoptimized olmak layout shift kontratını kaldırmaz.
+3. `IMAGE_CDN_URL` bir dosya prefix'idir. `/images` gibi path segmentleri korunarak relative asset
+   path'inin önüne eklenir.
+4. Absolute vendor URL'lerini `createUnoptimizedImage()` ile ver; mevcut absolute URL tekrar prefix
+   edilmez.
+5. CDN prefix ile transformer'ı aynı kavram yapma. Responsive runtime dönüşümü gerekiyorsa ayrı
+   `IMAGE_TRANSFORM_URL` kullan.
+
+Local container testinde bare `localhost[:port]` prefix'i `http://` ile normalize edilir. Bu kolaylık
+uzak hostlara uygulanmaz; production CDN ve transformer URL'leri HTTPS olmalıdır.
+
+### Font ekleme
+
+Font kaynağı local WOFF2 olmalı ve lisansı bilinmelidir. Gerekli dil subsetlerini
+`server/media.config.json` içinde ayrı unicode-range ile tanımla. Bütün weight dosyalarını preload
+etmek yerine variable font veya gerçekten kullanılan weight'leri seç. Font preload, `@font-face` ve
+asset URL'si elle kopyalanmaz; `asset-pipeline.json` tek otoritedir.
+
 ### SSR vs island
 
 | Alan                                                     | Browser API        |

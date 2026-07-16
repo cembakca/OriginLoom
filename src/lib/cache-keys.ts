@@ -17,6 +17,7 @@ export const PageCacheId = {
   remoteCustomerObtain: "remote-customer-obtain",
   recourseRedirect: "recourse-redirect",
   account: "account",
+  mediaPipeline: "media-pipeline",
 } as const;
 
 export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
@@ -139,6 +140,14 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/hesabim",
     strategy: "never",
     buildKey: () => [],
+  },
+  [PageCacheId.mediaPipeline]: {
+    id: PageCacheId.mediaPipeline,
+    description: "Image ve font pipeline demosu",
+    path: "/medya-pipeline",
+    strategy: "shared",
+    ttl: 3600,
+    buildKey: (ctx) => ["media-pipeline", locale(ctx.request), layoutCacheFragment(ctx)],
   },
 };
 

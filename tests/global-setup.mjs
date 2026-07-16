@@ -1,6 +1,7 @@
 import { once } from "node:events";
 
 export default async function setup() {
+  await import("../scripts/build-media.mjs");
   process.env.MOCK_GW_QUIET = "1";
   const { createMockGatewayServer } = await import("../mock-gw/server.js");
   const server = createMockGatewayServer();

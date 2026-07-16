@@ -917,6 +917,18 @@ Bu sadeliğin bedelini kendi runtime’ımızın bakımını üstlenerek ödüyo
 
 ## Sonuç: Cache key, sayfanın veri sınıflandırmasıdır
 
+## Güncel uygulama notu: HTML cache ile media cache aynı şey değildir
+
+Route HTML’i TTL/SWR ve kullanıcı paylaşım kurallarıyla cache edilirken hash’li image/font dosyaları
+`public, max-age=31536000, immutable` kontratıyla yaşar. HTML purge etmek media dosyasını invalidate
+etmez; yeni build yeni content hash üretir. `IMAGE_CDN_URL` kullanıldığında da path ve hash korunur,
+dolayısıyla CDN dağıtımı cache kimliğini değiştirmez.
+
+Unoptimized burada “cache edilmez” demek değildir. Yalnız responsive varyant üretimi veya runtime
+transformation yapılmadığını söyler. Dosya yine hash’li ve immutable olabilir. Buna karşılık
+`IMAGE_TRANSFORM_URL` ile üretilen URL’nin `url`, `w`, `q` ve `format` parametreleri CDN cache key’inin
+parçasıdır. `/medya-pipeline`, aynı kaynak için bu delivery kontratlarını görünür kılar.
+
 Bu mimariden çıkardığımız en önemli ders şu oldu:
 
 > Cache key, response’u nerede sakladığımızı değil, hangi request’lerin aynı response’u görmesine izin

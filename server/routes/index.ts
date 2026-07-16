@@ -4,6 +4,7 @@ import account from "./account";
 import blogsPaginated from "./blogs-paginated";
 import home from "./home";
 import loanCompare from "./loan-compare";
+import mediaPipeline from "./media-pipeline";
 import recourseRedirect from "./recourse-redirect";
 import remoteCustomerObtain from "./remote-customer-obtain";
 import retirementBanking from "./retirement-banking";
@@ -14,6 +15,7 @@ export const routes: Route[] = [
   account,
   recourseRedirect,
   loanCompare,
+  mediaPipeline,
   blogsPaginated,
   retirementBanking,
   remoteCustomerObtain,

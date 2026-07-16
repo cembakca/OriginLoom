@@ -11,6 +11,13 @@ function booleanEnv(name: string, fallback: boolean): boolean {
   return value === "1" || value.toLowerCase() === "true";
 }
 
+function publicHttpUrlEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim().replace(/\/$/, "");
+  if (!value) return undefined;
+  if (/^(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(value)) return `http://${value}`;
+  return value;
+}
+
 const nodeEnv = process.env.NODE_ENV ?? "development";
 
 export const config = {
@@ -41,6 +48,8 @@ export const config = {
   cachePurgeSecret: process.env.CACHE_PURGE_SECRET,
   releaseId: process.env.RELEASE_ID ?? "development",
   assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
+  imageCdnUrl: publicHttpUrlEnv("IMAGE_CDN_URL"),
+  imageTransformUrl: publicHttpUrlEnv("IMAGE_TRANSFORM_URL"),
   viteDevServerUrl: process.env.VITE_DEV_SERVER_URL?.replace(/\/$/, "") || undefined,
   gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),
 } as const;
@@ -64,6 +73,10 @@ function assertUrl(name: string, value: string): URL {
   } catch {
     throw new Error(`Invalid ${name}: ${value}`);
   }
+}
+
+function isLoopbackUrl(url: URL): boolean {
+  return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
 }
 
 export function validateConfig(): void {
@@ -100,6 +113,28 @@ export function validateConfig(): void {
     const viteUrl = assertUrl("VITE_DEV_SERVER_URL", config.viteDevServerUrl);
     if (!["http:", "https:"].includes(viteUrl.protocol)) {
       throw new Error(`Invalid VITE_DEV_SERVER_URL protocol: ${viteUrl.protocol}`);
+    }
+  }
+  if (config.imageCdnUrl) {
+    const imageCdnUrl = assertUrl("IMAGE_CDN_URL", config.imageCdnUrl);
+    if (!["http:", "https:"].includes(imageCdnUrl.protocol)) {
+      throw new Error(`Invalid IMAGE_CDN_URL protocol: ${imageCdnUrl.protocol}`);
+    }
+    if (config.isProduction && imageCdnUrl.protocol !== "https:" && !isLoopbackUrl(imageCdnUrl)) {
+      throw new Error("Production IMAGE_CDN_URL must use https");
+    }
+  }
+  if (config.imageTransformUrl) {
+    const imageTransformUrl = assertUrl("IMAGE_TRANSFORM_URL", config.imageTransformUrl);
+    if (!["http:", "https:"].includes(imageTransformUrl.protocol)) {
+      throw new Error(`Invalid IMAGE_TRANSFORM_URL protocol: ${imageTransformUrl.protocol}`);
+    }
+    if (
+      config.isProduction &&
+      imageTransformUrl.protocol !== "https:" &&
+      !isLoopbackUrl(imageTransformUrl)
+    ) {
+      throw new Error("Production IMAGE_TRANSFORM_URL must use https");
     }
   }
   if (config.isProduction) {

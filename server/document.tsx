@@ -8,6 +8,7 @@ import { HeadClient } from "~/components/head/head-client";
 import { MetadataHead } from "~/components/head/metadata-head";
 import { RootLayout } from "~/components/layout/root-layout";
 import type { PageAnalyticsMeta } from "~/lib/analytics/types";
+import type { ImagePreload } from "~/lib/media";
 import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
 import type { ResolvedMetadata } from "~/lib/metadata/types";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -15,10 +16,12 @@ import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx, Route } from "~/lib/types";
 
 import { config } from "./config";
+import { type FontAsset, imageCdnOrigins } from "./media";
 
 export type Assets = {
   js: string;
   css: string[];
+  fonts: FontAsset[];
   development?: { client: string; reactRefresh: string };
 };
 
@@ -34,6 +37,7 @@ export async function renderDocument<T>(
 ): Promise<string> {
   const { routeCtx } = docCtx;
   const seo = resolveDocumentMetadata(route, data, routeCtx);
+  const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
     defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
@@ -44,6 +48,7 @@ export async function renderDocument<T>(
     content: <route.Component data={data} />,
     metadata: seo,
     pageMeta,
+    imagePreloads,
     ...stripUndefined({ minimalChrome: route.minimalChrome }),
   });
 }
@@ -54,6 +59,7 @@ export async function renderDocumentView({
   content,
   metadata,
   pageMeta,
+  imagePreloads = [],
   minimalChrome,
 }: {
   assets: Assets;
@@ -61,6 +67,7 @@ export async function renderDocumentView({
   content: ReactElement;
   metadata: ResolvedMetadata;
   pageMeta: PageAnalyticsMeta;
+  imagePreloads?: ImagePreload[];
   minimalChrome?: boolean;
 }): Promise<string> {
   const isBot = isBotRequest(routeCtx.request);
@@ -68,6 +75,9 @@ export async function renderDocumentView({
   const seo = metadata;
 
   const cdnOrigin = assetCdnOrigin();
+  const preconnectOrigins = [
+    ...new Set([cdnOrigin, ...imageCdnOrigins()].filter(Boolean)),
+  ] as string[];
 
   const html = renderToString(
     <html lang="tr">
@@ -76,7 +86,34 @@ export async function renderDocumentView({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <MetadataHead meta={seo} />
         <HeadClient />
-        {cdnOrigin ? <link rel="preconnect" href={cdnOrigin} crossOrigin="anonymous" /> : null}
+        {assets.fonts.map((font) =>
+          font.preload ? (
+            <link
+              key={`preload-${font.href}`}
+              rel="preload"
+              as="font"
+              type="font/woff2"
+              href={font.href}
+              crossOrigin="anonymous"
+            />
+          ) : null,
+        )}
+        {imagePreloads.map((preload) => (
+          <link
+            key={`${preload.type}-${preload.href}`}
+            rel="preload"
+            as="image"
+            href={preload.href}
+            type={preload.type}
+            imageSrcSet={preload.imageSrcSet}
+            imageSizes={preload.imageSizes}
+            fetchPriority="high"
+          />
+        ))}
+        {assets.fonts.length > 0 ? <style>{fontFaceCss(assets.fonts)}</style> : null}
+        {preconnectOrigins.map((origin) => (
+          <link key={origin} rel="preconnect" href={origin} crossOrigin="anonymous" />
+        ))}
         {assets.css.map((href) => (
           <link key={href} rel="stylesheet" href={href} />
         ))}
@@ -119,4 +156,21 @@ RefreshRuntime.injectIntoGlobalHook(window);
 window.$RefreshReg$ = () => {};
 window.$RefreshSig$ = () => (type) => type;
 window.__vite_plugin_react_preamble_installed__ = true;`;
+}
+
+function fontFaceCss(fonts: FontAsset[]): string {
+  return fonts
+    .map(
+      (font) =>
+        `@font-face{font-family:${cssString(font.family)};src:url(${cssString(
+          font.href,
+        )}) format("woff2");font-style:${font.style};font-weight:${font.weight};font-display:${
+          font.display
+        };unicode-range:${font.unicodeRange}}`,
+    )
+    .join("");
+}
+
+function cssString(value: string): string {
+  return JSON.stringify(value).replaceAll("<", "\\3c ");
 }

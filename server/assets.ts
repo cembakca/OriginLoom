@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { config } from "./config";
 import type { Assets } from "./document";
+import { readFontAssets } from "./media";
 
 type ManifestChunk = { isEntry?: boolean; file: string; css?: string[] };
 
@@ -17,6 +18,7 @@ export function readAssets(): Assets {
     return {
       js: `${config.viteDevServerUrl}/src/entry.client.tsx`,
       css: [],
+      fonts: readFontAssets(),
       development: {
         client: `${config.viteDevServerUrl}/@vite/client`,
         reactRefresh: `${config.viteDevServerUrl}/@react-refresh`,
@@ -34,6 +36,7 @@ export function readAssets(): Assets {
   return {
     js: assetUrl(`/${entry.file}`),
     css: (entry.css ?? []).map((file) => assetUrl(`/${file}`)),
+    fonts: readFontAssets(),
   };
 }
 

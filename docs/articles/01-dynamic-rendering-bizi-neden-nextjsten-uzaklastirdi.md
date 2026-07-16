@@ -346,6 +346,19 @@ Bu maliyet ancak ihtiyaç duyulan kontrol gerçekten ürün için önemliyse anl
 standart bir içerik sitesi veya Next.js’in doğal rendering modeline uyan bir uygulama için bu geçiş
 gereksiz olabilir.
 
+## Güncel uygulama notu: framework’ten çıkınca media optimizasyonu da kontrata dönüşür
+
+Next.js’ten ayrılmak `next/image` ve `next/font` sonuçlarından vazgeçmek anlamına gelmiyor; yalnız bu
+sonuçların sorumlusu artık açıkça biziz. Güncel uygulamada responsive görseller build sırasında Sharp
+ile AVIF/WebP/JPEG varyantlarına ayrılıyor, LCP adayı route kontratından preload ediliyor ve Inter
+variable font Latin/Latin Extended subsetleriyle self-host ediliyor.
+
+Burada özellikle iki CDN davranışını ayırdık. `IMAGE_CDN_URL`, halihazırda optimize edilmiş veya
+dönüştürülmesini istemediğimiz dosyalar için doğrudan prefix’tir; `UnoptimizedImage` tek `src` üretir.
+Gerçek bir responsive transformation servisi varsa bunun endpoint’i `IMAGE_TRANSFORM_URL` ile ayrıca
+verilir. Böylece “CDN kullanıyorum” bilgisi, örtük biçimde “runtime dönüşüm istiyorum” kararına
+dönüşmez. `/medya-pipeline` sayfası iki yolu ve self-host fontları çalışan HTML üzerinde gösterir.
+
 ## Her proje Next.js’ten çıkmalı mı?
 
 Hayır.

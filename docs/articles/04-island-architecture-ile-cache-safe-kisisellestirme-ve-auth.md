@@ -840,6 +840,18 @@ Bu mimariden çıkardığımız temel ders şu:
 > Kullanıcının sayfada kişisel bir alan görmesi, kişisel verinin shared SSR HTML’ine girmesini
 > gerektirmez.
 
+## Güncel uygulama notu: görsel önceliği island’a bırakılmaz
+
+LCP görselinin kaynağı ve preload kararı public SSR document’in parçasıdır; hydration beklemez.
+`ResponsiveImage` intrinsic dimensions, `picture`, `srcset` ve `sizes` üretirken route aynı aday için
+head preload’u tanımlar. Böylece kişiselleştirme island’ları çalışmadan önce browser doğru görseli
+seçmeye başlayabilir. Dönüşüm istemeyen CDN kaynağı ise `UnoptimizedImage` ile tek `src` olarak gelir,
+ama width/height zorunluluğunu korur.
+
+Fontlar da island lifecycle’ına bağlı değildir. Inter subset preload ve `@font-face` tanımları SSR
+head’de yer alır; UI hydrate olduğunda font kaynağı veya layout metriği değişmez. Bu davranışlar
+`/medya-pipeline` sayfasında hydration gerektirmeyen SSR örnekleriyle gösterilir.
+
 Public document SEO, içerik, menü ve güvenli fallback’leri taşır. Hydrate island’lar aynı public HTML’i
 interactive hale getirir. Defer island’lar kişisel veriyi browser’da, HttpOnly credential kullanan BFF
 üzerinden alır.

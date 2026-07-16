@@ -722,6 +722,19 @@ Bu yaklaşımın bedeli de var. Route, metadata, asset manifest, hydration boots
 security middleware ve lifecycle artık bizim kodumuz. React veya Vite davranışı değiştiğinde uyumluluğu
 biz takip edeceğiz. Bu sahiplik ancak açıklık ve kontrol ihtiyacı maliyetten büyükse anlamlı.
 
+## Güncel pipeline: media manifest’inden document head’e
+
+Request pipeline artık media kaynaklarını da route kontratından document head’e taşır. Build adımı
+image ve font dosyalarını hash’leyip `asset-pipeline.json` üretir. Server bu manifestten font
+preload/`@font-face` tanımlarını çıkarır; route ise yalnız gerçek LCP adayı için `preloadImages`
+callback’i döndürür. Head’deki `imagesrcset` ve `imagesizes`, component içindeki `srcset` ve `sizes`
+ile aynı veriden üretildiği için browser başka bir dosyayı preload edip sonra başka bir dosyayı seçmez.
+
+Teslim stratejisi pipeline’ın açık bir koludur: build-time responsive varyant, transformer tabanlı
+responsive URL veya tek kaynaklı unoptimized CDN image. `IMAGE_CDN_URL` yalnız prefix,
+`IMAGE_TRANSFORM_URL` yalnız dönüşüm endpoint’idir. Bu ayrım asset hosting kararının rendering
+semantiğini gizlice değiştirmesini engeller. Çalışan örnek `/medya-pipeline` route’undadır.
+
 ## Sonuç: React SSR bir fonksiyon, production SSR bir sistemdir
 
 React ile framework olmadan SSR yapmak teknik olarak `renderToString(<App />)` çağrısıyla başlar.
@@ -761,4 +774,6 @@ ayrılması.
 - [Hono routing](https://hono.dev/docs/api/routing)
 - [Hono streaming](https://hono.dev/docs/helpers/streaming)
 - [Vite server-side rendering rehberi](https://vite.dev/guide/ssr.html)
+- [MDN responsive images](https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Responsive_images)
+- [React image preload seçenekleri](https://react.dev/reference/react-dom/preload)
 - [Node.js Web API globals](https://nodejs.org/api/globals.html)

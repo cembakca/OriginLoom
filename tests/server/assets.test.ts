@@ -37,7 +37,8 @@ describe("assetUrl", () => {
     vi.resetModules();
     const { readAssets } = await import("@server/assets");
 
-    expect(readAssets()).toEqual({
+    const assets = readAssets();
+    expect(assets).toMatchObject({
       js: "http://127.0.0.1:5174/src/entry.client.tsx",
       css: [],
       development: {
@@ -45,5 +46,7 @@ describe("assetUrl", () => {
         reactRefresh: "http://127.0.0.1:5174/@react-refresh",
       },
     });
+    expect(assets.fonts).toHaveLength(2);
+    expect(assets.fonts[0]?.href).toMatch(/^\/assets\/media\/inter-latin\.[a-f0-9]+\.woff2$/);
   });
 });

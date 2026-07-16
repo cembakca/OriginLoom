@@ -2,14 +2,16 @@ import { closeCache, initCache } from "@server/cache";
 import { drainRevalidations, handle } from "@server/handler";
 import account from "@server/routes/account";
 import home from "@server/routes/home";
+import mediaPipeline from "@server/routes/media-pipeline";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Route } from "~/lib/types";
 
-const assets = { js: "/assets/entry.client.js", css: [] };
+const assets = { js: "/assets/entry.client.js", css: [], fonts: [] };
 const homeRoute = home as Route;
 const accountRoute = account as Route;
+const mediaPipelineRoute = mediaPipeline as Route;
 
 describe("handler", () => {
   beforeEach(async () => {
@@ -165,6 +167,11 @@ describe("handler", () => {
     const second = await handle(req, [homeRoute], assets);
     expect(second.status).toBe(200);
     expect(second.headers.get("x-cache")).toBe("HIT");
+    const body = await second.text();
+    expect(body).toContain('rel="preload" as="image"');
+    expect(body).toContain('imageSrcSet="/assets/media/home-hero-480');
+    expect(body).toContain('fetchPriority="high"');
+    expect(body).toContain('width="1600" height="900"');
   });
 
   it("serves cache-safe public HTML from shared cache even when auth is present", async () => {
@@ -176,6 +183,23 @@ describe("handler", () => {
 
     expect(first.headers.get("x-cache")).toBe("MISS");
     expect(second.headers.get("x-cache")).toBe("HIT");
+  });
+
+  it("renders the responsive, unoptimized and font pipeline demo", async () => {
+    const res = await handle(
+      new Request("http://localhost/medya-pipeline"),
+      [mediaPipelineRoute],
+      assets,
+    );
+    const body = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(body).toContain("Responsive teslim");
+    expect(body).toContain("Unoptimized CDN teslimi");
+    expect(body).toContain("Self-host variable font");
+    expect(body).toContain("Çığ, şüphe, özgürlük");
+    expect(body).toContain('type="image/avif"');
+    expect(body).toMatch(/src="\/assets\/media\/home-hero-source\.[a-f0-9]+\.svg"/);
   });
 
   it("bypasses cache for uncached routes", async () => {
@@ -213,6 +237,7 @@ describe("handler", () => {
     const devAssets = {
       js: "http://127.0.0.1:5174/src/entry.client.tsx",
       css: [],
+      fonts: [],
       development: {
         client: "http://127.0.0.1:5174/@vite/client",
         reactRefresh: "http://127.0.0.1:5174/@react-refresh",

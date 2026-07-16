@@ -39,6 +39,10 @@ const dummySeoByPath: Record<string, Partial<SeoInfo>> = {
   "/remote-customer-obtain": {
     title: "Uzaktan Müşteri Edinimi",
   },
+  "/medya-pipeline": {
+    title: "Image ve Font Pipeline",
+    metaDescription: "Responsive, unoptimized CDN image ve self-host font pipeline demosu.",
+  },
 };
 
 /** CMS seoInfo → route PageMetadata. */

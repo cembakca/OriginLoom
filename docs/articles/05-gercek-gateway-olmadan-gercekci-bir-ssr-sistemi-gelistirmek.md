@@ -855,6 +855,19 @@ Explicit route contract
   + observable process lifecycle
 ```
 
+## Güncel production sınırı: gateway’den bağımsız media delivery
+
+Media pipeline mock gateway’e bağlı değildir. Kaynaklar build sırasında işlenir, hash’li manifest SSR
+server tarafından okunur ve browser CDN/origin üzerinden doğrudan asset’e gider. Bu ayrım gerçek
+gateway rollout’unun image optimizasyon davranışını değiştirmemesini sağlar.
+
+Production’da üç açık seçenek vardır: build-time responsive dosyaları origin’den sunmak,
+`IMAGE_CDN_URL` ile aynı dosyalara path-preserving prefix vermek veya `IMAGE_TRANSFORM_URL` ile
+responsive adayları harici transformer’a yönlendirmek. Unoptimized CDN yolu da birinci sınıf
+kontrattır; tek `src` kullanır, runtime proxy oluşturmaz. Self-host fontlar `ASSET_CDN_URL` üzerinden
+yayınlanabilir ve üçüncü taraf font origin’ine ihtiyaç duymaz. `/medya-pipeline` route’u deployment
+sonrası bu bağlantıların hızlı smoke kontrolünü yapabileceğimiz bir gösterim sayfasıdır.
+
 ## Sonuç: Gerçek sistem, gerçek veri gelmeden de inşa edilebilir
 
 Gerçek gateway olmadan gerçek bankacılık verisi üretemeyiz. Gerçek IAM güvenliğini, production

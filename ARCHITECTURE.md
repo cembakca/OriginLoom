@@ -371,6 +371,45 @@ histogram üretir. Gateway outcome label'ları `success`, `client_error`, `serve
 p99 lag, CPU, RSS/heap, uptime ve release info process metrikleri de aynı endpoint'tedir. Request ID,
 raw URL, cache key ve kullanıcı kimliği metric label'ı değildir.
 
+### 11. Responsive Image ve Self-host Font Pipeline
+
+Image optimizasyonu request sırasında Node process'inde yapılmaz. `scripts/build-media.mjs`, client
+build'inden sonra `server/media.config.json` kaynaklarını Sharp ile işler:
+
+```text
+src/assets/images/*
+       │
+       └─ Sharp build step ─┬─ AVIF  480/768/1200/1600
+                            ├─ WebP  480/768/1200/1600
+                            ├─ JPEG  480/768/1200/1600
+                            └─ asset-pipeline.json
+
+Fontsource WOFF2 subsets ───── hashed latin + latin-ext + OFL license
+```
+
+`ResponsiveImageData` intrinsic width/height, format source'ları ve srcset bilgisini tek kontratta
+taşır. `ResponsiveImage` bu boyutları daima DOM'a yazar; `sizes` zorunludur, normal görsel native lazy
+loading kullanır. LCP adayında route `preloadImages` tanımlar ve aynı srcset/sizes hem document head
+preload'unda hem `<picture>` içinde kullanılır. Böylece preload ile gerçek request ayrışmaz.
+
+`IMAGE_CDN_URL` doğrudan dosya CDN prefix'idir. Build edilmiş responsive varyantlar ve original source
+bu prefix altında yayınlanabilir; prefix'in `/images` gibi path bölümü korunur. `UnoptimizedImage`,
+manifestteki original source'u tek `src` ile kullanır: encode, `srcset` ve runtime image proxy yoktur;
+intrinsic dimensions ve native lazy/eager davranışı yine kontratın parçasıdır.
+
+`IMAGE_TRANSFORM_URL` ayrıca tanımlanırsa local manifest kaynak boyut ve width allowlist otoritesi
+olmaya devam eder, fakat responsive URL'ler `url`, `w`, `q`, `format` query kontratına sahip transformer
+üzerinden üretilir. Transformer yoksa production runtime Sharp taşımaz; build edilmiş immutable
+dosyalar origin, `IMAGE_CDN_URL` veya genel `ASSET_CDN_URL` üzerinden servis edilir.
+
+Fontlar browser'da Google'a veya başka bir üçüncü tarafa istek atmaz. Latin/Latin-Extended Inter
+variable WOFF2 dosyaları manifest'ten preload edilir, `font-display: swap`, unicode-range ve
+`@font-face` document head'e yazılır. Hash'li font/image dosyaları mevcut `/assets/*` immutable cache
+kontratını kullanır.
+
+`/medya-pipeline` route'u responsive LCP preload, unoptimized CDN prefix ve variable font weight/
+subset davranışlarını aynı SSR document içinde görünür kılan executable documentation'dır.
+
 ---
 
 ## Stabilite Değerlendirmesi

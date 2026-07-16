@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 
 import type { PageAnalyticsMeta } from "./analytics/types";
+import type { ImagePreload } from "./media";
 import type { PageMetadata } from "./metadata/types";
 
 type RouteComponent<T> = {
@@ -103,6 +104,9 @@ export type Route<T = unknown> = {
    * Loader'dan gelen seoInfo ile beslenir — ayrı fetch yapma.
    */
   generateMetadata?: RouteDataCallback<T, PageMetadata>;
+
+  /** LCP candidates emitted as <link rel="preload" as="image"> in the document head. */
+  preloadImages?: RouteDataCallback<T, ImagePreload[]>;
 
   /** @deprecated Prefer generateMetadata */
   title?: RouteTitleCallback<T>;
