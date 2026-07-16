@@ -31,9 +31,11 @@ export function resolveRouteWith(
     const params = matchPattern(rule.source, publicPath);
     if (!params) continue;
 
-    const dest = applyPattern(rule.destination, params);
+    const dest = isExternalUrl(rule.destination)
+      ? buildExternalUrl(rule.destination, params)
+      : applyPattern(rule.destination, params);
     const target = new URL(dest, url.origin);
-    target.search = url.search;
+    target.search = mergeSearchParams(url.searchParams, target.searchParams);
 
     return {
       kind: "redirect",
@@ -49,13 +51,31 @@ export function resolveRouteWith(
     if (isExternalUrl(rule.destination)) {
       const external = buildExternalUrl(rule.destination, params);
       const target = new URL(external);
-      target.search = url.search;
+      target.search = mergeSearchParams(url.searchParams, target.searchParams);
+      target.hash = "";
       return { kind: "proxy", url: target.toString() };
     }
 
-    const pathname = applyPattern(rule.destination, params);
-    return { kind: "rewrite", pathname, publicPath };
+    const destination = new URL(applyPattern(rule.destination, params), url.origin);
+    destination.search = mergeSearchParams(url.searchParams, destination.searchParams);
+    return {
+      kind: "rewrite",
+      pathname: destination.pathname,
+      search: destination.search,
+      publicPath,
+    };
   }
 
   return { kind: "none", pathname: publicPath, publicPath };
+}
+
+/** Incoming query is preserved; an explicit destination value wins for the same key. */
+function mergeSearchParams(incoming: URLSearchParams, destination: URLSearchParams): string {
+  const merged = new URLSearchParams(incoming);
+  const destinationKeys = new Set(destination.keys());
+
+  for (const key of destinationKeys) merged.delete(key);
+  for (const [key, value] of destination) merged.append(key, value);
+
+  return merged.toString();
 }

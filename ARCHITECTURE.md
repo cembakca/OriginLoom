@@ -219,6 +219,20 @@ rewrites: [
 ```
 
 Redirect'ler rewrite'lardan önce çalışır. Dış URL (`http://...`) varsa proxy, iç URL varsa rewrite.
+Routing çözümlemesi bilinçli olarak **tek geçişlidir**: rewrite destination'ı ikinci kez rule tablosuna
+sokulmaz, doğrudan uygulama router'ına verilir. Böylece zincir/döngü davranışı konfigürasyon sırasına
+gizlenmez.
+
+Incoming query destination query ile birleştirilir; aynı anahtar iki tarafta da varsa açıkça yazılmış
+destination değeri kazanır. Internal rewrite sonucu `pathname` ve `search` olarak ayrı taşınır;
+query hiçbir zaman pathname içine gömülmez. Named parametreler tek path segmenti olarak encode edilir,
+yalnız `:path*` segment sınırlarını korur.
+
+Server başlamadan önce rule tablosu doğrulanır. Geçersiz pattern/destination, bilinmeyen destination
+parametresi, self-rewrite, semantik duplicate ve daha önceki redirect/catch-all tarafından tamamen
+gölgelenen kurallar startup hatasıdır. Desteklenen pattern alt kümesi `:param`, final `:param?` ve final
+`:path*` biçimleridir. Header/cookie/host koşulları ile `beforeFiles`/`afterFiles`/`fallback` fazları
+bilinçli olarak bu kontratın dışında tutulmuştur.
 
 #### Route Matcher — `src/lib/match.ts`
 

@@ -18,6 +18,7 @@ describe("CMS + static routing order", () => {
     expect(res.kind).toBe("rewrite");
     if (res.kind === "rewrite") {
       expect(res.pathname).toBe("/retirement-banking");
+      expect(res.search).toBe("");
       expect(res.publicPath).toBe("/emekli-bankaciligi");
     }
   });

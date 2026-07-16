@@ -76,6 +76,7 @@ export async function handle(
 
     const internalUrl = new URL(url);
     internalUrl.pathname = resolution.pathname;
+    if (resolution.kind === "rewrite") internalUrl.search = resolution.search;
 
     const m = match(routes, resolution.pathname);
     if (!m) {

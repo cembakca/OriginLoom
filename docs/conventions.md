@@ -715,6 +715,16 @@ Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](..
 
 **Pipeline sırası:** redirect → rewrite/proxy → route match → SSR
 
+Routing rule'ları tek geçişte çözülür; destination tekrar rule tablosundan geçirilmez. Incoming query
+korunur ve destination query ile birleştirilir, çakışmada destination değeri kazanır. Internal rewrite
+`pathname` ve `search` alanlarını ayrı taşır. Parametreler URL-safe encode edilir; yalnız `:path*`
+birden fazla segmenti koruyabilir.
+
+Uygulama bootstrap sırasında rule tablosunu doğrular. Duplicate veya gölgelenmiş rule, bilinmeyen
+destination parametresi, geçersiz pattern ve self-rewrite server'ın başlamasını engeller. Desteklenen
+alt küme `:param`, final `:param?` ve final `:path*` biçimleridir; koşullu ve fazlı rewrite semantiği
+ürün ihtiyacı oluşana kadar kapsam dışıdır.
+
 ### Public URL vs internal path
 
 - Route dosyasında **internal path**: `path: "/retirement-banking"`

@@ -11,6 +11,6 @@ export type RedirectRule = {
 
 export type RouteResolution =
   | { kind: "none"; pathname: string; publicPath: string }
-  | { kind: "rewrite"; pathname: string; publicPath: string }
+  | { kind: "rewrite"; pathname: string; search: string; publicPath: string }
   | { kind: "redirect"; url: string; status: number }
   | { kind: "proxy"; url: string };

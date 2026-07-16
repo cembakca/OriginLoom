@@ -9,6 +9,8 @@ import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
 
 import { stripUndefined } from "~/lib/strip-undefined";
+import { createRewrites, redirects } from "~/routing/rules";
+import { validateRoutingRules } from "~/routing/validate";
 
 // Extend HTML cache bypass at bootstrap, e.g.:
 // import { registerCacheBypassCheck, hasPid } from "~/lib/cache-policy";
@@ -37,6 +39,7 @@ let httpServer: ServerType | null = null;
 
 async function main() {
   validateConfig();
+  validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });
   await initCache();
 
   const assets = readAssets();

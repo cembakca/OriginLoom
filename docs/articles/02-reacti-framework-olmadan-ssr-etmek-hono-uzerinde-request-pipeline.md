@@ -374,7 +374,7 @@ kendimiz tanımladık:
 type RouteResolution =
   | { kind: "redirect"; url: string; status: 301 | 302 | 307 | 308 }
   | { kind: "proxy"; url: string }
-  | { kind: "rewrite"; pathname: string; publicPath: string }
+  | { kind: "rewrite"; pathname: string; search: string; publicPath: string }
   | { kind: "none"; pathname: string; publicPath: string };
 ```
 
