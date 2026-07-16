@@ -31,4 +31,19 @@ describe("assetUrl", () => {
     const { assetUrl } = await import("@server/assets");
     expect(assetUrl("/assets/entry.css")).toBe("https://cdn.hangikredi.com/assets/entry.css");
   });
+
+  it("uses source modules and Vite runtime instead of the manifest in development", async () => {
+    process.env.VITE_DEV_SERVER_URL = "http://127.0.0.1:5173/";
+    vi.resetModules();
+    const { readAssets } = await import("@server/assets");
+
+    expect(readAssets()).toEqual({
+      js: "http://127.0.0.1:5173/src/entry.client.tsx",
+      css: [],
+      development: {
+        client: "http://127.0.0.1:5173/@vite/client",
+        reactRefresh: "http://127.0.0.1:5173/@react-refresh",
+      },
+    });
+  });
 });

@@ -410,9 +410,16 @@ Tek bir geliştirme modu bütün ihtiyaçları karşılamıyor:
 | `npm run dev:local`         | Host/watch            | Host         | Docker         | Redis gerçekliği + hızlı reload |
 | `docker compose up --build` | Container/prod bundle | Container    | Container      | Production-benzeri topoloji     |
 
-`npm run dev` Vite client build’ini watch eder, mock gateway’i ve `tsx watch` server’ı birlikte
-başlatır. `concurrently -k` içlerinden biri kapanırsa grubu sonlandırır; yarım çalışan development
-topolojisi bırakmaz.
+`npm run dev` gerçek Vite development server’ı, mock gateway’i ve `tsx watch` Hono server’ını
+`scripts/dev.mjs` üzerinden birlikte başlatır. Vite build-watch ile `dist/client` yazmaz; source
+modüllerini, HMR websocket’ini ve React Refresh runtime’ını doğrudan servis eder. Hono HTML’i
+`/@vite/client`, React Refresh preamble ve `/src/entry.client.tsx` modülünü enjekte eder.
+
+Island/client değişiklikleri state'i koruyan Fast Refresh ile uygulanır. SSR üreten server, route ve
+paylaşılan component değişiklikleri `tsx watch` restartından sonra bilinçli full document reload
+tetikler. Orchestrator süreçlerden biri kapanırsa diğerlerini de sonlandırır; yarım development
+topolojisi bırakmaz. Production ise bu yoldan bağımsız olarak hashed client asset manifest’ini ve SSR
+bundle’ını kullanmaya devam eder.
 
 `dev:local` önce Compose içindeki app ve mock-gw container’larını durdurur, yalnız Redis’i
 `docker compose up -d --wait redis` ile hazırlar. Sonra host üzerinde watch süreçlerini şu açık

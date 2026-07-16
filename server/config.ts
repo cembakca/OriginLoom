@@ -41,6 +41,7 @@ export const config = {
   cachePurgeSecret: process.env.CACHE_PURGE_SECRET,
   releaseId: process.env.RELEASE_ID ?? "development",
   assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
+  viteDevServerUrl: process.env.VITE_DEV_SERVER_URL?.replace(/\/$/, "") || undefined,
   gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),
 } as const;
 
@@ -95,7 +96,16 @@ export function validateConfig(): void {
 
   assertUrl("GATEWAY_URL", config.gatewayUrl);
   assertUrl("SITE_URL", config.siteUrl);
+  if (config.viteDevServerUrl) {
+    const viteUrl = assertUrl("VITE_DEV_SERVER_URL", config.viteDevServerUrl);
+    if (!["http:", "https:"].includes(viteUrl.protocol)) {
+      throw new Error(`Invalid VITE_DEV_SERVER_URL protocol: ${viteUrl.protocol}`);
+    }
+  }
   if (config.isProduction) {
+    if (config.viteDevServerUrl) {
+      throw new Error("VITE_DEV_SERVER_URL is not allowed in production");
+    }
     if (config.cacheBackend === "memory") {
       throw new Error("CACHE_BACKEND=memory is not supported in production");
     }

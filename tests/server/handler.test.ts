@@ -203,6 +203,30 @@ describe("handler", () => {
     expect(res.headers.get("x-request-id")).toBe("req-123");
   });
 
+  it("injects the Vite client and React Refresh preamble only for development assets", async () => {
+    const route: Route = {
+      path: "/dev-assets",
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "development"),
+      minimalChrome: true,
+    };
+    const devAssets = {
+      js: "http://127.0.0.1:5173/src/entry.client.tsx",
+      css: [],
+      development: {
+        client: "http://127.0.0.1:5173/@vite/client",
+        reactRefresh: "http://127.0.0.1:5173/@react-refresh",
+      },
+    };
+
+    const res = await handle(new Request("http://localhost/dev-assets"), [route], devAssets);
+    const body = await res.text();
+    expect(body).toContain('src="http://127.0.0.1:5173/@vite/client"');
+    expect(body).toContain("window.__vite_plugin_react_preamble_installed__ = true");
+    expect(body).toContain('src="http://127.0.0.1:5173/src/entry.client.tsx"');
+    expect(body).not.toContain('rel="modulepreload"');
+  });
+
   it("does not replace stale cache content with a failed revalidation", async () => {
     vi.useFakeTimers();
     let result = { data: { text: "fresh" }, status: 200 };

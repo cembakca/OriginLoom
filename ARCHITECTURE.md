@@ -318,14 +318,28 @@ koduna dokunulmaz; yalnızca `GATEWAY_URL` değiştirilir.
 ### 9. Build ve Runtime
 
 ```
-Dev:   vite build --watch  +  tsx watch server/index.ts   (concurrently)
+Dev:   Vite dev server (HMR/Fast Refresh) + tsx watch (Hono) + mock-gw
+       scripts/dev.mjs tek process lifecycle'ı
 Prod:  vite build (client) + vite build --config vite.server.config.ts
        node dist/server/index.js
 ```
 
-Development'ta hızlı reload için `tsx` kullanılır. Production'da server TypeScript'i çalıştırılmaz; Vite `server/index.ts` entrypoint'ini `dist/server/index.js` olarak bundle eder. Docker runtime katmanı yalnızca production bağımlılıklarını ve `dist/` çıktılarını içerir.
+Development'ta server restart için `tsx`, client HMR için Vite dev server kullanılır. Production'da
+server TypeScript'i çalıştırılmaz; Vite `server/index.ts` entrypoint'ini `dist/server/index.js` olarak
+bundle eder. Docker runtime katmanı yalnızca production bağımlılıklarını ve `dist/` çıktılarını içerir.
 
-Client build `src/entry.client.tsx` başlangıç noktasıyla `dist/client/` altına island bundle'ları + CSS üretir. Manifest (`manifest.json`) sunucu tarafından okunarak HTML'e doğru asset URL'leri enjekte edilir. CDN varsa `ASSET_CDN_URL` env ile asset base URL değiştirilir.
+Production client build `src/entry.client.tsx` başlangıç noktasıyla `dist/client/` altına island
+bundle'ları + CSS üretir. Manifest (`manifest.json`) sunucu tarafından okunarak HTML'e doğru hashed
+asset URL'leri enjekte edilir. CDN varsa `ASSET_CDN_URL` env ile asset base URL değiştirilir.
+
+Development bu manifest yolunu kullanmaz. `scripts/dev.mjs` Hono, mock gateway, Vite dev server ve
+`tsx watch` süreçlerini tek lifecycle altında çalıştırır. Hono document'i Vite `/@vite/client`, React
+Refresh preamble ve source `src/entry.client.tsx` modülünü enjekte eder. Island/client değişiklikleri
+Fast Refresh ile uygulanır. SSR üreten `server/`, `src/routes/` ve paylaşılan component değişiklikleri
+Hono restartından sonra Vite websocket üzerinden bilinçli full document reload üretir. Böylece client
+değişikliğinde gereksiz reload yapılmaz, SSR değişikliğinde eski HTML ile yeni client ağacı karışmaz.
+`VITE_DEV_SERVER_URL` production config doğrulamasında reddedilir; production manifest davranışı dev
+runtime'dan bağımsız kalır.
 
 ---
 

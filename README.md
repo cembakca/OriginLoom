@@ -56,7 +56,16 @@ npm run dev
 ```
 
 Bu komut uygulamayı `http://localhost:3005`, bağımsız mock gateway'i ise
-`http://localhost:4002` adresinde çalıştırır. Gateway'i tek başına başlatmak için:
+`http://localhost:4002` adresinde çalıştırır. Client modülleri `http://127.0.0.1:5173`
+üzerindeki gerçek Vite development server'dan gelir. Browser'da yalnız Hono adresini açın.
+
+- `src/islands` ve client bağımlılıkları React Fast Refresh ile state'i koruyarak güncellenir.
+- Server/SSR dosyaları `tsx watch` ile kontrollü restart olur; Hono hazır olduğunda browser tam
+  document reload yapar.
+- Development sırasında `dist/client` veya manifest yeniden üretilmez.
+- Production build hâlâ hashed asset ve `.vite/manifest.json` kullanır.
+
+Gateway'i tek başına başlatmak için:
 
 ```bash
 npm run mock-gw
@@ -107,6 +116,8 @@ Temel değişkenler:
 - `SWR_REVALIDATION_BACKOFF_MS` — retry için başlangıç backoff süresi
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında aktif revalidation bekleme süresi
 - `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
+- `VITE_DEV_SERVER_URL` — yalnız development orchestrator tarafından kullanılan Vite origin'i;
+  production'da tanımlanması config hatasıdır
 
 Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. `mock-gw/` bağımsız bir Node servisi
 olarak 4002 portunda çalışır; Docker Compose uygulamayı bu servise bağlar. Gerçek gateway hazır

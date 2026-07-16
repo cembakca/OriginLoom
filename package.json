@@ -9,7 +9,7 @@
     "dev:local": "node scripts/dev-local.mjs",
     "start": "node dist/server/index.js",
     "start:dev": "node --import tsx/esm server/index.ts",
-    "dev": "npm run icons && concurrently -k \"node mock-gw/server.js\" \"vite build --watch\" \"tsx watch server/index.ts\"",
+    "dev": "npm run icons && node scripts/dev.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

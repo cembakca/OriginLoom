@@ -55,4 +55,19 @@ describe("server config", () => {
       }),
     ).rejects.toThrow("CACHE_BACKEND=memory is not supported in production");
   });
+
+  it("rejects the Vite development runtime in production", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        RELEASE_ID: "release-1",
+        VITE_DEV_SERVER_URL: "http://localhost:5173",
+      }),
+    ).rejects.toThrow("VITE_DEV_SERVER_URL is not allowed in production");
+  });
 });

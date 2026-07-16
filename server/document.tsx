@@ -16,7 +16,11 @@ import type { Ctx, Route } from "~/lib/types";
 
 import { config } from "./config";
 
-export type Assets = { js: string; css: string[] };
+export type Assets = {
+  js: string;
+  css: string[];
+  development?: { client: string; reactRefresh: string };
+};
 
 export type DocumentContext = {
   routeCtx: Ctx;
@@ -76,7 +80,19 @@ export async function renderDocumentView({
         {assets.css.map((href) => (
           <link key={href} rel="stylesheet" href={href} />
         ))}
-        <link rel="modulepreload" href={assets.js} />
+        {assets.development ? (
+          <>
+            <script type="module" src={assets.development.client} />
+            <script
+              type="module"
+              dangerouslySetInnerHTML={{
+                __html: reactRefreshPreamble(assets.development.reactRefresh),
+              }}
+            />
+          </>
+        ) : (
+          <link rel="modulepreload" href={assets.js} />
+        )}
         <GtmBootstrap containerId={config.gtmContainerId} isBot={isBot} />
       </head>
       <body>
@@ -85,9 +101,22 @@ export async function renderDocumentView({
             {content}
           </RootLayout>
         </div>
-        <script type="module" src={assets.js} />
+        <script
+          type="module"
+          src={assets.js}
+          crossOrigin={assets.development ? "anonymous" : undefined}
+        />
       </body>
     </html>,
   );
   return "<!DOCTYPE html>" + html;
+}
+
+function reactRefreshPreamble(refreshRuntimeUrl: string): string {
+  const url = JSON.stringify(refreshRuntimeUrl).replaceAll("<", "\\u003c");
+  return `import RefreshRuntime from ${url};
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;
+window.__vite_plugin_react_preamble_installed__ = true;`;
 }

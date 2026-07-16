@@ -13,6 +13,17 @@ export function assetUrl(path: string): string {
 }
 
 export function readAssets(): Assets {
+  if (config.viteDevServerUrl) {
+    return {
+      js: `${config.viteDevServerUrl}/src/entry.client.tsx`,
+      css: [],
+      development: {
+        client: `${config.viteDevServerUrl}/@vite/client`,
+        reactRefresh: `${config.viteDevServerUrl}/@react-refresh`,
+      },
+    };
+  }
+
   const manifest = JSON.parse(readFileSync("dist/client/.vite/manifest.json", "utf8")) as Record<
     string,
     ManifestChunk
