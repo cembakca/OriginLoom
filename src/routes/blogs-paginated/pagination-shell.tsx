@@ -1,16 +1,24 @@
-import { Button } from "~/components/ui/button";
-import { buildPaginationItems } from "~/lib/pagination";
+import { buttonVariants } from "~/components/ui/button";
+import { blogPaginationHref, buildPaginationItems } from "~/lib/pagination";
 import { cn } from "~/lib/utils";
 
-/** SSR shell — markup must match `islands/blog-pagination.tsx` for hydrate. */
+/** Pure SSR navigation: crawlers and no-JS users receive the complete link graph. */
 export function PaginationShell({ page, totalPages }: { page: number; totalPages: number }) {
   const items = buildPaginationItems(page, totalPages);
+  const linkClass = buttonVariants({ variant: "secondary", size: "sm" });
+  const disabledClass = cn(linkClass, "pointer-events-none opacity-50");
 
   return (
-    <nav aria-label="Sayfalama" className="mt-6 flex flex-wrap gap-2" tabIndex={0}>
-      <Button variant="secondary" size="sm" disabled={page <= 1}>
-        ← Önceki
-      </Button>
+    <nav aria-label="Sayfalama" className="mt-6 flex flex-wrap gap-2">
+      {page > 1 ? (
+        <a href={blogPaginationHref(page - 1)} rel="prev" className={linkClass}>
+          ← Önceki
+        </a>
+      ) : (
+        <span aria-disabled="true" className={disabledClass}>
+          ← Önceki
+        </span>
+      )}
 
       {items.map((item) =>
         item.kind === "ellipsis" ? (
@@ -21,22 +29,30 @@ export function PaginationShell({ page, totalPages }: { page: number; totalPages
           >
             …
           </span>
-        ) : (
-          <Button
+        ) : item.page === page ? (
+          <span
             key={item.page}
-            variant={item.page === page ? "default" : "secondary"}
-            size="sm"
-            aria-current={item.page === page ? "page" : undefined}
-            className={cn(item.page === page && "pointer-events-none")}
+            aria-current="page"
+            className={buttonVariants({ variant: "default", size: "sm" })}
           >
             {item.page}
-          </Button>
+          </span>
+        ) : (
+          <a key={item.page} href={blogPaginationHref(item.page)} className={linkClass}>
+            {item.page}
+          </a>
         ),
       )}
 
-      <Button variant="secondary" size="sm" disabled={page >= totalPages}>
-        Sonraki →
-      </Button>
+      {page < totalPages ? (
+        <a href={blogPaginationHref(page + 1)} rel="next" className={linkClass}>
+          Sonraki →
+        </a>
+      ) : (
+        <span aria-disabled="true" className={disabledClass}>
+          Sonraki →
+        </span>
+      )}
     </nav>
   );
 }

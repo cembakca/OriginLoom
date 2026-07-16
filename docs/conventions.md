@@ -253,6 +253,14 @@ Pagination kontratı:
 - Gateway `totalPages` ve `pageSize` değerleri de aynı kapalı limitlerden geçer.
 - UI bütün sayfaları `Array.from()` ile üretmez; `1 … current±2 … last` penceresi en fazla dokuz
   öğedir.
+- SSR navigation `<button>` veya hydration'a bağlı `location.href` kullanmaz. Sayfa hedefleri gerçek
+  `<a href>`; aktif sayfa link olmayan `aria-current="page"` elementidir. Page 1 URL'si query'siz,
+  page 2+ URL'si normalize `?page=N` biçimindedir.
+
+Sitemap politikası: yalnız canonical liste girişi `/blogs/paginated` sitemap'e alınır. Query tabanlı
+pagination sayfaları sitemap'e eklenmez ve `noindex` yapılmaz; her biri self-canonical `index,follow`
+sayfadır ve SSR'daki semantic prev/next/page linkleriyle keşfedilir. Blog detay sayfaları eklendiğinde
+sitemap'in asıl içerik envanteri onlar olmalıdır.
 
 Cache write metrikleri `route` için yalnız registry ID, `menu` veya `other` label'ını kullanır; raw
 path/key label yapılmaz:

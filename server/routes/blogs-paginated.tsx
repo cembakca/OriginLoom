@@ -32,6 +32,7 @@ export default defineRoute<PaginatedBlogs>({
     const page = pageParam.page;
     const data = await getPaginatedBlogs(page, { orderBy: DEFAULT_BLOG_ORDER });
     if (data.totalPages > 0 && page > data.totalPages) return notFound();
+    if (data.page !== page) throw new Error("Blogs gateway returned a mismatched page");
     return { data };
   },
 
@@ -70,13 +71,7 @@ export default defineRoute<PaginatedBlogs>({
         <BlogExplorerShell data={data} />
       </Island>
 
-      <Island
-        name="blog-pagination"
-        mode="hydrate"
-        props={{ page: data.page, totalPages: data.totalPages }}
-      >
-        <PaginationShell page={data.page} totalPages={data.totalPages} />
-      </Island>
+      <PaginationShell page={data.page} totalPages={data.totalPages} />
     </div>
   ),
 });

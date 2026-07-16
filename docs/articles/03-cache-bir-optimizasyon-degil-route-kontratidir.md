@@ -510,7 +510,16 @@ async domain doğrulamasının cache policy'nin saf ve senkron sorumluluğuna s�
 Pagination da bounded domain kullanır. Public `page` aralığı `1..1000`; explicit `page=1` ve
 zero-padded değerler canonical 308, malformed veya limit dışı değerler 404 olur. Gateway'in
 `totalPages` alanı aynı üst sınırdan geçer ve UI `Array.from({length: totalPages})` yerine en fazla
-dokuz öğelik `1 … current±2 … last` penceresi üretir.
+dokuz öğelik `1 … current±2 … last` penceresi üretir. Buradaki sayfa öğeleri hydration sonrası
+çalışan button'lar değildir: SSR doğrudan gerçek `<a href="?page=N">` linkleri üretir, aktif sayfa
+ise link olmayan `aria-current="page"` elementidir. Böylece cache varyantı olan her sayfa JavaScript
+çalıştırmayan crawler için de keşfedilebilir bir URL'dir.
+
+Canonical kontratı cache kontratıyla aynı normalize page değerini kullanır. Page 1 query'siz liste
+URL'sine gider; page 2+ kendi `?page=N` URL'sine self-canonical verir. Sitemap yalnız query'siz liste
+girişini taşır. Pagination URL'leri sitemap'e eklenmez veya `noindex` yapılmaz; `index,follow` olarak
+SSR prev/next/page link grafiği üzerinden keşfedilir. Böylece sitemap asıl içerik URL'lerine ayrılırken
+pagination sayfaları yanlışlıkla page 1 altında birleştirilmez.
 
 Koruma yalnız validation değildir; gözlemlenebilir olmalıdır. Başarılı write'larda route label'ı kapalı
 bir setten seçilerek cache body/key byte histogramları ve pod-local bounded distinct-key gauge'i

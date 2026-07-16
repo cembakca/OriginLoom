@@ -192,7 +192,10 @@ env'inden gelmez; gateway/CMS'in `/routing/domains` snapshot'ı otoritedir. Snap
 64 karakterlik lowercase slug sınırından geçip Redis'te beş dakika tutulur. Route'un async
 `validateParams` kontratı bu registry'yi page cache lookup'tan önce kontrol eder. Gateway blog
 response'u page, pageSize, totalPages, array ve string üst sınırlarıyla doğrulanır; pagination en
-fazla dokuz görünür öğe üretir.
+fazla dokuz görünür öğe üretir. Pagination SSR çıktısı gerçek `<a href>` linklerinden oluşur; aktif
+sayfa link olmayan `aria-current="page"` span'idir. Page 1 query'siz canonical kullanır, page 2+
+normalize `?page=N` ile self-canonical'dır. Sitemap yalnız query'siz blog liste girişini içerir;
+pagination URL'leri sitemap'e eklenmez, `index,follow` ve semantic prev/next/page linkleriyle keşfedilir.
 
 Her başarılı cache write route label'ı kontrollü olacak şekilde body byte, key byte ve process başına
 bounded distinct-key observation metriği üretir. `k8s/prometheus-rules.yaml`, 2000 key'lik gözlem

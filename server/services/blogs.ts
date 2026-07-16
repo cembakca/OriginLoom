@@ -44,6 +44,9 @@ export async function getPaginatedBlogs(
 
   const data: unknown = await response.json();
   if (!isPaginatedBlogs(data)) throw new Error("Blogs gateway returned an invalid payload");
+  if (boundedPage <= data.totalPages && data.page !== boundedPage) {
+    throw new Error("Blogs gateway returned a mismatched page");
+  }
   return data;
 }
 

@@ -205,6 +205,35 @@ describe("handler", () => {
     expect(second.headers.get("x-cache")).toBe("BYPASS");
   });
 
+  it("uses a self-referencing canonical and semantic pagination links for page 2+", async () => {
+    const response = await handle(
+      new Request("http://localhost/blogs/paginated?page=2&utm_source=crawler"),
+      [blogsPaginatedRoute],
+      assets,
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain(
+      '<link rel="canonical" href="http://localhost:3005/blogs/paginated?page=2"',
+    );
+    expect(body).toContain('<a href="/blogs/paginated" rel="prev"');
+    expect(body).toContain('<a href="/blogs/paginated?page=3" rel="next"');
+    expect(body).toContain('<span aria-current="page"');
+    expect(body).not.toContain('data-island="blog-pagination"');
+  });
+
+  it("returns 404 when page is within the technical limit but exceeds gateway totalPages", async () => {
+    const response = await handle(
+      new Request("http://localhost/blogs/paginated?page=5"),
+      [blogsPaginatedRoute],
+      assets,
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("x-cache")).toBe("BYPASS");
+  });
+
   it("validates route-domain params before cache policy and loader execution", async () => {
     let cacheCalls = 0;
     let loaderCalls = 0;

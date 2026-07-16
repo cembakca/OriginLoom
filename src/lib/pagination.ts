@@ -2,6 +2,12 @@ import { MAX_PAGE } from "./content-values";
 
 export type PaginationItem = { kind: "page"; page: number } | { kind: "ellipsis"; key: string };
 
+/** Canonical crawler-visible URL for blog list pagination. */
+export function blogPaginationHref(page: number): string {
+  const normalizedPage = clampInteger(page, 1, MAX_PAGE);
+  return normalizedPage === 1 ? "/blogs/paginated" : `/blogs/paginated?page=${normalizedPage}`;
+}
+
 /** Builds a bounded pagination window: 1 … current±siblings … last. */
 export function buildPaginationItems(
   currentPage: number,

@@ -55,4 +55,22 @@ describe("blogs service", () => {
 
     await expect(getPaginatedBlogs(1)).rejects.toThrow("invalid payload");
   });
+
+  it("rejects a gateway page mismatch that could poison canonical and cache identity", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          posts: [],
+          page: 1,
+          pageSize: 6,
+          total: 24,
+          totalPages: 4,
+          orderBy: "date-desc",
+        }),
+      ),
+    );
+
+    await expect(getPaginatedBlogs(2)).rejects.toThrow("mismatched page");
+  });
 });

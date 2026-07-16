@@ -17,7 +17,11 @@ const links = [
     desc: "Cache + island filter örneği",
   },
   { href: "/hesabim", label: "Hesabım", desc: "neverCache + auth" },
-  { href: "/blogs/paginated?page=2", label: "Blog paginated", desc: "SSR pagination island" },
+  {
+    href: "/blogs/paginated?page=2",
+    label: "Blog paginated",
+    desc: "Crawler-safe semantic SSR pagination",
+  },
   {
     href: "/medya-pipeline",
     label: "Image & font pipeline",
