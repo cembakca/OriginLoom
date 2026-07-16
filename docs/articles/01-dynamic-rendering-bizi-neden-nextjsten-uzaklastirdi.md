@@ -378,6 +378,27 @@ envanterinin crawl kaynaklarını tüketebileceğini belirtiyor. Buradaki escape
 canonical yerine geçmiyor. Amacı link olmayan hydration verisini gerçek link envanterinden fiziksel
 olarak ayırmak.
 
+## Ölçüm: aynı sayfada Next.js App Router ile ssr-kit
+
+Karar sürecini yalnızca mimari argümanlarla bırakmadık. `nextjs-overhead-poc/` altında Next.js 16 App
+Router ile aynı mock gateway’e bağlı bir karşılaştırma projesi kurduk: `/blogs/paginated` sayfası,
+kopyalanmış header/footer, layout’ta User-Agent ile cihaz tespiti ve menü SSR, page’de `page` query
+parametresi ile blog listesi fetch’i.
+
+Kök dizindeki `test.js` (autocannon, 50 bağlantı, 15 saniye) yerel koşulda şu sonucu verdi:
+
+| | ssr-kit `:3005` | Next.js POC `:3006` |
+| --- | --- | --- |
+| RPS (ort.) | ~1.972 | ~20 |
+| Gecikme (ort.) | ~25 ms | ~2.227 ms |
+
+Bu tablo “Next.js kötü” demek değildir. ssr-kit tarafında route **shared HTML cache HIT** ağırlıklı
+çalışırken Next POC bilinçli olarak **cache’siz full SSR + layout/page başına gateway fetch** ile
+bırakıldı. Farkın büyük bölümü framework değil, **route cache kontratının varlığı** ile açıklanır.
+
+Ölçüm kurulumu, asimetri uyarıları ve önerilen ek senaryolar:
+[06 — Aynı Sayfada Next.js ve ssr-kit: Blog Paginated Yük Testi](./06-ayni-sayfada-nextjs-ve-ssr-kit-yuk-testi.md).
+
 ## Her proje Next.js’ten çıkmalı mı?
 
 Hayır.
@@ -417,6 +438,7 @@ kontratı, metadata üretimi ve full-document SSR.
 
 ## Kaynaklar
 
+- [06 — Aynı Sayfada Next.js ve ssr-kit: Blog Paginated Yük Testi](./06-ayni-sayfada-nextjs-ve-ssr-kit-yuk-testi.md)
 - [Next.js App Router](https://nextjs.org/docs/app)
 - [Next.js Partial Prerendering](https://nextjs.org/docs/canary/app/building-your-application/rendering/partial-prerendering)
 - [Next.js Cache Components](https://nextjs.org/docs/app/getting-started/partial-prerendering)
