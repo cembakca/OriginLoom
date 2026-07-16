@@ -17,9 +17,10 @@ coverage/
 node_modules/
 .wrangler
 
-# env
+# env — ortam şablonları (.env.development vb.) commit edilir; local override'lar ignore'da
 .env
-.env.production
+.env.local
+.env.*.local
 .dev.vars
 .dev.vars.*
 !.dev.vars.*.example

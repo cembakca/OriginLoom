@@ -404,11 +404,16 @@ handler’da değil, boundary’nin domain anlamında kurulmalıdır.
 
 Tek bir geliştirme modu bütün ihtiyaçları karşılamıyor:
 
-| Komut                       | App                   | Mock gateway | Redis          | Amaç                            |
+| Komut                       | App                   | Mock gateway | Cache / Redis  | Amaç                            |
 | --------------------------- | --------------------- | ------------ | -------------- | ------------------------------- |
-| `npm run dev`               | Host/watch            | Host         | Config’e bağlı | En hızlı kod döngüsü            |
-| `npm run dev:local`         | Host/watch            | Host         | Docker         | Redis gerçekliği + hızlı reload |
+| `npm run dev`               | Host/watch            | Host         | memory         | Günlük geliştirme — Redis yok   |
+| `npm run dev:redis`         | Host/watch            | Host         | Docker Redis   | SWR/purge/lock testi            |
 | `docker compose up --build` | Container/prod bundle | Container    | Container      | Production-benzeri topoloji     |
+
+Ortam dosyaları: `.env.development` (memory), `.env.development.redis` (overlay), `.env.staging`,
+`.env.production`. `dev:local`, `dev:redis` için geriye dönük alias'tır.
+
+`npm run dev` `.env.development` dosyasını yükler; `CACHE_BACKEND=memory` ile Redis gerekmez.
 
 `npm run dev` gerçek Vite development server’ı, mock gateway’i ve `tsx watch` Hono server’ını
 `scripts/dev.mjs` üzerinden birlikte başlatır. Vite build-watch ile `dist/client` yazmaz; source
@@ -421,9 +426,9 @@ tetikler. Orchestrator süreçlerden biri kapanırsa diğerlerini de sonlandır�
 topolojisi bırakmaz. Production ise bu yoldan bağımsız olarak hashed client asset manifest’ini ve SSR
 bundle’ını kullanmaya devam eder.
 
-`dev:local` önce Compose içindeki app ve mock-gw container’larını durdurur, yalnız Redis’i
-`docker compose up -d --wait redis` ile hazırlar. Sonra host üzerinde watch süreçlerini şu açık
-adreslerle başlatır:
+`dev:redis` önce Compose içindeki app ve mock-gw container’larını durdurur, yalnız Redis’i
+`docker compose up -d --wait redis` ile hazırlar, `.env.development.redis` overlay’ini uygular ve
+host üzerinde watch süreçlerini başlatır:
 
 ```text
 REDIS_URL=redis://127.0.0.1:6379

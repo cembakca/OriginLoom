@@ -352,10 +352,16 @@ koduna dokunulmaz; yalnızca `GATEWAY_URL` değiştirilir.
 
 ```
 Dev:   Vite dev server (HMR/Fast Refresh) + tsx watch (Hono) + mock-gw
-       scripts/dev.mjs tek process lifecycle'ı
-Prod:  vite build (client) + vite build --config vite.server.config.ts
+       scripts/dev.mjs · .env.development (memory cache)
+       npm run dev:redis → .env.development.redis overlay + Docker Redis
+Prod:  scripts/build.mjs · .env.production
+       npm run start / start:staging
        node dist/server/index.js
 ```
+
+Ortam dosyaları: `.env.development` (memory), `.env.staging`, `.env.production`. Kişisel
+override: `.env.local`. Yükleme: `scripts/load-env.mjs`; npm script'leri `scripts/run-with-env.mjs`
+üzerinden doğru dosyayı seçer.
 
 Development'ta server restart için `tsx`, client HMR için Vite dev server kullanılır. Production'da
 server TypeScript'i çalıştırılmaz; Vite `server/index.ts` entrypoint'ini `dist/server/index.js` olarak

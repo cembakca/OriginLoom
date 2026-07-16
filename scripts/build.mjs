@@ -1,0 +1,35 @@
+import { spawn } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { loadEnv } from "./load-env.mjs";
+
+loadEnv("production");
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+function run(label, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      cwd: root,
+      stdio: "inherit",
+      env: process.env,
+    });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (signal) reject(new Error(`${label} stopped with ${signal}`));
+      else if (code !== 0) reject(new Error(`${label} exited with code ${code}`));
+      else resolve();
+    });
+  });
+}
+
+await run("icons", [resolve(root, "scripts/generate-icons.mjs")]);
+await run("client", [resolve(root, "node_modules/vite/bin/vite.js"), "build"]);
+await run("media", [resolve(root, "scripts/build-media.mjs")]);
+await run("server", [
+  resolve(root, "node_modules/vite/bin/vite.js"),
+  "build",
+  "--config",
+  "vite.server.config.ts",
+]);

@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 
+import { loadEnv, loadEnvOverlay } from "./load-env.mjs";
+
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: "inherit", ...options });
@@ -12,26 +14,21 @@ function run(command, args, options = {}) {
 }
 
 async function prepareRedis() {
-  // Prevent port conflicts after a previous full Compose run; Redis remains running.
   await run("docker", ["compose", "stop", "app", "mock-gw"]);
   const code = await run("docker", ["compose", "up", "-d", "--wait", "redis"]);
   if (code !== 0) throw new Error("Redis container could not be started");
 }
 
 function startDevelopment() {
+  loadEnv("development");
+  loadEnvOverlay(".env.development.redis");
+
   const npmExecPath = process.env.npm_execpath;
   const command = npmExecPath ? process.execPath : process.platform === "win32" ? "npm.cmd" : "npm";
   const args = npmExecPath ? [npmExecPath, "run", "dev"] : ["run", "dev"];
   const child = spawn(command, args, {
     stdio: "inherit",
-    env: {
-      ...process.env,
-      NODE_ENV: "development",
-      CACHE_BACKEND: "redis",
-      REDIS_URL: "redis://127.0.0.1:6379",
-      GATEWAY_URL: "http://127.0.0.1:4002",
-      SITE_URL: "http://localhost:3005",
-    },
+    env: process.env,
   });
 
   const forward = (signal) => {

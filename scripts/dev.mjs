@@ -2,6 +2,10 @@ import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadEnv } from "./load-env.mjs";
+
+loadEnv("development");
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const viteUrl = new URL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5174");
 const appUrl = new URL(process.env.SITE_URL ?? `http://127.0.0.1:${process.env.PORT ?? "3005"}`);
@@ -52,6 +56,7 @@ function shutdown(signal, exitCode) {
 process.once("SIGINT", () => shutdown("SIGINT", 0));
 process.once("SIGTERM", () => shutdown("SIGTERM", 0));
 
+console.log(`[dev] env: ${process.env.APP_ENV} · cache: ${process.env.CACHE_BACKEND ?? "memory"}`);
 console.log(`[dev] Hono: ${appUrl.origin}`);
 console.log(`[dev] Vite: ${viteUrl.origin}`);
 console.log(`[dev] Gateway: ${gatewayUrl.origin}`);
@@ -74,6 +79,7 @@ start("gateway", [resolve(root, "mock-gw/server.js")], {
 });
 start("server", [resolve(root, "node_modules/tsx/dist/cli.mjs"), "watch", "server/index.ts"], {
   NODE_ENV: "development",
+  APP_ENV: "development",
   GATEWAY_URL: gatewayUrl.origin,
   SITE_URL: appUrl.origin,
   VITE_DEV_SERVER_URL: viteUrl.origin,

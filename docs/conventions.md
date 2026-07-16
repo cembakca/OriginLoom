@@ -124,25 +124,37 @@ ssr:<release-id>:menu:Desktop          → menü JSON
 
 ### Bellek vs Redis
 
-| Ortam            | `CACHE_BACKEND`       | Davranış                                                       |
-| ---------------- | --------------------- | -------------------------------------------------------------- |
-| Yerel geliştirme | `memory` (varsayılan) | Tek Node process içi `Map`; restart'ta sıfırlanır              |
-| Docker / prod    | `redis`               | Tüm app instance'ları aynı cache'i paylaşır; restart'ta kalıcı |
+| Ortam            | Ortam dosyası        | `CACHE_BACKEND` | Davranış                                                       |
+| ---------------- | -------------------- | --------------- | -------------------------------------------------------------- |
+| Yerel geliştirme | `.env.development`   | `memory`        | Tek Node process içi `Map`; restart'ta sıfırlanır              |
+| Redis testi      | `.env.development.redis` overlay | `redis` | Docker Redis; SWR lock ve purge production'a yakın             |
+| Staging          | `.env.staging`       | `redis`         | Production kuralları, staging URL'leri                         |
+| Production       | `.env.production`    | `redis`         | Tüm app instance'ları aynı cache'i paylaşır                    |
 
-İlgili env değişkenleri:
+İlgili env değişkenleri — yerel geliştirme (`.env.development`):
 
 ```bash
-CACHE_BACKEND=redis          # memory | redis
-REDIS_URL=redis://redis:6379 # redis seçiliyken zorunlu
-CACHE_MAX_ENTRIES=2000       # yalnızca memory backend
-CACHE_REQUIRED=false         # true ise Redis readiness için zorunlu
-CACHE_PURGE_SECRET=...       # prod'da purge API için zorunlu
-MENU_CACHE_TTL=14400         # menü cache süresi (saniye)
-MENU_CACHE_SWR=86400         # menü stale-while-revalidate (saniye)
-SWR_REVALIDATION_ATTEMPTS=3
-SWR_REVALIDATION_BACKOFF_MS=250
-SWR_DRAIN_TIMEOUT_MS=5000
+NODE_ENV=development
+CACHE_BACKEND=memory
+CACHE_MAX_ENTRIES=2000
+GATEWAY_URL=http://127.0.0.1:4002
+SITE_URL=http://localhost:3005
+CACHE_PURGE_SECRET=dev-purge-secret
 ```
+
+Staging / production (`.env.staging`, `.env.production`):
+
+```bash
+NODE_ENV=production
+CACHE_BACKEND=redis
+REDIS_URL=redis://...
+CACHE_REQUIRED=false
+CACHE_PURGE_SECRET=...
+RELEASE_ID=...
+```
+
+Kişisel override: `.env.local` veya `.env.<ortam>.local` (gitignore'da). Shell değişkenleri
+dosyalardan önceliklidir.
 
 Docker Compose (`docker-compose.yml`) Redis'i ayağa kaldırır; app servisi `REDIS_URL=redis://redis:6379` ile bağlanır. Sağlık kontrolü: `GET /readyz` cache ping'i yapar (`pingCache()`).
 

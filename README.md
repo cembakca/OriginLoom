@@ -50,6 +50,17 @@ Cache key yalnızca normalize edilmiş, HTML çıktısını gerçekten değişti
 
 ## Geliştirme
 
+Ortam yapılandırması `.env.development`, `.env.staging` ve `.env.production` dosyalarıyla
+yönetilir. Kişisel override'lar için `.env.local` (veya `.env.<ortam>.local`) kullanın; shell
+değişkenleri dosyalardan önceliklidir.
+
+| Komut | Ortam dosyası | Cache | Açıklama |
+| ----- | ------------- | ----- | -------- |
+| `npm run dev` | `.env.development` | memory | Günlük geliştirme — Redis gerekmez |
+| `npm run dev:redis` | `.env.development` + `.env.development.redis` | redis | Docker Redis ile cache/SWR testi |
+| `npm run start:staging` | `.env.staging` | redis | Staging bundle |
+| `npm run start` | `.env.production` | redis | Production bundle |
+
 ```bash
 npm ci
 npm run dev
@@ -58,6 +69,7 @@ npm run dev
 Bu komut uygulamayı `http://localhost:3005`, bağımsız mock gateway'i ise
 `http://localhost:4002` adresinde çalıştırır. Client modülleri `http://127.0.0.1:5174`
 üzerindeki gerçek Vite development server'dan gelir. Browser'da yalnız Hono adresini açın.
+Cache in-memory çalışır; process restart sonrası sıfırlanır.
 
 - `src/islands` ve client bağımlılıkları React Fast Refresh ile state'i koruyarak güncellenir.
 - Server/SSR dosyaları `tsx watch` ile kontrollü restart olur; Hono hazır olduğunda browser tam
@@ -71,15 +83,18 @@ Gateway'i tek başına başlatmak için:
 npm run mock-gw
 ```
 
-Redis'i Docker'da, uygulama ve gateway'i host üzerinde watch modunda çalıştırmak için:
+Redis/SWR/purge davranışını production'a yakın test etmek için (opsiyonel):
 
 ```bash
-npm run dev:local
+npm run dev:redis
 ```
 
 Bu script önce Compose'taki `app` ve `mock-gw` container'larını durdurur, yalnızca Redis'i
-`docker compose up -d --wait redis` ile hazırlar ve sonra `npm run dev` çalıştırır. Script
-kapatıldığında Redis açık kalır; sonraki kod değişikliklerinde `compose down` gerekmez.
+`docker compose up -d --wait redis` ile hazırlar, `.env.development.redis` overlay'ini uygular ve
+sonra `npm run dev` çalıştırır. Script kapatıldığında Redis açık kalır; sonraki kod
+değişikliklerinde `compose down` gerekmez.
+
+`dev:local`, `dev:redis` için geriye dönük alias'tır.
 
 ## Embedded JSON ve crawl kontratı
 
@@ -148,6 +163,16 @@ Inter variable font browser'da dış istek üretmeden self-host edilir. Build ya
 manifest üzerinden üretir; font lisansı build çıktısına dahildir.
 
 ## Ortam değişkenleri
+
+Ortam dosyaları:
+
+| Dosya | Kullanım |
+| ----- | -------- |
+| `.env.development` | `npm run dev` — memory cache, Redis gerekmez |
+| `.env.development.redis` | `npm run dev:redis` overlay'i |
+| `.env.staging` | `npm run start:staging` |
+| `.env.production` | `npm run start` şablonu |
+| `.env.local` | Kişisel override (gitignore) |
 
 Temel değişkenler:
 

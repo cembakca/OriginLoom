@@ -1,5 +1,9 @@
 import { spawn } from "node:child_process";
 
+import { loadEnv } from "./load-env.mjs";
+
+loadEnv("production");
+
 const port = 31_305;
 const gatewayPort = 31_402;
 const gateway = spawn(process.execPath, ["mock-gw/server.js"], {
@@ -14,9 +18,7 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
   stdio: "inherit",
   env: {
     ...process.env,
-    NODE_ENV: "production",
     PORT: String(port),
-    CACHE_BACKEND: "redis",
     CACHE_REQUIRED: "false",
     REDIS_URL: "redis://127.0.0.1:1",
     GATEWAY_URL: `http://127.0.0.1:${gatewayPort}`,

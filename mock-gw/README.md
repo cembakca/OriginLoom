@@ -7,8 +7,8 @@ portunda çalışır:
 npm run mock-gw
 ```
 
-Redis Docker'da kalırken gateway ve uygulamayı watch modunda birlikte çalıştırmak için proje
-kökünde `npm run dev:local` kullanılabilir.
+Günlük geliştirmede `npm run dev` mock gateway'i otomatik başlatır; cache in-memory çalışır,
+Redis gerekmez. Redis/SWR testi için `npm run dev:redis` kullanın.
 
 Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Docker Compose
 `GATEWAY_URL` üzerinden bu servise bağlanır; gerçek gateway geldiğinde URL değiştirmek yeterlidir.

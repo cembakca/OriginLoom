@@ -27,6 +27,7 @@ export const config = {
   redisUrl: process.env.REDIS_URL,
   cacheMaxEntries: numberEnv("CACHE_MAX_ENTRIES", 2000),
   nodeEnv,
+  appEnv: process.env.APP_ENV ?? nodeEnv,
   isProduction: nodeEnv === "production",
   shutdownTimeoutMs: numberEnv("SHUTDOWN_TIMEOUT_MS", 10_000),
   revalidationAttempts: numberEnv("SWR_REVALIDATION_ATTEMPTS", 3),
