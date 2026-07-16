@@ -108,6 +108,33 @@ cache.read(key)  ──→  Redis'te var mı?  ──→  HIT / STALE → HTML d
 loader + renderDocument → cache.write(key, html)
 ```
 
+### Redis cache ile HTTP cache aynı şey değildir
+
+Bu projede shared HTML policy, body'nin podlar arasında Redis üzerinden tekrar kullanılabileceğini
+ifade eder. Browser veya CDN'in aynı response'u ayrıca saklayabileceği anlamına gelmez. Varsayılan
+response kontratı:
+
+```http
+Cache-Control: private, no-cache, max-age=0
+X-Cache: HIT
+```
+
+`X-Cache`, Redis/origin sonucunu gösterir. Response finalization sırasında token, session, tracking,
+UTM veya tema dahil herhangi bir `Set-Cookie` eklenirse header zorunlu olarak şuna çevrilir:
+
+```http
+Cache-Control: private, no-store
+```
+
+Kurallar:
+
+1. Route cache key'inin doğru olması downstream CDN'i otomatik olarak güvenli yapmaz.
+2. Kullanıcıya özel tracking ID response header'ında yayınlanmaz.
+3. HTML edge cache varsayılan olarak kapalıdır; Redis body cache çalışmaya devam eder.
+4. Edge cache ancak normalized device/locale gibi kapalı vary header'ları, cookie stripping ve ayrı
+   purge kontratı birlikte tasarlanırsa açılabilir.
+5. Hash'li JS/CSS/image asset'lerinin CDN cache'i bu kuraldan bağımsızdır ve immutable kalır.
+
 Aynı Redis instance (veya geliştirmede bellek store) **iki ayrı cache katmanını** tutar:
 
 | Katman             | Ne cache'lenir                      | Key örneği                                              | TTL (varsayılan)                     |
@@ -124,12 +151,12 @@ ssr:<release-id>:menu:Desktop          → menü JSON
 
 ### Bellek vs Redis
 
-| Ortam            | Ortam dosyası        | `CACHE_BACKEND` | Davranış                                                       |
-| ---------------- | -------------------- | --------------- | -------------------------------------------------------------- |
-| Yerel geliştirme | `.env.development`   | `memory`        | Tek Node process içi `Map`; restart'ta sıfırlanır              |
-| Redis testi      | `.env.development.redis` overlay | `redis` | Docker Redis; SWR lock ve purge production'a yakın             |
-| Staging          | `.env.staging`       | `redis`         | Production kuralları, staging URL'leri                         |
-| Production       | `.env.production`    | `redis`         | Tüm app instance'ları aynı cache'i paylaşır                    |
+| Ortam            | Ortam dosyası                    | `CACHE_BACKEND` | Davranış                                           |
+| ---------------- | -------------------------------- | --------------- | -------------------------------------------------- |
+| Yerel geliştirme | `.env.development`               | `memory`        | Tek Node process içi `Map`; restart'ta sıfırlanır  |
+| Redis testi      | `.env.development.redis` overlay | `redis`         | Docker Redis; SWR lock ve purge production'a yakın |
+| Staging          | `.env.staging`                   | `redis`         | Production kuralları, staging URL'leri             |
+| Production       | `.env.production`                | `redis`         | Tüm app instance'ları aynı cache'i paylaşır        |
 
 İlgili env değişkenleri — yerel geliştirme (`.env.development`):
 

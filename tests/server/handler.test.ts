@@ -163,10 +163,12 @@ describe("handler", () => {
     const first = await handle(req, [homeRoute], assets);
     expect(first.status).toBe(200);
     expect(first.headers.get("x-cache")).toBe("MISS");
+    expect(first.headers.get("cache-control")).toBe("private, no-cache, max-age=0");
 
     const second = await handle(req, [homeRoute], assets);
     expect(second.status).toBe(200);
     expect(second.headers.get("x-cache")).toBe("HIT");
+    expect(second.headers.get("cache-control")).toBe("private, no-cache, max-age=0");
     const body = await second.text();
     expect(body).toContain('rel="preload" as="image"');
     expect(body).toContain('imageSrcSet="/assets/media/home-hero-480');

@@ -45,13 +45,9 @@ export const sessionStep: MiddlewareStep = async (ctx, acc) => {
   headers.set("x-pathname", ctx.publicPath);
   headers.set("x-client-ip", ctx.clientIp);
 
-  const responseHeaders = new Headers(acc.responseHeaders);
-  responseHeaders.set("x-tracking-id", trackingId);
-
   return {
     request: cloneRequestWithHeaders(acc.request, headers),
     cookies: jar,
-    responseHeaders,
     trackingId,
   };
 };

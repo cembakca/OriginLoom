@@ -419,6 +419,13 @@ gereklidir. Benzer biçimde `SameSite=Lax` CSRF riskini azaltır ama bütün sta
 için genel CSRF tasarımının yerine geçmez. Yeni mutation BFF’leri method, Origin/Referer kontrolü veya
 CSRF token ihtiyacı açısından ayrıca değerlendirilmelidir.
 
+Bir başka sınır shared cache'tir. Token refresh veya UI session senkronizasyonu `Set-Cookie`
+ürettiğinde response, body anonim ve Redis-cacheable olsa bile CDN-cacheable kabul edilmez. Finalizer
+bu response'u `private, no-store` yapar. Cookie yazılmayan normal HTML response'ları da varsayılan
+olarak edge cache'e açılmaz; Redis origin cache'i ile kullanıcıya giden HTTP cache policy'si ayrı
+tutulur. Böylece refresh token rotasyonu ya da tracking cookie'si bir intermediary tarafından başka
+ziyaretçiye replay edilemez.
+
 ## UI cookie’si ile auth credential aynı şey değildir
 
 Header hızlı bir ilk görünüm için iki JavaScript-readable cookie kullanır:

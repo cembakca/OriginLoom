@@ -54,12 +54,12 @@ Ortam yapılandırması `.env.development`, `.env.staging` ve `.env.production` 
 yönetilir. Kişisel override'lar için `.env.local` (veya `.env.<ortam>.local`) kullanın; shell
 değişkenleri dosyalardan önceliklidir.
 
-| Komut | Ortam dosyası | Cache | Açıklama |
-| ----- | ------------- | ----- | -------- |
-| `npm run dev` | `.env.development` | memory | Günlük geliştirme — Redis gerekmez |
-| `npm run dev:redis` | `.env.development` + `.env.development.redis` | redis | Docker Redis ile cache/SWR testi |
-| `npm run start:staging` | `.env.staging` | redis | Staging bundle |
-| `npm run start` | `.env.production` | redis | Production bundle |
+| Komut                   | Ortam dosyası                                 | Cache  | Açıklama                           |
+| ----------------------- | --------------------------------------------- | ------ | ---------------------------------- |
+| `npm run dev`           | `.env.development`                            | memory | Günlük geliştirme — Redis gerekmez |
+| `npm run dev:redis`     | `.env.development` + `.env.development.redis` | redis  | Docker Redis ile cache/SWR testi   |
+| `npm run start:staging` | `.env.staging`                                | redis  | Staging bundle                     |
+| `npm run start`         | `.env.production`                             | redis  | Production bundle                  |
 
 ```bash
 npm ci
@@ -110,6 +110,14 @@ alanları ikinci bir URL inventory'si oluşturmaz.
 
 Serializer ayrıca `<`, `>`, `&`, U+2028 ve U+2029 karakterlerini güvenli JSON escape'lerine çevirir.
 Bu kural yalnız HTML'e embedded JSON içindir; API body, Redis ve log serialization'ına uygulanmaz.
+
+## Redis ve HTTP cache sınırı
+
+Redis, origin içindeki SSR HTML body cache'idir. Bir route Redis'ten `HIT` dönse bile HTML response'u
+varsayılan olarak `Cache-Control: private, no-cache, max-age=0` taşır; downstream CDN kendiliğinden
+ikinci bir HTML cache katmanına dönüşmez. Finalization sırasında herhangi bir `Set-Cookie` eklenirse
+response zorunlu `private, no-store` olur. Hash'li statik asset'lerin immutable CDN cache'i bu
+kontrattan bağımsızdır.
 
 ## Kontroller
 
@@ -170,13 +178,13 @@ manifest üzerinden üretir; font lisansı build çıktısına dahildir.
 
 Ortam dosyaları:
 
-| Dosya | Kullanım |
-| ----- | -------- |
-| `.env.development` | `npm run dev` — memory cache, Redis gerekmez |
-| `.env.development.redis` | `npm run dev:redis` overlay'i |
-| `.env.staging` | `npm run start:staging` |
-| `.env.production` | `npm run start` şablonu |
-| `.env.local` | Kişisel override (gitignore) |
+| Dosya                    | Kullanım                                     |
+| ------------------------ | -------------------------------------------- |
+| `.env.development`       | `npm run dev` — memory cache, Redis gerekmez |
+| `.env.development.redis` | `npm run dev:redis` overlay'i                |
+| `.env.staging`           | `npm run start:staging`                      |
+| `.env.production`        | `npm run start` şablonu                      |
+| `.env.local`             | Kişisel override (gitignore)                 |
 
 Temel değişkenler:
 

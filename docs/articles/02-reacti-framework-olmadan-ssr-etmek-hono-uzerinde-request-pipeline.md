@@ -331,6 +331,13 @@ export function finalizeSsrResponse(ssrResponse: Response, result: PipelineResul
 son değer kazanıyor; farklı cookie’ler birlikte korunuyor. Response’un tamamlandığı tek bir nokta
 olduğu için request ID ve ortak header’lar da kaybolmuyor.
 
+Finalizer'ın ikinci görevi cache izolasyonudur. Redis'ten gelen body origin içinde paylaşılabilir
+olsa bile response'a cookie eklendiği anda downstream cache kontratı paylaşılabilir kalamaz.
+`applyCookies()` bu nedenle en az bir cookie yazdığında mevcut policy'yi koşulsuz
+`Cache-Control: private, no-store` ile değiştirir. Cookie yoksa shared route HTML'i yine edge cache'e
+açılmaz; `private, no-cache, max-age=0` kullanır. Redis body cache ile HTTP intermediary cache böylece
+aynı kavrammış gibi davranmaz.
+
 Pipeline’ın invariant’ı artık açık:
 
 > Her request ya terminal bir `Response` üretir ya da güncellenmiş bir `Request` ile SSR handler’a

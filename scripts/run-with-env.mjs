@@ -4,7 +4,9 @@ import { loadEnv } from "./load-env.mjs";
 
 const [appEnv, ...command] = process.argv.slice(2);
 if (!appEnv || command.length === 0) {
-  console.error("Usage: node scripts/run-with-env.mjs <development|staging|production> <command...>");
+  console.error(
+    "Usage: node scripts/run-with-env.mjs <development|staging|production> <command...>",
+  );
   process.exit(1);
 }
 

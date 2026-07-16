@@ -83,7 +83,9 @@ export async function deleteKey(key: string): Promise<boolean> {
 
 export function cacheControl(policy: CachePolicy): string {
   if (policy.kind === "none") return "private, no-store";
-  return `public, s-maxage=${policy.ttl}, stale-while-revalidate=${policy.swr ?? 0}`;
+  // Redis is the shared HTML body cache. Do not implicitly turn every browser/CDN
+  // between the user and the origin into a second cache with an unknown Vary key.
+  return "private, no-cache, max-age=0";
 }
 
 export async function pingCache(): Promise<boolean> {

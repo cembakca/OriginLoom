@@ -519,9 +519,8 @@ Biz aynı semantiği origin içindeki HTML store’da uyguluyoruz:
 4. `now ≥ staleUntil`: Entry silinir; request normal `MISS` yolunda loader’ı bekler.
 
 Bu uygulama HTTP intermediary cache’in birebir implementasyonu değildir; Redis bizim origin-level
-render cache’imizdir. Response’taki `s-maxage` ve `stale-while-revalidate` ise aşağı akış CDN için ayrı
-bir HTTP kontratıdır. İki katmanın freshness bütçesi production CDN konfigürasyonunda birlikte ele
-alınmalıdır.
+render cache’imizdir. Mevcut kontratta aşağı akış CDN'e HTML cache yetkisi verilmez. Redis'in
+`freshUntil` ve `staleUntil` alanları yalnız origin içindeki reuse ve revalidation kararını yönetir.
 
 ## Birinci savunma: process içinde revalidation deduplication
 
@@ -719,37 +718,48 @@ HTML olarak servis edilmez; key silinir ve normal miss yolu çalışır.
 Shared route response’u şu header’ı üretir:
 
 ```http
-Cache-Control: public, s-maxage=300, stale-while-revalidate=3600
+Cache-Control: private, no-cache, max-age=0
 X-Cache: HIT
 ```
 
-Redis, origin’in loader ve React render maliyetini azaltır. `s-maxage` ise shared downstream cache’lere,
-özellikle CDN’e response’u ne kadar tutabileceklerini söyler. Bunlar iki ayrı katmandır.
+`X-Cache: HIT`, body'nin Redis'ten geldiğini söyler; response'un browser veya CDN tarafından shared
+olarak saklanabileceğini söylemez. Bu ayrım zorunludur çünkü origin cache key'i device, locale, theme
+ve public rewrite path gibi boyutlar içerebilir. URL'yi gören bir CDN bu kapalı boyutları kendiliğinden
+bilemez.
 
 ```mermaid
 flowchart LR
-    U["Browser"] --> C["CDN cache"]
-    C --> H["Hono origin"]
+    U["Browser"] --> C["CDN · HTML pass-through"]
+    C --> H["Hono origin · private/no-cache"]
     H --> R["Redis HTML cache"]
     H --> G["Gateway"]
 ```
 
-CDN fresh hit döndüğünde request origin’e ulaşmaz; Redis okunmaz. CDN stale response’u kendi
-revalidation request’iyle yenilerken origin de Redis’te stale görebilir ve kendi background
-revalidation’ını başlatabilir. İki bağımsız SWR penceresi dikkatsiz ayarlanırsa toplam içerik yaşı
-beklenenden uzun olabilir.
+Response finalization ayrıca daha güçlü bir invariant uygular: token refresh, UI session, tracking,
+UTM veya theme nedeniyle en az bir `Set-Cookie` yazılıyorsa policy koşulsuz değişir:
 
-Bu nedenle production CDN tasarımında şu karar açık olmalıdır:
+```http
+Cache-Control: private, no-store
+```
 
-- Freshness’in ana sahibi CDN mi, origin Redis mi?
-- CDN revalidation request’i origin’den `STALE` alırsa bunu yeniden ne kadar tutacak?
-- On-demand purge hem Redis’e hem CDN’e ulaşıyor mu?
-- HTML ile client asset/RSC benzeri varyantlar aynı invalidation kapsamına giriyor mu?
+Bu koruma body anonim olsa bile gereklidir. Intermediary'nin `Set-Cookie` header'ını body ile birlikte
+saklayıp başka ziyaretçiye replay etmesi token veya tracking state karışmasına dönüşebilir.
+
+HTML edge cache ileride gerçekten gerekirse mevcut header'ı `public, s-maxage=...` yapmak tek başına
+yeterli değildir. Önce şu ayrı platform kontratı kurulmalıdır:
+
+- Device ve locale, trusted edge tarafından küçük ve kapalı header değerlerine normalize edilmeli.
+- Edge cache key bu header'ları içermeli; serbest `User-Agent` veya bütün `Cookie` header'ı ile
+  parçalanmamalı.
+- `Set-Cookie` üreten response'lar cache dışında kalmalı ve header stripping davranışı test edilmeli.
+- Redis purge ile CDN purge ayrı operasyonlar olarak birlikte koordine edilmeli.
+- Origin ve edge SWR pencerelerinin toplam içerik yaşını nasıl etkilediği hesaplanmalı.
 
 Next.js’in güncel [CDN caching rehberi](https://nextjs.org/docs/app/guides/cdn-caching) de
 `revalidatePath()` veya `revalidateTag()` çağrısının Next.js server cache’ini temizlediğini, CDN
 kopyasının `s-maxage` dolana kadar kalabileceğini ve CDN purge’ünün ayrıca tetiklenmesi gerektiğini
-belirtiyor. Framework değişse de çok katmanlı cache gerçeği değişmiyor.
+belirtiyor. Biz edge HTML cache'i varsayılan olarak kapatarak bu ikinci invalidation alanını şimdilik
+bilinçli biçimde sistemden çıkarıyoruz; hash'li statik asset CDN cache'i bundan etkilenmiyor.
 
 ## Purge bir admin butonu değil, cache modelinin devamıdır
 

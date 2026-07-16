@@ -174,6 +174,16 @@ interface CacheStore {
 
 SWR revalidation aynı key için process içinde deduplicate edilir ve Redis `SET NX PX` kilidiyle podlar arasında tekilleştirilir. Başarısız loader/render/write denemeleri üstel backoff ile sınırlı sayıda tekrar edilir. Sunucu kapanırken aktif revalidation işleri `SWR_DRAIN_TIMEOUT_MS` süresince beklenir; böylece işler kontrolsüz fire-and-forget bırakılmaz.
 
+Redis burada **origin içindeki HTML body cache'idir**; HTTP/CDN shared cache değildir. Shared route
+body'si Redis'ten `HIT` veya `STALE` gelse bile browser'a gönderilen HTML response'u varsayılan olarak
+`Cache-Control: private, no-cache, max-age=0` taşır. Böylece Redis key'inde bulunan device, locale,
+theme ve public rewrite path boyutlarının bunlardan habersiz bir downstream CDN tarafından
+karıştırılması engellenir. Finalization sırasında response'a herhangi bir `Set-Cookie` eklenirse
+policy koşulsuz `private, no-store` olur. Tracking ID request context'inde ve cookie'de kalır;
+kullanıcıya özel `x-tracking-id` response header'ı yayınlanmaz. İleride edge HTML cache açılacaksa bu
+ayrı, opt-in bir özellik olarak normalized vary header'ları ve cookie stripping kontratıyla
+tasarlanmalıdır.
+
 Her entry şu yapıdadır:
 
 ```typescript

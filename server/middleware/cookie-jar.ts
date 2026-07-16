@@ -41,9 +41,14 @@ export class CookieJar {
 
 export function applyCookies(response: Response, jar: CookieJar): Response {
   const headers = new Headers(response.headers);
-  for (const cookie of jar.toHeaderStrings()) {
+  const cookies = jar.toHeaderStrings();
+  for (const cookie of cookies) {
     headers.append("Set-Cookie", cookie);
   }
+  // A response that mutates session or tracking state must never be stored by a
+  // browser or intermediary, regardless of the cache policy set before the
+  // middleware pipeline finalized the response.
+  if (cookies.length > 0) headers.set("Cache-Control", "private, no-store");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

@@ -404,11 +404,11 @@ handler’da değil, boundary’nin domain anlamında kurulmalıdır.
 
 Tek bir geliştirme modu bütün ihtiyaçları karşılamıyor:
 
-| Komut                       | App                   | Mock gateway | Cache / Redis  | Amaç                            |
-| --------------------------- | --------------------- | ------------ | -------------- | ------------------------------- |
-| `npm run dev`               | Host/watch            | Host         | memory         | Günlük geliştirme — Redis yok   |
-| `npm run dev:redis`         | Host/watch            | Host         | Docker Redis   | SWR/purge/lock testi            |
-| `docker compose up --build` | Container/prod bundle | Container    | Container      | Production-benzeri topoloji     |
+| Komut                       | App                   | Mock gateway | Cache / Redis | Amaç                          |
+| --------------------------- | --------------------- | ------------ | ------------- | ----------------------------- |
+| `npm run dev`               | Host/watch            | Host         | memory        | Günlük geliştirme — Redis yok |
+| `npm run dev:redis`         | Host/watch            | Host         | Docker Redis  | SWR/purge/lock testi          |
+| `docker compose up --build` | Container/prod bundle | Container    | Container     | Production-benzeri topoloji   |
 
 Ortam dosyaları: `.env.development` (memory), `.env.development.redis` (overlay), `.env.staging`,
 `.env.production`. `dev:local`, `dev:redis` için geriye dönük alias'tır.
