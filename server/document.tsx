@@ -1,12 +1,15 @@
 import { assetCdnOrigin } from "@server/assets";
 import { buildShellData } from "@server/services/shell-data";
+import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import { HeadClient } from "~/components/head/head-client";
 import { MetadataHead } from "~/components/head/metadata-head";
 import { RootLayout } from "~/components/layout/root-layout";
+import type { PageAnalyticsMeta } from "~/lib/analytics/types";
 import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
+import type { ResolvedMetadata } from "~/lib/metadata/types";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx, Route } from "~/lib/types";
@@ -26,15 +29,39 @@ export async function renderDocument<T>(
   docCtx: DocumentContext,
 ): Promise<string> {
   const { routeCtx } = docCtx;
-  const isBot = isBotRequest(routeCtx.request);
-  const shell = await buildShellData(
-    routeCtx,
-    stripUndefined({ minimalChrome: route.minimalChrome }),
-  );
   const seo = resolveDocumentMetadata(route, data, routeCtx);
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
     defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
+
+  return renderDocumentView({
+    assets,
+    routeCtx,
+    content: <route.Component data={data} />,
+    metadata: seo,
+    pageMeta,
+    ...stripUndefined({ minimalChrome: route.minimalChrome }),
+  });
+}
+
+export async function renderDocumentView({
+  assets,
+  routeCtx,
+  content,
+  metadata,
+  pageMeta,
+  minimalChrome,
+}: {
+  assets: Assets;
+  routeCtx: Ctx;
+  content: ReactElement;
+  metadata: ResolvedMetadata;
+  pageMeta: PageAnalyticsMeta;
+  minimalChrome?: boolean;
+}): Promise<string> {
+  const isBot = isBotRequest(routeCtx.request);
+  const shell = await buildShellData(routeCtx, stripUndefined({ minimalChrome }));
+  const seo = metadata;
 
   const cdnOrigin = assetCdnOrigin();
 
@@ -55,7 +82,7 @@ export async function renderDocument<T>(
       <body>
         <div id="root">
           <RootLayout shell={shell} pageMeta={pageMeta}>
-            <route.Component data={data} />
+            {content}
           </RootLayout>
         </div>
         <script type="module" src={assets.js} />

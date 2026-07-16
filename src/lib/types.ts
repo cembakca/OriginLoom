@@ -7,6 +7,12 @@ type RouteComponent<T> = {
   bivarianceHack(props: { data: T }): ReactElement;
 }["bivarianceHack"];
 
+type RouteErrorComponent<E> = {
+  bivarianceHack(props: { error: E | null; status: number }): ReactElement;
+}["bivarianceHack"];
+
+type RouteNotFoundComponent = () => ReactElement;
+
 type RouteDataCallback<T, R> = {
   bivarianceHack(data: T, ctx: Ctx): R;
 }["bivarianceHack"];
@@ -43,11 +49,28 @@ export type Ctx = {
 export type CachePolicy =
   { kind: "none" } | { kind: "shared"; ttl: number; swr?: number; key: string[] };
 
-export type LoaderResult<T> = {
-  data: T;
-  status?: number;
-  headers?: Record<string, string>;
+export type RouteError = {
+  /** Stable, machine-readable domain code. */
+  code: string;
+  /** Safe to show to the user. Never put stack traces or secrets here. */
+  message: string;
 };
+
+type ResultHeaders = { headers?: Record<string, string> };
+
+/**
+ * Explicit route outcome. `{ data }` remains the default for concise loaders;
+ * terminal outcomes never enter the HTML cache.
+ */
+export type LoaderResult<T> =
+  | ({ kind?: "data"; data: T; status?: number } & ResultHeaders)
+  | ({ kind: "notFound" } & ResultHeaders)
+  | ({
+      kind: "redirect";
+      location: string;
+      status?: 301 | 302 | 303 | 307 | 308;
+    } & ResultHeaders)
+  | ({ kind: "error"; error: RouteError; status?: number } & ResultHeaders);
 
 export type Route<T = unknown> = {
   path: string;
@@ -65,6 +88,15 @@ export type Route<T = unknown> = {
   loader: (ctx: Ctx) => Promise<LoaderResult<T>>;
 
   Component: RouteComponent<T>;
+
+  /** Route-local 404 view. Omit to use the application NotFoundPage. */
+  NotFoundComponent?: RouteNotFoundComponent;
+
+  /**
+   * Route-local error view. `error` is null for unexpected exceptions so the
+   * original message/stack can never accidentally leak into HTML.
+   */
+  ErrorComponent?: RouteErrorComponent<RouteError>;
 
   /**
    * Route SEO override (Next.js generateMetadata karşılığı).
@@ -84,4 +116,24 @@ export type Route<T = unknown> = {
 
 export function defineRoute<T>(r: Route<T>): Route<T> {
   return r;
+}
+
+export function notFound(headers?: Record<string, string>): LoaderResult<never> {
+  return { kind: "notFound", ...(headers ? { headers } : {}) };
+}
+
+export function redirect(
+  location: string,
+  status: 301 | 302 | 303 | 307 | 308 = 307,
+  headers?: Record<string, string>,
+): LoaderResult<never> {
+  return { kind: "redirect", location, status, ...(headers ? { headers } : {}) };
+}
+
+export function routeError(
+  error: RouteError,
+  status = 500,
+  headers?: Record<string, string>,
+): LoaderResult<never> {
+  return { kind: "error", error, status, ...(headers ? { headers } : {}) };
 }

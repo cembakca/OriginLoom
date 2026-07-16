@@ -3,6 +3,7 @@ import "./styles/globals.css";
 import type { ComponentType } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
+import { reportClientError } from "~/lib/client/error-telemetry";
 import { AppQueryProvider } from "~/lib/query/provider";
 
 type IslandModule = { default: ComponentType<Record<string, unknown>> };
@@ -17,22 +18,51 @@ for (const [path, load] of Object.entries(registry)) {
 }
 
 async function mount(el: HTMLElement) {
-  const load = byName.get(el.dataset.island!);
-  if (!load) return console.warn("[island] not found:", el.dataset.island);
-  const { default: Comp } = await load();
+  const island = el.dataset.island ?? "unknown";
+  try {
+    const load = byName.get(island);
+    if (!load) throw new Error(`Island module not found: ${island}`);
+    const { default: Comp } = await load();
 
-  const props = JSON.parse(el.dataset.props || "{}") as Record<string, unknown>;
-  const tree = (
-    <AppQueryProvider>
-      <Comp {...props} />
-    </AppQueryProvider>
-  );
+    const props = JSON.parse(el.dataset.props || "{}") as Record<string, unknown>;
+    const tree = (
+      <AppQueryProvider>
+        <Comp {...props} />
+      </AppQueryProvider>
+    );
+    const errorOptions = reactErrorOptions(island);
 
-  if (el.dataset.mode === "hydrate") {
-    hydrateRoot(el, tree);
-  } else {
-    createRoot(el).render(tree);
+    if (el.dataset.mode === "hydrate") {
+      hydrateRoot(el, tree, errorOptions);
+    } else {
+      createRoot(el, errorOptions).render(tree);
+    }
+  } catch (error) {
+    reportClientError("island-mount", error, { island });
   }
+}
+
+function reactErrorOptions(island: string): NonNullable<Parameters<typeof hydrateRoot>[2]> {
+  return {
+    onCaughtError: (error, errorInfo) => {
+      reportClientError("react-caught", error, {
+        island,
+        componentStack: errorInfo.componentStack,
+      });
+    },
+    onRecoverableError: (error, errorInfo) => {
+      reportClientError("react-recoverable", error, {
+        island,
+        componentStack: errorInfo.componentStack,
+      });
+    },
+    onUncaughtError: (error, errorInfo) => {
+      reportClientError("react-uncaught", error, {
+        island,
+        componentStack: errorInfo.componentStack,
+      });
+    },
+  };
 }
 
 const io = new IntersectionObserver(

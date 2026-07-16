@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
+
 import { match } from "~/lib/match";
-import type { Ctx, Route } from "~/lib/types";
+import type { Ctx, LoaderResult, Route } from "~/lib/types";
 import { resolveRoute } from "~/routing";
 
 import * as cache from "./cache";
@@ -8,6 +10,7 @@ import { type Assets, renderDocument } from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
 import { proxyRequest } from "./proxy";
+import { renderNotFoundDocument, renderRouteErrorDocument } from "./route-boundary";
 
 export type HandleContext = {
   requestId?: string;
@@ -80,23 +83,18 @@ export async function handle(
 
     const m = match(routes, resolution.pathname);
     if (!m) {
+      const routeCtx = createRouteContext(request, internalUrl, resolution.publicPath, {}, ctx);
+      const body = await renderNotFoundDocument(assets, routeCtx);
       logRequest(requestId, {
         path: url.pathname,
         status: 404,
-        cache: "NONE",
+        cache: "BYPASS",
         durationMs: Date.now() - started,
       });
-      return new Response("Not found", { status: 404 });
+      return html(body, 404, { kind: "none" }, "BYPASS", undefined, requestId);
     }
 
-    const routeCtx: Ctx = {
-      request,
-      params: m.params,
-      url: internalUrl,
-      publicPath: resolution.publicPath,
-      siteUrl: config.siteUrl,
-      ...(ctx.trackingId !== undefined ? { trackingId: ctx.trackingId } : {}),
-    };
+    const routeCtx = createRouteContext(request, internalUrl, resolution.publicPath, m.params, ctx);
     const { route } = m;
 
     const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };
@@ -119,24 +117,88 @@ export async function handle(
       }
     }
 
-    const result = await route.loader(routeCtx);
-    const docCtx = { routeCtx };
-    const body = await renderDocument(route, result.data, assets, docCtx);
-    if (key && request.method === "GET" && (result.status ?? 200) === 200) {
-      await cache.write(key, body, policy);
+    try {
+      const result = await route.loader(routeCtx);
+
+      if (result.kind === "redirect") {
+        const status = result.status ?? 307;
+        const response = loaderRedirectResponse(result, routeCtx, requestId);
+        logRequest(requestId, {
+          path: url.pathname,
+          status,
+          cache: "REDIRECT",
+          durationMs: Date.now() - started,
+        });
+        return response;
+      }
+
+      if (result.kind === "notFound") {
+        const body = await renderNotFoundDocument(assets, routeCtx, route);
+        logRequest(requestId, {
+          path: url.pathname,
+          status: 404,
+          cache: "BYPASS",
+          durationMs: Date.now() - started,
+        });
+        return html(body, 404, { kind: "none" }, "BYPASS", result.headers, requestId);
+      }
+
+      if (result.kind === "error") {
+        const status = normalizeErrorStatus(result.status);
+        const errorId = randomUUID();
+        logger.warn("route expected error", {
+          errorId,
+          requestId,
+          path: url.pathname,
+          route: route.path,
+          status,
+          code: result.error.code,
+        });
+        const body = await renderRouteErrorDocument(assets, routeCtx, route, result.error, status);
+        logRequest(requestId, {
+          path: url.pathname,
+          status,
+          cache: "BYPASS",
+          durationMs: Date.now() - started,
+        });
+        return html(body, status, { kind: "none" }, "BYPASS", result.headers, requestId);
+      }
+
+      const body = await renderDocument(route, result.data, assets, { routeCtx });
+      if (key && request.method === "GET" && (result.status ?? 200) === 200) {
+        await cache.write(key, body, policy);
+      }
+
+      const cacheState = key ? "MISS" : "BYPASS";
+      logRequest(requestId, {
+        path: url.pathname,
+        status: result.status ?? 200,
+        cache: cacheState,
+        durationMs: Date.now() - started,
+      });
+
+      return html(body, result.status ?? 200, policy, cacheState, result.headers, requestId);
+    } catch (routeError) {
+      const errorId = randomUUID();
+      logError(routeError, {
+        msg: "route execution failed",
+        errorId,
+        requestId,
+        path: url.pathname,
+        route: route.path,
+      });
+      const body = await renderRouteErrorDocument(assets, routeCtx, route, null, 500);
+      logRequest(requestId, {
+        path: url.pathname,
+        status: 500,
+        cache: "ERROR",
+        durationMs: Date.now() - started,
+      });
+      return html(body, 500, { kind: "none" }, "ERROR", undefined, requestId);
     }
-
-    const cacheState = key ? "MISS" : "BYPASS";
-    logRequest(requestId, {
-      path: url.pathname,
-      status: result.status ?? 200,
-      cache: cacheState,
-      durationMs: Date.now() - started,
-    });
-
-    return html(body, result.status ?? 200, policy, cacheState, result.headers, requestId);
   } catch (err) {
-    logError(err, { requestId, path: url.pathname });
+    const errorId = randomUUID();
+    logError(err, { msg: "global request failure", errorId, requestId, path: url.pathname });
     logRequest(requestId, {
       path: url.pathname,
       status: 500,
@@ -147,6 +209,43 @@ export async function handle(
     if (requestId) response.headers.set("x-request-id", requestId);
     return response;
   }
+}
+
+function createRouteContext(
+  request: Request,
+  url: URL,
+  publicPath: string,
+  params: Record<string, string>,
+  ctx: HandleContext,
+): Ctx {
+  return {
+    request,
+    params,
+    url,
+    publicPath,
+    siteUrl: config.siteUrl,
+    ...(ctx.trackingId !== undefined ? { trackingId: ctx.trackingId } : {}),
+  };
+}
+
+function loaderRedirectResponse(
+  result: Extract<LoaderResult<unknown>, { kind: "redirect" }>,
+  routeCtx: Ctx,
+  requestId?: string,
+): Response {
+  const headers = new Headers(result.headers);
+  headers.set("location", new URL(result.location, routeCtx.url).toString());
+  headers.set("cache-control", "private, no-store");
+  headers.set("x-cache", "BYPASS");
+  if (requestId) headers.set("x-request-id", requestId);
+  return new Response(null, { status: result.status ?? 307, headers });
+}
+
+function normalizeErrorStatus(status = 500): number {
+  if (!Number.isInteger(status) || status < 400 || status > 599) {
+    throw new RangeError(`Route error status must be between 400 and 599: ${status}`);
+  }
+  return status;
 }
 
 function scheduleRevalidation(
@@ -179,6 +278,9 @@ async function revalidate(
     for (let attempt = 1; attempt <= config.revalidationAttempts; attempt++) {
       try {
         const result = await route.loader(routeCtx);
+        if (result.kind && result.kind !== "data") {
+          throw new Error(`revalidation loader returned terminal result: ${result.kind}`);
+        }
         if ((result.status ?? 200) !== 200) {
           throw new Error(`revalidation loader returned ${result.status ?? 200}`);
         }
@@ -217,10 +319,10 @@ function html(
   requestId?: string,
 ) {
   const headers: Record<string, string> = {
+    ...extra,
     "content-type": "text/html; charset=utf-8",
     "cache-control": cache.cacheControl(policy),
     "x-cache": state,
-    ...extra,
   };
   if (requestId) headers["x-request-id"] = requestId;
 

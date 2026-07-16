@@ -35,6 +35,20 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 4. `server/routes/index.ts`'e kaydet — sıra önemli (ilk eşleşen kazanır)
 5. Etkileşim için: `src/islands/{name}.tsx` + route içinde `<Island />`
 
+Loader normal içerikte `{ data }` döner. Terminal durumları exception yerine açık sonuçtur:
+
+```ts
+return notFound();
+return redirect("/yeni-adres", 308);
+return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor." }, 422);
+```
+
+- `notFound`: uygulama 404 sayfasını veya route `NotFoundComponent`'ini shell içinde render eder.
+- `redirect`: render ve cache adımlarını çalıştırmadan `Location` response'u döner.
+- `routeError`: güvenli domain mesajını `ErrorComponent`'e verir.
+- Loader/render exception: `ErrorComponent` `error: null` alır; gerçek hata yalnız server logundadır.
+- Terminal sonuçlar shared HTML cache'e yazılmaz ve `cache-control: private, no-store` kullanır.
+
 ## Yeni island ekleme
 
 1. `src/islands/{kebab-name}.tsx` — default export
@@ -365,8 +379,8 @@ Detaylı kullanım, örnekler ve operasyon senaryoları: **[`docs/cache-purge.md
 | `HIT`                | Fresh cache'ten servis edildi                            |
 | `STALE`              | Eski cache servis edildi, arka planda revalidate başladı |
 | `MISS`               | Cache yoktu, render edildi ve yazıldı                    |
-| `BYPASS`             | Cache atlandı (kişisel SSR / neverCache / bypass kuralı) |
-| `NONE`               | Route eşleşmedi (404)                                    |
+| `BYPASS`             | Cache atlandı; 404 veya kontrollü terminal response      |
+| `NONE`               | HTML handler dışındaki/etiketsiz response                |
 | `REDIRECT` / `PROXY` | SSR cache devreye girmedi                                |
 
 ---

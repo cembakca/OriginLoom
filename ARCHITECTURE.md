@@ -198,6 +198,8 @@ type Route<T> = {
   cache?: (ctx: Ctx) => CachePolicy;
   loader: (ctx: Ctx) => Promise<LoaderResult<T>>;
   Component: ({ data: T }) => ReactElement;
+  NotFoundComponent?: () => ReactElement;
+  ErrorComponent?: ({ error: RouteError | null; status: number }) => ReactElement;
   generateMetadata?: (data: T, ctx: Ctx) => PageMetadata;
   pageMeta?: (data: T, ctx: Ctx) => PageAnalyticsMeta;
   minimalChrome?: boolean;
@@ -205,6 +207,23 @@ type Route<T> = {
 ```
 
 Loader'dan Component'e giden `T` tipi boyunca type-safe. `defineRoute<T>()` helper'ı inference için kullanılır.
+
+Loader sonucu açık bir terminal kontratıdır:
+
+```typescript
+type LoaderResult<T> =
+  | { kind?: "data"; data: T; status?: number; headers?: Record<string, string> }
+  | { kind: "notFound"; headers?: Record<string, string> }
+  | { kind: "redirect"; location: string; status?: 301 | 302 | 303 | 307 | 308 }
+  | { kind: "error"; error: { code: string; message: string }; status?: number };
+```
+
+`notFound`, `redirect` ve `error` terminaldir; render edilmiş çıktıları shared HTML cache'e yazılmaz.
+Eşleşmeyen route ve `notFound` sonucu normal `RootLayout` içinde, `noindex` metadata ile render edilir.
+Beklenen domain hataları `ErrorComponent`'e güvenli `{ code, message }` verisiyle ulaşır. Loader veya
+route render exception'ında aynı component `error: null` alır; exception mesajı, stack ve üretilen
+`errorId` HTML'e taşınmaz. `errorId` yalnız yapılandırılmış server logunda bulunur. Route boundary'nin
+kendisinin veya shell'in hata vermesi ayrı global hata sayfasına düşer.
 
 #### Rewrite/Redirect Kuralları — `src/routing/rules.ts`
 
@@ -249,6 +268,12 @@ Sıfırdan yazılmış, segment bazlı matcher. `:param` ve `:param?` (optional)
   <StaticFallback />
 </Island>
 ```
+
+Her island root'u React'in `onCaughtError`, `onUncaughtError` ve `onRecoverableError` callback'lerini
+kullanır. Module import, props parse ve mount hataları da aynı client telemetry hattına gider. Payload
+aynı-origin `/api/internal/client-errors` endpointinde boyut ve alan allowlist'iyle doğrulanır; server
+loguna `releaseId`, request ID ve client error ID ile yazılır. Telemetry gönderiminin başarısız olması
+island mount akışını bozmaz.
 
 Render edilen HTML'de `<div data-island="mobile-menu" data-mode="hydrate" data-props='{"items":[...]}'>` olarak çıkar.
 

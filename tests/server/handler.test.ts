@@ -20,12 +20,140 @@ describe("handler", () => {
 
   afterEach(async () => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     await closeCache();
   });
 
   it("returns 404 for unknown paths", async () => {
     const res = await handle(new Request("http://localhost/unknown"), [homeRoute], assets);
     expect(res.status).toBe(404);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    const body = await res.text();
+    expect(body).toContain("Aradığınız sayfa bulunamadı");
+    expect(body).toContain('<meta name="robots" content="noindex, nofollow"');
+    expect(body).toContain('data-island="layout-client"');
+  });
+
+  it("renders loader notFound with the route shell and never caches it", async () => {
+    let loaderCalls = 0;
+    const route: Route = {
+      path: "/missing-detail",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["missing-detail"] }),
+      loader: async () => {
+        loaderCalls++;
+        return {
+          kind: "notFound",
+          headers: { "cache-control": "public, max-age=3600", "x-cache": "POISONED" },
+        };
+      },
+      Component: () => createElement("p", null, "unreachable"),
+      NotFoundComponent: () => createElement("h1", null, "Route-specific 404"),
+      minimalChrome: true,
+    };
+
+    const request = new Request("http://localhost/missing-detail");
+    const first = await handle(request, [route], assets);
+    const second = await handle(request, [route], assets);
+
+    expect(first.status).toBe(404);
+    expect(first.headers.get("x-cache")).toBe("BYPASS");
+    expect(first.headers.get("cache-control")).toBe("private, no-store");
+    expect(await first.text()).toContain("Route-specific 404");
+    expect(second.status).toBe(404);
+    expect(loaderCalls).toBe(2);
+  });
+
+  it("returns a controlled loader redirect without rendering", async () => {
+    const route: Route = {
+      path: "/old-account",
+      loader: async () => ({
+        kind: "redirect",
+        location: "/hesabim?source=legacy",
+        status: 308,
+      }),
+      Component: () => createElement("p", null, "unreachable"),
+    };
+
+    const res = await handle(new Request("http://localhost/old-account"), [route], assets, {
+      requestId: "redirect-request",
+    });
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe("http://localhost/hesabim?source=legacy");
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    expect(res.headers.get("x-request-id")).toBe("redirect-request");
+  });
+
+  it("renders an expected domain error without exposing its error id", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const route: Route = {
+      path: "/expected-error",
+      loader: async () => ({
+        kind: "error",
+        error: { code: "OFFER_UNAVAILABLE", message: "Teklif şu anda kullanılamıyor." },
+        status: 422,
+      }),
+      Component: () => createElement("p", null, "unreachable"),
+      ErrorComponent: ({ error, status }) =>
+        createElement("p", null, `${status}:${error?.message ?? "unexpected"}`),
+      minimalChrome: true,
+    };
+
+    const res = await handle(new Request("http://localhost/expected-error"), [route], assets);
+    const body = await res.text();
+    expect(res.status).toBe(422);
+    expect(body).toContain("422:Teklif şu anda kullanılamıyor.");
+
+    const entry = warn.mock.calls
+      .flat()
+      .map(String)
+      .find((line) => line.includes("route expected error"));
+    expect(entry).toBeDefined();
+    const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
+    expect(errorId).not.toBe("");
+    expect(body).not.toContain(errorId);
+  });
+
+  it("uses the route error boundary for unexpected loader failures", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const route: Route = {
+      path: "/unexpected-error",
+      loader: async () => {
+        throw new Error("secret upstream detail");
+      },
+      Component: () => createElement("p", null, "unreachable"),
+      ErrorComponent: ({ error, status }) =>
+        createElement("p", null, `${status}:${error === null ? "safe fallback" : error.message}`),
+      minimalChrome: true,
+    };
+
+    const res = await handle(new Request("http://localhost/unexpected-error"), [route], assets);
+    const body = await res.text();
+    expect(res.status).toBe(500);
+    expect(res.headers.get("x-cache")).toBe("ERROR");
+    expect(body).toContain("500:safe fallback");
+    expect(body).not.toContain("secret upstream detail");
+  });
+
+  it("falls back to the global error page when the route boundary also fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const route: Route = {
+      path: "/broken-boundary",
+      loader: async () => {
+        throw new Error("loader failed");
+      },
+      Component: () => createElement("p", null, "unreachable"),
+      ErrorComponent: () => {
+        throw new Error("boundary failed");
+      },
+      minimalChrome: true,
+    };
+
+    const res = await handle(new Request("http://localhost/broken-boundary"), [route], assets);
+    const body = await res.text();
+    expect(res.status).toBe(500);
+    expect(body).toContain("Bir hata oluştu");
+    expect(body).not.toContain("loader failed");
+    expect(body).not.toContain("boundary failed");
   });
 
   it("serves cached pages with HIT on second request", async () => {
