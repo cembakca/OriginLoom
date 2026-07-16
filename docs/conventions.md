@@ -579,6 +579,30 @@ Tablet → mobile shell; API'ye yine `Tablet` gider.
 
 `src/lib/menu/types.ts` — `MenuItem`, `IMenuItems`.
 
+### Gateway content URL kontratı
+
+Gateway/CMS URL'lerini component içinde doğrudan güvenli varsayma. Tek giriş noktası
+[`src/lib/content-url.ts`](../src/lib/content-url.ts):
+
+- Internal navigation root-relative olmalıdır; absolute same-origin değer relative biçime normalize
+  edilir.
+- Cross-origin navigation yalnız item `external: true` taşıyorsa ve URL `https:` ise kabul edilir.
+- `mailto:` ve `tel:` yalnız aynı açık external kontratıyla kullanılabilir.
+- `javascript:`, `data:`, `file:`, `//host/path`, backslash/control karakteri, URL credential'ı ve
+  2048 karakter üstü değer reddedilir.
+- Canonical ve `og:url` daima `SITE_URL` origin'inde kalır. Dış HTTPS yalnız metadata image alanında
+  kullanılabilir.
+
+[`server/services/menu.ts`](../server/services/menu.ts) yalnız array kontrolü yapmaz. Her item'ın
+zorunlu tiplerini ve string sınırlarını doğrular; maksimum derinlik `3`, seviye başına item `50`, tüm
+payload için item `200` sınırıdır. Cross-origin link domain listesini env'e koyma: dış link olma
+kararı gateway/CMS item'ındaki açık `external` alanının iş kontratıdır; uygulamanın teknik policy'si
+ise yalnız HTTPS gibi güvenlik invariant'larını uygular.
+
+CMS SEO nesnesi [`src/lib/metadata/schema.ts`](../src/lib/metadata/schema.ts) ile runtime'da parse
+edilir. [`src/lib/metadata/merge.ts`](../src/lib/metadata/merge.ts) policy'yi final head üretiminde
+tekrar uygular. Böylece eski cache payload'ı veya route override'ı unsafe canonical/OG URL üretemez.
+
 ### İlgili dosyalar
 
 | Dosya                           | Rol                                                      |

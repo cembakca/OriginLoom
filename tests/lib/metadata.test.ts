@@ -23,7 +23,7 @@ describe("metadata generate", () => {
         canonicalUrl: "https://www.hangikredi.com/emekli-bankaciligi",
         image: "https://cdn.hangikredi.com/og.png",
       },
-      ctx(),
+      { ...ctx(), siteUrl: "https://www.hangikredi.com" },
     );
 
     expect(meta.title).toBe("Emekli Bankacılığı");
@@ -56,5 +56,19 @@ describe("metadata merge", () => {
   it("respects noindex robots", () => {
     const resolved = mergeMetadata({ robots: { index: false, follow: false } }, ctx("/hesabim"));
     expect(resolved.robots).toBe("noindex, nofollow");
+  });
+
+  it("does not let canonical or og:url escape the configured site origin", () => {
+    const resolved = mergeMetadata(
+      {
+        canonical: "https://evil.example/canonical",
+        openGraph: { url: "//evil.example/og", image: "javascript:alert(1)" },
+      },
+      ctx("/safe-page"),
+    );
+
+    expect(resolved.canonical).toBe("http://localhost:3005/safe-page");
+    expect(resolved.openGraph.url).toBe("http://localhost:3005/safe-page");
+    expect(resolved.openGraph.image).toBe("http://localhost:3005/og-default.png");
   });
 });

@@ -511,6 +511,20 @@ Production-bundle smoke
 testi gerçek menu endpoint’inin başarılı shape döndürdüğünü kanıtlıyor. İkisi birlikte happy path ve
 failure policy’sini kapsıyor.
 
+Gerçekçi kontrat yalnız endpoint'in `200` dönmesi değildir. Menü payload'ının array olması,
+`url` alanının güvenli olduğu anlamına gelmez. Uygulama sınırındaki content URL policy internal
+linkleri root-relative/same-origin ile sınırlar; dış hedef için gateway item'ında açık
+`external: true` ve HTTPS ister. `javascript:`, `data:`, `file:`, protocol-relative URL, credential,
+control karakteri ve aşırı uzun URL payload'ı geçersiz kılar. Menü parser'ı ayrıca maksimum üç
+seviye, seviye başına 50 ve toplam 200 item kontratını uygular.
+
+SEO payload'ı da aynı nedenle yalnız `typeof seoInfo === "object"` kontrolüyle bırakılamaz. Runtime
+parser string limitlerini ve URL alanlarını doğrular; canonical ile `og:url` değerlerini `SITE_URL`
+origin'ine sabitler. Dış HTTPS image CDN kabul edilebilir, fakat dış canonical kabul edilmez. Final
+metadata merge'in policy'yi tekrar uygulaması eski cache girdilerine ve route-level override'lara
+karşı ikinci sınırdır. Mock gateway basit kalabilir; tüketici kontratının saldırgan payload testleri
+basit gateway'in production koduna sınırsız güvenilmesine engel olur.
+
 Mock server’ın şu an deterministik happy path ve auth rejection sunduğunu da dürüstçe belirtmeliyiz.
 Configurable latency, connection reset, malformed JSON veya per-endpoint `5xx` fault injection yok.
 Bu failure’lar şimdilik stubbed fetch testlerinde üretiliyor. Daha fazla integration gerçekliği

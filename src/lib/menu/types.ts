@@ -11,6 +11,8 @@ export type MenuItem = {
   hamburgerName?: string;
   description?: string;
   url: string;
+  /** Required for cross-origin HTTPS, mailto and tel navigation targets. */
+  external?: boolean;
   imagePath?: string;
   activeImagePath?: string;
   displayOrder: number;

@@ -109,7 +109,20 @@ export function validateConfig(): void {
   }
 
   assertUrl("GATEWAY_URL", config.gatewayUrl);
-  assertUrl("SITE_URL", config.siteUrl);
+  const siteUrl = assertUrl("SITE_URL", config.siteUrl);
+  if (
+    !["http:", "https:"].includes(siteUrl.protocol) ||
+    siteUrl.username ||
+    siteUrl.password ||
+    (siteUrl.pathname !== "" && siteUrl.pathname !== "/") ||
+    siteUrl.search ||
+    siteUrl.hash
+  ) {
+    throw new Error("SITE_URL must be an HTTP(S) origin without path, credentials, query or hash");
+  }
+  if (config.isProduction && siteUrl.protocol !== "https:" && !isLoopbackUrl(siteUrl)) {
+    throw new Error("Production SITE_URL must use https");
+  }
   if (config.viteDevServerUrl) {
     const viteUrl = assertUrl("VITE_DEV_SERVER_URL", config.viteDevServerUrl);
     if (!["http:", "https:"].includes(viteUrl.protocol)) {

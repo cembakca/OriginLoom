@@ -1,5 +1,7 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
+import { config } from "@server/config";
 
+import { parseSeoInfo } from "~/lib/metadata/schema";
 import type { SeoInfo } from "~/lib/metadata/types";
 
 export type RetirementBankingPage = {
@@ -16,20 +18,32 @@ export async function fetchRetirementBankingPage(request: Request): Promise<Reti
   if (!res.ok) throw new Error(`Page gateway returned ${res.status}`);
 
   const data: unknown = await res.json();
-  if (!isPagePayload(data)) throw new Error("Page gateway returned an invalid payload");
+  const page = parsePagePayload(data);
+  if (!page) throw new Error("Page gateway returned an invalid payload");
 
   return {
-    headline: data.headline ?? data.seoInfo?.headingTitle ?? "Emekli Bankacılığı",
+    headline: page.headline ?? page.seoInfo?.headingTitle ?? "Emekli Bankacılığı",
     authenticated,
-    seoInfo: data.seoInfo ?? null,
+    seoInfo: page.seoInfo ?? null,
   };
 }
 
-function isPagePayload(data: unknown): data is { headline?: string; seoInfo?: SeoInfo } {
-  if (!data || typeof data !== "object") return false;
+function parsePagePayload(data: unknown): { headline?: string; seoInfo?: SeoInfo } | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
   const value = data as Record<string, unknown>;
-  return (
-    (value.headline === undefined || typeof value.headline === "string") &&
-    (value.seoInfo === undefined || (value.seoInfo !== null && typeof value.seoInfo === "object"))
-  );
+  if (
+    value.headline !== undefined &&
+    (typeof value.headline !== "string" ||
+      value.headline.length === 0 ||
+      value.headline.length > 200)
+  ) {
+    return null;
+  }
+  const seoInfo =
+    value.seoInfo === undefined ? undefined : parseSeoInfo(value.seoInfo, config.siteUrl);
+  if (seoInfo === null) return null;
+  return {
+    ...(value.headline !== undefined ? { headline: value.headline } : {}),
+    ...(seoInfo !== undefined ? { seoInfo } : {}),
+  };
 }

@@ -1,3 +1,4 @@
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "~/lib/content-url";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx } from "~/lib/types";
 
@@ -7,7 +8,7 @@ import type { PageMetadata, SeoInfo } from "./types";
 export function publicAbsoluteUrl(ctx: Ctx, path?: string): string {
   const base = (ctx.siteUrl ?? ctx.url.origin).replace(/\/$/, "");
   const p = path ?? ctx.publicPath;
-  return `${base}${p.startsWith("/") ? p : `/${p}`}`;
+  return normalizeCanonicalUrl(p.startsWith("/") ? p : `/${p}`, base) ?? `${base}/`;
 }
 
 const dummySeoByPath: Record<string, Partial<SeoInfo>> = {
@@ -47,10 +48,15 @@ const dummySeoByPath: Record<string, Partial<SeoInfo>> = {
 
 /** CMS seoInfo → route PageMetadata. */
 export function generateMetaDataForPageWithSeoInfo(seoInfo: SeoInfo, ctx: Ctx): PageMetadata {
-  const canonical = seoInfo.canonicalUrl ?? publicAbsoluteUrl(ctx, seoInfo.friendlyUrl);
+  const base = ctx.siteUrl ?? ctx.url.origin;
+  const canonical =
+    (seoInfo.canonicalUrl ? normalizeCanonicalUrl(seoInfo.canonicalUrl, base) : null) ??
+    publicAbsoluteUrl(ctx, seoInfo.friendlyUrl);
   const title = seoInfo.title ?? seoInfo.badge;
   const description = seoInfo.metaDescription ?? seoInfo.heroDescription;
-  const image = seoInfo.image;
+  const image = seoInfo.image
+    ? (normalizeMetadataImageUrl(seoInfo.image, base) ?? undefined)
+    : undefined;
 
   return {
     ...(title !== undefined ? { title } : {}),

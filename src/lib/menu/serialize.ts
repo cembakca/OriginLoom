@@ -9,6 +9,7 @@ export type NavItemProp = {
   url: string;
   hamburgerName?: string;
   description?: string;
+  external?: boolean;
   menuDisplayType?: number;
   children?: NavItemProp[];
 };
@@ -21,6 +22,7 @@ export function serializeNavItems(items: MenuItem[]): NavItemProp[] {
     ...stripUndefined({
       hamburgerName: item.hamburgerName,
       description: item.description,
+      external: item.external,
       menuDisplayType: item.menuDisplayType,
     }),
     ...(item.subMenuItemList?.length ? { children: serializeNavItems(item.subMenuItemList) } : {}),

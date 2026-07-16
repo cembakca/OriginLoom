@@ -86,6 +86,26 @@ describe("server config", () => {
     ).rejects.toThrow("Production IMAGE_CDN_URL must use https");
   });
 
+  it("requires SITE_URL to be a public origin rather than a path-bearing URL", async () => {
+    await expect(
+      validateWith({ SITE_URL: "https://www.example.com/base?source=config" }),
+    ).rejects.toThrow("SITE_URL must be an HTTP(S) origin");
+  });
+
+  it("requires HTTPS for a non-loopback production SITE_URL", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "http://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        RELEASE_ID: "release-1",
+      }),
+    ).rejects.toThrow("Production SITE_URL must use https");
+  });
+
   it("normalizes and permits a bare localhost image CDN for local production containers", async () => {
     process.env = {
       ...originalEnv,

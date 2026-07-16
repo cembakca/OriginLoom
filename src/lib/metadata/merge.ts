@@ -1,15 +1,9 @@
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "~/lib/content-url";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx } from "~/lib/types";
 
 import { siteMetadata } from "./site-defaults";
 import type { PageMetadata, ResolvedMetadata, SiteMetadataConfig } from "./types";
-
-function absUrl(url: string | undefined, base: string): string | undefined {
-  if (!url) return undefined;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const b = base.replace(/\/$/, "");
-  return `${b}${url.startsWith("/") ? url : `/${url}`}`;
-}
 
 function formatTitle(pageTitle: string | undefined, site: SiteMetadataConfig): string {
   if (!pageTitle || pageTitle === site.title.default) return site.title.default;
@@ -32,16 +26,23 @@ export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): Resolve
 
   const title = formatTitle(page?.title, site);
   const description = page?.description ?? site.description;
-  const canonical = absUrl(page?.canonical, base) ?? absUrl(ctx.publicPath, base)!;
+  const canonical =
+    (page?.canonical ? normalizeCanonicalUrl(page.canonical, base) : null) ??
+    normalizeCanonicalUrl(ctx.publicPath, base) ??
+    `${base.replace(/\/$/, "")}/`;
 
   const ogTitle = page?.openGraph?.title ?? page?.title ?? site.title.default;
   const ogDescription = page?.openGraph?.description ?? description;
-  const ogImage = absUrl(page?.openGraph?.image, base) ?? site.openGraph.defaultImage;
-  const ogUrl = absUrl(page?.openGraph?.url, base) ?? canonical;
+  const ogImage =
+    (page?.openGraph?.image ? normalizeMetadataImageUrl(page.openGraph.image, base) : null) ??
+    site.openGraph.defaultImage;
+  const ogUrl =
+    (page?.openGraph?.url ? normalizeCanonicalUrl(page.openGraph.url, base) : null) ?? canonical;
 
   const twitterTitle = page?.twitter?.title ?? ogTitle;
   const twitterDescription = page?.twitter?.description ?? ogDescription;
-  const twitterImage = absUrl(page?.twitter?.image, base) ?? ogImage;
+  const twitterImage =
+    (page?.twitter?.image ? normalizeMetadataImageUrl(page.twitter.image, base) : null) ?? ogImage;
 
   return {
     title,

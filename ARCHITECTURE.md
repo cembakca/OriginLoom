@@ -200,6 +200,19 @@ penceresinin %80'i, overflow ve 512 KiB p95 body boyutu için alarm örneklerini
 keyspace'in kesin sayacı değil, pod-local erken uyarıdır; kesin operasyonel envanter purge/list API
 veya Redis exporter üzerinden alınır.
 
+Gateway içeriğindeki URL'ler render katmanına ham biçimde geçmez. `src/lib/content-url.ts` merkezi
+policy'si navigation için root-relative ve same-origin URL'leri kabul eder; cross-origin hedef ancak
+gateway item'ında `external: true` ise ve HTTPS kullanıyorsa geçerlidir. `mailto:` ve `tel:` de yalnız
+bu açık external kontratında kabul edilir. `javascript:`, `data:`, `file:`, protocol-relative URL,
+backslash/control karakteri, credential ve 2048 karakteri aşan değerler reddedilir.
+
+Menü payload'ı `server/services/menu.ts` sınırında gerçek runtime shape kontrolünden geçer: zorunlu
+alan tipleri, string limitleri, maksimum üç seviye, seviye başına 50 ve payload genelinde 200 item
+sınırı uygulanır. CMS `seoInfo` için `src/lib/metadata/schema.ts` aynı görevi görür. Canonical ve
+`og:url` yalnız `SITE_URL` origin'ine resolve edilebilir; dış HTTPS yalnız OG/Twitter image gibi medya
+alanlarında kabul edilir. Final metadata merge policy'yi yeniden uyguladığı için eski cache girdisi
+veya route-level metadata da bu sınırı aşamaz.
+
 Her entry şu yapıdadır:
 
 ```typescript
