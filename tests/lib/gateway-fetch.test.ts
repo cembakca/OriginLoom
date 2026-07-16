@@ -1,4 +1,5 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
+import { withRequestSpan } from "@server/observability";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("gatewayFetch", () => {
@@ -33,5 +34,17 @@ describe("gatewayFetch", () => {
     const init = call![1] as RequestInit;
     const headers = init.headers as Headers;
     expect(headers.get("Authorization")).toBe("Bearer test-token");
+  });
+
+  it("forwards the generated request ID from request context", async () => {
+    const request = new Request("http://localhost/");
+
+    await withRequestSpan(request, "generated-request-id", () =>
+      gatewayFetchForRequest(request, "/user/profile"),
+    );
+
+    const call = vi.mocked(globalThis.fetch).mock.calls[0];
+    const headers = call![1]!.headers as Headers;
+    expect(headers.get("correlationid")).toBe("generated-request-id");
   });
 });

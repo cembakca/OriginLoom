@@ -21,6 +21,7 @@ import { closeCache, initCache, pingCache } from "./cache";
 import { config, validateConfig } from "./config";
 import type { Assets } from "./document";
 import { drainRevalidations, handle } from "./handler";
+import { register, shutdownInstrumentation } from "./instrumentation";
 import { logError, logger } from "./logger";
 import { observeRequest, renderMetrics } from "./metrics";
 import {
@@ -32,12 +33,14 @@ import {
 import { type AppVariables, requestId } from "./middleware/request-id";
 import { securityMiddleware } from "./middleware/security";
 import { staticAssetCacheHeaders } from "./middleware/static-assets";
+import { SpanStatusCode, withRequestSpan } from "./observability";
 import { routes } from "./routes";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
 
 async function main() {
+  const tracingEnabled = register();
   validateConfig();
   validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });
   await initCache();
@@ -46,7 +49,11 @@ async function main() {
   const app = createApp(assets);
 
   httpServer = serve({ fetch: app.fetch, port: config.port }, (info) => {
-    logger.info("server started", { port: info.port, cacheBackend: config.cacheBackend });
+    logger.info("server started", {
+      port: info.port,
+      cacheBackend: config.cacheBackend,
+      tracingEnabled,
+    });
   });
 
   const shutdown = (signal: string) => {
@@ -69,6 +76,7 @@ async function main() {
         const drained = await drainRevalidations(config.revalidationDrainTimeoutMs);
         if (!drained) logger.warn("revalidation drain timed out");
         await closeCache();
+        await shutdownInstrumentation();
         logger.info("shutdown complete");
         clearTimeout(forceExit);
         process.exit(0);
@@ -87,6 +95,14 @@ function createApp(assets: Assets) {
   const app = new Hono<{ Variables: AppVariables }>();
 
   app.use("*", requestId);
+  app.use("*", async (c, next) => {
+    await withRequestSpan(c.req.raw, c.get("requestId"), async (span) => {
+      await next();
+      span.setAttribute("http.response.status_code", c.res.status);
+      span.setAttribute("ssr.cache.state", c.res.headers.get("x-cache") ?? "NONE");
+      if (c.res.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
+    });
+  });
   app.use("*", securityMiddleware);
   app.use("*", compress());
   app.use("*", async (c, next) => {
@@ -163,7 +179,10 @@ function resolveClientIp(c: Parameters<typeof getConnInfo>[0]): string {
   return isIP(forwarded) ? forwarded : remote;
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   logError(err, { msg: "failed to start server" });
+  await shutdownInstrumentation().catch((shutdownError) => {
+    logError(shutdownError, { msg: "instrumentation shutdown failed after startup error" });
+  });
   process.exit(1);
 });

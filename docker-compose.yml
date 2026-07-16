@@ -28,6 +28,9 @@ services:
       GTM_CONTAINER_ID: GTM-XXXXXX
       SITE_URL: http://localhost:3005
       RELEASE_ID: docker-compose
+      OTEL_SDK_DISABLED: "false"
+      # Opsiyonel OTLP/HTTP collector; tanımlı değilse tracing no-op çalışır.
+      # OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       MENU_CACHE_TTL: 14400
       CACHE_PURGE_SECRET: ${CACHE_PURGE_SECRET:-dev-purge-secret}
       # Statik JS/CSS CDN — boş bırakılırsa origin /assets kullanılır

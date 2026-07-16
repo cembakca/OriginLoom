@@ -799,7 +799,25 @@ import { handle } from "@server/handler";
 | `src/lib/**`                            | `server/**`      | Katman sınırı                    |
 | `src/islands/**`                        | `server/**`      | Client server kodu okumaz        |
 
-Runtime env yalnızca `server/config.ts` tarafından okunur; public origin gibi gerekli değerler saf `src/lib` fonksiyonlarına context üzerinden aktarılır.
+Uygulama runtime env'i `server/config.ts` tarafından okunur; yalnız OpenTelemetry'nin standart
+`OTEL_*` bootstrap değişkenleri `server/instrumentation.ts` tarafından doğrudan okunur. Public origin
+gibi gerekli değerler saf `src/lib` fonksiyonlarına context üzerinden aktarılır.
+
+---
+
+## Observability kontratı
+
+- Yeni server I/O sınırları `server/observability.ts` içindeki `withSpan()` ile ölçülür.
+- Span adı bounded olmalıdır; token, kullanıcı ID'si, cache key veya kontrolsüz query içermez.
+- Gateway çağrısında `injectActiveTrace()` korunur; request ID `correlationid` olarak iletilir.
+- Yeni metric label değerleri sınırlı bir enum olmalıdır. Raw path/request ID metric label'ı değildir.
+- Release kimliği deploy sırasında `RELEASE_ID` ile sağlanır; log, trace resource ve
+  `ssr_release_info` metriğinde aynı değer görünür.
+- OpenTelemetry SDK yalnız `server/instrumentation.ts` tarafından başlatılır ve kapatılır. Service,
+  route veya adapter içinde SDK/provider oluşturulmaz.
+
+Tracing için local collector zorunlu değildir. `OTEL_EXPORTER_OTLP_ENDPOINT` yoksa span API no-op
+çalışır; request ID context'i ve `/metrics` davranışı devam eder.
 
 ---
 

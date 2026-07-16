@@ -33,16 +33,16 @@ describe("assetUrl", () => {
   });
 
   it("uses source modules and Vite runtime instead of the manifest in development", async () => {
-    process.env.VITE_DEV_SERVER_URL = "http://127.0.0.1:5173/";
+    process.env.VITE_DEV_SERVER_URL = "http://127.0.0.1:5174/";
     vi.resetModules();
     const { readAssets } = await import("@server/assets");
 
     expect(readAssets()).toEqual({
-      js: "http://127.0.0.1:5173/src/entry.client.tsx",
+      js: "http://127.0.0.1:5174/src/entry.client.tsx",
       css: [],
       development: {
-        client: "http://127.0.0.1:5173/@vite/client",
-        reactRefresh: "http://127.0.0.1:5173/@react-refresh",
+        client: "http://127.0.0.1:5174/@vite/client",
+        reactRefresh: "http://127.0.0.1:5174/@react-refresh",
       },
     });
   });

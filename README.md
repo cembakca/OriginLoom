@@ -56,7 +56,7 @@ npm run dev
 ```
 
 Bu komut uygulamayı `http://localhost:3005`, bağımsız mock gateway'i ise
-`http://localhost:4002` adresinde çalıştırır. Client modülleri `http://127.0.0.1:5173`
+`http://localhost:4002` adresinde çalıştırır. Client modülleri `http://127.0.0.1:5174`
 üzerindeki gerçek Vite development server'dan gelir. Browser'da yalnız Hono adresini açın.
 
 - `src/islands` ve client bağımlılıkları React Fast Refresh ile state'i koruyarak güncellenir.
@@ -93,6 +93,24 @@ npm run build
 npm run ci
 ```
 
+## Gözlemlenebilirlik
+
+`server/instrumentation.ts` process başına bir kez OpenTelemetry SDK'yı başlatır ve graceful
+shutdown sırasında exporter'ı flush eder. Bir OTLP collector bağlamak için:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 npm run dev
+```
+
+Her HTTP isteği inbound trace context'ini devralan bir server span üretir. Loader, SSR render,
+gateway, cache/Redis ve SWR revalidation bunun altında child span olarak görünür. Gateway çağrıları
+aktif W3C `traceparent`/`tracestate` context'ini ve `correlationid` olarak request ID'yi taşır.
+Structured loglar `service`, `releaseId`, aktif `traceId` ve `spanId` alanlarını otomatik ekler.
+
+`/metrics`, bounded-label Prometheus metrikleri sunar: request/cache/gateway/revalidation sayaç ve
+latency histogramları, gateway timeout/error outcome'ları, event-loop lag, CPU, heap/RSS, uptime ve
+release bilgisi. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı yapılmaz.
+
 ## Ortam değişkenleri
 
 Temel değişkenler:
@@ -107,6 +125,11 @@ Temel değişkenler:
 - `MENU_CACHE_TTL` / `MENU_CACHE_SWR` — menü cache süreleri
 - `SITE_URL` — canonical URL tabanı
 - `RELEASE_ID` — release/Git SHA; Redis HTML cache namespace'i
+- `OTEL_SERVICE_NAME` — trace ve metric service adı; varsayılan `ssr-kit`
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP/HTTP collector adresi; yoksa tracing no-op kalır
+- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` — yalnız trace sinyali için tam OTLP endpoint'i
+- `OTEL_TRACES_EXPORTER` — `otlp` veya `none`
+- `OTEL_SDK_DISABLED` — varsayılan `false`; `true` ile OpenTelemetry SDK'yı tamamen kapatır
 - `GATEWAY_TIMEOUT_MS` — gateway/proxy timeout'u
 - `PROXY_BODY_LIMIT_BYTES` — `/api/*` istek gövdesi üst sınırı
 - `TRUST_PROXY` — yalnızca güvenilir ingress arkasında forwarded IP header'larını etkinleştirir

@@ -66,7 +66,7 @@ describe("server config", () => {
         SITE_URL: "https://www.example.com",
         CACHE_PURGE_SECRET: "secret",
         RELEASE_ID: "release-1",
-        VITE_DEV_SERVER_URL: "http://localhost:5173",
+        VITE_DEV_SERVER_URL: "http://localhost:5174",
       }),
     ).rejects.toThrow("VITE_DEV_SERVER_URL is not allowed in production");
   });

@@ -211,19 +211,19 @@ describe("handler", () => {
       minimalChrome: true,
     };
     const devAssets = {
-      js: "http://127.0.0.1:5173/src/entry.client.tsx",
+      js: "http://127.0.0.1:5174/src/entry.client.tsx",
       css: [],
       development: {
-        client: "http://127.0.0.1:5173/@vite/client",
-        reactRefresh: "http://127.0.0.1:5173/@react-refresh",
+        client: "http://127.0.0.1:5174/@vite/client",
+        reactRefresh: "http://127.0.0.1:5174/@react-refresh",
       },
     };
 
     const res = await handle(new Request("http://localhost/dev-assets"), [route], devAssets);
     const body = await res.text();
-    expect(body).toContain('src="http://127.0.0.1:5173/@vite/client"');
+    expect(body).toContain('src="http://127.0.0.1:5174/@vite/client"');
     expect(body).toContain("window.__vite_plugin_react_preamble_installed__ = true");
-    expect(body).toContain('src="http://127.0.0.1:5173/src/entry.client.tsx"');
+    expect(body).toContain('src="http://127.0.0.1:5174/src/entry.client.tsx"');
     expect(body).not.toContain('rel="modulepreload"');
   });
 
@@ -302,6 +302,7 @@ describe("handler", () => {
     vi.advanceTimersByTime(1_500);
 
     await Promise.all([handle(request, [route], assets), handle(request, [route], assets)]);
+    for (let turn = 0; turn < 20 && loaderCalls < 2; turn++) await Promise.resolve();
     expect(loaderCalls).toBe(2);
     release?.();
     await vi.runAllTimersAsync();

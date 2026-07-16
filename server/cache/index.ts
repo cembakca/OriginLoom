@@ -1,5 +1,8 @@
+import type { Span } from "@opentelemetry/api";
 import { config } from "@server/config";
 import { logError, logger } from "@server/logger";
+import { observeCacheOperation } from "@server/metrics";
+import { SpanKind, withSpan } from "@server/observability";
 
 import { formatCacheKey } from "~/lib/cache-keys";
 import type { CachePolicy } from "~/lib/types";
@@ -19,7 +22,7 @@ export async function initCache(): Promise<CacheStore> {
     }
     const redis = new RedisStore(config.redisUrl, config.releaseId);
     try {
-      await redis.ping();
+      await runCacheOperation("ping", () => redis.ping());
       store = redis;
     } catch (error) {
       if (config.cacheRequired) throw error;
@@ -53,7 +56,11 @@ export async function read(
   key: string,
 ): Promise<{ body: string; state: "fresh" | "stale" } | null> {
   try {
-    return await getCache().read(key);
+    return await runCacheOperation("read", async (span) => {
+      const result = await getCache().read(key);
+      span.setAttribute("cache.result", result?.state ?? "miss");
+      return result;
+    });
   } catch (error) {
     logError(error, { msg: "cache read failed", key });
     return null;
@@ -62,7 +69,7 @@ export async function read(
 
 export async function write(key: string, body: string, policy: CachePolicy): Promise<boolean> {
   try {
-    await getCache().write(key, body, policy);
+    await runCacheOperation("write", () => getCache().write(key, body, policy));
     return true;
   } catch (error) {
     logError(error, { msg: "cache write failed", key });
@@ -71,7 +78,7 @@ export async function write(key: string, body: string, policy: CachePolicy): Pro
 }
 
 export async function deleteKey(key: string): Promise<boolean> {
-  return getCache().deleteKey(key);
+  return runCacheOperation("delete", () => getCache().deleteKey(key));
 }
 
 export function cacheControl(policy: CachePolicy): string {
@@ -82,7 +89,7 @@ export function cacheControl(policy: CachePolicy): string {
 export async function pingCache(): Promise<boolean> {
   const cache = getCache();
   try {
-    return cache.ping ? await cache.ping() : true;
+    return cache.ping ? await runCacheOperation("ping", () => cache.ping!()) : true;
   } catch (error) {
     logger.warn("cache ping failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -98,7 +105,7 @@ export async function acquireRevalidationLock(key: string): Promise<string | nul
     const retryDelayMs =
       config.revalidationBackoffMs * (2 ** Math.max(0, config.revalidationAttempts - 1) - 1);
     const ttlMs = config.gatewayTimeoutMs * config.revalidationAttempts + retryDelayMs + 5_000;
-    return await cache.acquireLock(key, ttlMs);
+    return await runCacheOperation("lock.acquire", () => cache.acquireLock!(key, ttlMs));
   } catch (error) {
     logError(error, { msg: "cache lock failed", key });
     return null;
@@ -109,8 +116,38 @@ export async function releaseRevalidationLock(key: string, token: string): Promi
   const cache = getCache();
   if (!cache.releaseLock) return;
   try {
-    await cache.releaseLock(key, token);
+    await runCacheOperation("lock.release", () => cache.releaseLock!(key, token));
   } catch (error) {
     logError(error, { msg: "cache unlock failed", key });
   }
+}
+
+async function runCacheOperation<T>(
+  operation: string,
+  work: (span: Span) => Promise<T>,
+): Promise<T> {
+  return withSpan(
+    `cache.${operation}`,
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        "cache.backend": config.cacheBackend,
+        ...(config.cacheBackend === "redis" ? { "db.system.name": "redis" } : {}),
+      },
+    },
+    async (span) => {
+      const started = performance.now();
+      let outcome: "success" | "error" = "success";
+      try {
+        return await work(span);
+      } catch (error) {
+        outcome = "error";
+        throw error;
+      } finally {
+        span.setAttribute("cache.operation", operation);
+        span.setAttribute("cache.outcome", outcome);
+        observeCacheOperation(config.cacheBackend, operation, outcome, performance.now() - started);
+      }
+    },
+  );
 }

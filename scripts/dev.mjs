@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const viteUrl = new URL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173");
+const viteUrl = new URL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5174");
 const appUrl = new URL(process.env.SITE_URL ?? `http://127.0.0.1:${process.env.PORT ?? "3005"}`);
 const gatewayUrl = new URL(process.env.GATEWAY_URL ?? "http://127.0.0.1:4002");
 const children = new Set();
@@ -63,7 +63,7 @@ start(
     "--host",
     viteUrl.hostname,
     "--port",
-    viteUrl.port || "5173",
+    viteUrl.port || "5174",
     "--strictPort",
   ],
   { SITE_URL: appUrl.origin },

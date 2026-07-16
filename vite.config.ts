@@ -12,9 +12,9 @@ export default defineConfig({
   resolve: { alias: { "~": resolve(__dirname, "src"), "@server": resolve(__dirname, "server") } },
   server: {
     host: "127.0.0.1",
-    port: 5173,
+    port: 5174,
     strictPort: true,
-    origin: process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173",
+    origin: process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5174",
     cors: { origin: /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/ },
   },
   build: {

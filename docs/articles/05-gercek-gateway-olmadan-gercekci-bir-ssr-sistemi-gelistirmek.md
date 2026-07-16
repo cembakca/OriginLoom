@@ -646,14 +646,16 @@ Gateway adapter response status class ve toplam süre metriğini kaydediyor. Net
 Mock gateway de method, path, status ve duration yazıyor. Local development’ta browser request’i ile
 upstream çağrısının gerçekten oluştuğunu görmek kolaylaşıyor.
 
-Fakat mevcut telemetry production gözlemlenebilirliğinin başlangıcıdır, tamamı değil:
+Bu ilk sürüm daha sonra gerçek instrumentation katmanına yükseltildi. `server/instrumentation.ts`
+OpenTelemetry SDK lifecycle'ını yönetiyor; inbound request, loader, SSR render, gateway, Redis/cache
+ve SWR revalidation ayrı span'ler üretiyor. W3C trace context gateway'e taşınırken structured loglar
+aktif `traceId`, `spanId` ve release kimliğini içeriyor. `/metrics` artık request, gateway, cache ve
+revalidation latency histogramlarının yanında gateway timeout/error outcome'larını ve process/
+event-loop metriklerini de sunuyor.
 
-- Request duration yalnız cumulative total; percentile için histogram gerekir.
-- Metrics process-local; Prometheus her replica’yı scrape etmeli ve aggregate etmelidir.
-- Route/gateway operation bazında kontrollü label yok.
-- Distributed trace/span yok.
-- Revalidation, refresh ve purge için daha zengin counter gerekir.
-- Error log’larında PII/token redaction politikası açık olmalıdır.
+Metrics hâlâ doğası gereği process-local'dir; Prometheus her replica'yı scrape edip aggregate
+etmelidir. Collector deployment'ı, dashboard, alert, retention ve error log PII/token redaction
+politikası uygulama dışındaki production platform kontratının parçası olmaya devam eder.
 
 OpenTelemetry’nin [metrics rehberi](https://opentelemetry.io/docs/concepts/signals/metrics/), histogramın
 latency dağılımı için uygun olduğunu ve user ID/raw path gibi high-cardinality attribute’ların sınırsız
@@ -702,7 +704,7 @@ Kod tarafında hazır olan yapı taşları:
 - Gateway adapter timeout ve status metriği.
 - Auth/BFF boundary ve `401`/`5xx` ayrımı.
 - Runtime payload guard’ları.
-- Structured logs, request ID ve temel metrics endpoint’i.
+- Trace-correlated structured logs, request ID, OpenTelemetry span'leri ve metrics endpoint'i.
 - Liveness/readiness ayrımı.
 - Production config validation.
 - Non-root multi-stage image.

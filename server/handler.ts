@@ -9,6 +9,8 @@ import { config } from "./config";
 import { type Assets, renderDocument } from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
+import { observeRevalidation } from "./metrics";
+import { setActiveHttpRoute, SpanKind, SpanStatusCode, withSpan } from "./observability";
 import { proxyRequest } from "./proxy";
 import { renderNotFoundDocument, renderRouteErrorDocument } from "./route-boundary";
 
@@ -83,8 +85,11 @@ export async function handle(
 
     const m = match(routes, resolution.pathname);
     if (!m) {
+      setActiveHttpRoute(request.method, "<unmatched>");
       const routeCtx = createRouteContext(request, internalUrl, resolution.publicPath, {}, ctx);
-      const body = await renderNotFoundDocument(assets, routeCtx);
+      const body = await withSpan("ssr.render.not_found", { kind: SpanKind.INTERNAL }, () =>
+        renderNotFoundDocument(assets, routeCtx),
+      );
       logRequest(requestId, {
         path: url.pathname,
         status: 404,
@@ -96,6 +101,7 @@ export async function handle(
 
     const routeCtx = createRouteContext(request, internalUrl, resolution.publicPath, m.params, ctx);
     const { route } = m;
+    setActiveHttpRoute(request.method, route.path);
 
     const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };
     const key = cache.cacheKey(policy);
@@ -118,7 +124,7 @@ export async function handle(
     }
 
     try {
-      const result = await route.loader(routeCtx);
+      const result = await runLoader(route, routeCtx, "request");
 
       if (result.kind === "redirect") {
         const status = result.status ?? 307;
@@ -133,7 +139,11 @@ export async function handle(
       }
 
       if (result.kind === "notFound") {
-        const body = await renderNotFoundDocument(assets, routeCtx, route);
+        const body = await withSpan(
+          "ssr.render.not_found",
+          { kind: SpanKind.INTERNAL, attributes: { "http.route": route.path } },
+          () => renderNotFoundDocument(assets, routeCtx, route),
+        );
         logRequest(requestId, {
           path: url.pathname,
           status: 404,
@@ -154,7 +164,11 @@ export async function handle(
           status,
           code: result.error.code,
         });
-        const body = await renderRouteErrorDocument(assets, routeCtx, route, result.error, status);
+        const body = await withSpan(
+          "ssr.render.route_error",
+          { kind: SpanKind.INTERNAL, attributes: { "http.route": route.path } },
+          () => renderRouteErrorDocument(assets, routeCtx, route, result.error, status),
+        );
         logRequest(requestId, {
           path: url.pathname,
           status,
@@ -164,7 +178,7 @@ export async function handle(
         return html(body, status, { kind: "none" }, "BYPASS", result.headers, requestId);
       }
 
-      const body = await renderDocument(route, result.data, assets, { routeCtx });
+      const body = await runRender(route, result.data, assets, routeCtx, "request");
       if (key && request.method === "GET" && (result.status ?? 200) === 200) {
         await cache.write(key, body, policy);
       }
@@ -187,7 +201,11 @@ export async function handle(
         path: url.pathname,
         route: route.path,
       });
-      const body = await renderRouteErrorDocument(assets, routeCtx, route, null, 500);
+      const body = await withSpan(
+        "ssr.render.route_error",
+        { kind: SpanKind.INTERNAL, attributes: { "http.route": route.path } },
+        () => renderRouteErrorDocument(assets, routeCtx, route, null, 500),
+      );
       logRequest(requestId, {
         path: url.pathname,
         status: 500,
@@ -258,10 +276,39 @@ function scheduleRevalidation(
 ): void {
   if (revalidationsInFlight.has(key)) return;
 
-  const pending = revalidate(key, route, routeCtx, policy, assets, requestId).finally(() => {
+  const pending = runRevalidation(key, route, routeCtx, policy, assets, requestId).finally(() => {
     if (revalidationsInFlight.get(key) === pending) revalidationsInFlight.delete(key);
   });
   revalidationsInFlight.set(key, pending);
+}
+
+async function runRevalidation(
+  key: string,
+  route: Route,
+  routeCtx: Parameters<Route["loader"]>[0],
+  policy: ReturnType<NonNullable<Route["cache"]>>,
+  assets: Assets,
+  requestId?: string,
+): Promise<void> {
+  const started = performance.now();
+  let outcome: "success" | "error" | "lock_miss" = "error";
+  try {
+    outcome = await withSpan(
+      "cache.revalidate",
+      {
+        kind: SpanKind.INTERNAL,
+        attributes: { "http.route": route.path, "cache.operation": "revalidate" },
+      },
+      (span) =>
+        revalidate(key, route, routeCtx, policy, assets, requestId).then((result) => {
+          span.setAttribute("cache.revalidation.outcome", result);
+          if (result === "error") span.setStatus({ code: SpanStatusCode.ERROR });
+          return result;
+        }),
+    );
+  } finally {
+    observeRevalidation(outcome, performance.now() - started);
+  }
 }
 
 async function revalidate(
@@ -271,23 +318,23 @@ async function revalidate(
   policy: ReturnType<NonNullable<Route["cache"]>>,
   assets: Assets,
   requestId?: string,
-) {
+): Promise<"success" | "error" | "lock_miss"> {
   const lockToken = await cache.acquireRevalidationLock(key);
-  if (!lockToken) return;
+  if (!lockToken) return "lock_miss";
   try {
     for (let attempt = 1; attempt <= config.revalidationAttempts; attempt++) {
       try {
-        const result = await route.loader(routeCtx);
+        const result = await runLoader(route, routeCtx, "revalidation");
         if (result.kind && result.kind !== "data") {
           throw new Error(`revalidation loader returned terminal result: ${result.kind}`);
         }
         if ((result.status ?? 200) !== 200) {
           throw new Error(`revalidation loader returned ${result.status ?? 200}`);
         }
-        const body = await renderDocument(route, result.data, assets, { routeCtx });
+        const body = await runRender(route, result.data, assets, routeCtx, "revalidation");
         if (!(await cache.write(key, body, policy)))
           throw new Error("revalidation cache write failed");
-        return;
+        return "success";
       } catch (error) {
         logError(error, {
           requestId,
@@ -301,9 +348,42 @@ async function revalidate(
         }
       }
     }
+    return "error";
   } finally {
     await cache.releaseRevalidationLock(key, lockToken);
   }
+}
+
+function runLoader(
+  route: Route,
+  routeCtx: Parameters<Route["loader"]>[0],
+  phase: "request" | "revalidation",
+) {
+  return withSpan(
+    "route.loader",
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: { "http.route": route.path, "ssr.phase": phase },
+    },
+    () => route.loader(routeCtx),
+  );
+}
+
+function runRender<T>(
+  route: Route<T>,
+  data: T,
+  assets: Assets,
+  routeCtx: Parameters<Route<T>["loader"]>[0],
+  phase: "request" | "revalidation",
+) {
+  return withSpan(
+    "ssr.render",
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: { "http.route": route.path, "ssr.phase": phase },
+    },
+    () => renderDocument(route, data, assets, { routeCtx }),
+  );
 }
 
 function delay(ms: number): Promise<void> {

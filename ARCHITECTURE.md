@@ -341,6 +341,36 @@ değişikliğinde gereksiz reload yapılmaz, SSR değişikliğinde eski HTML ile
 `VITE_DEV_SERVER_URL` production config doğrulamasında reddedilir; production manifest davranışı dev
 runtime'dan bağımsız kalır.
 
+### 10. Instrumentation, Tracing ve Metrikler
+
+`server/instrumentation.ts`, framework convention'ına bağlı olmayan process lifecycle noktasıdır.
+Server request kabul etmeden önce OpenTelemetry SDK'yı kaydeder; graceful shutdown exporter kuyruğunu
+flush eder. `OTEL_EXPORTER_OTLP_ENDPOINT` tanımlı değilse tracing no-op kalır ve local geliştirme bir
+collector zorunluluğu taşımaz.
+
+```text
+HTTP server span
+  ├─ cache.read / cache.write       (memory veya Redis)
+  ├─ route.loader
+  │    └─ gateway METHOD /path      (W3C trace context + correlationid)
+  ├─ ssr.render
+  └─ cache.revalidate
+       ├─ cache lock
+       ├─ route.loader
+       └─ ssr.render
+```
+
+Inbound `traceparent`/`tracestate` extract edilir, aktif context bütün async request zincirinde
+korunur ve gateway'e inject edilir. Üretilen request ID tracing kapalıyken de AsyncLocalStorage ile
+gateway'e taşınır. Structured loglar `releaseId`, `traceId` ve `spanId` ile trace-log korelasyonu
+sağlar; release aynı zamanda OTel resource `service.version` değeridir.
+
+`/metrics` request, gateway, cache operation ve SWR revalidation için bounded-label counter ve
+histogram üretir. Gateway outcome label'ları `success`, `client_error`, `server_error`, `timeout` ve
+`network_error` ile dashboard/alert tarafında hata oranının hesaplanmasını sağlar. Event-loop p50/p95/
+p99 lag, CPU, RSS/heap, uptime ve release info process metrikleri de aynı endpoint'tedir. Request ID,
+raw URL, cache key ve kullanıcı kimliği metric label'ı değildir.
+
 ---
 
 ## Stabilite Değerlendirmesi
@@ -364,6 +394,10 @@ runtime'dan bağımsız kalır.
 - `SWR_REVALIDATION_ATTEMPTS` — toplam deneme sayısı, varsayılan `3`
 - `SWR_REVALIDATION_BACKOFF_MS` — ilk retry gecikmesi, varsayılan `250`
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında bekleme süresi, varsayılan `5000`
+
+**Production telemetry:** Request loglarının ötesinde OpenTelemetry lifecycle, distributed trace
+propagation, SSR/gateway/cache/loader/render span'leri, latency histogramları ve process metrikleri
+vardır. Collector, dashboard, alert ve retention politikası deployment platformunun sorumluluğudur.
 
 ### Açık Riskler ve Eksikler
 
