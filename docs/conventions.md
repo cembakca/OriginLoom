@@ -677,7 +677,7 @@ loader: async (ctx) => {
 | Endpoint                            | Açıklama                                            |
 | ----------------------------------- | --------------------------------------------------- |
 | `POST /api/internal/refresh`        | `refresh_token` → yeni access + session cookie'leri |
-| `GET /api/internal/auth/session`    | Client oturum durumu (`signedIn`, `displayName`)    |
+| `GET /api/internal/auth/session`    | İsteğe bağlı authoritative oturum doğrulaması       |
 | `GET /api/internal/account/summary` | Auth + auto-refresh + hesap özeti                   |
 
 ### Auth cookie modeli
@@ -696,6 +696,10 @@ loader: async (ctx) => {
 1. **Sayfa isteği** → middleware `runAuthCore`: access expire + refresh varsa yeniler, `Set-Cookie` döner
 2. **Client BFF (TanStack)** → `clientApiFetch` 401 alırsa `POST /api/internal/refresh` çağırır, isteği tekrarlar
 3. **BFF handler** → `authenticateBffRequest` aynı refresh mantığını uygular
+
+Local fixture'lar uygulama servislerine gömülmez. `mock-gw/` 4002 portunda ayrı process olarak
+çalışır ve gerçek gateway ile aynı HTTP sınırından çağrılır. Yeni geçici backend cevabı gerekiyorsa
+uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/server.js` içine ekle.
 
 ---
 

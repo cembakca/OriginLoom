@@ -1,5 +1,5 @@
 import { handleBlogsApi } from "@server/api/blogs";
-import { getPaginatedBlogs, parseOrderByParam, sortBlogs } from "@server/services/blogs";
+import { getPaginatedBlogs, parseOrderByParam } from "@server/services/blogs";
 import { describe, expect, it } from "vitest";
 
 describe("blogs API", () => {
@@ -43,34 +43,5 @@ describe("blogs orderBy", () => {
     const asc = await getPaginatedBlogs(1, { orderBy: "title-asc" });
     const desc = await getPaginatedBlogs(1, { orderBy: "title-desc" });
     expect(asc.posts[0]?.id).not.toBe(desc.posts[0]?.id);
-  });
-
-  it("sortBlogs is deterministic", () => {
-    const blogs = sortBlogs(
-      [
-        {
-          id: "a",
-          slug: "a",
-          title: "B",
-          excerpt: "",
-          author: "",
-          publishedAt: "2026-01-02",
-          readTimeMin: 1,
-          tags: [],
-        },
-        {
-          id: "b",
-          slug: "b",
-          title: "A",
-          excerpt: "",
-          author: "",
-          publishedAt: "2026-01-01",
-          readTimeMin: 2,
-          tags: [],
-        },
-      ],
-      "title-asc",
-    );
-    expect(blogs[0]?.title).toBe("A");
   });
 });

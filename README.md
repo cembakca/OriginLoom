@@ -55,7 +55,22 @@ npm ci
 npm run dev
 ```
 
-Uygulama varsayılan olarak `http://localhost:3005` adresinde çalışır.
+Bu komut uygulamayı `http://localhost:3005`, bağımsız mock gateway'i ise
+`http://localhost:4002` adresinde çalıştırır. Gateway'i tek başına başlatmak için:
+
+```bash
+npm run mock-gw
+```
+
+Redis'i Docker'da, uygulama ve gateway'i host üzerinde watch modunda çalıştırmak için:
+
+```bash
+npm run dev:local
+```
+
+Bu script önce Compose'taki `app` ve `mock-gw` container'larını durdurur, yalnızca Redis'i
+`docker compose up -d --wait redis` ile hazırlar ve sonra `npm run dev` çalıştırır. Script
+kapatıldığında Redis açık kalır; sonraki kod değişikliklerinde `compose down` gerekmez.
 
 ## Kontroller
 
@@ -74,8 +89,7 @@ npm run ci
 Temel değişkenler:
 
 - `PORT` — HTTP portu, varsayılan `3005`
-- `GATEWAY_URL` — backend gateway adresi
-- `ENABLE_RUNTIME_MOCKS` — `true` ise gateway fixture/fallback'larını production build'de de açar; yalnızca yerel/demo ortamları için
+- `GATEWAY_URL` — backend gateway adresi; local varsayılan `http://localhost:4002`
 - `CACHE_BACKEND` — `memory` veya `redis`; production yalnızca `redis` kabul eder
 - `CACHE_REQUIRED` — `true` ise Redis problemi readiness'i başarısız yapar; varsayılan fail-open
 - `REDIS_URL` — Redis seçildiğinde zorunlu
@@ -94,8 +108,8 @@ Temel değişkenler:
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında aktif revalidation bekleme süresi
 - `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
 
-Runtime mock'ları varsayılan olarak yalnızca `development` ve `test` ortamlarında çalışır. Yerel Docker
-Compose, gerçek gateway hazır olana kadar `ENABLE_RUNTIME_MOCKS=true` kullanır. Gerçek production
-ortamında bu bayrak verilmemeli; gateway hataları mock içerik veya sahte oturum üretmemelidir.
+Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. `mock-gw/` bağımsız bir Node servisi
+olarak 4002 portunda çalışır; Docker Compose uygulamayı bu servise bağlar. Gerçek gateway hazır
+olduğunda yalnızca `GATEWAY_URL` değiştirilir.
 
 Detaylı cache ve geliştirme kuralları için [docs/conventions.md](docs/conventions.md) belgesine bakın.

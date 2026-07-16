@@ -1,5 +1,4 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
-import { runtimeMocksEnabled } from "@server/config";
 
 import type { UserProfile } from "~/lib/contracts/account";
 
@@ -7,28 +6,17 @@ export type UserProfileResult =
   { kind: "ok"; profile: UserProfile } | { kind: "unauthorized" } | { kind: "unavailable" };
 
 export async function fetchUserProfileResult(request: Request): Promise<UserProfileResult> {
-  const auth = request.headers.get("authorization");
-  if (!auth) return { kind: "unauthorized" };
+  if (!request.headers.get("authorization")) return { kind: "unauthorized" };
 
   try {
     const res = await gatewayFetchForRequest(request, "/user/profile");
     if (res.status === 401 || res.status === 403) {
-      return runtimeMocksEnabled()
-        ? { kind: "ok", profile: mockProfile(auth) }
-        : { kind: "unauthorized" };
+      return { kind: "unauthorized" };
     }
-    if (!res.ok) {
-      return runtimeMocksEnabled()
-        ? { kind: "ok", profile: mockProfile(auth) }
-        : { kind: "unavailable" };
-    }
+    if (!res.ok) return { kind: "unavailable" };
 
     const data: unknown = await res.json();
-    if (!isUserProfilePayload(data)) {
-      return runtimeMocksEnabled()
-        ? { kind: "ok", profile: mockProfile(auth) }
-        : { kind: "unavailable" };
-    }
+    if (!isUserProfilePayload(data)) return { kind: "unavailable" };
     return {
       kind: "ok",
       profile: {
@@ -37,9 +25,7 @@ export async function fetchUserProfileResult(request: Request): Promise<UserProf
       },
     };
   } catch {
-    return runtimeMocksEnabled()
-      ? { kind: "ok", profile: mockProfile(auth) }
-      : { kind: "unavailable" };
+    return { kind: "unavailable" };
   }
 }
 
@@ -56,10 +42,4 @@ function isUserProfilePayload(data: unknown): data is { displayName: string; ini
     typeof value.displayName === "string" &&
     (value.initials === undefined || typeof value.initials === "string")
   );
-}
-
-function mockProfile(auth: string): UserProfile {
-  const token = auth.replace(/^Bearer\s+/i, "");
-  const suffix = token.slice(-4) || "anon";
-  return { displayName: `User ${suffix}`, initials: suffix.slice(0, 2).toUpperCase() };
 }

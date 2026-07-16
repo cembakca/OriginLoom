@@ -1,4 +1,9 @@
 services:
+  mock-gw:
+    build: ./mock-gw
+    ports:
+      - "4002:4002"
+
   redis:
     image: redis:7-alpine
     ports:
@@ -19,9 +24,7 @@ services:
       CACHE_BACKEND: redis
       CACHE_REQUIRED: "false"
       REDIS_URL: redis://redis:6379
-      # Local Compose production build'i, gerçek gateway hazır olana kadar fixture kullanır.
-      ENABLE_RUNTIME_MOCKS: ${ENABLE_RUNTIME_MOCKS:-true}
-      GATEWAY_URL: ${GATEWAY_URL:-http://host.docker.internal:8080}
+      GATEWAY_URL: ${GATEWAY_URL:-http://mock-gw:4002}
       GTM_CONTAINER_ID: GTM-XXXXXX
       SITE_URL: http://localhost:3005
       RELEASE_ID: docker-compose
@@ -30,5 +33,7 @@ services:
       # Statik JS/CSS CDN — boş bırakılırsa origin /assets kullanılır
       # ASSET_CDN_URL: https://cdn.hangikredi.com
     depends_on:
+      mock-gw:
+        condition: service_healthy
       redis:
         condition: service_healthy

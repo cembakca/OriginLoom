@@ -31,7 +31,7 @@ export function createRewrites(gatewayUrl: string): RewriteRule[] {
   ];
 }
 
-export const rewrites: RewriteRule[] = createRewrites("http://localhost:8080");
+export const rewrites: RewriteRule[] = createRewrites("http://localhost:4002");
 
 /**
  * Next.js `redirects()` equivalent. First match wins.

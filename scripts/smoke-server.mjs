@@ -1,6 +1,15 @@
 import { spawn } from "node:child_process";
 
 const port = 31_305;
+const gatewayPort = 31_402;
+const gateway = spawn(process.execPath, ["mock-gw/server.js"], {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    PORT: String(gatewayPort),
+    MOCK_GW_QUIET: "1",
+  },
+});
 const child = spawn(process.execPath, ["dist/server/index.js"], {
   stdio: "inherit",
   env: {
@@ -10,7 +19,7 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
     CACHE_BACKEND: "redis",
     CACHE_REQUIRED: "false",
     REDIS_URL: "redis://127.0.0.1:1",
-    GATEWAY_URL: "http://gateway.invalid",
+    GATEWAY_URL: `http://127.0.0.1:${gatewayPort}`,
     SITE_URL: `http://127.0.0.1:${port}`,
     CACHE_PURGE_SECRET: "smoke-test-secret",
     RELEASE_ID: "smoke-test",
@@ -37,6 +46,7 @@ try {
   }
 } finally {
   child.kill("SIGTERM");
+  gateway.kill("SIGTERM");
 }
 
 if (!passed) throw new Error("Server smoke test did not become healthy");

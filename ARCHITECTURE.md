@@ -70,8 +70,7 @@ Klasik **cookie-based JWT + server-side refresh** (BFF pattern).
 1. `access_token` cookie'sini oku
 2. Expire olmak üzere mi? (`exp * 1000 < now + 30s`) → `refresh_token` ile gateway'e POST
 3. Refresh başarılıysa: yeni token'ları `httpOnly` cookie'lere yaz, `Authorization: Bearer ...` header'ı request'e inject et
-4. Refresh başarısızsa (production): tüm auth cookie'leri sil (`Max-Age=0`), anonim devam et
-5. Refresh başarısızsa (dev/test): mock JWT türet, devam et
+4. Refresh başarısızsa tüm auth cookie'leri sil (`Max-Age=0`), anonim devam et
 
 `signed_in` ve `account_text` yetkilendirme kaynağı değildir; kullanıcı bunları değiştirebilir.
 Client ilk render'da yalnızca bu ipuçlarını kullanır; public sayfalarda ek bir session isteği atmaz.
@@ -267,6 +266,14 @@ Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanı
 
 **401 retry pattern:** `src/lib/client/api-fetch.ts` client fetch'leri wrap'ler. 401 alınca `/api/internal/refresh` çağırır ve isteği tekrarlar.
 
+### Bağımsız Mock Gateway — `mock-gw/`
+
+Uygulama process'i mock veri veya gateway fallback'i içermez. Local geliştirmede 4002 portunda
+çalışan dependency'siz Node.js `mock-gw` servisine normal HTTP üzerinden bağlanır. Menü, sayfa/SEO,
+redirect, teklifler, bloglar, profil, hesap özeti, token refresh ve bot analytics sözleşmeleri bu
+servistedir. Test suite de aynı server'ı rastgele bir portta başlatır. Gerçek gateway'e geçişte servis
+koduna dokunulmaz; yalnızca `GATEWAY_URL` değiştirilir.
+
 ---
 
 ### 9. Build ve Runtime
@@ -291,7 +298,7 @@ Client build `src/entry.client.tsx` başlangıç noktasıyla `dist/client/` alt�
 
 **Test kapsamı kritik path'leri kaplıyor.** Handler'da SWR davranışı, stale cache korunması, concurrent revalidation deduplication, auth'da in-flight deduplication, production'da fail-closed davranışı — bunların hepsi test edilmiş.
 
-**Auth güvenli tasarlanmış.** httpOnly token cookie'leri, 30 saniye önceden refresh, production'da mock'suz fail-closed.
+**Auth güvenli tasarlanmış.** httpOnly token cookie'leri, 30 saniye önceden refresh ve gateway hatasında fail-closed davranış uygulanır. Local auth cevapları ayrı `mock-gw` process'inden gelir.
 
 ---
 

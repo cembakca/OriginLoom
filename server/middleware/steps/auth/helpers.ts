@@ -24,7 +24,7 @@ export function displayNameFromAccess(access: string): string {
     if (payload.name) return payload.name;
     if (payload.sub) return `User ${String(payload.sub).slice(-4)}`;
   } catch {
-    // mock / opaque token
+    // opaque token
   }
 
   const suffix = access.replace(/^Bearer\s+/i, "").slice(-4);
@@ -111,13 +111,4 @@ export async function refreshTokens(
       refreshesInFlight.delete(refreshToken);
     }
   }
-}
-
-/** Dev/mock: derive a token from refresh cookie value when GW is down. */
-export function mockRefresh(refreshToken: string): { access: string; refresh: string } {
-  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
-  const exp = Math.floor(Date.now() / 1000) + 3600;
-  const payload = Buffer.from(JSON.stringify({ sub: "user", exp })).toString("base64url");
-  const access = `${header}.${payload}.mock`;
-  return { access, refresh: refreshToken };
 }

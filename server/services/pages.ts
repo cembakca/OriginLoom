@@ -1,5 +1,4 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
-import { runtimeMocksEnabled } from "@server/config";
 
 import type { SeoInfo } from "~/lib/metadata/types";
 
@@ -13,22 +12,17 @@ export type RetirementBankingPage = {
 export async function fetchRetirementBankingPage(request: Request): Promise<RetirementBankingPage> {
   const authenticated = Boolean(request.headers.get("Authorization"));
 
-  try {
-    const res = await gatewayFetchForRequest(request, "/pages/retirement-banking");
-    if (!res.ok) throw new Error(`Page gateway returned ${res.status}`);
+  const res = await gatewayFetchForRequest(request, "/pages/retirement-banking");
+  if (!res.ok) throw new Error(`Page gateway returned ${res.status}`);
 
-    const data: unknown = await res.json();
-    if (!isPagePayload(data)) throw new Error("Page gateway returned an invalid payload");
+  const data: unknown = await res.json();
+  if (!isPagePayload(data)) throw new Error("Page gateway returned an invalid payload");
 
-    return {
-      headline: data.headline ?? data.seoInfo?.headingTitle ?? "Emekli Bankacılığı",
-      authenticated,
-      seoInfo: data.seoInfo ?? null,
-    };
-  } catch (error) {
-    if (runtimeMocksEnabled()) return mockRetirementBankingPage(authenticated);
-    throw error;
-  }
+  return {
+    headline: data.headline ?? data.seoInfo?.headingTitle ?? "Emekli Bankacılığı",
+    authenticated,
+    seoInfo: data.seoInfo ?? null,
+  };
 }
 
 function isPagePayload(data: unknown): data is { headline?: string; seoInfo?: SeoInfo } {
@@ -38,20 +32,4 @@ function isPagePayload(data: unknown): data is { headline?: string; seoInfo?: Se
     (value.headline === undefined || typeof value.headline === "string") &&
     (value.seoInfo === undefined || (value.seoInfo !== null && typeof value.seoInfo === "object"))
   );
-}
-
-function mockRetirementBankingPage(authenticated: boolean): RetirementBankingPage {
-  return {
-    headline: "Emekli Bankacılığı",
-    authenticated,
-    seoInfo: {
-      title: "Emekli Bankacılığı",
-      metaDescription:
-        "Emekli maaşınıza özel bankacılık ürünleri, promosyonlar ve avantajlı faiz oranları.",
-      headingTitle: "Emekli Bankacılığı",
-      heroDescription: "Emekliler için özel bankacılık çözümleri.",
-      image: "https://cdn.hangikredi.com/og/retirement-banking.png",
-      friendlyUrl: "/emekli-bankaciligi",
-    },
-  };
 }

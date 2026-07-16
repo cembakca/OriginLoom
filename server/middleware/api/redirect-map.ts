@@ -1,15 +1,9 @@
 import { gatewayFetch } from "@server/adapters/gateway";
-import { config, runtimeMocksEnabled } from "@server/config";
+import { config } from "@server/config";
 import { logger } from "@server/logger";
 
 export type CmsRedirectRule =
   { kind: "redirect"; destination: string; status: 301 | 302 | 307 | 308 } | { kind: "gone" };
-
-/** Temporary local CMS fixture; remove when the redirect API becomes authoritative. */
-const MOCK_MAP: Record<string, CmsRedirectRule> = {
-  "/eski-emeklilik": { kind: "redirect", destination: "/emekli-bankaciligi", status: 301 },
-  "/kaldirildi": { kind: "gone" },
-};
 
 const cache = new Map<string, { value: CmsRedirectRule | null; expiresAt: number }>();
 const VALID_STATUS = new Set([301, 302, 307, 308]);
@@ -42,9 +36,6 @@ function parseRule(value: unknown): CmsRedirectRule | null {
 }
 
 export async function lookupRedirect(pathname: string): Promise<CmsRedirectRule | null> {
-  if (MOCK_MAP[pathname]) return MOCK_MAP[pathname];
-  if (runtimeMocksEnabled()) return null;
-
   const cached = cache.get(pathname);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 

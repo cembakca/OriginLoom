@@ -140,6 +140,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ["mock-gw/**/*.js", "tests/**/*.mjs"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
     files: ["tests/**/*.ts"],
     languageOptions: {
       globals: globals.node,

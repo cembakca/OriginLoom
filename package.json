@@ -5,9 +5,11 @@
   "scripts": {
     "icons": "node scripts/generate-icons.mjs",
     "build": "npm run icons && vite build && vite build --config vite.server.config.ts",
+    "mock-gw": "node mock-gw/server.js",
+    "dev:local": "node scripts/dev-local.mjs",
     "start": "node dist/server/index.js",
     "start:dev": "node --import tsx/esm server/index.ts",
-    "dev": "npm run icons && concurrently -k \"vite build --watch\" \"tsx watch server/index.ts\"",
+    "dev": "npm run icons && concurrently -k \"node mock-gw/server.js\" \"vite build --watch\" \"tsx watch server/index.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

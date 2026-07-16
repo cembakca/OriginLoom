@@ -1,0 +1,8 @@
+{
+  "name": "ssr-kit-mock-gw",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

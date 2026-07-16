@@ -41,17 +41,8 @@ export const config = {
   cachePurgeSecret: process.env.CACHE_PURGE_SECRET,
   releaseId: process.env.RELEASE_ID ?? "development",
   assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
-  gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:8080").replace(/\/$/, ""),
+  gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),
 } as const;
-
-export function runtimeMocksEnabled(): boolean {
-  const currentEnv = process.env.NODE_ENV ?? config.nodeEnv;
-  return (
-    currentEnv === "development" ||
-    currentEnv === "test" ||
-    booleanEnv("ENABLE_RUNTIME_MOCKS", false)
-  );
-}
 
 /** Read at request time so rotated secrets can be injected without coupling API code to process.env. */
 export function purgeSecurityConfig(): { secret?: string; isProduction: boolean } {

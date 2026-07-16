@@ -1,29 +1,7 @@
+import { gatewayFetch } from "@server/adapters/gateway";
+
 import { parsePage } from "~/lib/content-values";
-import {
-  type Blog,
-  type BlogOrderBy,
-  DEFAULT_BLOG_ORDER,
-  type PaginatedBlogs,
-} from "~/lib/contracts/blogs";
-
-const AUTHORS = ["Ayşe Kaya", "Mehmet Demir", "Zeynep Arslan", "Can Yıldız"];
-const TAGS = ["react", "ssr", "web", "performance", "typescript", "cache"];
-
-const ALL_BLOGS: Blog[] = Array.from({ length: 24 }, (_, i) => {
-  const n = i + 1;
-  return {
-    id: `blog-${n}`,
-    slug: `blog-yazisi-${n}`,
-    title: `SSR Kit ile Modern Web #${n}`,
-    excerpt: `Sayfa ${Math.ceil(n / 6)} örneği — explicit cache key ve island mimarisiyle paginated blog listesi.`,
-    author: AUTHORS[i % AUTHORS.length] ?? "Unknown",
-    publishedAt: new Date(Date.UTC(2026, 0, n)).toISOString(),
-    readTimeMin: 3 + (i % 5),
-    tags: [TAGS[i % TAGS.length] ?? "web", TAGS[(i + 2) % TAGS.length] ?? "ssr"],
-  };
-});
-
-const DEFAULT_PAGE_SIZE = 6;
+import { type BlogOrderBy, DEFAULT_BLOG_ORDER, type PaginatedBlogs } from "~/lib/contracts/blogs";
 
 const VALID_ORDER: BlogOrderBy[] = [
   "date-desc",
@@ -38,49 +16,37 @@ export function parseOrderByParam(raw: string | null): BlogOrderBy {
   return DEFAULT_BLOG_ORDER;
 }
 
-export function sortBlogs(blogs: readonly Blog[], orderBy: BlogOrderBy): Blog[] {
-  const copy = [...blogs];
-  switch (orderBy) {
-    case "date-asc":
-      return copy.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
-    case "date-desc":
-      return copy.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
-    case "title-asc":
-      return copy.sort((a, b) => a.title.localeCompare(b.title, "tr"));
-    case "title-desc":
-      return copy.sort((a, b) => b.title.localeCompare(a.title, "tr"));
-    case "read-time-desc":
-      return copy.sort((a, b) => b.readTimeMin - a.readTimeMin);
-    default:
-      return copy;
-  }
-}
-
 export async function getPaginatedBlogs(
   page: number,
   options?: { pageSize?: number; orderBy?: BlogOrderBy },
 ): Promise<PaginatedBlogs> {
-  await new Promise((r) => setTimeout(r, 10));
+  const search = new URLSearchParams({
+    page: String(page),
+    pageSize: String(options?.pageSize ?? 6),
+    orderBy: options?.orderBy ?? DEFAULT_BLOG_ORDER,
+  });
+  const response = await gatewayFetch(`/blogs?${search}`);
+  if (!response.ok) throw new Error(`Blogs gateway returned ${response.status}`);
 
-  const pageSize = options?.pageSize ?? DEFAULT_PAGE_SIZE;
-  const orderBy = options?.orderBy ?? DEFAULT_BLOG_ORDER;
-  const sorted = sortBlogs(ALL_BLOGS, orderBy);
-
-  const total = sorted.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.max(1, Math.min(page, totalPages));
-  const start = (safePage - 1) * pageSize;
-
-  return {
-    posts: sorted.slice(start, start + pageSize),
-    page: safePage,
-    pageSize,
-    total,
-    totalPages,
-    orderBy,
-  };
+  const data: unknown = await response.json();
+  if (!isPaginatedBlogs(data)) throw new Error("Blogs gateway returned an invalid payload");
+  return data;
 }
 
 export function parsePageParam(raw: string | null): number {
   return parsePage(raw);
+}
+
+function isPaginatedBlogs(data: unknown): data is PaginatedBlogs {
+  if (!data || typeof data !== "object") return false;
+  const value = data as Record<string, unknown>;
+  return (
+    Array.isArray(value.posts) &&
+    typeof value.page === "number" &&
+    typeof value.pageSize === "number" &&
+    typeof value.total === "number" &&
+    typeof value.totalPages === "number" &&
+    typeof value.orderBy === "string" &&
+    (VALID_ORDER as string[]).includes(value.orderBy)
+  );
 }

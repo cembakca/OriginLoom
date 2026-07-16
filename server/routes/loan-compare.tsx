@@ -25,7 +25,7 @@ export default defineRoute<Data>({
 
     return {
       data: {
-        offers: await getOffers({ amount, city, device: device(ctx.request) }),
+        offers: await getOffers(ctx.request, { amount, city, device: device(ctx.request) }),
         amount,
         city,
         theme: parseTheme(cookie(ctx.request, "theme")),
