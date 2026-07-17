@@ -18,7 +18,7 @@ export type RouteDomains = {
  * The validated snapshot is shared through Redis so param validation happens
  * before page-cache lookup without calling the gateway for every request.
  */
-export async function fetchRouteDomains(): Promise<RouteDomains> {
+export async function fetchRouteDomains(signal?: AbortSignal): Promise<RouteDomains> {
   const policy = {
     kind: "shared" as const,
     ttl: 300,
@@ -40,7 +40,9 @@ export async function fetchRouteDomains(): Promise<RouteDomains> {
     }
   }
 
-  const response = await gatewayFetch("/routing/domains");
+  const response = await gatewayFetch("/routing/domains", {
+    ...(signal ? { signal } : {}),
+  });
   if (!response.ok) throw new Error(`Route domains gateway returned ${response.status}`);
 
   const payload = await readGatewayJson(response, "route_domains", INVALID_ROUTE_DOMAINS);
@@ -51,14 +53,17 @@ export async function fetchRouteDomains(): Promise<RouteDomains> {
   return domains;
 }
 
-export async function isKnownLoanCity(city: string): Promise<boolean> {
+export async function isKnownLoanCity(city: string, signal?: AbortSignal): Promise<boolean> {
   if (!isBoundedRouteSlug(city)) return false;
-  return (await fetchRouteDomains()).loanCities.includes(city);
+  return (await fetchRouteDomains(signal)).loanCities.includes(city);
 }
 
-export async function isKnownRecoursePage(page: string | undefined): Promise<boolean> {
+export async function isKnownRecoursePage(
+  page: string | undefined,
+  signal?: AbortSignal,
+): Promise<boolean> {
   if (!page || !isBoundedRouteSlug(page)) return false;
-  return (await fetchRouteDomains()).recoursePages.includes(page);
+  return (await fetchRouteDomains(signal)).recoursePages.includes(page);
 }
 
 function isRouteDomains(value: unknown): value is RouteDomains {

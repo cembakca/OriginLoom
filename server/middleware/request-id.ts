@@ -1,7 +1,12 @@
 import type { MiddlewareHandler } from "hono";
 
+import type { RequestClass } from "./request-deadline";
+
 export type AppVariables = {
   requestId: string;
+  request?: Request;
+  requestClass?: RequestClass;
+  requestRoute?: string;
 };
 
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/;

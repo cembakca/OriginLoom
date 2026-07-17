@@ -46,6 +46,7 @@ export function cloneRequestWithHeaders(request: Request, headers: Headers): Req
     headers,
     body: request.body,
     redirect: request.redirect,
+    signal: request.signal,
     // @ts-expect-error — duplex for streaming body
     duplex: request.body ? "half" : undefined,
   });

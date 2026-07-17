@@ -5,8 +5,8 @@ import { mergeSearchParams } from "~/routing";
 
 import { renderGonePage } from "./gone";
 
-export const redirectionStep: MiddlewareStep = async (ctx, _acc) => {
-  const rule = await lookupRedirect(ctx.publicPath);
+export const redirectionStep: MiddlewareStep = async (ctx, acc) => {
+  const rule = await lookupRedirect(ctx.publicPath, acc.request.signal);
   if (!rule) return;
 
   if (rule.kind === "gone") {

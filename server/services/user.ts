@@ -1,5 +1,6 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
+import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import type { UserProfile } from "~/lib/contracts/account";
 import { isBoundedString, isRecord } from "~/lib/runtime-schema";
@@ -28,7 +29,9 @@ export async function fetchUserProfileResult(request: Request): Promise<UserProf
         initials: data.initials ?? data.displayName.slice(0, 2).toUpperCase(),
       },
     };
-  } catch {
+  } catch (error) {
+    if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
+    if (isRequestDeadlineError(error)) throw error;
     return { kind: "unavailable" };
   }
 }

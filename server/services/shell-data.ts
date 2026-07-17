@@ -1,6 +1,7 @@
 import { GatewayPayloadError } from "@server/gateway-payload";
 import { logger } from "@server/logger";
 import { observeShellDegradation } from "@server/metrics";
+import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import { buildLayoutClientProps, type ShellData } from "~/lib/shell-data";
 import type { Ctx } from "~/lib/types";
@@ -18,6 +19,8 @@ export async function buildShellData(
     const menu = await fetchMenuList(ctx.request, base.deviceType);
     return { ...base, menu };
   } catch (error) {
+    if (isRequestDeadlineError(ctx.request.signal.reason)) throw ctx.request.signal.reason;
+    if (isRequestDeadlineError(error)) throw error;
     const reason = error instanceof GatewayPayloadError ? "invalid_payload" : "gateway_error";
     observeShellDegradation("menu", reason);
     logger.warn("shell menu degraded", {

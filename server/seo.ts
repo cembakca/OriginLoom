@@ -1,4 +1,5 @@
 import { logger } from "@server/logger";
+import { contextRequest, isRequestDeadlineError } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
 import { fetchRouteDomains } from "@server/services/route-domains";
 import type { Hono } from "hono";
@@ -17,10 +18,13 @@ export function mountSeoRoutes(app: Hono<{ Variables: AppVariables }>, siteUrl: 
     textResponse(c.req.method, robotsText(siteUrl), "text/plain; charset=utf-8"),
   );
   app.on(["GET", "HEAD"], "/sitemap.xml", async (c) => {
+    const request = contextRequest(c);
     let loanCities: string[] = [];
     try {
-      loanCities = (await fetchRouteDomains()).loanCities;
+      loanCities = (await fetchRouteDomains(request.signal)).loanCities;
     } catch (error) {
+      if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
+      if (isRequestDeadlineError(error)) throw error;
       logger.warn("sitemap route domains degraded", {
         error: error instanceof Error ? error.message : String(error),
       });

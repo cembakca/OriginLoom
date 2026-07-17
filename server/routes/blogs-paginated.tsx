@@ -30,7 +30,10 @@ export default defineRoute<PaginatedBlogs>({
     }
 
     const page = pageParam.page;
-    const data = await getPaginatedBlogs(page, { orderBy: DEFAULT_BLOG_ORDER });
+    const data = await getPaginatedBlogs(page, {
+      orderBy: DEFAULT_BLOG_ORDER,
+      signal: ctx.request.signal,
+    });
     if (data.totalPages > 0 && page > data.totalPages) return notFound();
     if (data.page !== page) throw new Error("Blogs gateway returned a mismatched page");
     return { data };

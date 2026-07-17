@@ -1,6 +1,7 @@
 import { config } from "@server/config";
 import { logger } from "@server/logger";
 import { observeClientErrorTelemetry } from "@server/metrics";
+import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
 import type { Hono } from "hono";
 
@@ -65,7 +66,7 @@ export function mountClientErrorApi(
   const rateLimiter = options.rateLimiter ?? defaultRateLimiter;
   const sampleRate = options.sampleRate ?? config.clientErrorSampleRate;
   app.post("/api/internal/client-errors", async (c) => {
-    const payload = await parsePayload(c.req.raw);
+    const payload = await parsePayload(contextRequest(c));
     if (!payload) {
       observeClientErrorTelemetry("invalid");
       return c.json({ error: "Geçersiz telemetry payload" }, 400, {

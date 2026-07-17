@@ -11,6 +11,7 @@ import { type Assets, renderDocument } from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
 import { observeRevalidation } from "./metrics";
+import { isRequestDeadlineError } from "./middleware/request-deadline";
 import { setActiveHttpRoute, SpanKind, SpanStatusCode, withSpan } from "./observability";
 import { proxyRequest } from "./proxy";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
@@ -178,6 +179,7 @@ export async function handleHead(
     });
     return response;
   } catch (error) {
+    rethrowRequestDeadline(request, error);
     logError(error, { msg: "HEAD route resolution failed", requestId, path: url.pathname });
     return headResponse(500, { kind: "none" }, "ERROR", undefined, requestId);
   }
@@ -416,6 +418,7 @@ export async function handle(
 
       return html(body, result.status ?? 200, policy, cacheState, result.headers, requestId);
     } catch (routeError) {
+      rethrowRequestDeadline(request, routeError);
       const errorId = randomUUID();
       logError(routeError, {
         msg: "route execution failed",
@@ -438,6 +441,7 @@ export async function handle(
       return html(body, 500, { kind: "none" }, "ERROR", undefined, requestId);
     }
   } catch (err) {
+    rethrowRequestDeadline(request, err);
     const errorId = randomUUID();
     logError(err, { msg: "global request failure", errorId, requestId, path: url.pathname });
     logRequest(requestId, {
@@ -466,7 +470,9 @@ async function executeRouteWithBudget(
   });
   const budgetCtx: Ctx = {
     ...routeCtx,
-    request: new Request(routeCtx.request, { signal: controller.signal }),
+    request: new Request(routeCtx.request, {
+      signal: AbortSignal.any([routeCtx.request.signal, controller.signal]),
+    }),
   };
 
   try {
@@ -474,6 +480,11 @@ async function executeRouteWithBudget(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function rethrowRequestDeadline(request: Request, error: unknown): void {
+  if (isRequestDeadlineError(error)) throw error;
+  if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
 }
 
 async function executeRoute(

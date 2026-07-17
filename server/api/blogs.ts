@@ -1,4 +1,7 @@
+import { contextRequest } from "@server/middleware/request-deadline";
+import type { AppVariables } from "@server/middleware/request-id";
 import { getPaginatedBlogs, parseOrderByParam, parsePageParam } from "@server/services/blogs";
+import type { Hono } from "hono";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -13,15 +16,10 @@ export async function handleBlogsApi(request: Request): Promise<Response> {
   const page = parsePageParam(url.searchParams.get("page"));
   const orderBy = parseOrderByParam(url.searchParams.get("orderBy"));
 
-  const data = await getPaginatedBlogs(page, { orderBy });
+  const data = await getPaginatedBlogs(page, { orderBy, signal: request.signal });
   return json(data);
 }
 
-export function mountBlogsApi(app: {
-  get: (
-    path: string,
-    handler: (c: { req: { raw: Request } }) => Response | Promise<Response>,
-  ) => void;
-}): void {
-  app.get("/api/blogs", (c) => handleBlogsApi(c.req.raw));
+export function mountBlogsApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.get("/api/blogs", (c) => handleBlogsApi(contextRequest(c)));
 }

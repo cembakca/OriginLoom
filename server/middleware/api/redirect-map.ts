@@ -2,6 +2,7 @@ import { gatewayFetch } from "@server/adapters/gateway";
 import { config } from "@server/config";
 import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 import { logger } from "@server/logger";
+import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import { isRecord } from "~/lib/runtime-schema";
 
@@ -39,7 +40,10 @@ function parseRule(value: unknown): CmsRedirectRule | null {
   };
 }
 
-export async function lookupRedirect(pathname: string): Promise<CmsRedirectRule | null> {
+export async function lookupRedirect(
+  pathname: string,
+  signal?: AbortSignal,
+): Promise<CmsRedirectRule | null> {
   const cached = cache.get(pathname);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
@@ -47,6 +51,7 @@ export async function lookupRedirect(pathname: string): Promise<CmsRedirectRule 
   try {
     const res = await gatewayFetch(`/cms/redirects?path=${encodeURIComponent(pathname)}`, {
       method: "GET",
+      ...(signal ? { signal } : {}),
     });
     if (res.ok) {
       const payload = await readGatewayJson(
@@ -62,6 +67,8 @@ export async function lookupRedirect(pathname: string): Promise<CmsRedirectRule 
       );
     }
   } catch (error) {
+    if (isRequestDeadlineError(signal?.reason)) throw signal.reason;
+    if (isRequestDeadlineError(error)) throw error;
     logger.warn("redirect lookup failed", {
       pathname,
       error: error instanceof Error ? error.message : String(error),

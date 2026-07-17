@@ -36,7 +36,7 @@ export async function proxyRequest(
     method: request.method,
     headers,
     redirect: "manual",
-    signal: AbortSignal.timeout(config.gatewayTimeoutMs),
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(config.gatewayTimeoutMs)]),
   };
 
   if (request.method !== "GET" && request.method !== "HEAD") {

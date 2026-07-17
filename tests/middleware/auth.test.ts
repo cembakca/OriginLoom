@@ -68,4 +68,30 @@ describe("auth helpers", () => {
     await expect(first).resolves.toEqual({ access: "access-a", refresh: "rotated-a" });
     await expect(second).resolves.toEqual({ access: "access-b", refresh: "rotated-b" });
   });
+
+  it("keeps a shared refresh alive while another request still waits", async () => {
+    let resolveFetch: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+
+    const first = refreshTokens("shared-refresh", firstController.signal);
+    const second = refreshTokens("shared-refresh", secondController.signal);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+
+    firstController.abort(new Error("first request timed out"));
+    await expect(first).rejects.toThrow("first request timed out");
+
+    resolveFetch?.(Response.json({ accessToken: "shared-access", refreshToken: "shared-rotated" }));
+    await expect(second).resolves.toEqual({
+      access: "shared-access",
+      refresh: "shared-rotated",
+    });
+  });
 });

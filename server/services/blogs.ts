@@ -29,7 +29,7 @@ export function parseOrderByParam(raw: string | null): BlogOrderBy {
 
 export async function getPaginatedBlogs(
   page: number,
-  options?: { pageSize?: number; orderBy?: BlogOrderBy },
+  options?: { pageSize?: number; orderBy?: BlogOrderBy; signal?: AbortSignal },
 ): Promise<PaginatedBlogs> {
   const boundedPage = parsePage(String(page));
   const requestedPageSize = options?.pageSize ?? 6;
@@ -41,7 +41,9 @@ export async function getPaginatedBlogs(
     pageSize: String(boundedPageSize),
     orderBy: options?.orderBy ?? DEFAULT_BLOG_ORDER,
   });
-  const response = await gatewayFetch(`/blogs?${search}`);
+  const response = await gatewayFetch(`/blogs?${search}`, {
+    ...(options?.signal ? { signal: options.signal } : {}),
+  });
   if (!response.ok) throw new Error(`Blogs gateway returned ${response.status}`);
 
   const payload = await readGatewayJson(response, "blogs", INVALID_BLOGS);

@@ -66,7 +66,7 @@ export async function forceTokenRefresh(request: Request): Promise<BffAuthResult
     return { request, cookies: jar, authorized: false };
   }
 
-  const refreshed = await refreshTokens(tokens.refresh);
+  const refreshed = await refreshTokens(tokens.refresh, request.signal);
   if (!refreshed) {
     rejectBffSession(jar);
     return { request, cookies: jar, authorized: false };

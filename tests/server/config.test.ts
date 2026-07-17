@@ -155,6 +155,27 @@ describe("server config", () => {
     );
   });
 
+  it("keeps SSR queue and cold-fill budgets inside the request deadline", async () => {
+    await expect(
+      validateWith({
+        CACHE_FILL_TIMEOUT_MS: "12000",
+        CACHE_FILL_WAIT_MS: "12500",
+        SSR_REQUEST_TIMEOUT_MS: "12000",
+      }),
+    ).rejects.toThrow("SSR_REQUEST_TIMEOUT_MS must exceed CACHE_FILL_TIMEOUT_MS");
+    await expect(
+      validateWith({
+        CACHE_FILL_TIMEOUT_MS: "500",
+        CACHE_FILL_WAIT_MS: "500",
+        SSR_REQUEST_TIMEOUT_MS: "1000",
+        SSR_QUEUE_WAIT_MS: "1000",
+      }),
+    ).rejects.toThrow("SSR_QUEUE_WAIT_MS must be lower than SSR_REQUEST_TIMEOUT_MS");
+    await expect(validateWith({ SSR_MAX_CONCURRENCY: "0" })).rejects.toThrow(
+      "Invalid SSR_MAX_CONCURRENCY",
+    );
+  });
+
   it("requires SITE_URL to be a public origin rather than a path-bearing URL", async () => {
     await expect(
       validateWith({ SITE_URL: "https://www.example.com/base?source=config" }),

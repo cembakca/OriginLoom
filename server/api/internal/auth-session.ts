@@ -6,7 +6,10 @@ import {
   rejectBffSession,
   withBffAuthCookies,
 } from "@server/api/internal/auth-bff";
+import { contextRequest } from "@server/middleware/request-deadline";
+import type { AppVariables } from "@server/middleware/request-id";
 import { fetchUserProfileResult } from "@server/services/user";
+import type { Hono } from "hono";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -43,13 +46,8 @@ export async function handleAuthSessionApi(request: Request): Promise<Response> 
   );
 }
 
-export function mountAuthSessionApi(app: {
-  get: (
-    path: string,
-    handler: (c: { req: { raw: Request } }) => Response | Promise<Response>,
-  ) => void;
-}): void {
-  app.get("/api/internal/auth/session", (c) => handleAuthSessionApi(c.req.raw));
+export function mountAuthSessionApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.get("/api/internal/auth/session", (c) => handleAuthSessionApi(contextRequest(c)));
 }
 
 /** BFF token refresh — client TanStack / api-fetch 401 retry burayı çağırır. */

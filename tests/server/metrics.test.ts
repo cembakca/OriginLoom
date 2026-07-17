@@ -12,10 +12,14 @@ import {
   observeGatewayRequest,
   observeInvalidGatewayPayload,
   observeRequest,
+  observeRequestTimeout,
   observeRevalidation,
   observeShellDegradation,
+  observeSsrCapacityRejection,
+  observeSsrQueueWait,
   renderMetrics,
   setBotAnalyticsQueueState,
+  setSsrCapacityState,
 } from "@server/metrics";
 import { describe, expect, it } from "vitest";
 
@@ -36,6 +40,10 @@ describe("production metrics", () => {
     observeBotAnalyticsDrain("success");
     setBotAnalyticsQueueState(4, 2);
     observeClientErrorTelemetry("rate_limited");
+    observeRequestTimeout("ssr", "/blogs/paginated");
+    observeSsrCapacityRejection("queue_full");
+    observeSsrQueueWait("accepted", 4);
+    setSsrCapacityState(3, 2);
 
     const metrics = renderMetrics();
 
@@ -65,6 +73,11 @@ describe("production metrics", () => {
     expect(metrics).toContain("ssr_bot_analytics_queue_depth 4");
     expect(metrics).toContain("ssr_bot_analytics_in_flight 2");
     expect(metrics).toContain('ssr_client_error_telemetry_total{outcome="rate_limited"}');
+    expect(metrics).toContain('request_timeout_total{class="ssr",route="/blogs/paginated"}');
+    expect(metrics).toContain('ssr_render_rejections_total{reason="queue_full"}');
+    expect(metrics).toContain('ssr_render_queue_wait_milliseconds_count{outcome="accepted"}');
+    expect(metrics).toContain("ssr_render_in_flight 3");
+    expect(metrics).toContain("ssr_render_queue_depth 2");
   });
 
   it("exports event-loop, process and release gauges", () => {

@@ -63,6 +63,8 @@ const botAnalyticsDrops: CounterMap = new Map();
 const botAnalyticsBatches: CounterMap = new Map();
 const botAnalyticsDrains: CounterMap = new Map();
 const clientErrorTelemetry: CounterMap = new Map();
+const requestTimeouts: CounterMap = new Map();
+const ssrCapacityRejections: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
 const requestDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheResponseDurations = new Histogram(DURATION_BUCKETS_MS);
@@ -75,8 +77,11 @@ const cacheFillDurations = new Histogram(DURATION_BUCKETS_MS);
 const coalescedWaitDurations = new Histogram(DURATION_BUCKETS_MS);
 const botAnalyticsBatchDurations = new Histogram(DURATION_BUCKETS_MS);
 const botAnalyticsBatchSizes = new Histogram([1, 5, 10, 25, 50, 100]);
+const ssrQueueWaitDurations = new Histogram(DURATION_BUCKETS_MS);
 let botAnalyticsQueueDepth = 0;
 let botAnalyticsInFlight = 0;
+let ssrRenderInFlight = 0;
+let ssrRenderQueueDepth = 0;
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 eventLoopDelay.enable();
 
@@ -193,6 +198,25 @@ export function observeClientErrorTelemetry(
   outcome: "accepted" | "invalid" | "sampled" | "rate_limited",
 ): void {
   increment(clientErrorTelemetry, `outcome="${outcome}"`);
+}
+
+export function observeRequestTimeout(requestClass: "api" | "proxy" | "ssr", route: string): void {
+  increment(requestTimeouts, `class="${requestClass}",route="${escapeLabel(route)}"`);
+}
+
+export function observeSsrQueueWait(outcome: "accepted" | "rejected", durationMs: number): void {
+  ssrQueueWaitDurations.observe(`outcome="${outcome}"`, durationMs);
+}
+
+export function observeSsrCapacityRejection(
+  reason: "queue_full" | "wait_timeout" | "request_aborted",
+): void {
+  increment(ssrCapacityRejections, `reason="${reason}"`);
+}
+
+export function setSsrCapacityState(inFlight: number, queueDepth: number): void {
+  ssrRenderInFlight = Math.max(0, inFlight);
+  ssrRenderQueueDepth = Math.max(0, queueDepth);
 }
 
 export function observeCacheOperation(
@@ -348,6 +372,30 @@ export function renderMetrics(): string {
       "ssr_client_error_telemetry_total",
       "Client runtime error ingestion outcomes",
       clientErrorTelemetry,
+    ),
+    ...counterLines(
+      "request_timeout_total",
+      "Requests terminated after exceeding their class deadline",
+      requestTimeouts,
+    ),
+    ...counterLines(
+      "ssr_render_rejections_total",
+      "SSR requests rejected by bounded render capacity",
+      ssrCapacityRejections,
+    ),
+    ...ssrQueueWaitDurations.lines(
+      "ssr_render_queue_wait_milliseconds",
+      "Time SSR requests spent waiting for render capacity",
+    ),
+    ...gauge(
+      "ssr_render_in_flight",
+      "SSR requests currently holding render capacity",
+      ssrRenderInFlight,
+    ),
+    ...gauge(
+      "ssr_render_queue_depth",
+      "SSR requests currently waiting for render capacity",
+      ssrRenderQueueDepth,
     ),
     ...gatewayDurations.lines(
       "ssr_gateway_request_duration_milliseconds",

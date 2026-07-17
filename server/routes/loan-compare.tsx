@@ -18,7 +18,7 @@ type Data = { offers: Offer[]; amount: number; city: string; theme: string };
 export default defineRoute<Data>({
   path: "/ihtiyac-kredisi/:city?",
 
-  validateParams: (ctx) => isKnownLoanCity(ctx.params.city ?? "istanbul"),
+  validateParams: (ctx) => isKnownLoanCity(ctx.params.city ?? "istanbul", ctx.request.signal),
 
   cache: (ctx) => pageCachePolicy(PageCacheId.loanCompare, ctx),
 

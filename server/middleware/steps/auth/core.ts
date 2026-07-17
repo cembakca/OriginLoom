@@ -20,7 +20,7 @@ export async function runAuthCore(request: Request, jar: CookieJar): Promise<Aut
   let access = tokens.access;
 
   if (isAccessTokenExpired(access) && tokens.refresh) {
-    const refreshed = await refreshTokens(tokens.refresh);
+    const refreshed = await refreshTokens(tokens.refresh, request.signal);
     if (!refreshed) {
       clearTokenCookies(jar);
       return { cookies: jar };

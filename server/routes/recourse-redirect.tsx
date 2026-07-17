@@ -9,7 +9,7 @@ export default defineRoute<{ page: string; publicPath: string }>({
   path: "/recourse/:page/redirect",
   minimalChrome: true,
 
-  validateParams: (ctx) => isKnownRecoursePage(ctx.params.page),
+  validateParams: (ctx) => isKnownRecoursePage(ctx.params.page, ctx.request.signal),
 
   cache: (ctx) => pageCachePolicy(PageCacheId.recourseRedirect, ctx),
 

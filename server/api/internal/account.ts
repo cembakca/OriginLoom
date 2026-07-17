@@ -4,7 +4,10 @@ import {
   confirmBffSession,
   withBffAuthCookies,
 } from "@server/api/internal/auth-bff";
+import { contextRequest } from "@server/middleware/request-deadline";
+import type { AppVariables } from "@server/middleware/request-id";
 import { fetchAccountSummary } from "@server/services/account";
+import type { Hono } from "hono";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -33,11 +36,6 @@ export async function handleAccountSummaryApi(request: Request): Promise<Respons
   return withBffAuthCookies(json(result.summary), auth.cookies);
 }
 
-export function mountAccountApi(app: {
-  get: (
-    path: string,
-    handler: (c: { req: { raw: Request } }) => Response | Promise<Response>,
-  ) => void;
-}): void {
-  app.get("/api/internal/account/summary", (c) => handleAccountSummaryApi(c.req.raw));
+export function mountAccountApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.get("/api/internal/account/summary", (c) => handleAccountSummaryApi(contextRequest(c)));
 }

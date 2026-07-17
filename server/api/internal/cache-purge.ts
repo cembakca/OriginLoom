@@ -5,6 +5,7 @@ import {
   parsePurgeBody,
 } from "@server/cache/purge";
 import { config, purgeSecurityConfig } from "@server/config";
+import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
 import type { Context } from "hono";
 
@@ -76,6 +77,6 @@ export function mountCachePurgeRoutes(app: {
     handler: (c: Context<{ Variables: AppVariables }>) => Response | Promise<Response>,
   ) => void;
 }): void {
-  app.get("/api/internal/cache/keys", (c) => handleCacheKeysList(c.req.raw));
-  app.post("/api/internal/cache/purge", (c) => handleCachePurge(c.req.raw));
+  app.get("/api/internal/cache/keys", (c) => handleCacheKeysList(contextRequest(c)));
+  app.post("/api/internal/cache/purge", (c) => handleCachePurge(contextRequest(c)));
 }

@@ -1,5 +1,6 @@
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
+import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import type { AccountActivity, AccountSummary, UserProfile } from "~/lib/contracts/account";
 import { isBoundedArray, isBoundedString, isFiniteNumber, isRecord } from "~/lib/runtime-schema";
@@ -20,7 +21,9 @@ export async function fetchAccountSummary(request: Request): Promise<AccountSumm
     const payload = await readGatewayJson(response, "account", INVALID_ACCOUNT);
     const data = requireGatewayPayload("account", payload, isAccountSummary, INVALID_ACCOUNT);
     return { kind: "ok", summary: data };
-  } catch {
+  } catch (error) {
+    if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
+    if (isRequestDeadlineError(error)) throw error;
     return { kind: "unavailable" };
   }
 }

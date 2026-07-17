@@ -7,7 +7,15 @@ import { cookie } from "~/lib/request";
 import { isBoundedString, isRecord } from "~/lib/runtime-schema";
 import { stripUndefined } from "~/lib/strip-undefined";
 
-const refreshesInFlight = new Map<string, Promise<{ access: string; refresh: string } | null>>();
+type RefreshResult = { access: string; refresh: string } | null;
+type RefreshEntry = {
+  promise: Promise<RefreshResult>;
+  controller: AbortController;
+  waiters: number;
+  settled: boolean;
+};
+
+const refreshesInFlight = new Map<string, RefreshEntry>();
 const INVALID_REFRESH = "Auth refresh gateway returned an invalid payload";
 
 function useSecureCookies(): boolean {
@@ -83,18 +91,37 @@ export function clearTokenCookies(jar: CookieJar): void {
 
 export async function refreshTokens(
   refreshToken: string,
-): Promise<{ access: string; refresh: string } | null> {
-  const existing = refreshesInFlight.get(refreshToken);
-  if (existing) return existing;
+  signal?: AbortSignal,
+): Promise<RefreshResult> {
+  const entry = refreshesInFlight.get(refreshToken) ?? createRefreshEntry(refreshToken);
+  entry.waiters++;
 
-  const refresh = (async () => {
+  try {
+    return await waitForRefresh(entry.promise, signal);
+  } finally {
+    entry.waiters = Math.max(0, entry.waiters - 1);
+    if (entry.waiters === 0 && !entry.settled) {
+      entry.controller.abort(signal ? abortReason(signal) : new Error("Refresh has no waiters"));
+    }
+  }
+}
+
+function createRefreshEntry(refreshToken: string): RefreshEntry {
+  const controller = new AbortController();
+  const entry = {
+    controller,
+    waiters: 0,
+    settled: false,
+  } as RefreshEntry;
+
+  entry.promise = (async () => {
     try {
       const res = await gatewayFetch("/auth/refresh", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ refreshToken }),
+        signal: controller.signal,
       });
-
       if (!res.ok) return null;
 
       const payload = await readGatewayJson(res, "auth_refresh", INVALID_REFRESH);
@@ -104,21 +131,33 @@ export async function refreshTokens(
         isRefreshPayload,
         INVALID_REFRESH,
       );
-
       return { access: data.accessToken, refresh: data.refreshToken };
     } catch {
       return null;
+    } finally {
+      entry.settled = true;
+      if (refreshesInFlight.get(refreshToken) === entry) refreshesInFlight.delete(refreshToken);
     }
   })();
-  refreshesInFlight.set(refreshToken, refresh);
+  refreshesInFlight.set(refreshToken, entry);
+  return entry;
+}
 
-  try {
-    return await refresh;
-  } finally {
-    if (refreshesInFlight.get(refreshToken) === refresh) {
-      refreshesInFlight.delete(refreshToken);
-    }
-  }
+function waitForRefresh<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return pending;
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortReason(signal));
+    signal.addEventListener("abort", onAbort, { once: true });
+    void pending.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
+  });
+}
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("Aborted", "AbortError");
 }
 
 function isRefreshPayload(value: unknown): value is { accessToken: string; refreshToken: string } {

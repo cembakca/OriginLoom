@@ -21,6 +21,7 @@ function publicHttpUrlEnv(name: string): string | undefined {
 const nodeEnv = process.env.NODE_ENV ?? "development";
 const gatewayTimeoutMs = numberEnv("GATEWAY_TIMEOUT_MS", 5_000);
 const cacheFillTimeoutMs = numberEnv("CACHE_FILL_TIMEOUT_MS", gatewayTimeoutMs * 2 + 2_000);
+const ssrRequestTimeoutMs = numberEnv("SSR_REQUEST_TIMEOUT_MS", 15_000);
 
 export const config = {
   port: numberEnv("PORT", 3005),
@@ -33,6 +34,12 @@ export const config = {
   appEnv: process.env.APP_ENV ?? nodeEnv,
   isProduction: nodeEnv === "production",
   shutdownTimeoutMs: numberEnv("SHUTDOWN_TIMEOUT_MS", 10_000),
+  ssrRequestTimeoutMs,
+  apiRequestTimeoutMs: numberEnv("API_REQUEST_TIMEOUT_MS", 12_000),
+  proxyRequestTimeoutMs: numberEnv("PROXY_REQUEST_TIMEOUT_MS", 8_000),
+  ssrMaxConcurrency: numberEnv("SSR_MAX_CONCURRENCY", 32),
+  ssrMaxQueue: numberEnv("SSR_MAX_QUEUE", 64),
+  ssrQueueWaitMs: numberEnv("SSR_QUEUE_WAIT_MS", 250),
   revalidationAttempts: numberEnv("SWR_REVALIDATION_ATTEMPTS", 3),
   revalidationBackoffMs: numberEnv("SWR_REVALIDATION_BACKOFF_MS", 250),
   revalidationDrainTimeoutMs: numberEnv("SWR_DRAIN_TIMEOUT_MS", 5_000),
@@ -130,6 +137,18 @@ export function validateConfig(): void {
   }
   if (config.cacheFillPollMs > config.cacheFillWaitMs) {
     throw new Error("CACHE_FILL_POLL_MS must not exceed CACHE_FILL_WAIT_MS");
+  }
+  assertPositiveInteger("SSR_REQUEST_TIMEOUT_MS", config.ssrRequestTimeoutMs);
+  assertPositiveInteger("API_REQUEST_TIMEOUT_MS", config.apiRequestTimeoutMs);
+  assertPositiveInteger("PROXY_REQUEST_TIMEOUT_MS", config.proxyRequestTimeoutMs);
+  assertPositiveInteger("SSR_MAX_CONCURRENCY", config.ssrMaxConcurrency);
+  assertPositiveInteger("SSR_MAX_QUEUE", config.ssrMaxQueue);
+  assertPositiveInteger("SSR_QUEUE_WAIT_MS", config.ssrQueueWaitMs);
+  if (config.ssrRequestTimeoutMs <= config.cacheFillTimeoutMs) {
+    throw new Error("SSR_REQUEST_TIMEOUT_MS must exceed CACHE_FILL_TIMEOUT_MS");
+  }
+  if (config.ssrQueueWaitMs >= config.ssrRequestTimeoutMs) {
+    throw new Error("SSR_QUEUE_WAIT_MS must be lower than SSR_REQUEST_TIMEOUT_MS");
   }
   assertPositiveInteger("BOT_ANALYTICS_QUEUE_CAPACITY", config.botAnalyticsQueueCapacity);
   assertPositiveInteger("BOT_ANALYTICS_CONCURRENCY", config.botAnalyticsConcurrency);
