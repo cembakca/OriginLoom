@@ -43,3 +43,21 @@ spec:
           annotations:
             summary: "Gateway response violated an SSR consumer contract"
             description: "Contract {{ $labels.contract }} rejected a gateway payload because of {{ $labels.reason }}."
+
+        - alert: SsrColdCacheFillTimeout
+          expr: sum(increase(ssr_cache_fill_total{outcome="timeout"}[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Cold cache loader/render exceeded its execution budget"
+            description: "At least one cold cache fill timed out during the last 10 minutes."
+
+        - alert: SsrColdMissLockTimeout
+          expr: sum(increase(ssr_cache_lock_timeout_total[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Cold miss wait exhausted the distributed lock budget"
+            description: "A request rendered an uncached fallback after waiting for another pod's cache fill."

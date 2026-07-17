@@ -1,6 +1,9 @@
 import {
   observeCacheEntryWrite,
+  observeCacheFill,
   observeCacheOperation,
+  observeCoalescedWait,
+  observeColdMissLockTimeout,
   observeGatewayRequest,
   observeInvalidGatewayPayload,
   observeRequest,
@@ -18,6 +21,9 @@ describe("production metrics", () => {
     observeRevalidation("success", 42);
     observeInvalidGatewayPayload("offers", "schema");
     observeShellDegradation("menu", "invalid_payload");
+    observeCacheFill("success", 12);
+    observeCoalescedWait("redis", "cache_hit", 8);
+    observeColdMissLockTimeout();
 
     const metrics = renderMetrics();
 
@@ -38,6 +44,9 @@ describe("production metrics", () => {
     expect(metrics).toContain(
       'ssr_shell_degraded_total{component="menu",reason="invalid_payload"}',
     );
+    expect(metrics).toContain('ssr_cache_fill_total{outcome="success"}');
+    expect(metrics).toContain('ssr_cache_coalesced_wait_total{scope="redis",outcome="cache_hit"}');
+    expect(metrics).toContain('ssr_cache_lock_timeout_total{outcome="timeout"}');
   });
 
   it("exports event-loop, process and release gauges", () => {

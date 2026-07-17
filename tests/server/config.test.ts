@@ -29,6 +29,22 @@ describe("server config", () => {
     );
   });
 
+  it("rejects a cold-fill polling interval longer than its wait budget", async () => {
+    await expect(
+      validateWith({
+        CACHE_FILL_TIMEOUT_MS: "100",
+        CACHE_FILL_WAIT_MS: "100",
+        CACHE_FILL_POLL_MS: "101",
+      }),
+    ).rejects.toThrow("CACHE_FILL_POLL_MS must not exceed CACHE_FILL_WAIT_MS");
+  });
+
+  it("rejects a cold-fill wait budget shorter than owner execution budget", async () => {
+    await expect(
+      validateWith({ CACHE_FILL_TIMEOUT_MS: "1000", CACHE_FILL_WAIT_MS: "999" }),
+    ).rejects.toThrow("CACHE_FILL_WAIT_MS must not be lower than CACHE_FILL_TIMEOUT_MS");
+  });
+
   it("requires explicit production origins and secrets", async () => {
     await expect(
       validateWith({

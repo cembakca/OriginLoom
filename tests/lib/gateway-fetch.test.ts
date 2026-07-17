@@ -47,4 +47,17 @@ describe("gatewayFetch", () => {
     const headers = call![1]!.headers as Headers;
     expect(headers.get("correlationid")).toBe("generated-request-id");
   });
+
+  it("forwards the request abort budget to the gateway call", async () => {
+    const controller = new AbortController();
+    const request = new Request("http://localhost/", { signal: controller.signal });
+
+    await gatewayFetchForRequest(request, "/user/profile");
+
+    const call = vi.mocked(globalThis.fetch).mock.calls[0];
+    const signal = call![1]!.signal;
+    expect(signal).toBeDefined();
+    controller.abort();
+    expect(signal?.aborted).toBe(true);
+  });
 });

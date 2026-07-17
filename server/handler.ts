@@ -5,6 +5,7 @@ import type { Ctx, LoaderResult, Route } from "~/lib/types";
 import { normalizePublicUrl, resolveRoute } from "~/routing";
 
 import * as cache from "./cache";
+import { coalesceColdMiss } from "./cache/cold-fill";
 import { config } from "./config";
 import { type Assets, renderDocument } from "./document";
 import { errorResponse } from "./error";
@@ -22,6 +23,15 @@ export type HandleContext = {
 };
 
 const revalidationsInFlight = new Map<string, Promise<void>>();
+
+type RouteExecution = { result: LoaderResult<unknown>; body?: string };
+
+class CacheFillTimeoutError extends Error {
+  constructor() {
+    super(`Cold cache fill exceeded ${config.cacheFillTimeoutMs}ms`);
+    this.name = "CacheFillTimeoutError";
+  }
+}
 
 export async function drainRevalidations(timeoutMs: number): Promise<boolean> {
   const pending = [...revalidationsInFlight.values()];
@@ -169,7 +179,42 @@ export async function handle(
     }
 
     try {
-      const result = await runLoader(route, routeCtx, "request");
+      let execution: RouteExecution;
+      if (key && request.method === "GET") {
+        const coldMiss = await coalesceColdMiss({
+          key,
+          policy,
+          work: async () => {
+            const value = await executeRouteWithBudget(route, routeCtx, assets);
+            const result = value.result;
+            const terminal =
+              result.kind && result.kind !== "data" ? true : (result.status ?? 200) !== 200;
+            return {
+              value,
+              ...(value.body !== undefined ? { body: value.body } : {}),
+              cacheable: !terminal,
+              terminal,
+            };
+          },
+          isTimeout: (error) => error instanceof CacheFillTimeoutError,
+        });
+        if (coldMiss.kind === "cache") {
+          if (coldMiss.state === "STALE") {
+            scheduleRevalidation(key, route, routeCtx, policy, assets, requestId);
+          }
+          logRequest(requestId, {
+            path: url.pathname,
+            status: 200,
+            cache: coldMiss.state,
+            durationMs: Date.now() - started,
+          });
+          return html(coldMiss.body, 200, policy, coldMiss.state, undefined, requestId);
+        }
+        execution = coldMiss.work.value;
+      } else {
+        execution = await executeRoute(route, routeCtx, assets, "request");
+      }
+      const { result } = execution;
 
       if (result.kind === "redirect") {
         const status = result.status ?? 307;
@@ -223,10 +268,8 @@ export async function handle(
         return html(body, status, { kind: "none" }, "BYPASS", result.headers, requestId);
       }
 
-      const body = await runRender(route, result.data, assets, routeCtx, "request");
-      if (key && request.method === "GET" && (result.status ?? 200) === 200) {
-        await cache.write(key, body, policy);
-      }
+      const body = execution.body;
+      if (body === undefined) throw new Error("Route data result was not rendered");
 
       const cacheState = key ? "MISS" : "BYPASS";
       logRequest(requestId, {
@@ -272,6 +315,42 @@ export async function handle(
     if (requestId) response.headers.set("x-request-id", requestId);
     return response;
   }
+}
+
+async function executeRouteWithBudget(
+  route: Route,
+  routeCtx: Ctx,
+  assets: Assets,
+): Promise<RouteExecution> {
+  const controller = new AbortController();
+  const timeoutError = new CacheFillTimeoutError();
+  const timer = setTimeout(() => controller.abort(timeoutError), config.cacheFillTimeoutMs);
+  timer.unref?.();
+  const timeout = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener("abort", () => reject(timeoutError), { once: true });
+  });
+  const budgetCtx: Ctx = {
+    ...routeCtx,
+    request: new Request(routeCtx.request, { signal: controller.signal }),
+  };
+
+  try {
+    return await Promise.race([executeRoute(route, budgetCtx, assets, "cache_fill"), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function executeRoute(
+  route: Route,
+  routeCtx: Ctx,
+  assets: Assets,
+  phase: "request" | "revalidation" | "cache_fill",
+): Promise<RouteExecution> {
+  const result = await runLoader(route, routeCtx, phase);
+  if (result.kind && result.kind !== "data") return { result };
+  const body = await runRender(route, result.data, assets, routeCtx, phase);
+  return { result, body };
 }
 
 function createRouteContext(
@@ -402,7 +481,7 @@ async function revalidate(
 function runLoader(
   route: Route,
   routeCtx: Parameters<Route["loader"]>[0],
-  phase: "request" | "revalidation",
+  phase: "request" | "revalidation" | "cache_fill",
 ) {
   return withSpan(
     "route.loader",
@@ -419,7 +498,7 @@ function runRender<T>(
   data: T,
   assets: Assets,
   routeCtx: Parameters<Route<T>["loader"]>[0],
-  phase: "request" | "revalidation",
+  phase: "request" | "revalidation" | "cache_fill",
 ) {
   return withSpan(
     "ssr.render",

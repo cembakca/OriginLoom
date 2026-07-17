@@ -125,6 +125,35 @@ export async function releaseRevalidationLock(key: string, token: string): Promi
   }
 }
 
+export type ColdMissLockAttempt =
+  { kind: "acquired"; token: string } | { kind: "held" } | { kind: "unavailable" };
+
+export async function acquireColdMissLock(key: string): Promise<ColdMissLockAttempt> {
+  const cache = getCache();
+  if (!cache.acquireLock) return { kind: "acquired", token: crypto.randomUUID() };
+  try {
+    const token = await runCacheOperation("cold_fill_lock.acquire", () =>
+      cache.acquireLock!(`cold-fill:${key}`, config.cacheFillTimeoutMs + 1_000),
+    );
+    return token ? { kind: "acquired", token } : { kind: "held" };
+  } catch (error) {
+    logError(error, { msg: "cold fill cache lock failed", key });
+    return { kind: "unavailable" };
+  }
+}
+
+export async function releaseColdMissLock(key: string, token: string): Promise<void> {
+  const cache = getCache();
+  if (!cache.releaseLock) return;
+  try {
+    await runCacheOperation("cold_fill_lock.release", () =>
+      cache.releaseLock!(`cold-fill:${key}`, token),
+    );
+  } catch (error) {
+    logError(error, { msg: "cold fill cache unlock failed", key });
+  }
+}
+
 async function runCacheOperation<T>(
   operation: string,
   work: (span: Span) => Promise<T>,

@@ -19,6 +19,8 @@ function publicHttpUrlEnv(name: string): string | undefined {
 }
 
 const nodeEnv = process.env.NODE_ENV ?? "development";
+const gatewayTimeoutMs = numberEnv("GATEWAY_TIMEOUT_MS", 5_000);
+const cacheFillTimeoutMs = numberEnv("CACHE_FILL_TIMEOUT_MS", gatewayTimeoutMs * 2 + 2_000);
 
 export const config = {
   port: numberEnv("PORT", 3005),
@@ -33,7 +35,10 @@ export const config = {
   revalidationAttempts: numberEnv("SWR_REVALIDATION_ATTEMPTS", 3),
   revalidationBackoffMs: numberEnv("SWR_REVALIDATION_BACKOFF_MS", 250),
   revalidationDrainTimeoutMs: numberEnv("SWR_DRAIN_TIMEOUT_MS", 5_000),
-  gatewayTimeoutMs: numberEnv("GATEWAY_TIMEOUT_MS", 5_000),
+  gatewayTimeoutMs,
+  cacheFillTimeoutMs,
+  cacheFillWaitMs: numberEnv("CACHE_FILL_WAIT_MS", cacheFillTimeoutMs + 500),
+  cacheFillPollMs: numberEnv("CACHE_FILL_POLL_MS", 100),
   proxyBodyLimitBytes: numberEnv("PROXY_BODY_LIMIT_BYTES", 1_048_576),
   trustProxy: booleanEnv("TRUST_PROXY", false),
   gtmContainerId: process.env.GTM_CONTAINER_ID ?? "",
@@ -101,6 +106,15 @@ export function validateConfig(): void {
     throw new Error(`Invalid MENU_CACHE_SWR: ${config.menuCacheSwr}`);
   }
   assertPositiveInteger("GATEWAY_TIMEOUT_MS", config.gatewayTimeoutMs);
+  assertPositiveInteger("CACHE_FILL_TIMEOUT_MS", config.cacheFillTimeoutMs);
+  assertPositiveInteger("CACHE_FILL_WAIT_MS", config.cacheFillWaitMs);
+  assertPositiveInteger("CACHE_FILL_POLL_MS", config.cacheFillPollMs);
+  if (config.cacheFillWaitMs < config.cacheFillTimeoutMs) {
+    throw new Error("CACHE_FILL_WAIT_MS must not be lower than CACHE_FILL_TIMEOUT_MS");
+  }
+  if (config.cacheFillPollMs > config.cacheFillWaitMs) {
+    throw new Error("CACHE_FILL_POLL_MS must not exceed CACHE_FILL_WAIT_MS");
+  }
   assertPositiveInteger("PROXY_BODY_LIMIT_BYTES", config.proxyBodyLimitBytes);
   assertPositiveInteger("REDIRECT_CACHE_TTL_MS", config.redirectCacheTtlMs);
   assertPositiveInteger("REDIRECT_CACHE_MAX_ENTRIES", config.redirectCacheMaxEntries);

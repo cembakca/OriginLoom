@@ -480,7 +480,9 @@ Okuma sırasında dört durum oluşur:
 ```mermaid
 stateDiagram-v2
     [*] --> MISS: Key yok
-    MISS --> FRESH: Loader + render + başarılı write
+    MISS --> FILL: Process coalescing + Redis lock
+    FILL --> FRESH: Loader + render + başarılı write
+    FILL --> MISS: Timeout, terminal sonuç veya write failure
     FRESH --> FRESH: now < freshUntil / HIT
     FRESH --> STALE: TTL dolar
     STALE --> STALE: stale HTML dön / revalidation sürüyor
@@ -494,12 +496,54 @@ Response üzerinde bunları şu şekilde görüyoruz:
 
 - `HIT`: Fresh HTML Redis veya memory store’dan geldi.
 - `STALE`: Eski HTML hemen döndü, yenileme planlandı.
-- `MISS`: Cache entry yoktu; loader ve render çalıştı, başarılı sonuç yazıldı.
+- `MISS`: Cache entry yoktu; request cold-fill veya kontrollü uncached fallback yolunda render edildi.
 - `BYPASS`: Route policy `none`; cache’e hiç bakılmadı.
 - `ERROR`: Handler beklenmeyen hata üretti.
 
 `MISS` ile `BYPASS` ayrımı operasyon için önemlidir. Sürekli `MISS` beklenmeyen key cardinality’si,
 Redis problemi veya yetersiz TTL gösterebilir. `BYPASS` ise route’un bilinçli politikasıdır.
+
+### İlk MISS neden SWR lock'undan ayrı korunur?
+
+SWR yalnız stale body varken çalışır. Deploy sonrası, purge sonrası veya `staleUntil` aşıldığında body
+yoktur; popüler bir URL'ye aynı anda gelen request'lerin tamamı loader ve React render'a girerse cold
+cache stampede oluşur. Bu projede koruma iki kademelidir:
+
+```mermaid
+flowchart TD
+    A["Cache MISS"] --> B{"Process'te fill var mı?"}
+    B -->|Evet| C["Aynı Promise'i bekle"]
+    B -->|Hayır| D{"Redis cold-fill lock"}
+    D -->|Alındı| E["Budget içinde loader + render + write"]
+    D -->|Başka podda| F["Cache poll + lock retry"]
+    F -->|Body yazıldı| G["HIT / STALE body dön"]
+    F -->|Lock boşaldı| E
+    F -->|Wait timeout| H["Uncached fallback render"]
+```
+
+Process `Map`'i tek poddaki yüz request'i bir Promise'e indirir. Redis lock aynı işi replica'lar
+arasında yapar. Lock değeri rastgele owner token'ıdır; release Lua karşılaştırması yalnız aynı token
+hâlâ lock sahibiyse key'i siler. TTL, fill timeout'tan biraz uzun türetilir. Böylece durmuş bir pod
+lock'u sonsuza kadar tutamaz, geç kalan eski owner da yeni owner'ın lock'unu silemez. Redis'in resmi
+[`SET` komutu](https://redis.io/docs/latest/commands/set/) `NX` ve millisecond `PX` seçeneklerinin bu
+atomik acquire davranışını sağlar.
+
+Lock'u alamayan request boşta beklemez; bounded aralıkla hem body'yi hem lock'u tekrar kontrol eder.
+Owner başarılıysa gateway ve render hiç tekrarlanmaz. Owner terminal sonuç veya hata üretip lock'u
+bırakırsa waiter'lardan biri devralır. Wait bütçesi dolarsa availability seçilir: request tek bir
+uncached fallback render yapar ve mevcut owner'la yarışarak cache'e yazmaz. Bu yol
+`ssr_cache_lock_timeout_total` ile alarm üretir.
+
+Cold fill'in loader + render toplamı `CACHE_FILL_TIMEOUT_MS` ile sınırlıdır. Timeout signal'ı
+`ctx.request.signal` üzerinden gateway adapter'a taşınır; bir service bu signal'ı düşürürse Promise
+bütçesi response'u sonlandırsa bile iptal edilemeyen upstream iş bırakabilir. Bu nedenle request signal
+propagation route/service kontratının parçasıdır.
+
+Üç bounded metric farklı soruları yanıtlar:
+
+- `ssr_cache_fill_total` ve duration histogramı: Owner fill başarılı mı, terminal mi, timeout mu?
+- `ssr_cache_coalesced_wait_total`: Request process Promise'i mi, Redis owner'ı mı bekledi?
+- `ssr_cache_lock_timeout_total`: Distributed wait sonrası kaç uncached fallback çalıştı?
 
 ### Cardinality'yi key formatı değil, input domain'i sınırlar
 
@@ -875,6 +919,7 @@ durumunu ayrı gösterir.
 - Route/page ID bazında HIT, MISS, STALE ve BYPASS oranı.
 - Revalidation başarı, retry ve failure sayısı.
 - Lock kazanma/kaybetme oranı.
+- Cold fill sonucu, process/Redis coalesced wait süresi ve lock timeout sayısı.
 - Loader ve render süresi.
 - Redis read/write latency ve hata oranı.
 - Key cardinality ve memory kullanımı.
@@ -899,6 +944,9 @@ it("kişisel SSR route auth varken bypass eder", () => { ... });
 it("account route hiçbir zaman cache'lenmez", () => { ... });
 it("başarısız revalidation stale body'yi ezmez", () => { ... });
 it("aynı key için concurrent revalidation tekilleştirilir", () => { ... });
+it("aynı key için concurrent cold miss tek loader/render çalıştırır", () => { ... });
+it("Redis lock waiter başka podun yazdığı body'yi loader çalıştırmadan kullanır", () => { ... });
+it("cold fill timeout request signal'ını abort eder", () => { ... });
 ```
 
 Handler seviyesinde ilk request’in `MISS`, ikincinin `HIT` olduğu; TTL sonrası `STALE` döndüğü ve

@@ -354,15 +354,16 @@ Yani TTL dolunca cache anında “kırılmaz”; önce stale servis, arka planda
 
 ### Dosyalar
 
-| Dosya                     | Rol                                                            |
-| ------------------------- | -------------------------------------------------------------- |
-| `server/cache/index.ts`   | Store seçimi (memory / redis), read / write / cacheKey         |
-| `server/cache/redis.ts`   | ioredis adapter, release bazlı `ssr:<release-id>:` namespace'i |
-| `server/cache/memory.ts`  | Geliştirme için in-memory adapter                              |
-| `src/lib/cache-keys.ts`   | Merkezi cache key registry + `pageCachePolicy`                 |
-| `src/lib/cache-policy.ts` | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)          |
-| `server/services/menu.ts` | Menü fetch + aynı cache store kullanımı                        |
-| `server/handler.ts`       | Cache okuma, SWR revalidate, MISS'te render                    |
+| Dosya                       | Rol                                                            |
+| --------------------------- | -------------------------------------------------------------- |
+| `server/cache/index.ts`     | Store seçimi (memory / redis), read / write / cacheKey         |
+| `server/cache/cold-fill.ts` | Process/Redis cold-miss coalescing ve polling                  |
+| `server/cache/redis.ts`     | ioredis adapter, release bazlı `ssr:<release-id>:` namespace'i |
+| `server/cache/memory.ts`    | Geliştirme için in-memory adapter                              |
+| `src/lib/cache-keys.ts`     | Merkezi cache key registry + `pageCachePolicy`                 |
+| `src/lib/cache-policy.ts`   | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)          |
+| `server/services/menu.ts`   | Menü fetch + aynı cache store kullanımı                        |
+| `server/handler.ts`         | Cache okuma, cold-fill coalescing, SWR revalidate ve render    |
 
 ---
 
@@ -374,6 +375,25 @@ Projede iki farklı kavram vardır; karıştırılmamalı:
 | ---------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
 | **Bypass**       | Kişisel SSR, `neverCache()` route, özel bypass kuralı | Bu istek cache'e **bakmaz/yazmaz** (`x-cache: BYPASS`)       |
 | **Invalidation** | İçerik değişti, eski HTML'i silmek istiyorsun         | Cache'teki **entry silinir**; sonraki anonim istek MISS alır |
+
+### Cold miss fill kontratı
+
+Shared route'ta cache entry yoksa loader doğrudan ve sınırsız biçimde çalıştırılmaz:
+
+1. Aynı process'teki aynı key request'leri tek in-flight Promise'i bekler.
+2. Fill sahibi pod `cold-fill:<key>` Redis lock'unu `SET NX PX` semantiğiyle alır.
+3. Diğer podlar `CACHE_FILL_POLL_MS` aralığında cache'i kontrol eder; body yazılınca onu kullanır.
+4. Owner hata verip lock'u bırakırsa bir waiter lock'u alıp fill'i devralabilir.
+5. `CACHE_FILL_WAIT_MS` dolarsa request availability için uncached render yapar, fakat owner ile yarışıp
+   cache'i overwrite etmez.
+6. Loader + render `CACHE_FILL_TIMEOUT_MS` bütçesine tabidir. Service/gateway kodu `ctx.request.signal`
+   zincirini koparmamalıdır.
+
+Lock TTL uygulama içinde fill timeout'tan türetilir; bağımsız ve uyumsuz bir env değeri değildir.
+Lock release token karşılaştırmalı olduğu için süresi dolmuş lock'un yeni sahibini eski owner silemez.
+Redis unavailable olduğunda distributed garanti fail-open kaybolur, process coalescing korunur.
+
+Yeni cache'li route testleri aynı key için eşzamanlı loader çağrısının `1` kaldığını da doğrulamalıdır.
 
 ### 1. İstek bazlı bypass (cache'e hiç girme)
 

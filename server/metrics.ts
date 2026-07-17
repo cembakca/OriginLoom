@@ -44,7 +44,7 @@ class Histogram {
   }
 }
 
-const DURATION_BUCKETS_MS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000];
+const DURATION_BUCKETS_MS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 15_000];
 const BODY_SIZE_BUCKETS_BYTES = [1_024, 10_240, 51_200, 102_400, 262_144, 524_288, 1_048_576];
 const KEY_SIZE_BUCKETS_BYTES = [32, 64, 128, 256, 512, 1_024];
 const MAX_DISTINCT_KEYS_PER_ROUTE = 2_000;
@@ -55,6 +55,9 @@ const revalidations: CounterMap = new Map();
 const cacheCardinalityOverflows: CounterMap = new Map();
 const invalidGatewayPayloads: CounterMap = new Map();
 const shellDegradations: CounterMap = new Map();
+const cacheFills: CounterMap = new Map();
+const coalescedWaits: CounterMap = new Map();
+const coldMissLockTimeouts: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
 const requestDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheResponseDurations = new Histogram(DURATION_BUCKETS_MS);
@@ -63,6 +66,8 @@ const cacheDurations = new Histogram(DURATION_BUCKETS_MS);
 const revalidationDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheBodySizes = new Histogram(BODY_SIZE_BUCKETS_BYTES);
 const cacheKeySizes = new Histogram(KEY_SIZE_BUCKETS_BYTES);
+const cacheFillDurations = new Histogram(DURATION_BUCKETS_MS);
+const coalescedWaitDurations = new Histogram(DURATION_BUCKETS_MS);
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 eventLoopDelay.enable();
 
@@ -116,6 +121,29 @@ export function observeShellDegradation(
   reason: "gateway_error" | "invalid_payload",
 ): void {
   increment(shellDegradations, `component="${component}",reason="${reason}"`);
+}
+
+export function observeCacheFill(
+  outcome: "success" | "race_hit" | "terminal" | "write_error" | "error" | "timeout",
+  durationMs: number,
+): void {
+  const labels = `outcome="${outcome}"`;
+  increment(cacheFills, labels);
+  cacheFillDurations.observe(labels, durationMs);
+}
+
+export function observeCoalescedWait(
+  scope: "process" | "redis",
+  outcome: "filled" | "terminal" | "cache_hit" | "stale" | "lock_acquired" | "timeout" | "error",
+  durationMs: number,
+): void {
+  const labels = `scope="${scope}",outcome="${outcome}"`;
+  increment(coalescedWaits, labels);
+  coalescedWaitDurations.observe(labels, durationMs);
+}
+
+export function observeColdMissLockTimeout(): void {
+  increment(coldMissLockTimeouts, 'outcome="timeout"');
 }
 
 export function observeCacheOperation(
@@ -209,6 +237,25 @@ export function renderMetrics(): string {
       "ssr_shell_degraded_total",
       "Non-critical shell components rendered with controlled fallback data",
       shellDegradations,
+    ),
+    ...counterLines("ssr_cache_fill_total", "Cold cache fill attempts", cacheFills),
+    ...cacheFillDurations.lines(
+      "ssr_cache_fill_duration_milliseconds",
+      "Cold cache loader, render and write duration",
+    ),
+    ...counterLines(
+      "ssr_cache_coalesced_wait_total",
+      "Requests coalesced behind an in-process or Redis cold fill",
+      coalescedWaits,
+    ),
+    ...coalescedWaitDurations.lines(
+      "ssr_cache_coalesced_wait_duration_milliseconds",
+      "Time spent waiting for a coalesced cold fill",
+    ),
+    ...counterLines(
+      "ssr_cache_lock_timeout_total",
+      "Cold miss waits that exhausted the Redis lock wait budget",
+      coldMissLockTimeouts,
     ),
     ...gatewayDurations.lines(
       "ssr_gateway_request_duration_milliseconds",

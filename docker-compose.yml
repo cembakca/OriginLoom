@@ -24,6 +24,9 @@ services:
       CACHE_BACKEND: redis
       CACHE_REQUIRED: "false"
       REDIS_URL: redis://redis:6379
+      CACHE_FILL_TIMEOUT_MS: 12000
+      CACHE_FILL_WAIT_MS: 12500
+      CACHE_FILL_POLL_MS: 100
       GATEWAY_URL: ${GATEWAY_URL:-http://mock-gw:4002}
       GTM_CONTAINER_ID: GTM-XXXXXX
       SITE_URL: http://localhost:3005

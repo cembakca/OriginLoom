@@ -69,7 +69,7 @@ export function gatewayFetchForRequest(
   const requestId = request.headers.get("x-request-id") ?? activeRequestId();
   if (authorization) headers.set("authorization", authorization);
   if (requestId && !headers.has("correlationid")) headers.set("correlationid", requestId);
-  return gatewayFetch(path, { ...init, headers });
+  return gatewayFetch(path, { ...init, headers, signal: init.signal ?? request.signal });
 }
 
 function isTimeout(error: unknown): boolean {

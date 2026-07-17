@@ -1,5 +1,14 @@
-import { closeCache, initCache } from "@server/cache";
+import {
+  acquireColdMissLock,
+  cacheKey,
+  closeCache,
+  initCache,
+  releaseColdMissLock,
+  write,
+} from "@server/cache";
+import { config } from "@server/config";
 import { drainRevalidations, handle } from "@server/handler";
+import { renderMetrics } from "@server/metrics";
 import account from "@server/routes/account";
 import blogsPaginated from "@server/routes/blogs-paginated";
 import home from "@server/routes/home";
@@ -231,6 +240,128 @@ describe("handler", () => {
     expect(body).toContain('width="1600" height="900"');
     expect(body).toContain("&quot;publicPath&quot;:&quot;\\/&quot;");
     expect(body).not.toContain("&quot;publicPath&quot;:&quot;/&quot;");
+  });
+
+  it("coalesces concurrent cold misses inside the process", async () => {
+    let loaderCalls = 0;
+    let releaseLoader: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => (releaseLoader = resolve));
+    const route: Route<{ text: string }> = {
+      path: "/cold-process",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["cold-process"] }),
+      loader: async () => {
+        loaderCalls++;
+        await gate;
+        return { data: { text: "coalesced" } };
+      },
+      Component: ({ data }) => createElement("main", null, data.text),
+      minimalChrome: true,
+    };
+    const request = new Request("http://localhost/cold-process");
+
+    const responses = Array.from({ length: 12 }, () => handle(request, [route], assets));
+    for (let turn = 0; turn < 20 && loaderCalls === 0; turn++) await Promise.resolve();
+    expect(loaderCalls).toBe(1);
+    releaseLoader?.();
+
+    const completed = await Promise.all(responses);
+    expect(loaderCalls).toBe(1);
+    expect(completed.every((response) => response.headers.get("x-cache") === "MISS")).toBe(true);
+    expect(renderMetrics()).toContain(
+      'ssr_cache_coalesced_wait_total{scope="process",outcome="filled"}',
+    );
+  });
+
+  it("polls Redis-lock ownership and serves the completed fill without running the loader", async () => {
+    let loaderCalls = 0;
+    const policy = { kind: "shared" as const, ttl: 60, key: ["cold-redis"] };
+    const key = cacheKey(policy)!;
+    const lock = await acquireColdMissLock(key);
+    expect(lock.kind).toBe("acquired");
+    if (lock.kind !== "acquired") throw new Error("expected test lock");
+    const route: Route<{ text: string }> = {
+      path: "/cold-redis",
+      cache: () => policy,
+      loader: async () => {
+        loaderCalls++;
+        return { data: { text: "duplicate" } };
+      },
+      Component: ({ data }) => createElement("main", null, data.text),
+      minimalChrome: true,
+    };
+
+    const pending = handle(new Request("http://localhost/cold-redis"), [route], assets);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await write(key, "<html>filled-by-another-pod</html>", policy);
+    await releaseColdMissLock(key, lock.token);
+
+    const response = await pending;
+    expect(response.headers.get("x-cache")).toBe("HIT");
+    expect(await response.text()).toContain("filled-by-another-pod");
+    expect(loaderCalls).toBe(0);
+    expect(renderMetrics()).toContain(
+      'ssr_cache_coalesced_wait_total{scope="redis",outcome="cache_hit"}',
+    );
+  });
+
+  it("bounds loader and render work during a cold fill", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const route: Route = {
+      path: "/cold-timeout",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["cold-timeout"] }),
+      loader: async (ctx) =>
+        new Promise((_, reject) => {
+          ctx.request.signal.addEventListener(
+            "abort",
+            () => {
+              const reason = ctx.request.signal.reason;
+              reject(reason instanceof Error ? reason : new Error("request aborted"));
+            },
+            { once: true },
+          );
+        }),
+      Component: () => createElement("main", null, "unreachable"),
+      minimalChrome: true,
+    };
+
+    const pending = handle(new Request("http://localhost/cold-timeout"), [route], assets);
+    await vi.advanceTimersByTimeAsync(config.cacheFillTimeoutMs + 1);
+    const response = await pending;
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("x-cache")).toBe("ERROR");
+    expect(renderMetrics()).toContain('ssr_cache_fill_total{outcome="timeout"}');
+  });
+
+  it("falls back after the distributed cold-miss lock wait budget expires", async () => {
+    vi.useFakeTimers();
+    let loaderCalls = 0;
+    const policy = { kind: "shared" as const, ttl: 60, key: ["cold-lock-timeout"] };
+    const key = cacheKey(policy)!;
+    const lock = await acquireColdMissLock(key);
+    expect(lock.kind).toBe("acquired");
+    if (lock.kind !== "acquired") throw new Error("expected test lock");
+    const route: Route = {
+      path: "/cold-lock-timeout",
+      cache: () => policy,
+      loader: async () => {
+        loaderCalls++;
+        return { data: {} };
+      },
+      Component: () => createElement("main", null, "fallback"),
+      minimalChrome: true,
+    };
+
+    const pending = handle(new Request("http://localhost/cold-lock-timeout"), [route], assets);
+    await vi.advanceTimersByTimeAsync(config.cacheFillWaitMs + 1);
+    const response = await pending;
+    await releaseColdMissLock(key, lock.token);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-cache")).toBe("MISS");
+    expect(loaderCalls).toBe(1);
+    expect(renderMetrics()).toContain('ssr_cache_lock_timeout_total{outcome="timeout"}');
   });
 
   it("serves cache-safe public HTML from shared cache even when auth is present", async () => {

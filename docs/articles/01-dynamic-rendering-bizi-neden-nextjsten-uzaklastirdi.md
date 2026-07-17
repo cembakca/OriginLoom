@@ -387,10 +387,10 @@ parametresi ile blog listesi fetch’i.
 
 Kök dizindeki `test.js` (autocannon, 50 bağlantı, 15 saniye) yerel koşulda şu sonucu verdi:
 
-| | ssr-kit `:3005` | Next.js POC `:3006` |
-| --- | --- | --- |
-| RPS (ort.) | ~1.972 | ~20 |
-| Gecikme (ort.) | ~25 ms | ~2.227 ms |
+|                | ssr-kit `:3005` | Next.js POC `:3006` |
+| -------------- | --------------- | ------------------- |
+| RPS (ort.)     | ~1.972          | ~20                 |
+| Gecikme (ort.) | ~25 ms          | ~2.227 ms           |
 
 Bu tablo “Next.js kötü” demek değildir. ssr-kit tarafında route **shared HTML cache HIT** ağırlıklı
 çalışırken Next POC bilinçli olarak **cache’siz full SSR + layout/page başına gateway fetch** ile

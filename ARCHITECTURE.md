@@ -178,6 +178,20 @@ interface CacheStore {
 
 SWR revalidation aynı key için process içinde deduplicate edilir ve Redis `SET NX PX` kilidiyle podlar arasında tekilleştirilir. Başarısız loader/render/write denemeleri üstel backoff ile sınırlı sayıda tekrar edilir. Sunucu kapanırken aktif revalidation işleri `SWR_DRAIN_TIMEOUT_MS` süresince beklenir; böylece işler kontrolsüz fire-and-forget bırakılmaz.
 
+Cold cache miss de ayrı bir fill kontratıdır. Aynı process'teki request'ler key bazlı tek Promise'i
+bekler; replica'lar `cold-fill:<key>` namespace'inde token sahipli, kısa TTL'li Redis `SET NX PX`
+lock'u kullanır. Lock'u alamayan pod cache'i kısa aralıklarla poll eder; owner yazınca `HIT`/`STALE`
+body'yi kullanır, owner başarısız olup lock'u bırakırsa bekleyenlerden biri fill'i devralır. Wait
+bütçesi dolarsa erişilebilirliği korumak için response cache'e yazılmadan bir kez render edilir;
+`lock_timeout` metriği bu kontrollü stampede riskini görünür kılar. Redis erişilemiyorsa podlar arası
+garanti kaybolur fakat process içi coalescing devam eder.
+
+Cold fill loader + render işi `CACHE_FILL_TIMEOUT_MS` ile sınırlıdır ve timeout `AbortSignal` olarak
+request-scoped gateway çağrılarına taşınır. `CACHE_FILL_WAIT_MS` distributed waiter bütçesini,
+`CACHE_FILL_POLL_MS` polling aralığını belirler. `ssr_cache_fill_*`,
+`ssr_cache_coalesced_wait_*` ve `ssr_cache_lock_timeout_total` metrikleri fill sonucu, process/Redis
+bekleme süresi ve lock timeout'u kapalı label setleriyle ölçer.
+
 Redis burada **origin içindeki HTML body cache'idir**; HTTP/CDN shared cache değildir. Shared route
 body'si Redis'ten `HIT` veya `STALE` gelse bile browser'a gönderilen HTML response'u varsayılan olarak
 `Cache-Control: private, no-cache, max-age=0` taşır. Böylece Redis key'inde bulunan device, locale,
@@ -539,6 +553,15 @@ subset davranışlarını aynı SSR document içinde görünür kılan executabl
 - `SWR_REVALIDATION_ATTEMPTS` — toplam deneme sayısı, varsayılan `3`
 - `SWR_REVALIDATION_BACKOFF_MS` — ilk retry gecikmesi, varsayılan `250`
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında bekleme süresi, varsayılan `5000`
+
+**Cold cache miss stampede:** İlk fill aynı process'te Promise coalescing, podlar arasında token-safe
+Redis lock ile tekilleştirilir. Lock waiter cache polling yapar ve lock erken boşalırsa fill'i devralır;
+wait timeout'unda yalnız uncached fallback render çalışır. Loader/render bütçesi gateway request
+signal'ına kadar taşınır. Ayarlar:
+
+- `CACHE_FILL_TIMEOUT_MS` — loader + render bütçesi, varsayılan `2 × gateway timeout + 2000ms`
+- `CACHE_FILL_WAIT_MS` — başka pod fill'ini bekleme bütçesi, varsayılan fill timeout + `500ms`
+- `CACHE_FILL_POLL_MS` — cache/lock polling aralığı, varsayılan `100ms`
 
 **Production telemetry:** Request loglarının ötesinde OpenTelemetry lifecycle, distributed trace
 propagation, SSR/gateway/cache/loader/render span'leri, latency histogramları ve process metrikleri

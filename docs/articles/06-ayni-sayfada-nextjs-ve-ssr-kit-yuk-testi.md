@@ -17,16 +17,16 @@ adlı bağımsız bir Next.js 16 (App Router) projesi oluşturduk.
 
 ### Ortak koşullar
 
-| Parça | ssr-kit | nextjs-overhead-poc |
-| ----- | ------- | --------------------- |
-| URL | `http://localhost:3005/blogs/paginated?page=2` | `http://localhost:3006/blogs/paginated?page=2` |
-| Gateway | Aynı `GATEWAY_URL` (mock-gw `:4002`) | Aynı |
-| Sayfa | Blog listesi + pagination | Aynı UI bileşenleri kopyalandı |
-| Layout | Header / Footer SSR | Aynı component’ler (Island’sız) |
-| Cihaz | User-Agent → Desktop / Tablet / Mobile | Layout’ta `headers()` ile aynı kural |
-| Menü | `GET /pages/menuitem/list` + `device` header | Layout’ta native `fetch`, SSR |
-| Blog verisi | `GET /blogs?page=2&pageSize=6&orderBy=date-desc` | Page’de native `fetch`, SSR |
-| Query | `page` param, redirect / 404 kuralları | ssr-kit ile aynı `resolvePageParam` mantığı |
+| Parça       | ssr-kit                                          | nextjs-overhead-poc                            |
+| ----------- | ------------------------------------------------ | ---------------------------------------------- |
+| URL         | `http://localhost:3005/blogs/paginated?page=2`   | `http://localhost:3006/blogs/paginated?page=2` |
+| Gateway     | Aynı `GATEWAY_URL` (mock-gw `:4002`)             | Aynı                                           |
+| Sayfa       | Blog listesi + pagination                        | Aynı UI bileşenleri kopyalandı                 |
+| Layout      | Header / Footer SSR                              | Aynı component’ler (Island’sız)                |
+| Cihaz       | User-Agent → Desktop / Tablet / Mobile           | Layout’ta `headers()` ile aynı kural           |
+| Menü        | `GET /pages/menuitem/list` + `device` header     | Layout’ta native `fetch`, SSR                  |
+| Blog verisi | `GET /blogs?page=2&pageSize=6&orderBy=date-desc` | Page’de native `fetch`, SSR                    |
+| Query       | `page` param, redirect / 404 kuralları           | ssr-kit ile aynı `resolvePageParam` mantığı    |
 
 Kasıtlı sadeleştirmeler:
 
@@ -59,10 +59,10 @@ ortalama RPS (istek/saniye) ve ortalama gecikme (ms). Hata sayısı ayrı raporl
 
 Yerel koşulda (macOS, mock gateway, iki uygulama aynı anda ayakta) tek koşuda elde edilen sonuçlar:
 
-| Senaryo | RPS (ort.) | Gecikme (ort.) | Hata |
-| ------- | ---------- | -------------- | ---- |
-| **1. ssr-kit** (`:3005`) | **1.971,87** | **24,86 ms** | 0 |
-| **2. Next.js POC** (`:3006`) | **20,27** | **2.227,47 ms** | 0 |
+| Senaryo                      | RPS (ort.)   | Gecikme (ort.)  | Hata |
+| ---------------------------- | ------------ | --------------- | ---- |
+| **1. ssr-kit** (`:3005`)     | **1.971,87** | **24,86 ms**    | 0    |
+| **2. Next.js POC** (`:3006`) | **20,27**    | **2.227,47 ms** | 0    |
 
 Kabaca **~97× RPS** ve **~90× gecikme** farkı. Her iki tarafta da HTTP hata sayısı sıfır — karşılaştırma
 geçerli istekler üzerinden yapılmış.
@@ -146,12 +146,12 @@ gecikmesi artar; **oransal cache faydası** genelde korunur, hatta upstream paha
 
 Sonuçları tartışmak için önerilen ek senaryolar:
 
-| # | ssr-kit | Next.js POC | Amaç |
-| - | ------- | ----------- | ---- |
-| A | Cache açık (mevcut) | `unstable_cache` / fetch cache ile menü + sayfa | Cache simetrisi |
-| B | `neverCache()` veya cache bypass | `cache: "no-store"` (mevcut) | Soğuk SSR eşleşmesi |
-| C | `npm run start` (prod bundle) | `next build && next start` | Dev overhead çıkarımı |
-| D | Tek istek latency (autocannon değil) | Aynı | P50/P99 dağılımı |
+| #   | ssr-kit                              | Next.js POC                                     | Amaç                  |
+| --- | ------------------------------------ | ----------------------------------------------- | --------------------- |
+| A   | Cache açık (mevcut)                  | `unstable_cache` / fetch cache ile menü + sayfa | Cache simetrisi       |
+| B   | `neverCache()` veya cache bypass     | `cache: "no-store"` (mevcut)                    | Soğuk SSR eşleşmesi   |
+| C   | `npm run start` (prod bundle)        | `next build && next start`                      | Dev overhead çıkarımı |
+| D   | Tek istek latency (autocannon değil) | Aynı                                            | P50/P99 dağılımı      |
 
 Özellikle **B senaryosu** “framework overhead” sorusuna daha yakın cevap verir; mevcut koşul ise
 **ürün kontratı (cache’li route)** sorusuna yakındır.

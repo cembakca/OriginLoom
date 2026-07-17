@@ -217,6 +217,9 @@ Temel değişkenler:
 - `OTEL_TRACES_EXPORTER` — `otlp` veya `none`
 - `OTEL_SDK_DISABLED` — varsayılan `false`; `true` ile OpenTelemetry SDK'yı tamamen kapatır
 - `GATEWAY_TIMEOUT_MS` — gateway/proxy timeout'u
+- `CACHE_FILL_TIMEOUT_MS` — cold miss loader + render toplam timeout bütçesi
+- `CACHE_FILL_WAIT_MS` — başka pod'un cold fill sonucunu bekleme bütçesi
+- `CACHE_FILL_POLL_MS` — distributed cold fill sırasında cache/lock polling aralığı
 - `PROXY_BODY_LIMIT_BYTES` — `/api/*` istek gövdesi üst sınırı
 - `TRUST_PROXY` — yalnızca güvenilir ingress arkasında forwarded IP header'larını etkinleştirir
 - `REDIRECT_ALLOWED_HOSTS` — virgülle ayrılmış harici redirect host allowlist'i
