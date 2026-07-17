@@ -50,8 +50,9 @@ async function main() {
 
     void (async () => {
       try {
-        await Promise.all([closeServer(httpServer), closeServer(metricsServer)]);
-        const [revalidationsDrained, botAnalyticsDrained] = await Promise.all([
+        const [,, revalidationsDrained, botAnalyticsDrained] = await Promise.all([
+          closeServer(httpServer),
+          closeServer(metricsServer),
           drainRevalidations(config.revalidationDrainTimeoutMs),
           drainBotAnalytics(config.botAnalyticsDrainTimeoutMs),
         ]);
