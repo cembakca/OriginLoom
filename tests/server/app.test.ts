@@ -1,5 +1,6 @@
 import { createApp } from "@server/app";
 import { closeCache, initCache } from "@server/cache";
+import { config } from "@server/config";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -42,6 +43,15 @@ describe("Hono application integration", () => {
     expect(response.headers.get("x-frame-options")).toBe("DENY");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("strict-transport-security")).toContain("max-age=");
+    expect(response.headers.get("permissions-policy")).toBeDefined();
+    expect(response.headers.get("permissions-policy")).toContain("camera=()");
+    expect(response.headers.get("content-security-policy-report-only")).toBeDefined();
+    expect(response.headers.get("content-security-policy-report-only")).toContain("default-src 'self'");
+    if (config.isProduction) {
+      expect(response.headers.get("content-security-policy-report-only")).toContain("sha256-");
+    } else {
+      expect(response.headers.get("content-security-policy-report-only")).toContain("'unsafe-inline'");
+    }
   });
 
   it("keeps GET and HEAD status/headers aligned without a HEAD body", async () => {

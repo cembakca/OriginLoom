@@ -5,8 +5,7 @@ type GtmBootstrapProps = {
 
 export const ANALYTICS_FAIL_OPEN_MS = 5_000;
 
-/** Inline early tracking — runs in browser, reads cookies (cache-safe). */
-const EARLY_TRACKING_SCRIPT = `
+export const EARLY_TRACKING_SCRIPT = `
 (function(){
   window.dataLayer=window.dataLayer||[];
   function c(n){var m=document.cookie.match(new RegExp('(?:^|; )'+n.replace(/([.$?*|{}()[\\]\\\\/+^])/g,'\\\\$1')+'=([^;]*)'));return m?decodeURIComponent(m[1]):'';}
@@ -55,22 +54,24 @@ export function buildEventQueueScript(failOpenMs = ANALYTICS_FAIL_OPEN_MS): stri
 `.trim();
 }
 
-export function GtmBootstrap({ containerId, isBot }: GtmBootstrapProps) {
-  if (!containerId) return null;
-
-  const gtmScript = `
+export function buildGtmScript(containerId: string): string {
+  return `
 (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
 var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
 j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','${containerId}');
 `.trim();
+}
+
+export function GtmBootstrap({ containerId, isBot }: GtmBootstrapProps) {
+  if (!containerId) return null;
 
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: "window.dataLayer=window.dataLayer||[];" }} />
       <script dangerouslySetInnerHTML={{ __html: buildEventQueueScript() }} />
       <script dangerouslySetInnerHTML={{ __html: EARLY_TRACKING_SCRIPT }} />
-      <script dangerouslySetInnerHTML={{ __html: gtmScript }} />
+      <script dangerouslySetInnerHTML={{ __html: buildGtmScript(containerId) }} />
       {!isBot && (
         <noscript>
           <iframe

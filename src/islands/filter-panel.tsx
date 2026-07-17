@@ -8,6 +8,8 @@ export default function FilterPanel({ amount, city }: { amount: number; city: st
 
   return (
     <form
+      action=""
+      method="get"
       className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
       onSubmit={(e) => {
         e.preventDefault();
@@ -18,6 +20,7 @@ export default function FilterPanel({ amount, city }: { amount: number; city: st
         Tutar (TL)
         <input
           type="number"
+          name="amount"
           value={value}
           step={5000}
           onChange={(e) => setValue(Number(e.target.value))}
