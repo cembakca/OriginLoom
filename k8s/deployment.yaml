@@ -22,7 +22,7 @@ spec:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: /metrics
-        prometheus.io/port: "3005"
+        prometheus.io/port: "9090"
     spec:
       automountServiceAccountToken: false
       topologySpreadConstraints:
@@ -47,7 +47,10 @@ spec:
             capabilities:
               drop: ["ALL"]
           ports:
-            - containerPort: 3005
+            - name: http
+              containerPort: 3005
+            - name: metrics
+              containerPort: 9090
           envFrom:
             - configMapRef:
                 name: ssr-kit-config

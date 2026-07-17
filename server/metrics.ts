@@ -62,6 +62,7 @@ const botAnalyticsEnqueues: CounterMap = new Map();
 const botAnalyticsDrops: CounterMap = new Map();
 const botAnalyticsBatches: CounterMap = new Map();
 const botAnalyticsDrains: CounterMap = new Map();
+const clientErrorTelemetry: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
 const requestDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheResponseDurations = new Histogram(DURATION_BUCKETS_MS);
@@ -186,6 +187,12 @@ export function observeBotAnalyticsDrain(outcome: "success" | "timeout"): void {
 export function setBotAnalyticsQueueState(queueDepth: number, inFlight: number): void {
   botAnalyticsQueueDepth = Math.max(0, queueDepth);
   botAnalyticsInFlight = Math.max(0, inFlight);
+}
+
+export function observeClientErrorTelemetry(
+  outcome: "accepted" | "invalid" | "sampled" | "rate_limited",
+): void {
+  increment(clientErrorTelemetry, `outcome="${outcome}"`);
 }
 
 export function observeCacheOperation(
@@ -336,6 +343,11 @@ export function renderMetrics(): string {
       "ssr_bot_analytics_in_flight",
       "Bot analytics batches currently in flight",
       botAnalyticsInFlight,
+    ),
+    ...counterLines(
+      "ssr_client_error_telemetry_total",
+      "Client runtime error ingestion outcomes",
+      clientErrorTelemetry,
     ),
     ...gatewayDurations.lines(
       "ssr_gateway_request_duration_milliseconds",

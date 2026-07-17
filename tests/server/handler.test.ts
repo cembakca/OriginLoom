@@ -7,7 +7,13 @@ import {
   write,
 } from "@server/cache";
 import { config } from "@server/config";
-import { drainRevalidations, handle } from "@server/handler";
+import {
+  drainRevalidations,
+  handle,
+  handleHead,
+  isSsrRouteRequest,
+  methodNotAllowedResponse,
+} from "@server/handler";
 import { renderMetrics } from "@server/metrics";
 import account from "@server/routes/account";
 import blogsPaginated from "@server/routes/blogs-paginated";
@@ -49,6 +55,46 @@ describe("handler", () => {
     expect(body).toContain("Aradığınız sayfa bulunamadı");
     expect(body).toContain('<meta name="robots" content="noindex, nofollow"');
     expect(body).toContain('data-island="layout-client"');
+  });
+
+  it("rejects non-GET/HEAD methods for SSR routes without affecting gateway proxy paths", () => {
+    const post = new Request("http://localhost/", { method: "POST" });
+    expect(isSsrRouteRequest(post, [homeRoute])).toBe(true);
+    const response = methodNotAllowedResponse("method-request");
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET, HEAD");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("x-request-id")).toBe("method-request");
+
+    expect(
+      isSsrRouteRequest(new Request("http://localhost/api/offers", { method: "POST" }), [
+        homeRoute,
+      ]),
+    ).toBe(false);
+  });
+
+  it("answers HEAD without running the route loader or renderer", async () => {
+    const loader = vi.fn(async () => ({ data: {} }));
+    const component = vi.fn(() => createElement("p", null, "unreachable"));
+    const route: Route = {
+      path: "/head-contract",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["head-contract"] }),
+      loader,
+      Component: component,
+    };
+
+    const response = await handleHead(
+      new Request("http://localhost/head-contract", { method: "HEAD" }),
+      [route],
+      { requestId: "head-request" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-cache")).toBe("HEAD");
+    expect(response.headers.get("x-request-id")).toBe("head-request");
+    expect(await response.text()).toBe("");
+    expect(loader).not.toHaveBeenCalled();
+    expect(component).not.toHaveBeenCalled();
   });
 
   it("redirects a non-canonical public path before matching, rewrites and cache lookup", async () => {
@@ -177,6 +223,23 @@ describe("handler", () => {
     const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
     expect(errorId).not.toBe("");
     expect(body).not.toContain(errorId);
+  });
+
+  it("renders the default route retry action as a button instead of a crawlable self-link", async () => {
+    const route: Route = {
+      path: "/retry-error",
+      loader: async () => {
+        throw new Error("temporary failure");
+      },
+      Component: () => createElement("p", null, "unreachable"),
+      minimalChrome: true,
+    };
+    const response = await handle(new Request("http://localhost/retry-error"), [route], assets);
+    const body = await response.text();
+
+    expect(response.status).toBe(500);
+    expect(body).toContain("data-reload-page");
+    expect(body).not.toContain('href=""');
   });
 
   it("uses the route error boundary for unexpected loader failures", async () => {

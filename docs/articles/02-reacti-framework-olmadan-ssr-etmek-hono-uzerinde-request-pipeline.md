@@ -700,7 +700,16 @@ Sunucuda ayrıca üç ayrı operasyon endpoint’i var:
 
 - `/healthz`: Process HTTP cevap verebiliyor mu?
 - `/readyz`: Yeni trafik almaya hazır mı, zorunlu cache dependency’si erişilebilir mi?
-- `/metrics`: Status, cache state ve süre dağılımı ne?
+- Ayrı `METRICS_PORT` üzerindeki `/metrics`: Status, cache state ve süre dağılımı ne?
+
+Application portu `/metrics` için `404` döner. Kubernetes public Service yalnız application portunu,
+pod scrape annotation ise ayrı `9090` metrics portunu görür. Böylece ingress'in catch-all route'u
+Prometheus yüzeyini yanlışlıkla internete açmaz.
+
+SSR catch-all ayrıca method kontratıdır. Route ile eşleşen resource yalnız `GET` ve `HEAD` kabul eder;
+diğer methodlar `405` ve `Allow: GET, HEAD` alır. HEAD route kimliği ile bounded param validation'ı
+çalıştırır ama loader ve React render maliyetini taşımaz. Gateway `/api/*` proxy'sinin POST/PUT gibi
+methodları bu guard'dan etkilenmez.
 
 Liveness ile readiness’i ayırmak deploy sırasında önemlidir. Redis geçici olarak yoksa process’i
 sürekli öldürmek yerine readiness politikası trafiği kontrollü biçimde kesebilir.
@@ -833,4 +842,5 @@ ayrılması.
 - [React image preload seçenekleri](https://react.dev/reference/react-dom/preload)
 - [Google JavaScript SEO temelleri](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics)
 - [RFC 8259 — JSON standardı](https://www.rfc-editor.org/rfc/rfc8259)
+- [RFC 9110 — HTTP Semantics (`HEAD`, `405`, `Allow`)](https://www.rfc-editor.org/rfc/rfc9110)
 - [Node.js Web API globals](https://nodejs.org/api/globals.html)

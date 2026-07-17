@@ -34,9 +34,13 @@ export function RouteErrorPage({ error }: { error: RouteError | null; status: nu
         <CardDescription>{error?.message ?? "Lütfen daha sonra tekrar deneyin."}</CardDescription>
       </CardHeader>
       <CardContent className="flex gap-4">
-        <a className="font-medium text-brand-700 hover:underline" href="">
+        <button
+          type="button"
+          data-reload-page
+          className="cursor-pointer border-0 bg-transparent p-0 font-medium text-brand-700 hover:underline"
+        >
           Tekrar dene
-        </a>
+        </button>
         <a className="font-medium text-slate-700 hover:underline" href="/">
           Ana sayfaya dön
         </a>

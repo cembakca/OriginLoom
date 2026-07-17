@@ -114,6 +114,47 @@ describe("server config", () => {
     ).rejects.toThrow("Production IMAGE_CDN_URL must use https");
   });
 
+  it("validates GTM container IDs before embedding them into an inline script", async () => {
+    await expect(validateWith({ GTM_CONTAINER_ID: "GTM-ABC123';alert(1)//" })).rejects.toThrow(
+      "Invalid GTM_CONTAINER_ID",
+    );
+    await expect(validateWith({ GTM_CONTAINER_ID: "GTM-ABC123" })).resolves.toBeUndefined();
+  });
+
+  it("requires gateway and asset CDN URL trust boundaries", async () => {
+    await expect(
+      validateWith({ GATEWAY_URL: "https://user:pass@gateway.example/path" }),
+    ).rejects.toThrow("GATEWAY_URL must be an HTTP(S) origin");
+    await expect(
+      validateWith({ ASSET_CDN_URL: "https://cdn.example/assets?token=secret" }),
+    ).rejects.toThrow("ASSET_CDN_URL must be an HTTP(S) URL");
+  });
+
+  it("requires HTTPS for a production gateway unless an internal HTTP exception is explicit", async () => {
+    const production = {
+      NODE_ENV: "production",
+      CACHE_BACKEND: "redis",
+      REDIS_URL: "redis://localhost:6379",
+      GATEWAY_URL: "http://gateway.internal",
+      SITE_URL: "https://www.example.com",
+      CACHE_PURGE_SECRET: "secret",
+      RELEASE_ID: "release-1",
+    };
+    await expect(validateWith(production)).rejects.toThrow("Production GATEWAY_URL must use https");
+    await expect(
+      validateWith({ ...production, ALLOW_INSECURE_GATEWAY: "true" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("validates metrics and client telemetry limits", async () => {
+    await expect(validateWith({ PORT: "3005", METRICS_PORT: "3005" })).rejects.toThrow(
+      "Invalid METRICS_PORT",
+    );
+    await expect(validateWith({ CLIENT_ERROR_SAMPLE_RATE: "-0.1" })).rejects.toThrow(
+      "Invalid CLIENT_ERROR_SAMPLE_RATE",
+    );
+  });
+
   it("requires SITE_URL to be a public origin rather than a path-bearing URL", async () => {
     await expect(
       validateWith({ SITE_URL: "https://www.example.com/base?source=config" }),

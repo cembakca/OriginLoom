@@ -1,4 +1,4 @@
-import { closeCache, initCache } from "@server/cache";
+import { cacheKey, closeCache, initCache, write } from "@server/cache";
 import { fetchMenuList } from "@server/services/menu";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,8 +9,25 @@ describe("menu service", () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     await closeCache();
+  });
+
+  it("serves the last validated stale menu without calling a failing gateway", async () => {
+    vi.useFakeTimers();
+    const policy = { kind: "shared" as const, ttl: 1, swr: 60, key: ["menu:Desktop"] };
+    const key = cacheKey(policy);
+    if (!key) throw new Error("menu cache key missing");
+    await write(key, JSON.stringify(menuPayload()), policy);
+    await vi.advanceTimersByTimeAsync(1_500);
+    const gateway = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
+    vi.stubGlobal("fetch", gateway);
+
+    const menu = await fetchMenuList(new Request("http://localhost/"), "Desktop");
+
+    expect(menu.headerItems[0]?.name).toBe("Kredi");
+    expect(gateway).not.toHaveBeenCalled();
   });
 
   it("propagates a gateway failure instead of hiding it with an in-app fixture", async () => {

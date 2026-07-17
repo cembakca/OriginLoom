@@ -48,6 +48,78 @@ export async function drainRevalidations(timeoutMs: number): Promise<boolean> {
   return drained;
 }
 
+export function isSsrRouteRequest(request: Request, routeTable: Route[]): boolean {
+  const resolution = resolveRoute(new URL(request.url), config.gatewayUrl);
+  if (resolution.kind === "redirect" || resolution.kind === "proxy") return false;
+  return match(routeTable, resolution.pathname) !== null;
+}
+
+export function methodNotAllowedResponse(requestId?: string): Response {
+  const headers = new Headers({
+    allow: "GET, HEAD",
+    "cache-control": "private, no-store",
+    "x-cache": "BYPASS",
+  });
+  if (requestId) headers.set("x-request-id", requestId);
+  return new Response(null, { status: 405, headers });
+}
+
+/** Resolve route identity and headers without running its loader or rendering React. */
+export async function handleHead(
+  request: Request,
+  routeTable: Route[],
+  ctx: HandleContext = {},
+): Promise<Response> {
+  const started = Date.now();
+  const url = new URL(request.url);
+  const requestId = ctx.requestId;
+
+  try {
+    const normalized = normalizePublicUrl(url);
+    if (normalized.kind === "invalid") return publicUrlErrorResponse(requestId);
+    if (normalized.kind === "redirect")
+      return publicUrlRedirectResponse(normalized.location, requestId);
+
+    const resolution = resolveRoute(url, config.gatewayUrl);
+    if (resolution.kind === "redirect") return Response.redirect(resolution.url, resolution.status);
+    if (resolution.kind === "proxy") {
+      const response = await proxyRequest(request, resolution.url, ctx.clientIp);
+      if (requestId) response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const internalUrl = new URL(url);
+    internalUrl.pathname = resolution.pathname;
+    if (resolution.kind === "rewrite") internalUrl.search = resolution.search;
+    const matched = match(routeTable, resolution.pathname);
+    if (!matched) return headResponse(404, { kind: "none" }, requestId);
+
+    setActiveHttpRoute("HEAD", matched.route.path);
+    const routeCtx = createRouteContext(
+      request,
+      internalUrl,
+      resolution.publicPath,
+      matched.params,
+      ctx,
+    );
+    if (matched.route.validateParams && !(await matched.route.validateParams(routeCtx))) {
+      return headResponse(404, { kind: "none" }, requestId);
+    }
+    const policy = matched.route.cache?.(routeCtx) ?? { kind: "none" as const };
+    const response = headResponse(200, policy, requestId);
+    logRequest(requestId, {
+      path: url.pathname,
+      status: response.status,
+      cache: "HEAD",
+      durationMs: Date.now() - started,
+    });
+    return response;
+  } catch (error) {
+    logError(error, { msg: "HEAD route resolution failed", requestId, path: url.pathname });
+    return headResponse(500, { kind: "none" }, requestId);
+  }
+}
+
 /**
  * The whole request pipeline. Read it top to bottom — there is nothing else.
  *
@@ -531,6 +603,20 @@ function html(
   if (requestId) headers["x-request-id"] = requestId;
 
   return new Response(body, { status, headers });
+}
+
+function headResponse(
+  status: number,
+  policy: ReturnType<NonNullable<Route["cache"]>>,
+  requestId?: string,
+): Response {
+  const headers = new Headers({
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": cache.cacheControl(policy),
+    "x-cache": "HEAD",
+  });
+  if (requestId) headers.set("x-request-id", requestId);
+  return new Response(null, { status, headers });
 }
 
 function logRequest(

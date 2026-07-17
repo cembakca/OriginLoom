@@ -6,6 +6,7 @@ loadEnv("production");
 
 const port = 31_305;
 const gatewayPort = 31_402;
+const metricsPort = 31_905;
 const gateway = spawn(process.execPath, ["mock-gw/server.js"], {
   stdio: "inherit",
   env: {
@@ -19,9 +20,11 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
   env: {
     ...process.env,
     PORT: String(port),
+    METRICS_PORT: String(metricsPort),
     CACHE_REQUIRED: "false",
     REDIS_URL: "redis://127.0.0.1:1",
     GATEWAY_URL: `http://127.0.0.1:${gatewayPort}`,
+    ALLOW_INSECURE_GATEWAY: "true",
     SITE_URL: `http://127.0.0.1:${port}`,
     CACHE_PURGE_SECRET: "smoke-test-secret",
     RELEASE_ID: "smoke-test",
@@ -36,8 +39,25 @@ try {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/healthz`);
       if (response.ok && (await response.text()) === "ok") {
-        const pipelineResponse = await fetch(`http://127.0.0.1:${port}/kaldirildi`);
-        if (pipelineResponse.status === 410) {
+        const [pipelineResponse, publicMetrics, clusterMetrics, robots, head, method] =
+          await Promise.all([
+            fetch(`http://127.0.0.1:${port}/kaldirildi`),
+            fetch(`http://127.0.0.1:${port}/metrics`),
+            fetch(`http://127.0.0.1:${metricsPort}/metrics`),
+            fetch(`http://127.0.0.1:${port}/robots.txt`),
+            fetch(`http://127.0.0.1:${port}/`, { method: "HEAD" }),
+            fetch(`http://127.0.0.1:${port}/`, { method: "POST" }),
+          ]);
+        if (
+          pipelineResponse.status === 410 &&
+          publicMetrics.status === 404 &&
+          clusterMetrics.ok &&
+          (await clusterMetrics.text()).includes("ssr_http_requests_total") &&
+          robots.ok &&
+          head.ok &&
+          method.status === 405 &&
+          method.headers.get("allow") === "GET, HEAD"
+        ) {
           passed = true;
           break;
         }

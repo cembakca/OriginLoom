@@ -156,12 +156,13 @@ gateway, cache/Redis ve SWR revalidation bunun altında child span olarak görü
 aktif W3C `traceparent`/`tracestate` context'ini ve `correlationid` olarak request ID'yi taşır.
 Structured loglar `service`, `releaseId`, aktif `traceId` ve `spanId` alanlarını otomatik ekler.
 
-`/metrics`, bounded-label Prometheus metrikleri sunar: request/cache/gateway/revalidation sayaç ve
+`METRICS_PORT` üzerindeki `/metrics`, bounded-label Prometheus metrikleri sunar: request/cache/gateway/revalidation sayaç ve
 latency histogramları, gateway timeout/error outcome'ları, bot analytics queue/drop/batch/drain
 metrikleri, event-loop lag, CPU, heap/RSS, uptime ve release bilgisi. Cache write'ları ayrıca route
 bazında body/key byte histogramı ile bounded distinct key observation gauge'i üretir; örnek alarmlar
 `k8s/prometheus-rules.yaml` içindedir. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı
-yapılmaz.
+yapılmaz. Varsayılan metrics listener `9090` portundadır. Kubernetes pod annotation bu portu scrape
+eder; public application `Service` yalnız `3005` portunu yayınlar ve public `/metrics` `404` döner.
 
 ## Image ve font pipeline
 
@@ -203,7 +204,9 @@ Ortam dosyaları:
 Temel değişkenler:
 
 - `PORT` — HTTP portu, varsayılan `3005`
-- `GATEWAY_URL` — backend gateway adresi; local varsayılan `http://localhost:4002`
+- `METRICS_PORT` — cluster-only Prometheus listener'ı; varsayılan `9090`
+- `GATEWAY_URL` — path/credential/query içermeyen backend origin'i; production varsayılan HTTPS
+- `ALLOW_INSECURE_GATEWAY` — yalnız güvenilir internal HTTP gateway için açık production istisnası
 - `CACHE_BACKEND` — `memory` veya `redis`; production yalnızca `redis` kabul eder
 - `CACHE_REQUIRED` — `true` ise Redis problemi readiness'i başarısız yapar; varsayılan fail-open
 - `REDIS_URL` — Redis seçildiğinde zorunlu
@@ -234,6 +237,8 @@ Temel değişkenler:
 - `BOT_ANALYTICS_DEDUP_TTL_MS` — aynı bot/path için pod-local dedup penceresi
 - `BOT_ANALYTICS_SAMPLE_RATE` — `0..1` aralığında event kabul oranı
 - `BOT_ANALYTICS_DRAIN_TIMEOUT_MS` — shutdown sırasında analytics kuyruğu drain bütçesi
+- `CLIENT_ERROR_RATE_LIMIT` / `CLIENT_ERROR_WINDOW_MS` — process başına telemetry ingestion bütçesi
+- `CLIENT_ERROR_SAMPLE_RATE` — geçerli client error log kabul oranı (`0..1`)
 - `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
 - `IMAGE_CDN_URL` — opsiyonel, dönüşümsüz image dosyaları için CDN prefix'i; path korunur
 - `IMAGE_TRANSFORM_URL` — opsiyonel responsive image transformation endpoint'i
@@ -243,6 +248,9 @@ Temel değişkenler:
 Local Docker testinde `localhost:3005` gibi bare loopback image URL'leri otomatik olarak
 `http://localhost:3005` biçimine normalize edilir. HTTP istisnası yalnız `localhost`, `127.0.0.1` ve
 `[::1]` için geçerlidir; uzak production CDN ve transformer adresleri HTTPS olmak zorundadır.
+
+`GTM_CONTAINER_ID` boş olabilir; doluysa yalnız `GTM-` ile başlayan büyük harf/rakam container formatı
+kabul edilir. Değer inline script üretilmeden önce startup validation'dan geçer.
 
 Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. `mock-gw/` bağımsız bir Node servisi
 olarak 4002 portunda çalışır; Docker Compose uygulamayı bu servise bağlar. Gerçek gateway hazır

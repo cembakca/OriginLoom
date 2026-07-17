@@ -316,6 +316,12 @@ pagination sayfaları sitemap'e eklenmez ve `noindex` yapılmaz; her biri self-c
 sayfadır ve SSR'daki semantic prev/next/page linkleriyle keşfedilir. Blog detay sayfaları eklendiğinde
 sitemap'in asıl içerik envanteri onlar olmalıdır.
 
+Merkezi crawler endpoint'lerinin tek otoritesi `server/seo.ts` dosyasıdır. Yeni indexable public route
+eklenince canonical public path sitemap inventory'sine eklenir; internal rewrite destination,
+`noindex` route, auth sayfası ve filtre/pagination query varyantı eklenmez. Dynamic route değerleri
+env allowlist'inden değil gateway/CMS domain kontratından üretilir. `robots.txt`, sitemap'i absolute
+`SITE_URL` ile ilan eder.
+
 Cache write metrikleri `route` için yalnız registry ID, `menu` veya `other` label'ını kullanır; raw
 path/key label yapılmaz:
 
@@ -818,12 +824,26 @@ Solidus escape'in JSON standardındaki karşılığı için
 GTM_CONTAINER_ID=GTM-XXXXXX   # boş = GTM devre dışı
 ```
 
+ID inline JavaScript'e girmeden önce `^GTM-[A-Z0-9]{4,20}$` kontratından geçer. EventQueue'nun tek
+production implementasyonu `src/components/analytics/gtm-bootstrap.tsx` içindeki inline script
+builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder'ı çalıştırır.
+
 ### Yeni route checklist
 
 1. `defineRoute()` + `pageCachePolicy(PageCacheId.*, ctx)` — registry entry + `contentQueryParams` allowlist
 2. `pageMeta` — pageview kategorisi
 3. `Component` — yalnızca sayfa içeriği (header/footer yok)
 4. Etkileşim → `src/islands/` + `<Island mode="hydrate" />`
+5. Method kontratı varsayılan `GET, HEAD` — mutation gerekiyorsa SSR route değil `/api/internal/*`
+6. Indexable ise `server/seo.ts` canonical sitemap inventory'sini güncelle
+
+### SSR method ve error-action kontratı
+
+- Eşleşen SSR route'ta GET/HEAD dışı method `405` + `Allow: GET, HEAD` döner.
+- `/api/*` gateway proxy methodları SSR method guard'ına girmez.
+- HEAD route/param doğrulaması yapar; loader ve React render çalıştırmaz.
+- Route error retry aksiyonu boş `href` veya mevcut URL'ye anchor üretmez. `data-reload-page` taşıyan
+  button, merkezi client bootstrap listener'ıyla `location.reload()` çağırır.
 
 ---
 
@@ -1067,7 +1087,12 @@ gibi gerekli değerler saf `src/lib` fonksiyonlarına context üzerinden aktarı
   route veya adapter içinde SDK/provider oluşturulmaz.
 
 Tracing için local collector zorunlu değildir. `OTEL_EXPORTER_OTLP_ENDPOINT` yoksa span API no-op
-çalışır; request ID context'i ve `/metrics` davranışı devam eder.
+çalışır; request ID context'i ve cluster-only metrics listener davranışı devam eder.
+
+`/api/internal/client-errors` telemetry güven sınırıdır: payload en fazla 16 KiB, source kapalı enum,
+stringler bounded, ingestion process başına fixed-window rate limitlidir ve deterministic sampling
+uygular. Rate-limited cevap `429 + Retry-After`, sampled cevap `204` olur. Raw path/error message metric
+label'ı yapılmaz; yalnız kapalı ingestion outcome label'ı kullanılır.
 
 ---
 

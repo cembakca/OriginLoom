@@ -6,6 +6,7 @@ import {
   observeCacheEntryWrite,
   observeCacheFill,
   observeCacheOperation,
+  observeClientErrorTelemetry,
   observeCoalescedWait,
   observeColdMissLockTimeout,
   observeGatewayRequest,
@@ -34,6 +35,7 @@ describe("production metrics", () => {
     observeBotAnalyticsBatch("success", 10, 15);
     observeBotAnalyticsDrain("success");
     setBotAnalyticsQueueState(4, 2);
+    observeClientErrorTelemetry("rate_limited");
 
     const metrics = renderMetrics();
 
@@ -62,6 +64,7 @@ describe("production metrics", () => {
     expect(metrics).toContain('ssr_bot_analytics_batches_total{outcome="success"}');
     expect(metrics).toContain("ssr_bot_analytics_queue_depth 4");
     expect(metrics).toContain("ssr_bot_analytics_in_flight 2");
+    expect(metrics).toContain('ssr_client_error_telemetry_total{outcome="rate_limited"}');
   });
 
   it("exports event-loop, process and release gauges", () => {

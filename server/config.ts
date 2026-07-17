@@ -24,6 +24,7 @@ const cacheFillTimeoutMs = numberEnv("CACHE_FILL_TIMEOUT_MS", gatewayTimeoutMs *
 
 export const config = {
   port: numberEnv("PORT", 3005),
+  metricsPort: numberEnv("METRICS_PORT", 9090),
   cacheBackend: (process.env.CACHE_BACKEND ?? "memory") as CacheBackend,
   cacheRequired: booleanEnv("CACHE_REQUIRED", false),
   redisUrl: process.env.REDIS_URL,
@@ -48,7 +49,11 @@ export const config = {
   botAnalyticsDrainTimeoutMs: numberEnv("BOT_ANALYTICS_DRAIN_TIMEOUT_MS", 3_000),
   proxyBodyLimitBytes: numberEnv("PROXY_BODY_LIMIT_BYTES", 1_048_576),
   trustProxy: booleanEnv("TRUST_PROXY", false),
-  gtmContainerId: process.env.GTM_CONTAINER_ID ?? "",
+  allowInsecureGateway: booleanEnv("ALLOW_INSECURE_GATEWAY", false),
+  gtmContainerId: process.env.GTM_CONTAINER_ID?.trim() ?? "",
+  clientErrorRateLimit: numberEnv("CLIENT_ERROR_RATE_LIMIT", 120),
+  clientErrorWindowMs: numberEnv("CLIENT_ERROR_WINDOW_MS", 60_000),
+  clientErrorSampleRate: numberEnv("CLIENT_ERROR_SAMPLE_RATE", 1),
   siteUrl: (process.env.SITE_URL ?? "http://localhost:3005").replace(/\/$/, ""),
   menuCacheTtl: numberEnv("MENU_CACHE_TTL", 14_400),
   menuCacheSwr: numberEnv("MENU_CACHE_SWR", 86_400),
@@ -101,6 +106,10 @@ export function validateConfig(): void {
   }
   assertPositiveInteger("PORT", config.port);
   if (config.port > 65_535) throw new Error(`Invalid PORT: ${config.port}`);
+  assertPositiveInteger("METRICS_PORT", config.metricsPort);
+  if (config.metricsPort > 65_535 || config.metricsPort === config.port) {
+    throw new Error(`Invalid METRICS_PORT: ${config.metricsPort}`);
+  }
   assertPositiveInteger("CACHE_MAX_ENTRIES", config.cacheMaxEntries);
   assertPositiveInteger("SWR_REVALIDATION_ATTEMPTS", config.revalidationAttempts);
   assertPositiveInteger("SWR_REVALIDATION_BACKOFF_MS", config.revalidationBackoffMs);
@@ -150,11 +159,45 @@ export function validateConfig(): void {
   assertPositiveInteger("PROXY_BODY_LIMIT_BYTES", config.proxyBodyLimitBytes);
   assertPositiveInteger("REDIRECT_CACHE_TTL_MS", config.redirectCacheTtlMs);
   assertPositiveInteger("REDIRECT_CACHE_MAX_ENTRIES", config.redirectCacheMaxEntries);
+  assertPositiveInteger("CLIENT_ERROR_RATE_LIMIT", config.clientErrorRateLimit);
+  assertPositiveInteger("CLIENT_ERROR_WINDOW_MS", config.clientErrorWindowMs);
+  if (
+    !Number.isFinite(config.clientErrorSampleRate) ||
+    config.clientErrorSampleRate < 0 ||
+    config.clientErrorSampleRate > 1
+  ) {
+    throw new Error(`Invalid CLIENT_ERROR_SAMPLE_RATE: ${config.clientErrorSampleRate}`);
+  }
+  if (config.gtmContainerId && !/^GTM-[A-Z0-9]{4,20}$/.test(config.gtmContainerId)) {
+    throw new Error(`Invalid GTM_CONTAINER_ID: ${config.gtmContainerId}`);
+  }
   if (!/^[A-Za-z0-9._-]{1,128}$/.test(config.releaseId)) {
     throw new Error(`Invalid RELEASE_ID: ${config.releaseId}`);
   }
 
-  assertUrl("GATEWAY_URL", config.gatewayUrl);
+  const gatewayUrl = assertUrl("GATEWAY_URL", config.gatewayUrl);
+  if (
+    !["http:", "https:"].includes(gatewayUrl.protocol) ||
+    gatewayUrl.username ||
+    gatewayUrl.password ||
+    (gatewayUrl.pathname !== "" && gatewayUrl.pathname !== "/") ||
+    gatewayUrl.search ||
+    gatewayUrl.hash
+  ) {
+    throw new Error(
+      "GATEWAY_URL must be an HTTP(S) origin without path, credentials, query or hash",
+    );
+  }
+  if (
+    config.isProduction &&
+    gatewayUrl.protocol !== "https:" &&
+    !isLoopbackUrl(gatewayUrl) &&
+    !config.allowInsecureGateway
+  ) {
+    throw new Error(
+      "Production GATEWAY_URL must use https unless ALLOW_INSECURE_GATEWAY is explicitly enabled",
+    );
+  }
   const siteUrl = assertUrl("SITE_URL", config.siteUrl);
   if (
     !["http:", "https:"].includes(siteUrl.protocol) ||
@@ -173,6 +216,21 @@ export function validateConfig(): void {
     const viteUrl = assertUrl("VITE_DEV_SERVER_URL", config.viteDevServerUrl);
     if (!["http:", "https:"].includes(viteUrl.protocol)) {
       throw new Error(`Invalid VITE_DEV_SERVER_URL protocol: ${viteUrl.protocol}`);
+    }
+  }
+  if (config.assetCdnUrl) {
+    const assetCdnUrl = assertUrl("ASSET_CDN_URL", config.assetCdnUrl);
+    if (
+      !["http:", "https:"].includes(assetCdnUrl.protocol) ||
+      assetCdnUrl.username ||
+      assetCdnUrl.password ||
+      assetCdnUrl.search ||
+      assetCdnUrl.hash
+    ) {
+      throw new Error("ASSET_CDN_URL must be an HTTP(S) URL without credentials, query or hash");
+    }
+    if (config.isProduction && assetCdnUrl.protocol !== "https:" && !isLoopbackUrl(assetCdnUrl)) {
+      throw new Error("Production ASSET_CDN_URL must use https");
     }
   }
   if (config.imageCdnUrl) {

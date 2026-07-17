@@ -19,9 +19,15 @@ Hono üzerinde çalışır, `@hono/node-server` ile Node.js HTTP server'a bağla
 | `/assets/*`       | Statik dosyalar, `dist/client` klasöründen sunulur        |
 | `/healthz`        | Liveness check                                            |
 | `/readyz`         | Readiness check (cache backend ping'i içerir)             |
+| `/robots.txt`     | Merkezi crawler policy + sitemap discovery                |
+| `/sitemap.xml`    | Canonical public route envanteri                          |
 | `/api/*`          | Gateway'e proxy — pipeline çalışmaz                       |
 | `/api/internal/*` | BFF endpoint'leri — gereken auth handler içinde uygulanır |
 | `*`               | SSR pipeline → handler                                    |
+
+Prometheus `/metrics` endpoint'i public HTTP portunda bulunmaz. Ayrı `METRICS_PORT` listener'ı
+(varsayılan `9090`) yalnız pod scrape annotation'ıyla erişilir; Kubernetes public `Service` bu portu
+yayınlamaz. Public porttaki `/metrics` bilinçli `404` döner.
 
 Graceful shutdown uygulanmış: SIGTERM/SIGINT alınca önce HTTP server kapatılır; SWR işleri ve bot
 analytics kuyruğu bounded süreyle paralel drain edilir, ardından cache bağlantısı temizlenir.
@@ -241,8 +247,9 @@ alanlarında kabul edilir. Final metadata merge policy'yi yeniden uyguladığı 
 veya route-level metadata da bu sınırı aşamaz.
 
 Failure politikası kritikliğe göre açıktır: route'un ana içeriği olan offer/blog/page/domain
-payload'ı geçersizse route hata yoluna gider; menü gibi kritik olmayan shell verisi boş ve geçerli bir
-menu modeliyle degrade olur. Profile/account/auth doğrulaması geçersiz payload'ı oturum doğrulanmış
+payload'ı geçersizse route hata yoluna gider. Menü cache'i fresh veya stale doğrulanmış son snapshot'ı
+sunabilir; kullanılabilir snapshot yoksa shell boş ve geçerli menu modeliyle degrade olur.
+Profile/account/auth doğrulaması geçersiz payload'ı oturum doğrulanmış
 saymaz; CMS redirect ise kural yokmuş gibi devam eder. Her red `contract` ve kapalı
 `json|schema|size` label'larıyla `ssr_gateway_invalid_payload_total` metriğini, shell fallback'i de
 `ssr_shell_degraded_total` metriğini artırır.
@@ -296,7 +303,12 @@ Eşleşmeyen route ve `notFound` sonucu normal `RootLayout` içinde, `noindex` m
 Beklenen domain hataları `ErrorComponent`'e güvenli `{ code, message }` verisiyle ulaşır. Loader veya
 route render exception'ında aynı component `error: null` alır; exception mesajı, stack ve üretilen
 `errorId` HTML'e taşınmaz. `errorId` yalnız yapılandırılmış server logunda bulunur. Route boundary'nin
-kendisinin veya shell'in hata vermesi ayrı global hata sayfasına düşer.
+kendisinin veya shell'in hata vermesi ayrı global hata sayfasına düşer. Varsayılan retry aksiyonu
+`href=""` üretmez; semantic button, client bootstrap'taki `location.reload()` listener'ını tetikler.
+
+SSR route method kontratı `GET, HEAD` ile kapalıdır. Diğer methodlar loader/pipeline çalışmadan `405`
+ve `Allow: GET, HEAD` alır; `/api/*` external proxy methodları bu kontrolden etkilenmez. `HEAD`, route
+ve parametre kimliğini doğrular ancak loader veya React render çalıştırmadan headers-only cevap verir.
 
 #### Rewrite/Redirect Kuralları — `src/routing/rules.ts`
 
@@ -354,8 +366,9 @@ Sıfırdan yazılmış, segment bazlı matcher. `:param` ve `:param?` (optional)
 Her island root'u React'in `onCaughtError`, `onUncaughtError` ve `onRecoverableError` callback'lerini
 kullanır. Module import, props parse ve mount hataları da aynı client telemetry hattına gider. Payload
 aynı-origin `/api/internal/client-errors` endpointinde boyut ve alan allowlist'iyle doğrulanır; server
-loguna `releaseId`, request ID ve client error ID ile yazılır. Telemetry gönderiminin başarısız olması
-island mount akışını bozmaz.
+loguna `releaseId`, request ID ve client error ID ile yazılır. Endpoint 16 KiB payload sınırı, process
+başına fixed-window rate limit ve deterministik sampling uygular; accepted/invalid/sampled/rate-limited
+sonuçları bounded metric'tir. Telemetry gönderiminin başarısız olması island mount akışını bozmaz.
 
 Render edilen HTML'de örneğin
 `<div data-island="mobile-menu" data-mode="hydrate" data-props='{"items":[{"url":"\/kredi"}]}'>`
@@ -498,13 +511,26 @@ korunur ve gateway'e inject edilir. Üretilen request ID tracing kapalıyken de 
 gateway'e taşınır. Structured loglar `releaseId`, `traceId` ve `spanId` ile trace-log korelasyonu
 sağlar; release aynı zamanda OTel resource `service.version` değeridir.
 
-`/metrics` request, gateway, gateway payload rejection, shell degradation, cache operation, SWR
+Cluster-only metrics listener'ındaki `/metrics` request, gateway, gateway payload rejection, shell degradation, cache operation, SWR
 revalidation ve bot analytics dispatcher için bounded-label counter, gauge ve histogram üretir.
 Gateway outcome label'ları `success`, `client_error`, `server_error`, `timeout` ve `network_error` ile
 dashboard/alert tarafında hata oranının hesaplanmasını sağlar. Bot kuyruğunda enqueue sonucu, drop
 nedeni, batch sonucu/süresi/boyutu, queue depth, in-flight batch ve shutdown drain sonucu izlenir.
 Event-loop p50/p95/p99 lag, CPU, RSS/heap, uptime ve release info process metrikleri de aynı
 endpoint'tedir. Request ID, raw URL, cache key ve kullanıcı kimliği metric label'ı değildir.
+
+### 10.1 Merkezi Robots ve Sitemap
+
+`server/seo.ts`, root seviyesinde `robots.txt` ve XML sitemap üretir. Sitemap yalnız canonical public
+URL'leri içerir; internal rewrite destination'ları, account/noindex route'ları ve query pagination
+sayfaları dışarıda kalır. Dynamic kredi şehirleri deployment env'den değil doğrulanmış gateway route
+domain snapshot'ından gelir. Domain gateway'i kesilirse statik sitemap yine `200` döner ve yalnız
+dynamic entries degrade olur.
+
+Config startup'ta `GTM_CONTAINER_ID` için kapalı `GTM-*` formatını; `SITE_URL` ve `GATEWAY_URL` için
+origin/credential/query/hash politikasını; `ASSET_CDN_URL` için HTTP(S), credential ve query/hash
+sınırını doğrular. Production dış originleri varsayılan HTTPS'tir. In-cluster HTTP gateway yalnız
+deploy tarafından açıkça `ALLOW_INSECURE_GATEWAY=true` seçilirse kabul edilir.
 
 ### 11. Responsive Image ve Self-host Font Pipeline
 

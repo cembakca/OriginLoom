@@ -1,5 +1,6 @@
 import { config } from "@server/config";
 import { logger } from "@server/logger";
+import { observeClientErrorTelemetry } from "@server/metrics";
 import type { AppVariables } from "@server/middleware/request-id";
 import type { Hono } from "hono";
 
@@ -25,15 +26,66 @@ type ClientErrorPayload = {
   componentStack?: string;
 };
 
-export function mountClientErrorApi(app: Hono<{ Variables: AppVariables }>): void {
+type RateLimiter = { take(now?: number): boolean };
+
+type ClientErrorApiOptions = {
+  rateLimiter?: RateLimiter;
+  sampleRate?: number;
+};
+
+export class FixedWindowRateLimiter implements RateLimiter {
+  private windowStartedAt: number | undefined;
+  private used = 0;
+
+  constructor(
+    private readonly limit: number,
+    private readonly windowMs: number,
+  ) {}
+
+  take(now = Date.now()): boolean {
+    if (this.windowStartedAt === undefined || now - this.windowStartedAt >= this.windowMs) {
+      this.windowStartedAt = now;
+      this.used = 0;
+    }
+    if (this.used >= this.limit) return false;
+    this.used++;
+    return true;
+  }
+}
+
+const defaultRateLimiter = new FixedWindowRateLimiter(
+  config.clientErrorRateLimit,
+  config.clientErrorWindowMs,
+);
+
+export function mountClientErrorApi(
+  app: Hono<{ Variables: AppVariables }>,
+  options: ClientErrorApiOptions = {},
+): void {
+  const rateLimiter = options.rateLimiter ?? defaultRateLimiter;
+  const sampleRate = options.sampleRate ?? config.clientErrorSampleRate;
   app.post("/api/internal/client-errors", async (c) => {
     const payload = await parsePayload(c.req.raw);
     if (!payload) {
+      observeClientErrorTelemetry("invalid");
       return c.json({ error: "Geçersiz telemetry payload" }, 400, {
         "cache-control": "private, no-store",
       });
     }
 
+    if (!rateLimiter.take()) {
+      observeClientErrorTelemetry("rate_limited");
+      return c.body(null, 429, {
+        "cache-control": "private, no-store",
+        "retry-after": String(Math.ceil(config.clientErrorWindowMs / 1_000)),
+      });
+    }
+    if (!isSampled(payload.errorId, sampleRate)) {
+      observeClientErrorTelemetry("sampled");
+      return c.body(null, 204, { "cache-control": "private, no-store" });
+    }
+
+    observeClientErrorTelemetry("accepted");
     logger.warn("client runtime error", {
       requestId: c.get("requestId"),
       releaseId: config.releaseId,
@@ -46,7 +98,11 @@ export function mountClientErrorApi(app: Hono<{ Variables: AppVariables }>): voi
 async function parsePayload(request: Request): Promise<ClientErrorPayload | null> {
   let value: unknown;
   try {
-    value = await request.json();
+    const declaredLength = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(declaredLength) && declaredLength > 16_384) return null;
+    const text = await request.text();
+    if (new TextEncoder().encode(text).byteLength > 16_384) return null;
+    value = JSON.parse(text) as unknown;
   } catch {
     return null;
   }
@@ -69,6 +125,17 @@ async function parsePayload(request: Request): Promise<ClientErrorPayload | null
     ...(typeof input.stack === "string" ? { stack: input.stack } : {}),
     ...(typeof input.componentStack === "string" ? { componentStack: input.componentStack } : {}),
   };
+}
+
+function isSampled(id: string, rate: number): boolean {
+  if (rate >= 1) return true;
+  if (rate <= 0) return false;
+  let hash = 2_166_136_261;
+  for (let index = 0; index < id.length; index++) {
+    hash ^= id.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return (hash >>> 0) / 4_294_967_296 < rate;
 }
 
 function isString(value: unknown, max: number): value is string {

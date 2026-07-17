@@ -591,6 +591,9 @@ config’i doğruluyor ve şu koşullarda fail-fast davranıyor:
 - Release ID güvenli formatta değil.
 - Production’da memory cache seçilmiş.
 - Production `GATEWAY_URL` veya `SITE_URL` açıkça verilmemiş.
+- Production gateway HTTP kullanıyor ve internal-network istisnası açıkça seçilmemiş.
+- `GATEWAY_URL` origin değil ya da `ASSET_CDN_URL` credential/query/hash taşıyor.
+- `GTM_CONTAINER_ID` kapalı container formatını ihlal ediyor.
 - Production purge secret veya `RELEASE_ID` eksik.
 
 ```ts
@@ -638,12 +641,12 @@ SBOM, image scanning, signature/provenance ve `npm audit --omit=dev` sonucu ayr�
 
 ## Health, readiness ve dependency semantiği
 
-Uygulama üç operasyon endpoint’i sunuyor:
+Uygulama iki public lifecycle endpoint'i ve ayrı cluster-only metrics listener sunuyor:
 
 ```text
 /healthz  → process HTTP cevap verebiliyor mu?
 /readyz   → yeni trafik almalı mı?
-/metrics  → runtime davranışı ne?
+:9090/metrics → runtime davranışı ne? (public Service'e bağlı değil)
 ```
 
 `/healthz` minimal ve dependency çağrısı yapmıyor. Redis veya gateway geçici olarak bozuldu diye
@@ -668,6 +671,9 @@ politikasıdır.
 
 Docker image healthcheck’i `/healthz` kullanıyor. Kubernetes manifest’inde liveness için `/healthz`,
 readiness için `/readyz` ayrı tanımlanmalıdır; yavaş startup varsa startup probe eklenmelidir.
+Prometheus pod'u annotation üzerinden `9090` portunu scrape eder; application Service yalnız `3005`
+yayınlar. Prometheus'un güvenlik modeli metrics endpoint'lerini de korunması gereken HTTP yüzeyi kabul
+ettiği için public ingress'e path bazlı istisna bırakılmaz.
 
 ## Structured log olmadan ayrı gateway yalnız gürültü üretir
 
@@ -694,13 +700,19 @@ upstream çağrısının gerçekten oluştuğunu görmek kolaylaşıyor.
 Bu ilk sürüm daha sonra gerçek instrumentation katmanına yükseltildi. `server/instrumentation.ts`
 OpenTelemetry SDK lifecycle'ını yönetiyor; inbound request, loader, SSR render, gateway, Redis/cache
 ve SWR revalidation ayrı span'ler üretiyor. W3C trace context gateway'e taşınırken structured loglar
-aktif `traceId`, `spanId` ve release kimliğini içeriyor. `/metrics` artık request, gateway, cache ve
+aktif `traceId`, `spanId` ve release kimliğini içeriyor. Cluster listener'daki `/metrics` artık request, gateway, cache ve
 revalidation latency histogramlarının yanında gateway timeout/error outcome'larını, payload
 rejection/shell degradation sayaçlarını ve process/event-loop metriklerini de sunuyor.
 
 Metrics hâlâ doğası gereği process-local'dir; Prometheus her replica'yı scrape edip aggregate
 etmelidir. Collector deployment'ı, dashboard, alert, retention ve error log PII/token redaction
 politikası uygulama dışındaki production platform kontratının parçası olmaya devam eder.
+
+Shell menüsü kritik route data'sıyla aynı failure politikasına sahip değildir. Redis'te fresh veya
+SWR penceresindeki doğrulanmış stale menu snapshot'ı varsa gateway kesintisinde o snapshot sunulur.
+Kullanılabilir snapshot yoksa header/footer boş menu modeliyle render edilir; ana route içeriği sırf
+navigation dependency'si düştü diye `500` olmaz. Degrade nedeni bounded metric ve structured warning
+olarak kalır.
 
 ## Fire-and-forget değil, bounded event dispatch
 
@@ -1025,6 +1037,9 @@ varmış gibi davranmaya zorlamasıydı.
 - [OpenTelemetry context propagation](https://opentelemetry.io/docs/concepts/context-propagation/)
 - [OpenTelemetry metrics](https://opentelemetry.io/docs/concepts/signals/metrics/)
 - [Prometheus client/exposition rehberi](https://prometheus.io/docs/instrumenting/writing_clientlibs/)
+- [Prometheus security model](https://prometheus.io/docs/operating/security/)
 - [Consumer-Driven Contracts — Martin Fowler](https://martinfowler.com/articles/consumerDrivenContracts.html)
 - [Google crawl budget management](https://developers.google.com/crawling/docs/crawl-budget)
+- [Google sitemap oluşturma rehberi](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap)
+- [Google robots.txt rehberi](https://developers.google.com/crawling/docs/robots-txt/create-robots-txt)
 - [RFC 8259 — JSON standardı](https://www.rfc-editor.org/rfc/rfc8259)

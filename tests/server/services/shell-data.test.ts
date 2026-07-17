@@ -34,6 +34,17 @@ describe("shell gateway degradation", () => {
       'ssr_shell_degraded_total{component="menu",reason="invalid_payload"}',
     );
   });
+
+  it("renders a menu-less shell when the gateway is unavailable and no stale menu exists", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+
+    const shell = await buildShellData(context());
+
+    expect(shell.menu).toEqual({ headerItems: [], hamburgerItems: [], footerItems: [] });
+    expect(renderMetrics()).toContain(
+      'ssr_shell_degraded_total{component="menu",reason="gateway_error"}',
+    );
+  });
 });
 
 function context(): Ctx {

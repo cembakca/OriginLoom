@@ -21,10 +21,17 @@ import { readAssets } from "./assets";
 import { closeCache, initCache, pingCache } from "./cache";
 import { config, validateConfig } from "./config";
 import type { Assets } from "./document";
-import { drainRevalidations, handle } from "./handler";
+import {
+  drainRevalidations,
+  handle,
+  handleHead,
+  isSsrRouteRequest,
+  methodNotAllowedResponse,
+} from "./handler";
 import { register, shutdownInstrumentation } from "./instrumentation";
 import { logError, logger } from "./logger";
-import { observeRequest, renderMetrics } from "./metrics";
+import { observeRequest } from "./metrics";
+import { createMetricsApp } from "./metrics-server";
 import {
   finalizePipelineResponse,
   finalizeSsrResponse,
@@ -34,13 +41,15 @@ import {
 import { type AppVariables, requestId } from "./middleware/request-id";
 import { securityMiddleware } from "./middleware/security";
 import { staticAssetCacheHeaders } from "./middleware/static-assets";
-import { SpanStatusCode, withRequestSpan } from "./observability";
+import { setActiveHttpRoute, SpanStatusCode, withRequestSpan } from "./observability";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
 import { routes } from "./routes";
+import { mountSeoRoutes } from "./seo";
 import { drainBotAnalytics } from "./services/bot-analytics";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
+let metricsServer: ServerType | null = null;
 
 async function main() {
   const tracingEnabled = register();
@@ -56,8 +65,10 @@ async function main() {
       port: info.port,
       cacheBackend: config.cacheBackend,
       tracingEnabled,
+      metricsPort: config.metricsPort,
     });
   });
+  metricsServer = serve({ fetch: createMetricsApp().fetch, port: config.metricsPort });
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
@@ -72,10 +83,7 @@ async function main() {
 
     void (async () => {
       try {
-        await new Promise<void>((resolve) => {
-          if (!httpServer) return resolve();
-          httpServer.close(() => resolve());
-        });
+        await Promise.all([closeServer(httpServer), closeServer(metricsServer)]);
         const [revalidationsDrained, botAnalyticsDrained] = await Promise.all([
           drainRevalidations(config.revalidationDrainTimeoutMs),
           drainBotAnalytics(config.botAnalyticsDrainTimeoutMs),
@@ -144,15 +152,16 @@ function createApp(assets: Assets) {
 
   app.get("/healthz", (c) => c.text("ok"));
 
-  app.get("/metrics", (c) =>
-    c.text(renderMetrics(), 200, { "content-type": "text/plain; version=0.0.4" }),
-  );
+  // Metrics live on the dedicated cluster listener; never render or proxy this path publicly.
+  app.all("/metrics", (c) => c.body(null, 404, { "cache-control": "private, no-store" }));
 
   app.get("/readyz", async (c) => {
     if (shuttingDown) return c.text("shutting down", 503);
     const ok = await pingCache();
     return ok || !config.cacheRequired ? c.text("ok") : c.text("cache unavailable", 503);
   });
+
+  mountSeoRoutes(app, config.siteUrl);
 
   mountApi(app);
 
@@ -162,6 +171,16 @@ function createApp(assets: Assets) {
     const requestId = c.get("requestId");
     const pathname = new URL(c.req.url).pathname;
     const clientIp = resolveClientIp(c);
+    const method = c.req.method.toUpperCase();
+    const ssrRoute = isSsrRouteRequest(c.req.raw, routes);
+
+    if (ssrRoute && method !== "GET" && method !== "HEAD") {
+      setActiveHttpRoute(method, "<method-not-allowed>");
+      return methodNotAllowedResponse(requestId);
+    }
+    if (ssrRoute && method === "HEAD") {
+      return handleHead(c.req.raw, routes, { requestId, clientIp });
+    }
 
     if (shouldUsePipeline(pathname)) {
       const pipeline = await runPipeline(c.req.raw, requestId, clientIp);
@@ -186,6 +205,13 @@ function createApp(assets: Assets) {
   });
 
   return app;
+}
+
+function closeServer(server: ServerType | null): Promise<void> {
+  return new Promise((resolve) => {
+    if (!server) return resolve();
+    server.close(() => resolve());
+  });
 }
 
 function resolveClientIp(c: Parameters<typeof getConnInfo>[0]): string {

@@ -10,10 +10,13 @@ import {
   IslandRuntimeError,
   loadIslandModule,
 } from "~/lib/client/island-runtime";
+import { installReloadButtons } from "~/lib/client/reload-button";
 import { parseEmbeddedJson } from "~/lib/embedded-json";
 import { AppQueryProvider } from "~/lib/query/provider";
 
 type IslandModule = { default: ComponentType<Record<string, unknown>> };
+
+installReloadButtons();
 
 // Vite turns this into a code-split map. Each island is its own chunk, so a
 // page ships only the JS for the islands actually on it.
