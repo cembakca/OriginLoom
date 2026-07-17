@@ -108,6 +108,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
       c.res.status,
       c.res.headers.get("x-cache") ?? "NONE",
       performance.now() - started,
+      c.get("requestRoute") ?? "<unmatched>",
     );
   });
   app.use("*", async (c, next) => {
@@ -125,9 +126,13 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   app.use("/assets/*", staticAssetCacheHeaders);
   app.use("/assets/*", serveStatic({ root: "./dist/client" }));
 
-  app.get("/healthz", (c) => c.text("ok"));
+  app.get("/healthz", (c) => {
+    c.set("requestRoute", "<health>");
+    return c.text("ok");
+  });
   app.all("/metrics", (c) => c.body(null, 404, { "cache-control": "private, no-store" }));
   app.get("/readyz", async (c) => {
+    c.set("requestRoute", "<health>");
     if (isShuttingDown()) return c.text("shutting down", 503);
     const ok = await readinessCheck();
     return ok || !cacheRequired ? c.text("ok") : c.text("cache unavailable", 503);

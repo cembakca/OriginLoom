@@ -94,11 +94,11 @@ function timeoutFor(requestClass: RequestClass): number {
 
 function routeLabel(request: Request, requestClass: RequestClass, routeTable: Route[]): string {
   if (requestClass === "api") return apiRouteLabel(new URL(request.url).pathname);
-  if (requestClass === "proxy") return "<external-rewrite>";
+  if (requestClass === "proxy") return "<proxy>";
 
   const resolution = resolveRoute(new URL(request.url), config.gatewayUrl);
-  if (resolution.kind === "redirect") return "<redirect>";
-  if (resolution.kind === "proxy") return "<external-rewrite>";
+  if (resolution.kind === "redirect") return "<unmatched>";
+  if (resolution.kind === "proxy") return "<proxy>";
   return (
     match(routeTable, resolution.pathname)?.route.path ?? infrastructureRoute(resolution.pathname)
   );
@@ -110,7 +110,8 @@ function apiRouteLabel(pathname: string): string {
 
 function infrastructureRoute(pathname: string): string {
   if (pathname.startsWith("/assets/")) return "/assets/*";
-  if (pathname === "/healthz" || pathname === "/readyz" || pathname === "/metrics") return pathname;
+  if (pathname === "/healthz" || pathname === "/readyz") return "<health>";
+  if (pathname === "/metrics") return "<unmatched>";
   if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return pathname;
   return "<unmatched>";
 }

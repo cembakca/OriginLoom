@@ -88,3 +88,86 @@ spec:
           annotations:
             summary: "Bot analytics queue did not drain during shutdown"
             description: "A terminating SSR process exhausted its bot analytics drain budget and dropped pending events."
+
+    - name: ssr-kit.slo
+      rules:
+        - alert: SsrAvailabilityLow
+          expr: sum(rate(ssr_http_requests_total{status_class!~"5xx"}[5m])) / sum(rate(ssr_http_requests_total[5m])) < 0.995
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "SSR application availability is below SLO"
+            description: "The availability of the SSR application over the last 5 minutes is {{ $value | printf \"%.2f\" }}%."
+
+        - alert: SsrHigh5xxRate
+          expr: sum(rate(ssr_http_requests_total{status_class="5xx"}[5m])) / sum(rate(ssr_http_requests_total[5m])) > 0.005
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High 5xx error rate detected"
+            description: "5xx responses constitute {{ $value | printf \"%.2f\" }}% of total requests."
+
+        - alert: SsrLatencyP95TooHigh
+          expr: histogram_quantile(0.95, sum by (le) (rate(ssr_http_request_duration_milliseconds_bucket[5m]))) > 2000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "SSR request p95 latency is high"
+            description: "The 95th percentile of SSR request latency is {{ $value }}ms."
+
+        - alert: SsrLatencyP99TooHigh
+          expr: histogram_quantile(0.99, sum by (le) (rate(ssr_http_request_duration_milliseconds_bucket[5m]))) > 5000
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "SSR request p99 latency is high"
+            description: "The 99th percentile of SSR request latency is {{ $value }}ms."
+
+        - alert: SsrGatewayTimeoutRateHigh
+          expr: sum(rate(ssr_gateway_requests_total{outcome="timeout"}[5m])) / sum(rate(ssr_gateway_requests_total[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High gateway timeout rate"
+            description: "Gateway timeouts constitute {{ $value | printf \"%.2f\" }}% of total gateway requests."
+
+        - alert: SsrRedisOperationsFailed
+          expr: sum(rate(ssr_cache_operations_total{backend="redis",outcome="error"}[5m])) / sum(rate(ssr_cache_operations_total{backend="redis"}[5m])) > 0.05
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redis operations are failing"
+            description: "Redis operation error rate is {{ $value | printf \"%.2f\" }}%."
+
+        - alert: SsrRedisOperationsSlow
+          expr: histogram_quantile(0.95, sum by (le) (rate(ssr_cache_operation_duration_milliseconds_bucket{backend="redis"}[5m]))) > 50
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Redis operations are slow (potential saturation)"
+            description: "Redis operation p95 duration is {{ $value }}ms."
+
+        - alert: SsrQueueDepthHigh
+          expr: ssr_render_queue_depth > 30
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "SSR render queue depth is high (saturation risk)"
+            description: "SSR render queue depth is currently {{ $value }}."
+
+        - alert: SsrRenderRejectionsHigh
+          expr: sum(increase(ssr_render_rejections_total[5m])) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "SSR requests are being rejected due to capacity limit"
+            description: "SSR capacity rejections are occurring ({{ $value }} rejections in the last 5 minutes)."

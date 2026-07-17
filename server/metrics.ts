@@ -85,6 +85,33 @@ let ssrRenderQueueDepth = 0;
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 eventLoopDelay.enable();
 
+let hasSnapshotted = false;
+let lastEventLoopP50 = 0;
+let lastEventLoopP95 = 0;
+let lastEventLoopP99 = 0;
+
+const eventLoopInterval = setInterval(() => {
+  const scale = 1e6;
+  lastEventLoopP50 = eventLoopDelay.percentile(50) / scale / 1_000;
+  lastEventLoopP95 = eventLoopDelay.percentile(95) / scale / 1_000;
+  lastEventLoopP99 = eventLoopDelay.percentile(99) / scale / 1_000;
+  eventLoopDelay.reset();
+  hasSnapshotted = true;
+}, 10_000);
+eventLoopInterval.unref();
+
+function getEventLoopP50(): number {
+  return hasSnapshotted ? lastEventLoopP50 : eventLoopDelay.percentile(50) / 1e9;
+}
+
+function getEventLoopP95(): number {
+  return hasSnapshotted ? lastEventLoopP95 : eventLoopDelay.percentile(95) / 1e9;
+}
+
+function getEventLoopP99(): number {
+  return hasSnapshotted ? lastEventLoopP99 : eventLoopDelay.percentile(99) / 1e9;
+}
+
 function increment(map: CounterMap, key: string): void {
   map.set(key, (map.get(key) ?? 0) + 1);
 }
@@ -93,7 +120,7 @@ function statusClass(status: number): string {
   return status === 0 ? "error" : `${Math.floor(status / 100)}xx`;
 }
 
-export function observeRequest(status: number, cacheState: string, durationMs: number): void {
+export function observeRequest(status: number, cacheState: string, durationMs: number, route: string): void {
   const knownCacheStates = new Set([
     "HIT",
     "MISS",
@@ -105,11 +132,11 @@ export function observeRequest(status: number, cacheState: string, durationMs: n
     "PROXY",
   ]);
   const cache = knownCacheStates.has(cacheState) ? cacheState : "NONE";
-  const labels = `status_class="${statusClass(status)}",cache="${cache}"`;
+  const labels = `status_class="${statusClass(status)}",cache="${cache}",route="${escapeLabel(route)}"`;
   increment(requests, labels);
   requestDurations.observe(labels, durationMs);
   if (cache === "HIT" || cache === "MISS" || cache === "STALE") {
-    cacheResponseDurations.observe(`state="${cache}"`, durationMs);
+    cacheResponseDurations.observe(`state="${cache}",route="${escapeLabel(route)}"`, durationMs);
   }
 }
 
@@ -287,6 +314,14 @@ function gauge(name: string, help: string, value: number, labels?: string): stri
   ];
 }
 
+function counter(name: string, help: string, value: number, labels?: string): string[] {
+  return [
+    `# HELP ${name} ${help}`,
+    `# TYPE ${name} counter`,
+    `${name}${labels ? `{${labels}}` : ""} ${finite(value)}`,
+  ];
+}
+
 export function renderMetrics(): string {
   const memory = process.memoryUsage();
   const cpu = process.cpuUsage();
@@ -423,23 +458,23 @@ export function renderMetrics(): string {
     ...gauge(
       "ssr_event_loop_lag_p50_seconds",
       "Event loop delay p50",
-      eventLoopDelay.percentile(50) / eventLoopScale / 1_000,
+      getEventLoopP50(),
     ),
     ...gauge(
       "ssr_event_loop_lag_p95_seconds",
       "Event loop delay p95",
-      eventLoopDelay.percentile(95) / eventLoopScale / 1_000,
+      getEventLoopP95(),
     ),
     ...gauge(
       "ssr_event_loop_lag_p99_seconds",
       "Event loop delay p99",
-      eventLoopDelay.percentile(99) / eventLoopScale / 1_000,
+      getEventLoopP99(),
     ),
     ...gauge("process_resident_memory_bytes", "Resident memory size", memory.rss),
     ...gauge("process_heap_used_bytes", "Process heap used", memory.heapUsed),
     ...gauge("process_uptime_seconds", "Process uptime", process.uptime()),
-    ...gauge("process_cpu_user_seconds_total", "Total user CPU time", cpu.user / 1e6),
-    ...gauge("process_cpu_system_seconds_total", "Total system CPU time", cpu.system / 1e6),
+    ...counter("process_cpu_user_seconds_total", "Total user CPU time", cpu.user / 1e6),
+    ...counter("process_cpu_system_seconds_total", "Total system CPU time", cpu.system / 1e6),
     ...gauge(
       "ssr_release_info",
       "Build and service identity",

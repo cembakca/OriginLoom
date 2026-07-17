@@ -71,7 +71,7 @@ describe("request deadline middleware", () => {
     expect(response.status).toBe(504);
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(renderMetrics()).toContain(
-      'request_timeout_total{class="proxy",route="<external-rewrite>"}',
+      'request_timeout_total{class="proxy",route="<proxy>"}',
     );
   });
 });

@@ -25,7 +25,7 @@ import { describe, expect, it } from "vitest";
 
 describe("production metrics", () => {
   it("exports bounded latency histograms and gateway outcomes", () => {
-    observeRequest(200, "HIT", 7);
+    observeRequest(200, "HIT", 7, "/blogs/paginated");
     observeGatewayRequest(0, 25, "timeout");
     observeCacheOperation("redis", "read", "success", 3);
     observeRevalidation("success", 42);
@@ -48,9 +48,9 @@ describe("production metrics", () => {
     const metrics = renderMetrics();
 
     expect(metrics).toContain(
-      'ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT"}',
+      'ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/blogs/paginated"}',
     );
-    expect(metrics).toContain('ssr_cache_response_duration_milliseconds_count{state="HIT"}');
+    expect(metrics).toContain('ssr_cache_response_duration_milliseconds_count{state="HIT",route="/blogs/paginated"}');
     expect(metrics).toContain('ssr_gateway_requests_total{status_class="error",outcome="timeout"}');
     expect(metrics).toContain(
       'ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="read",outcome="success"}',
@@ -86,6 +86,8 @@ describe("production metrics", () => {
     expect(metrics).toContain("ssr_event_loop_lag_p99_seconds");
     expect(metrics).toContain("process_resident_memory_bytes");
     expect(metrics).toContain("process_cpu_user_seconds_total");
+    expect(metrics).toContain("# TYPE process_cpu_user_seconds_total counter");
+    expect(metrics).toContain("# TYPE process_cpu_system_seconds_total counter");
     expect(metrics).toContain('ssr_release_info{service="ssr-kit",release="development"} 1');
   });
 
