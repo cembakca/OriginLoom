@@ -155,6 +155,14 @@ ikinci bir HTML cache katmanına dönüşmez. Finalization sırasında herhangi 
 response zorunlu `private, no-store` olur. Hash'li statik asset'lerin immutable CDN cache'i bu
 kontrattan bağımsızdır.
 
+Redis'e yazılan tam HTML document'leri Brotli'nin UTF-8 `TEXT` mode'u, quality 8, 512 KiB window ve
+gerçek body size hint'iyle sıkıştırılır. Bu generic bir “her cache değerini sıkıştır” politikası
+değildir: 1 KiB altındaki değerler, JSON/service cache payload'ları ve raw halinden küçük olmayan
+çıktılar sıkıştırılmaz. Binary frame `getBuffer()` ile okunur; legacy JSON entry'ler mevcut TTL'leri
+boyunca desteklenir. Ayrı dictionary veya manuel regeneration adımı yoktur. Tasarım ve wire format için
+[Redis HTML Cache'i İçin HTML-Odaklı Brotli Sıkıştırma](docs/articles/08-redis-html-cache-icin-html-odakli-brotli-sikistirma.md)
+yazısına bakın.
+
 ## Kontroller
 
 ```bash

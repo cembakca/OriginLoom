@@ -3,6 +3,7 @@ import Redis from "ioredis";
 
 import type { CachePolicy } from "~/lib/types";
 
+import { decodeCacheEntry, encodeCacheEntry } from "./codec";
 import type { CacheEntry, CacheStore, ListKeysOptions, ListKeysResult } from "./types";
 
 export class RedisStore implements CacheStore {
@@ -31,21 +32,15 @@ export class RedisStore implements CacheStore {
   }
 
   async read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null> {
-    const raw = await this.redis.get(this.redisKey(key));
+    const raw = await this.redis.getBuffer(this.redisKey(key));
     if (!raw) return null;
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
+    const entry = decodeCacheEntry(raw);
+    if (!entry) {
       await this.redis.del(this.redisKey(key));
       return null;
     }
-    if (!isCacheEntry(parsed)) {
-      await this.redis.del(this.redisKey(key));
-      return null;
-    }
-    const entry = parsed;
+
     const now = Date.now();
     if (now < entry.freshUntil) return { body: entry.body, state: "fresh" };
     if (now < entry.staleUntil) return { body: entry.body, state: "stale" };
@@ -65,7 +60,7 @@ export class RedisStore implements CacheStore {
     };
 
     const ttlSeconds = Math.max(1, policy.ttl + (policy.swr ?? 0));
-    await this.redis.set(this.redisKey(key), JSON.stringify(entry), "EX", ttlSeconds);
+    await this.redis.set(this.redisKey(key), encodeCacheEntry(entry), "EX", ttlSeconds);
   }
 
   async deleteKey(key: string): Promise<boolean> {
@@ -143,16 +138,4 @@ export class RedisStore implements CacheStore {
     if (this.redis.status === "ready") await this.redis.quit();
     else this.redis.disconnect();
   }
-}
-
-function isCacheEntry(value: unknown): value is CacheEntry {
-  if (!value || typeof value !== "object") return false;
-  const entry = value as Record<string, unknown>;
-  return (
-    typeof entry.body === "string" &&
-    typeof entry.freshUntil === "number" &&
-    Number.isFinite(entry.freshUntil) &&
-    typeof entry.staleUntil === "number" &&
-    Number.isFinite(entry.staleUntil)
-  );
 }
