@@ -28,9 +28,11 @@ type ClientErrorPayload = {
 };
 
 type RateLimiter = { take(now?: number): boolean };
+type IpRateLimiter = { take(clientIp: string, now?: number): boolean };
 
 type ClientErrorApiOptions = {
   rateLimiter?: RateLimiter;
+  ipRateLimiter?: IpRateLimiter;
   sampleRate?: number;
 };
 
@@ -54,16 +56,73 @@ export class FixedWindowRateLimiter implements RateLimiter {
   }
 }
 
-const defaultRateLimiter = new FixedWindowRateLimiter(
+export class BoundedIpRateLimiter implements IpRateLimiter {
+  private readonly entries = new Map<
+    string,
+    { limiter: FixedWindowRateLimiter; lastSeenAt: number }
+  >();
+
+  constructor(
+    private readonly limit: number,
+    private readonly windowMs: number,
+    private readonly maxEntries: number,
+    private readonly ttlMs: number,
+  ) {}
+
+  take(clientIp: string, now = Date.now()): boolean {
+    let entry = this.entries.get(clientIp);
+    if (entry && now - entry.lastSeenAt >= this.ttlMs) {
+      this.entries.delete(clientIp);
+      entry = undefined;
+    }
+    if (!entry) {
+      this.evictExpired(now);
+      while (this.entries.size >= this.maxEntries) {
+        const oldest = this.entries.keys().next();
+        if (oldest.done) break;
+        this.entries.delete(oldest.value);
+      }
+      entry = {
+        limiter: new FixedWindowRateLimiter(this.limit, this.windowMs),
+        lastSeenAt: now,
+      };
+    } else {
+      this.entries.delete(clientIp);
+    }
+    entry.lastSeenAt = now;
+    this.entries.set(clientIp, entry);
+    return entry.limiter.take(now);
+  }
+
+  get size(): number {
+    return this.entries.size;
+  }
+
+  private evictExpired(now: number): void {
+    for (const [clientIp, entry] of this.entries) {
+      if (now - entry.lastSeenAt < this.ttlMs) break;
+      this.entries.delete(clientIp);
+    }
+  }
+}
+
+const defaultGlobalRateLimiter = new FixedWindowRateLimiter(
   config.clientErrorRateLimit,
   config.clientErrorWindowMs,
+);
+const defaultIpRateLimiter = new BoundedIpRateLimiter(
+  config.clientErrorIpRateLimit,
+  config.clientErrorWindowMs,
+  config.clientErrorIpMaxEntries,
+  config.clientErrorIpTtlMs,
 );
 
 export function mountClientErrorApi(
   app: Hono<{ Variables: AppVariables }>,
   options: ClientErrorApiOptions = {},
 ): void {
-  const rateLimiter = options.rateLimiter ?? defaultRateLimiter;
+  const globalRateLimiter = options.rateLimiter ?? defaultGlobalRateLimiter;
+  const ipRateLimiter = options.ipRateLimiter ?? defaultIpRateLimiter;
   const sampleRate = options.sampleRate ?? config.clientErrorSampleRate;
   app.post("/api/internal/client-errors", async (c) => {
     const payload = await parsePayload(contextRequest(c));
@@ -74,23 +133,33 @@ export function mountClientErrorApi(
       });
     }
 
-    if (!rateLimiter.take()) {
+    if (!isSampled(payload.errorId, sampleRate)) {
+      observeClientErrorTelemetry("sampled");
+      return c.body(null, 204, { "cache-control": "private, no-store" });
+    }
+    if (!ipRateLimiter.take(c.get("clientIp") ?? "unresolved")) {
+      observeClientErrorTelemetry("ip_rate_limited");
       observeClientErrorTelemetry("rate_limited");
       return c.body(null, 429, {
         "cache-control": "private, no-store",
         "retry-after": String(Math.ceil(config.clientErrorWindowMs / 1_000)),
       });
     }
-    if (!isSampled(payload.errorId, sampleRate)) {
-      observeClientErrorTelemetry("sampled");
-      return c.body(null, 204, { "cache-control": "private, no-store" });
+    if (!globalRateLimiter.take()) {
+      observeClientErrorTelemetry("global_rate_limited");
+      observeClientErrorTelemetry("rate_limited");
+      return c.body(null, 429, {
+        "cache-control": "private, no-store",
+        "retry-after": String(Math.ceil(config.clientErrorWindowMs / 1_000)),
+      });
     }
 
+    const sanitized = sanitizePayload(payload);
     observeClientErrorTelemetry("accepted");
     logger.warn("client runtime error", {
       requestId: c.get("requestId"),
       releaseId: config.releaseId,
-      ...payload,
+      ...sanitized,
     });
     return c.body(null, 204, { "cache-control": "private, no-store" });
   });
@@ -126,6 +195,35 @@ async function parsePayload(request: Request): Promise<ClientErrorPayload | null
     ...(typeof input.stack === "string" ? { stack: input.stack } : {}),
     ...(typeof input.componentStack === "string" ? { componentStack: input.componentStack } : {}),
   };
+}
+
+function sanitizePayload(payload: ClientErrorPayload): ClientErrorPayload {
+  return {
+    errorId: payload.errorId,
+    source: payload.source,
+    message: redactSensitive(payload.message),
+    path: sanitizePath(payload.path),
+    ...(payload.island ? { island: redactSensitive(payload.island) } : {}),
+    ...(payload.stack ? { stack: redactSensitive(payload.stack) } : {}),
+    ...(payload.componentStack ? { componentStack: redactSensitive(payload.componentStack) } : {}),
+  };
+}
+
+function sanitizePath(value: string): string {
+  try {
+    const parsed = new URL(value, "http://client-telemetry.invalid");
+    return redactSensitive(parsed.pathname).slice(0, 1_000) || "/";
+  } catch {
+    return redactSensitive(value.split(/[?#]/, 1)[0] || "/").slice(0, 1_000);
+  }
+}
+
+export function redactSensitive(value: string): string {
+  return value
+    .replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\b/g, "[REDACTED_JWT]")
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[REDACTED_EMAIL]")
+    .replace(/([?&][^=\s?#&]+=)[^&#\s]*/g, "$1[REDACTED]");
 }
 
 function isSampled(id: string, rate: number): boolean {

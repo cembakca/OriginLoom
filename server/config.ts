@@ -61,6 +61,9 @@ export const config = {
   clientErrorRateLimit: numberEnv("CLIENT_ERROR_RATE_LIMIT", 120),
   clientErrorWindowMs: numberEnv("CLIENT_ERROR_WINDOW_MS", 60_000),
   clientErrorSampleRate: numberEnv("CLIENT_ERROR_SAMPLE_RATE", 1),
+  clientErrorIpRateLimit: numberEnv("CLIENT_ERROR_IP_RATE_LIMIT", 20),
+  clientErrorIpMaxEntries: numberEnv("CLIENT_ERROR_IP_MAX_ENTRIES", 10_000),
+  clientErrorIpTtlMs: numberEnv("CLIENT_ERROR_IP_TTL_MS", 300_000),
   siteUrl: (process.env.SITE_URL ?? "http://localhost:3005").replace(/\/$/, ""),
   menuCacheTtl: numberEnv("MENU_CACHE_TTL", 14_400),
   menuCacheSwr: numberEnv("MENU_CACHE_SWR", 86_400),
@@ -180,6 +183,12 @@ export function validateConfig(): void {
   assertPositiveInteger("REDIRECT_CACHE_MAX_ENTRIES", config.redirectCacheMaxEntries);
   assertPositiveInteger("CLIENT_ERROR_RATE_LIMIT", config.clientErrorRateLimit);
   assertPositiveInteger("CLIENT_ERROR_WINDOW_MS", config.clientErrorWindowMs);
+  assertPositiveInteger("CLIENT_ERROR_IP_RATE_LIMIT", config.clientErrorIpRateLimit);
+  assertPositiveInteger("CLIENT_ERROR_IP_MAX_ENTRIES", config.clientErrorIpMaxEntries);
+  assertPositiveInteger("CLIENT_ERROR_IP_TTL_MS", config.clientErrorIpTtlMs);
+  if (config.clientErrorIpTtlMs < config.clientErrorWindowMs) {
+    throw new Error("CLIENT_ERROR_IP_TTL_MS must be >= CLIENT_ERROR_WINDOW_MS");
+  }
   if (
     !Number.isFinite(config.clientErrorSampleRate) ||
     config.clientErrorSampleRate < 0 ||

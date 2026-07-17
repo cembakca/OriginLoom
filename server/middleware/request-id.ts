@@ -4,6 +4,7 @@ import type { RequestClass } from "./request-deadline";
 
 export type AppVariables = {
   requestId: string;
+  clientIp?: string;
   request?: Request;
   requestClass?: RequestClass;
   requestRoute?: string;

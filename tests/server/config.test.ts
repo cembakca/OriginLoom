@@ -153,6 +153,15 @@ describe("server config", () => {
     await expect(validateWith({ CLIENT_ERROR_SAMPLE_RATE: "-0.1" })).rejects.toThrow(
       "Invalid CLIENT_ERROR_SAMPLE_RATE",
     );
+    await expect(validateWith({ CLIENT_ERROR_IP_MAX_ENTRIES: "0" })).rejects.toThrow(
+      "Invalid CLIENT_ERROR_IP_MAX_ENTRIES",
+    );
+    await expect(
+      validateWith({
+        CLIENT_ERROR_WINDOW_MS: "60000",
+        CLIENT_ERROR_IP_TTL_MS: "30000",
+      }),
+    ).rejects.toThrow("CLIENT_ERROR_IP_TTL_MS must be >= CLIENT_ERROR_WINDOW_MS");
   });
 
   it("keeps SSR queue and cold-fill budgets inside the request deadline", async () => {

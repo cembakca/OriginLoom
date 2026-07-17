@@ -189,6 +189,12 @@ bazında body/key byte histogramı ile bounded distinct key observation gauge'i 
 yapılmaz. Varsayılan metrics listener `9090` portundadır. Kubernetes pod annotation bu portu scrape
 eder; public application `Service` yalnız `3005` portunu yayınlar ve public `/metrics` `404` döner.
 
+Client runtime error ingestion'ı validation sonrası sampling, güvenilir client IP başına bounded
+TTL/LRU limiter ve process-global son güvenlik freni uygular. Query değerleri atılır; bearer/JWT,
+e-posta ve URL query değerleri loglanmadan önce redact edilir. IP loga veya metric label'ına girmez.
+Ingress/WAF sınırı ile stack retention/RBAC zorunlulukları
+[client telemetry politikası](docs/client-telemetry.md) belgesindedir.
+
 ## Image ve font pipeline
 
 `npm run media`, `server/media.config.json` içindeki yerel görselleri build-time Sharp ile responsive
@@ -264,6 +270,9 @@ Temel değişkenler:
 - `BOT_ANALYTICS_DRAIN_TIMEOUT_MS` — shutdown sırasında analytics kuyruğu drain bütçesi
 - `CLIENT_ERROR_RATE_LIMIT` / `CLIENT_ERROR_WINDOW_MS` — process başına telemetry ingestion bütçesi
 - `CLIENT_ERROR_SAMPLE_RATE` — geçerli client error log kabul oranı (`0..1`)
+- `CLIENT_ERROR_IP_RATE_LIMIT` — aynı güvenilir client IP'nin pencere başına event bütçesi
+- `CLIENT_ERROR_IP_MAX_ENTRIES` — process içindeki bounded IP limiter registry kapasitesi
+- `CLIENT_ERROR_IP_TTL_MS` — IP limiter kaydı TTL'i; window süresinden kısa olamaz
 - `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
 - `IMAGE_CDN_URL` — opsiyonel, dönüşümsüz image dosyaları için CDN prefix'i; path korunur
 - `IMAGE_TRANSFORM_URL` — opsiyonel responsive image transformation endpoint'i

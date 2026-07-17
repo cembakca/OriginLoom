@@ -33,7 +33,7 @@ describe("client error telemetry", () => {
       message: "hydration mismatch",
       island: "blog-pagination",
       componentStack: "at BlogPagination",
-      path: "/blogs?page=2",
+      path: "/blogs",
     });
   });
 

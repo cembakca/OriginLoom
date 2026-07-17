@@ -35,7 +35,8 @@ export function reportClientError(
     ...(context.componentStack
       ? { componentStack: truncate(context.componentStack, MAX_COMPONENT_STACK) }
       : {}),
-    path: `${window.location.pathname}${window.location.search}`.slice(0, 1_000),
+    // Query values may contain search terms, identifiers or tokens; server strips them again.
+    path: window.location.pathname.slice(0, 1_000),
   };
 
   void fetch("/api/internal/client-errors", {

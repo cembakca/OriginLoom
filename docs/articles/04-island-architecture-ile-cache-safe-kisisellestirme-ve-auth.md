@@ -842,10 +842,17 @@ Mevcut telemetry bunları `island-bootstrap`, `island-module-missing`, `island-c
 `react-uncaught` kapalı source listesiyle sınıflandırır. Raw error mesajı metric label'ına dönüşmez;
 detay bounded client-error payload'ıyla server loguna gider.
 
-Telemetry endpoint'i de yeni bir sınırsız log yüzeyi değildir. Body 16 KiB ile sınırlıdır; process
-başına fixed-window rate limit uygulanır ve geçerli event'ler error ID üzerinden deterministik sample
-edilebilir. Rate limit `429 + Retry-After`, sampling ise client'ın retry döngüsüne girmemesi için `204`
-döner. Accepted, invalid, sampled ve rate-limited sonuçları kapalı metric label'larıdır.
+Telemetry endpoint'i de yeni bir sınırsız log yüzeyi değildir. Body 16 KiB ile sınırlıdır. Geçerli
+event önce error ID üzerinden deterministik sample edilir; sonra güvenilir proxy kontratıyla çözülmüş
+client IP başına bounded TTL/LRU limiter ve en sonda process-global güvenlik freni uygulanır. Sampled
+event limiter bütçesi tüketmez. Rate limit `429 + Retry-After`, sampling ise client'ın retry döngüsüne
+girmemesi için `204` döner.
+
+Client query göndermese de server `path` query'sini kaldırır; bearer/JWT, e-posta ve metin içindeki URL
+query değerlerini logdan önce redact eder. Release payload'dan değil server config'inden gelir. IP
+loglanmaz ve metric label'ı yapılmaz. Bu uygulama sınırları ingress/WAF rate limitinin yerine geçmez.
+Stack retention, RBAC ve ayrıntılı ingestion sırası
+[client telemetry güvenlik politikasında](../client-telemetry.md) tanımlıdır.
 
 React `hydrateRoot` `onRecoverableError`, `onCaughtError` ve `onUncaughtError` gibi root options sunar.
 Hydrate island’larda bu callback’leri merkezi telemetry’ye bağlamak mismatch ve client-only hataları

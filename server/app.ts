@@ -1,8 +1,6 @@
-import { isIP } from "node:net";
-
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { Hono } from "hono";
+import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { compress } from "hono/compress";
 import { HTTPException } from "hono/http-exception";
 
@@ -12,6 +10,7 @@ import { normalizePublicUrl } from "~/routing";
 
 import { mountApi } from "./api";
 import { pingCache } from "./cache";
+import { resolveTrustedClientIp } from "./client-ip";
 import { config } from "./config";
 import type { Assets } from "./document";
 import { errorResponse } from "./error";
@@ -41,6 +40,11 @@ import {
 
 type Capacity = {
   run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T>;
+};
+
+const clientIpMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
+  c.set("clientIp", resolveClientIp(c));
+  await next();
 };
 
 export type CreateAppOptions = {
@@ -77,7 +81,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     const request = contextRequest(c);
     const handleContext = {
       requestId: c.get("requestId"),
-      clientIp: resolveClientIp(c),
+      clientIp: c.get("clientIp") ?? resolveClientIp(c),
     };
     return request.method === "HEAD"
       ? handleHead(request, routeTable, handleContext)
@@ -85,6 +89,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   });
 
   app.use("*", requestId);
+  app.use("*", clientIpMiddleware);
   app.use("*", requestDeadline(routeTable));
   app.use("*", async (c, next) => {
     await withRequestSpan(contextRequest(c), c.get("requestId"), async (span) => {
@@ -137,7 +142,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     const requestIdValue = c.get("requestId");
     const request = contextRequest(c);
     const pathname = new URL(request.url).pathname;
-    const clientIp = resolveClientIp(c);
+    const clientIp = c.get("clientIp") ?? resolveClientIp(c);
     const method = request.method.toUpperCase();
     const ssrRoute = isSsrRouteRequest(request, routeTable);
 
@@ -201,15 +206,12 @@ function withoutBody(response: Response): Response {
   });
 }
 
-function resolveClientIp(c: Parameters<typeof getConnInfo>[0]): string {
+function resolveClientIp(c: Context<{ Variables: AppVariables }>): string {
   let remote = "127.0.0.1";
   try {
     remote = getConnInfo(c).remote.address ?? remote;
   } catch {
     // app.request() and non-Node adapters do not provide node-server connection info.
   }
-  if (!config.trustProxy) return remote;
-  const forwarded =
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("x-real-ip") || "";
-  return isIP(forwarded) ? forwarded : remote;
+  return resolveTrustedClientIp(remote, c.req.raw.headers, config.trustProxy);
 }

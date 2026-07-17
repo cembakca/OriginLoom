@@ -195,7 +195,8 @@ export function setBotAnalyticsQueueState(queueDepth: number, inFlight: number):
 }
 
 export function observeClientErrorTelemetry(
-  outcome: "accepted" | "invalid" | "sampled" | "rate_limited",
+  outcome:
+    "accepted" | "invalid" | "sampled" | "rate_limited" | "ip_rate_limited" | "global_rate_limited",
 ): void {
   increment(clientErrorTelemetry, `outcome="${outcome}"`);
 }

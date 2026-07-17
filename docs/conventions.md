@@ -1092,9 +1092,13 @@ Tracing için local collector zorunlu değildir. `OTEL_EXPORTER_OTLP_ENDPOINT` y
 çalışır; request ID context'i ve cluster-only metrics listener davranışı devam eder.
 
 `/api/internal/client-errors` telemetry güven sınırıdır: payload en fazla 16 KiB, source kapalı enum,
-stringler bounded, ingestion process başına fixed-window rate limitlidir ve deterministic sampling
-uygular. Rate-limited cevap `429 + Retry-After`, sampled cevap `204` olur. Raw path/error message metric
-label'ı yapılmaz; yalnız kapalı ingestion outcome label'ı kullanılır.
+stringler bounded'dır. Sıra `validation → deterministic sampling → trusted-IP limiter → process-global
+limiter → redaction → log` olarak korunur; sampled event limiter bütçesi tüketmez. IP yalnız
+`TRUST_PROXY` kontratı üzerinden çözülür, bounded TTL/LRU registry'de tutulur ve log/metric'e yazılmaz.
+Path query'si atılır; bearer/JWT, e-posta ve URL query değerleri server'da redact edilir. Rate-limited
+cevap `429 + Retry-After`, sampled cevap `204` olur. Uygulama limitleri ingress/WAF kaba trafik
+limitinin yerine geçmez. Stack için 14 günlük retention ve production on-call/SRE RBAC politikası
+[`docs/client-telemetry.md`](client-telemetry.md) belgesindedir.
 
 ---
 
