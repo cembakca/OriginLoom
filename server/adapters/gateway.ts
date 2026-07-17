@@ -49,7 +49,7 @@ export async function gatewayFetch(path: string, init: RequestInit = {}): Promis
         observeGatewayRequest(response.status, performance.now() - started, outcome);
         return response;
       } catch (error) {
-        const outcome = isTimeout(error) ? "timeout" : "network_error";
+        const outcome = timeout.aborted ? "timeout" : "network_error";
         span.setAttribute("gateway.outcome", outcome);
         observeGatewayRequest(0, performance.now() - started, outcome);
         throw error;
@@ -70,8 +70,4 @@ export function gatewayFetchForRequest(
   if (authorization) headers.set("authorization", authorization);
   if (requestId && !headers.has("correlationid")) headers.set("correlationid", requestId);
   return gatewayFetch(path, { ...init, headers, signal: init.signal ?? request.signal });
-}
-
-function isTimeout(error: unknown): boolean {
-  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
 }

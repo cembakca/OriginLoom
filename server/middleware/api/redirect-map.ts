@@ -48,6 +48,7 @@ export async function lookupRedirect(
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
   let value: CmsRedirectRule | null = null;
+  let shouldCache = true;
   try {
     const res = await gatewayFetch(`/cms/redirects?path=${encodeURIComponent(pathname)}`, {
       method: "GET",
@@ -73,12 +74,15 @@ export async function lookupRedirect(
       pathname,
       error: error instanceof Error ? error.message : String(error),
     });
+    shouldCache = false;
   }
 
-  if (!cache.has(pathname) && cache.size >= config.redirectCacheMaxEntries) {
-    const oldest = cache.keys().next().value;
-    if (oldest !== undefined) cache.delete(oldest);
+  if (shouldCache) {
+    if (!cache.has(pathname) && cache.size >= config.redirectCacheMaxEntries) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+    cache.set(pathname, { value, expiresAt: Date.now() + config.redirectCacheTtlMs });
   }
-  cache.set(pathname, { value, expiresAt: Date.now() + config.redirectCacheTtlMs });
   return value;
 }

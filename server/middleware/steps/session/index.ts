@@ -28,9 +28,9 @@ export const sessionStep: MiddlewareStep = async (ctx, acc) => {
     if (value) jar.set(name, value, { maxAge: 86_400 * 30 });
   }
 
-  const trackingId =
-    sanitizeUuid(cookie(acc.request, Cookie.userTrackingId)) ?? crypto.randomUUID();
-  if (!cookie(acc.request, Cookie.userTrackingId)) {
+  const rawTrackingId = cookie(acc.request, Cookie.userTrackingId);
+  const trackingId = sanitizeUuid(rawTrackingId) ?? crypto.randomUUID();
+  if (!rawTrackingId || rawTrackingId !== trackingId) {
     jar.set(Cookie.userTrackingId, trackingId, { maxAge: 86_400 * 365 });
   }
 

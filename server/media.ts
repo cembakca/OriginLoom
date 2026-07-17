@@ -114,7 +114,7 @@ function fontAssetUrl(path: string): string {
 }
 
 function imageAssetUrl(path: string): string {
-  const base = config.imageCdnUrl ?? config.assetCdnUrl;
+  const base = (config.imageCdnUrl ?? config.assetCdnUrl)?.replace(/\/$/, "");
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return base ? `${base}${normalized}` : normalized;
 }
