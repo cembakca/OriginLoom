@@ -45,6 +45,18 @@ describe("server config", () => {
     ).rejects.toThrow("CACHE_FILL_WAIT_MS must not be lower than CACHE_FILL_TIMEOUT_MS");
   });
 
+  it("rejects unsafe bot analytics queue and sampling settings", async () => {
+    await expect(validateWith({ BOT_ANALYTICS_SAMPLE_RATE: "1.1" })).rejects.toThrow(
+      "Invalid BOT_ANALYTICS_SAMPLE_RATE",
+    );
+    await expect(
+      validateWith({ BOT_ANALYTICS_QUEUE_CAPACITY: "10", BOT_ANALYTICS_BATCH_SIZE: "11" }),
+    ).rejects.toThrow("BOT_ANALYTICS_BATCH_SIZE must not exceed BOT_ANALYTICS_QUEUE_CAPACITY");
+    await expect(
+      validateWith({ SHUTDOWN_TIMEOUT_MS: "6000", BOT_ANALYTICS_DRAIN_TIMEOUT_MS: "6000" }),
+    ).rejects.toThrow("BOT_ANALYTICS_DRAIN_TIMEOUT_MS must be lower than SHUTDOWN_TIMEOUT_MS");
+  });
+
   it("requires explicit production origins and secrets", async () => {
     await expect(
       validateWith({

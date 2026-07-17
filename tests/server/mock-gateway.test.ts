@@ -72,4 +72,22 @@ describe("external mock gateway", () => {
     expect(profile.status).toBe(401);
     expect(account.status).toBe(401);
   });
+
+  it("accepts bounded bot analytics batches and rejects the legacy unbounded shape", async () => {
+    const batch = await fetch(gatewayUrl("/analytics/bot"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        events: [{ pathname: "/blogs", userAgent: "ExampleBot/1.0" }],
+      }),
+    });
+    const invalid = await fetch(gatewayUrl("/analytics/bot"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pathname: "/blogs", userAgent: "ExampleBot/1.0" }),
+    });
+
+    expect(batch.status).toBe(202);
+    expect(invalid.status).toBe(400);
+  });
 });

@@ -37,6 +37,7 @@ import { staticAssetCacheHeaders } from "./middleware/static-assets";
 import { SpanStatusCode, withRequestSpan } from "./observability";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
 import { routes } from "./routes";
+import { drainBotAnalytics } from "./services/bot-analytics";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
@@ -75,8 +76,12 @@ async function main() {
           if (!httpServer) return resolve();
           httpServer.close(() => resolve());
         });
-        const drained = await drainRevalidations(config.revalidationDrainTimeoutMs);
-        if (!drained) logger.warn("revalidation drain timed out");
+        const [revalidationsDrained, botAnalyticsDrained] = await Promise.all([
+          drainRevalidations(config.revalidationDrainTimeoutMs),
+          drainBotAnalytics(config.botAnalyticsDrainTimeoutMs),
+        ]);
+        if (!revalidationsDrained) logger.warn("revalidation drain timed out");
+        if (!botAnalyticsDrained) logger.warn("bot analytics drain timed out");
         await closeCache();
         await shutdownInstrumentation();
         logger.info("shutdown complete");

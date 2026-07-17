@@ -1,8 +1,8 @@
-import { storeBotVisit } from "@server/middleware/api/bot-store";
 import { sanitizeUuid, sanitizeValue } from "@server/middleware/sanitize";
 import { cloneRequestWithHeaders } from "@server/middleware/sequential";
 import type { MiddlewareStep } from "@server/middleware/types";
 import { Cookie } from "@server/middleware/types";
+import { storeBotVisit } from "@server/services/bot-analytics";
 
 import { parseTheme } from "~/lib/content-values";
 import { cookie } from "~/lib/request";

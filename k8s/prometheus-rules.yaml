@@ -61,3 +61,30 @@ spec:
           annotations:
             summary: "Cold miss wait exhausted the distributed lock budget"
             description: "A request rendered an uncached fallback after waiting for another pod's cache fill."
+
+        - alert: SsrBotAnalyticsQueueFullDrops
+          expr: sum(increase(ssr_bot_analytics_dropped_total{reason="queue_full"}[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Bot analytics queue is dropping events"
+            description: "At least one bot analytics event was dropped because the bounded queue was full."
+
+        - alert: SsrBotAnalyticsDeliveryFailures
+          expr: sum(increase(ssr_bot_analytics_batches_total{outcome=~"rejected|error"}[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Bot analytics batch delivery is failing"
+            description: "The gateway rejected a bot analytics batch or its delivery failed during the last 10 minutes."
+
+        - alert: SsrBotAnalyticsDrainTimeout
+          expr: sum(increase(ssr_bot_analytics_drains_total{outcome="timeout"}[10m])) > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Bot analytics queue did not drain during shutdown"
+            description: "A terminating SSR process exhausted its bot analytics drain budget and dropped pending events."

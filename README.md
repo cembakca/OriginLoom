@@ -157,10 +157,11 @@ aktif W3C `traceparent`/`tracestate` context'ini ve `correlationid` olarak reque
 Structured loglar `service`, `releaseId`, aktif `traceId` ve `spanId` alanlarını otomatik ekler.
 
 `/metrics`, bounded-label Prometheus metrikleri sunar: request/cache/gateway/revalidation sayaç ve
-latency histogramları, gateway timeout/error outcome'ları, event-loop lag, CPU, heap/RSS, uptime ve
-release bilgisi. Cache write'ları ayrıca route bazında body/key byte histogramı ile bounded distinct
-key observation gauge'i üretir; örnek alarmlar `k8s/prometheus-rules.yaml` içindedir. `requestId`, raw
-URL ve kullanıcı bilgisi metric label'ı yapılmaz.
+latency histogramları, gateway timeout/error outcome'ları, bot analytics queue/drop/batch/drain
+metrikleri, event-loop lag, CPU, heap/RSS, uptime ve release bilgisi. Cache write'ları ayrıca route
+bazında body/key byte histogramı ile bounded distinct key observation gauge'i üretir; örnek alarmlar
+`k8s/prometheus-rules.yaml` içindedir. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı
+yapılmaz.
 
 ## Image ve font pipeline
 
@@ -227,6 +228,12 @@ Temel değişkenler:
 - `SWR_REVALIDATION_ATTEMPTS` — background revalidation toplam deneme sayısı
 - `SWR_REVALIDATION_BACKOFF_MS` — retry için başlangıç backoff süresi
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında aktif revalidation bekleme süresi
+- `BOT_ANALYTICS_QUEUE_CAPACITY` — process başına bekleyen bot event üst sınırı
+- `BOT_ANALYTICS_CONCURRENCY` — eşzamanlı analytics batch gateway çağrısı üst sınırı
+- `BOT_ANALYTICS_BATCH_SIZE` / `BOT_ANALYTICS_FLUSH_MS` — batch boyutu ve kısmi batch bekleme süresi
+- `BOT_ANALYTICS_DEDUP_TTL_MS` — aynı bot/path için pod-local dedup penceresi
+- `BOT_ANALYTICS_SAMPLE_RATE` — `0..1` aralığında event kabul oranı
+- `BOT_ANALYTICS_DRAIN_TIMEOUT_MS` — shutdown sırasında analytics kuyruğu drain bütçesi
 - `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
 - `IMAGE_CDN_URL` — opsiyonel, dönüşümsüz image dosyaları için CDN prefix'i; path korunur
 - `IMAGE_TRANSFORM_URL` — opsiyonel responsive image transformation endpoint'i

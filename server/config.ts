@@ -39,6 +39,13 @@ export const config = {
   cacheFillTimeoutMs,
   cacheFillWaitMs: numberEnv("CACHE_FILL_WAIT_MS", cacheFillTimeoutMs + 500),
   cacheFillPollMs: numberEnv("CACHE_FILL_POLL_MS", 100),
+  botAnalyticsQueueCapacity: numberEnv("BOT_ANALYTICS_QUEUE_CAPACITY", 1_000),
+  botAnalyticsConcurrency: numberEnv("BOT_ANALYTICS_CONCURRENCY", 2),
+  botAnalyticsBatchSize: numberEnv("BOT_ANALYTICS_BATCH_SIZE", 25),
+  botAnalyticsFlushMs: numberEnv("BOT_ANALYTICS_FLUSH_MS", 250),
+  botAnalyticsDedupTtlMs: numberEnv("BOT_ANALYTICS_DEDUP_TTL_MS", 60_000),
+  botAnalyticsSampleRate: numberEnv("BOT_ANALYTICS_SAMPLE_RATE", 1),
+  botAnalyticsDrainTimeoutMs: numberEnv("BOT_ANALYTICS_DRAIN_TIMEOUT_MS", 3_000),
   proxyBodyLimitBytes: numberEnv("PROXY_BODY_LIMIT_BYTES", 1_048_576),
   trustProxy: booleanEnv("TRUST_PROXY", false),
   gtmContainerId: process.env.GTM_CONTAINER_ID ?? "",
@@ -114,6 +121,31 @@ export function validateConfig(): void {
   }
   if (config.cacheFillPollMs > config.cacheFillWaitMs) {
     throw new Error("CACHE_FILL_POLL_MS must not exceed CACHE_FILL_WAIT_MS");
+  }
+  assertPositiveInteger("BOT_ANALYTICS_QUEUE_CAPACITY", config.botAnalyticsQueueCapacity);
+  assertPositiveInteger("BOT_ANALYTICS_CONCURRENCY", config.botAnalyticsConcurrency);
+  assertPositiveInteger("BOT_ANALYTICS_BATCH_SIZE", config.botAnalyticsBatchSize);
+  assertPositiveInteger("BOT_ANALYTICS_FLUSH_MS", config.botAnalyticsFlushMs);
+  assertPositiveInteger("BOT_ANALYTICS_DEDUP_TTL_MS", config.botAnalyticsDedupTtlMs);
+  assertPositiveInteger("BOT_ANALYTICS_DRAIN_TIMEOUT_MS", config.botAnalyticsDrainTimeoutMs);
+  if (
+    !Number.isFinite(config.botAnalyticsSampleRate) ||
+    config.botAnalyticsSampleRate < 0 ||
+    config.botAnalyticsSampleRate > 1
+  ) {
+    throw new Error(`Invalid BOT_ANALYTICS_SAMPLE_RATE: ${config.botAnalyticsSampleRate}`);
+  }
+  if (config.botAnalyticsConcurrency > config.botAnalyticsQueueCapacity) {
+    throw new Error("BOT_ANALYTICS_CONCURRENCY must not exceed BOT_ANALYTICS_QUEUE_CAPACITY");
+  }
+  if (config.botAnalyticsBatchSize > config.botAnalyticsQueueCapacity) {
+    throw new Error("BOT_ANALYTICS_BATCH_SIZE must not exceed BOT_ANALYTICS_QUEUE_CAPACITY");
+  }
+  if (config.botAnalyticsBatchSize > 100) {
+    throw new Error("BOT_ANALYTICS_BATCH_SIZE must not exceed 100");
+  }
+  if (config.botAnalyticsDrainTimeoutMs >= config.shutdownTimeoutMs) {
+    throw new Error("BOT_ANALYTICS_DRAIN_TIMEOUT_MS must be lower than SHUTDOWN_TIMEOUT_MS");
   }
   assertPositiveInteger("PROXY_BODY_LIMIT_BYTES", config.proxyBodyLimitBytes);
   assertPositiveInteger("REDIRECT_CACHE_TTL_MS", config.redirectCacheTtlMs);

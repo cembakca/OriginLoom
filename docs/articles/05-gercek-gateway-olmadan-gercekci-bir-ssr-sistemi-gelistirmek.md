@@ -170,7 +170,7 @@ Mock gateway’deki endpoint’ler UI’ın hangi upstream yeteneklerine gerçek
 | `GET`  | `/offers`                   | Kredi karşılaştırma verisi    |
 | `GET`  | `/blogs`                    | Pagination ve sıralama        |
 | `GET`  | `/cms/redirects`            | `3xx` ve `410` kararı         |
-| `POST` | `/analytics/bot`            | Non-critical event sink       |
+| `POST` | `/analytics/bot`            | Bounded bot event batch sink  |
 | `POST` | `/auth/login`               | Access/refresh üretimi        |
 | `POST` | `/auth/refresh`             | Token yenileme                |
 | `GET`  | `/user/profile`             | Authoritative session/profile |
@@ -702,6 +702,60 @@ Metrics hâlâ doğası gereği process-local'dir; Prometheus her replica'yı sc
 etmelidir. Collector deployment'ı, dashboard, alert, retention ve error log PII/token redaction
 politikası uygulama dışındaki production platform kontratının parçası olmaya devam eder.
 
+## Fire-and-forget değil, bounded event dispatch
+
+Bot ziyareti analytics için değerlidir ama sayfanın cevabını belirlemez. Bu ayrım, her bot request'i
+için aşağıdaki kodu güvenli yapmaz:
+
+```ts
+void gatewayFetch("/analytics/bot", { method: "POST", body: event });
+```
+
+Bu yaklaşım request'i bekletmez; fakat açık socket ve pending Promise sayısına da üst sınır koymaz.
+Crawler burst'ü uygulamanın gateway connection pool'unu ve memory'sini analytics uğruna tüketebilir.
+SSR cevabından bağımsızlık ile lifecycle'sızlık aynı şey değildir.
+
+Projede bot event yolu bu nedenle şöyledir:
+
+```mermaid
+flowchart LR
+    R["Bot request"] --> E["Senkron enqueue"]
+    E --> D{"Dedup / sampling"}
+    D -->|"kabul"| Q["Bounded memory queue"]
+    D -->|"atlanır"| M["Bounded metric"]
+    Q --> B["Bounded batch workers"]
+    B --> G["POST /analytics/bot"]
+    Q -->|"queue full"| X["Drop + metric"]
+```
+
+`storeBotVisit()` yalnız enqueue sonucunu üretir; request gateway response beklemez. Queue kapasitesi
+`1000`, aynı anda açık batch çağrısı `2`, batch boyutu `25`, kısmi batch flush penceresi `250ms`
+varsayılanına sahiptir. Böylece yük artsa bile sender concurrency sabit kalır. Queue dolarsa analytics
+event'i kaybedilir; sayfa trafiği analytics'e backpressure uygulanarak yavaşlatılmaz.
+
+Aynı normalize pathname ve user-agent kombinasyonu SHA-256 anahtarıyla varsayılan 60 saniye pod
+içinde deduplicate edilir. Bu kasıtlı olarak global bir doğruluk garantisi değildir: amaç Redis'i yeni
+bir event broker'a çevirmek değil, tek replica'ya çarpan crawler tekrarlarını ucuzca azaltmaktır.
+Gerekirse `BOT_ANALYTICS_SAMPLE_RATE` ile `0..1` aralığında sampling de uygulanabilir. Gerçek gateway
+tek event yerine üst sınırı doğrulanan bir batch alır:
+
+```json
+{
+  "events": [
+    {
+      "pathname": "/blogs",
+      "userAgent": "ExampleBot/1.0",
+      "trackingId": "..."
+    }
+  ]
+}
+```
+
+Bu davranışın operasyon tarafı da görünürdür. Queue depth ve in-flight batch gauge'ları; enqueue,
+drop, batch sonucu/süresi/boyutu ve drain sayaçları `/metrics` üzerinde yayınlanır. Raw pathname veya
+user-agent label yapılmaz. Queue-full drop, gönderim hatası ve shutdown drain timeout'u için
+`k8s/prometheus-rules.yaml` alarm başlangıçları sağlar.
+
 OpenTelemetry’nin [metrics rehberi](https://opentelemetry.io/docs/concepts/signals/metrics/), histogramın
 latency dağılımı için uygun olduğunu ve user ID/raw path gibi high-cardinality attribute’ların sınırsız
 memory maliyeti doğurabileceğini vurgular. Request ID log/trace correlation içindir; metric label’ı
@@ -715,6 +769,7 @@ kesebilir:
 - Devam eden HTTP response.
 - Redis write.
 - SWR revalidation.
+- Kuyrukta bekleyen bot analytics event'leri.
 - Downstream gateway call.
 
 Server shutdown akışı:
@@ -722,7 +777,9 @@ Server shutdown akışı:
 1. Tekrarlanan signal’i ignore edecek `shuttingDown` flag’ini set eder.
 2. Yeni SSR request’lerine `503` verir.
 3. HTTP server’ı yeni connection’a kapatır ve mevcut connection’ları bekler.
-4. Aktif revalidation Promise’lerini sınırlı süre drain eder.
+4. Aktif revalidation Promise'leri ile bot analytics kuyruğunu kendi bounded bütçeleri içinde paralel
+   drain eder. Analytics dispatcher kısmi batch'i hemen flush eder; timeout'ta kalan event'leri drop
+   edip in-flight request'leri abort eder.
 5. Redis bağlantısını kapatır.
 6. Global timeout aşılırsa error exit yapar.
 
@@ -753,7 +810,7 @@ Kod tarafında hazır olan yapı taşları:
 - Liveness/readiness ayrımı.
 - Production config validation.
 - Non-root multi-stage image.
-- Graceful shutdown ve SWR drain.
+- Graceful shutdown; SWR ve bounded bot analytics queue drain.
 - Production bundle smoke testi.
 
 Environment/release tarafında hâlâ dışarıdan sağlanması gerekenler:

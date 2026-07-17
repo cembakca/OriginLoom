@@ -23,7 +23,9 @@ Hono üzerinde çalışır, `@hono/node-server` ile Node.js HTTP server'a bağla
 | `/api/internal/*` | BFF endpoint'leri — gereken auth handler içinde uygulanır |
 | `*`               | SSR pipeline → handler                                    |
 
-Graceful shutdown uygulanmış: SIGTERM/SIGINT alınca önce HTTP server kapatılır, ardından cache bağlantısı temizlenir. Force-exit için `SHUTDOWN_TIMEOUT_MS` (default 10s) var.
+Graceful shutdown uygulanmış: SIGTERM/SIGINT alınca önce HTTP server kapatılır; SWR işleri ve bot
+analytics kuyruğu bounded süreyle paralel drain edilir, ardından cache bağlantısı temizlenir.
+Force-exit için `SHUTDOWN_TIMEOUT_MS` (default 10s) var.
 
 ---
 
@@ -423,8 +425,9 @@ Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanı
 Uygulama process'i mock veri veya gateway fallback'i içermez. Local geliştirmede 4002 portunda
 çalışan dependency'siz Node.js `mock-gw` servisine normal HTTP üzerinden bağlanır. Menü, sayfa/SEO,
 redirect, teklifler, bloglar, profil, hesap özeti, token refresh ve bot analytics sözleşmeleri bu
-servistedir. Test suite de aynı server'ı rastgele bir portta başlatır. Gerçek gateway'e geçişte servis
-koduna dokunulmaz; yalnızca `GATEWAY_URL` değiştirilir.
+servistedir. Bot analytics endpoint'i tek request/tek event yerine üst sınırı doğrulanan batch kabul
+eder. Test suite de aynı server'ı rastgele bir portta başlatır. Gerçek gateway'e geçişte servis koduna
+dokunulmaz; yalnızca `GATEWAY_URL` değiştirilir.
 
 ---
 
@@ -484,12 +487,13 @@ korunur ve gateway'e inject edilir. Üretilen request ID tracing kapalıyken de 
 gateway'e taşınır. Structured loglar `releaseId`, `traceId` ve `spanId` ile trace-log korelasyonu
 sağlar; release aynı zamanda OTel resource `service.version` değeridir.
 
-`/metrics` request, gateway, gateway payload rejection, shell degradation, cache operation ve SWR
-revalidation için bounded-label counter ve
-histogram üretir. Gateway outcome label'ları `success`, `client_error`, `server_error`, `timeout` ve
-`network_error` ile dashboard/alert tarafında hata oranının hesaplanmasını sağlar. Event-loop p50/p95/
-p99 lag, CPU, RSS/heap, uptime ve release info process metrikleri de aynı endpoint'tedir. Request ID,
-raw URL, cache key ve kullanıcı kimliği metric label'ı değildir.
+`/metrics` request, gateway, gateway payload rejection, shell degradation, cache operation, SWR
+revalidation ve bot analytics dispatcher için bounded-label counter, gauge ve histogram üretir.
+Gateway outcome label'ları `success`, `client_error`, `server_error`, `timeout` ve `network_error` ile
+dashboard/alert tarafında hata oranının hesaplanmasını sağlar. Bot kuyruğunda enqueue sonucu, drop
+nedeni, batch sonucu/süresi/boyutu, queue depth, in-flight batch ve shutdown drain sonucu izlenir.
+Event-loop p50/p95/p99 lag, CPU, RSS/heap, uptime ve release info process metrikleri de aynı
+endpoint'tedir. Request ID, raw URL, cache key ve kullanıcı kimliği metric label'ı değildir.
 
 ### 11. Responsive Image ve Self-host Font Pipeline
 
@@ -553,6 +557,21 @@ subset davranışlarını aynı SSR document içinde görünür kılan executabl
 - `SWR_REVALIDATION_ATTEMPTS` — toplam deneme sayısı, varsayılan `3`
 - `SWR_REVALIDATION_BACKOFF_MS` — ilk retry gecikmesi, varsayılan `250`
 - `SWR_DRAIN_TIMEOUT_MS` — shutdown sırasında bekleme süresi, varsayılan `5000`
+
+**Bot analytics bounded dispatch:** Bot request'i gateway I/O'sunu request lifecycle'ı dışında
+doğrudan başlatmaz; yalnızca senkron olarak sınırlı process kuyruğuna event bırakır. Aynı bot/path
+kombinasyonu kısa TTL ile pod içinde deduplicate edilir, sampling uygulanabilir ve event'ler bounded
+batch worker'larıyla gönderilir. Queue dolu veya dispatcher kapanmışsa event drop metriğine yazılır;
+kullanıcı request'i bekletilmez. Shutdown kısmi batch'i hemen flush eder, belirlenen sürede drain
+olmazsa bekleyen event'leri drop edip aktif çağrıları abort eder. Ayarlar:
+
+- `BOT_ANALYTICS_QUEUE_CAPACITY` — bekleyen event üst sınırı, varsayılan `1000`
+- `BOT_ANALYTICS_CONCURRENCY` — aynı anda açık gateway batch çağrısı, varsayılan `2`
+- `BOT_ANALYTICS_BATCH_SIZE` — request başına event üst sınırı, varsayılan `25`
+- `BOT_ANALYTICS_FLUSH_MS` — eksik batch'in en uzun bekleme süresi, varsayılan `250`
+- `BOT_ANALYTICS_DEDUP_TTL_MS` — bot/path pod-local dedup penceresi, varsayılan `60000`
+- `BOT_ANALYTICS_SAMPLE_RATE` — kabul oranı, `0..1`; varsayılan `1`
+- `BOT_ANALYTICS_DRAIN_TIMEOUT_MS` — shutdown drain bütçesi, varsayılan `3000`
 
 **Cold cache miss stampede:** İlk fill aynı process'te Promise coalescing, podlar arasında token-safe
 Redis lock ile tekilleştirilir. Lock waiter cache polling yapar ve lock erken boşalırsa fill'i devralır;

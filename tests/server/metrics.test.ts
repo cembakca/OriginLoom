@@ -1,4 +1,8 @@
 import {
+  observeBotAnalyticsBatch,
+  observeBotAnalyticsDrain,
+  observeBotAnalyticsDrop,
+  observeBotAnalyticsEnqueue,
   observeCacheEntryWrite,
   observeCacheFill,
   observeCacheOperation,
@@ -10,6 +14,7 @@ import {
   observeRevalidation,
   observeShellDegradation,
   renderMetrics,
+  setBotAnalyticsQueueState,
 } from "@server/metrics";
 import { describe, expect, it } from "vitest";
 
@@ -24,6 +29,11 @@ describe("production metrics", () => {
     observeCacheFill("success", 12);
     observeCoalescedWait("redis", "cache_hit", 8);
     observeColdMissLockTimeout();
+    observeBotAnalyticsEnqueue("queued");
+    observeBotAnalyticsDrop("queue_full");
+    observeBotAnalyticsBatch("success", 10, 15);
+    observeBotAnalyticsDrain("success");
+    setBotAnalyticsQueueState(4, 2);
 
     const metrics = renderMetrics();
 
@@ -47,6 +57,11 @@ describe("production metrics", () => {
     expect(metrics).toContain('ssr_cache_fill_total{outcome="success"}');
     expect(metrics).toContain('ssr_cache_coalesced_wait_total{scope="redis",outcome="cache_hit"}');
     expect(metrics).toContain('ssr_cache_lock_timeout_total{outcome="timeout"}');
+    expect(metrics).toContain('ssr_bot_analytics_enqueue_total{outcome="queued"}');
+    expect(metrics).toContain('ssr_bot_analytics_dropped_total{reason="queue_full"}');
+    expect(metrics).toContain('ssr_bot_analytics_batches_total{outcome="success"}');
+    expect(metrics).toContain("ssr_bot_analytics_queue_depth 4");
+    expect(metrics).toContain("ssr_bot_analytics_in_flight 2");
   });
 
   it("exports event-loop, process and release gauges", () => {

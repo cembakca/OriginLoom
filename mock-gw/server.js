@@ -231,7 +231,10 @@ async function route(request, response) {
     return rule ? json(response, 200, rule) : empty(response, 404);
   }
   if (request.method === "POST" && url.pathname === "/analytics/bot") {
-    await readJson(request);
+    const body = await readJson(request);
+    if (!isBotAnalyticsBatch(body)) {
+      return json(response, 400, { error: "invalid bot analytics batch" });
+    }
     return empty(response, 202);
   }
   if (request.method === "POST" && url.pathname === "/auth/login") {
@@ -315,6 +318,24 @@ async function route(request, response) {
   }
 
   return json(response, 404, { error: "mock gateway route not found", path: url.pathname });
+}
+
+function isBotAnalyticsBatch(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.events)) return false;
+  if (value.events.length === 0 || value.events.length > 100) return false;
+  return value.events.every(
+    (event) =>
+      event &&
+      typeof event === "object" &&
+      typeof event.pathname === "string" &&
+      event.pathname.length > 0 &&
+      event.pathname.length <= 2_048 &&
+      typeof event.userAgent === "string" &&
+      event.userAgent.length > 0 &&
+      event.userAgent.length <= 512 &&
+      (event.trackingId === undefined ||
+        (typeof event.trackingId === "string" && event.trackingId.length <= 128)),
+  );
 }
 
 export function createMockGatewayServer() {

@@ -26,7 +26,7 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 | GET    | `/cms/redirects?path=...`   | Redirect/gone kuralı         |
 | GET    | `/offers?...`               | Kredi teklifleri             |
 | GET    | `/blogs?...`                | Sayfalı/sıralı blog listesi  |
-| POST   | `/analytics/bot`            | Bot event sink               |
+| POST   | `/analytics/bot`            | Bounded bot event batch sink |
 
 Bu servis gerçek bir IAM veya içerik gateway'i değildir; yalnızca uygulamanın HTTP
 sözleşmelerini uçtan uca çalıştırmak için deterministik cevaplar verir.

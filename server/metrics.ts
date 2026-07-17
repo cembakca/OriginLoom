@@ -58,6 +58,10 @@ const shellDegradations: CounterMap = new Map();
 const cacheFills: CounterMap = new Map();
 const coalescedWaits: CounterMap = new Map();
 const coldMissLockTimeouts: CounterMap = new Map();
+const botAnalyticsEnqueues: CounterMap = new Map();
+const botAnalyticsDrops: CounterMap = new Map();
+const botAnalyticsBatches: CounterMap = new Map();
+const botAnalyticsDrains: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
 const requestDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheResponseDurations = new Histogram(DURATION_BUCKETS_MS);
@@ -68,6 +72,10 @@ const cacheBodySizes = new Histogram(BODY_SIZE_BUCKETS_BYTES);
 const cacheKeySizes = new Histogram(KEY_SIZE_BUCKETS_BYTES);
 const cacheFillDurations = new Histogram(DURATION_BUCKETS_MS);
 const coalescedWaitDurations = new Histogram(DURATION_BUCKETS_MS);
+const botAnalyticsBatchDurations = new Histogram(DURATION_BUCKETS_MS);
+const botAnalyticsBatchSizes = new Histogram([1, 5, 10, 25, 50, 100]);
+let botAnalyticsQueueDepth = 0;
+let botAnalyticsInFlight = 0;
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 eventLoopDelay.enable();
 
@@ -144,6 +152,40 @@ export function observeCoalescedWait(
 
 export function observeColdMissLockTimeout(): void {
   increment(coldMissLockTimeouts, 'outcome="timeout"');
+}
+
+export function observeBotAnalyticsEnqueue(
+  outcome: "queued" | "deduplicated" | "sampled" | "queue_full" | "closed",
+): void {
+  increment(botAnalyticsEnqueues, `outcome="${outcome}"`);
+}
+
+export function observeBotAnalyticsDrop(
+  reason: "queue_full" | "closed" | "shutdown_timeout",
+  count = 1,
+): void {
+  const labels = `reason="${reason}"`;
+  botAnalyticsDrops.set(labels, (botAnalyticsDrops.get(labels) ?? 0) + count);
+}
+
+export function observeBotAnalyticsBatch(
+  outcome: "success" | "rejected" | "error" | "aborted",
+  eventCount: number,
+  durationMs: number,
+): void {
+  const labels = `outcome="${outcome}"`;
+  increment(botAnalyticsBatches, labels);
+  botAnalyticsBatchDurations.observe(labels, durationMs);
+  botAnalyticsBatchSizes.observe(labels, eventCount);
+}
+
+export function observeBotAnalyticsDrain(outcome: "success" | "timeout"): void {
+  increment(botAnalyticsDrains, `outcome="${outcome}"`);
+}
+
+export function setBotAnalyticsQueueState(queueDepth: number, inFlight: number): void {
+  botAnalyticsQueueDepth = Math.max(0, queueDepth);
+  botAnalyticsInFlight = Math.max(0, inFlight);
 }
 
 export function observeCacheOperation(
@@ -256,6 +298,44 @@ export function renderMetrics(): string {
       "ssr_cache_lock_timeout_total",
       "Cold miss waits that exhausted the Redis lock wait budget",
       coldMissLockTimeouts,
+    ),
+    ...counterLines(
+      "ssr_bot_analytics_enqueue_total",
+      "Bot analytics enqueue decisions",
+      botAnalyticsEnqueues,
+    ),
+    ...counterLines(
+      "ssr_bot_analytics_dropped_total",
+      "Bot analytics events dropped before delivery",
+      botAnalyticsDrops,
+    ),
+    ...counterLines(
+      "ssr_bot_analytics_batches_total",
+      "Bot analytics batch delivery outcomes",
+      botAnalyticsBatches,
+    ),
+    ...botAnalyticsBatchDurations.lines(
+      "ssr_bot_analytics_batch_duration_milliseconds",
+      "Bot analytics batch gateway duration",
+    ),
+    ...botAnalyticsBatchSizes.lines(
+      "ssr_bot_analytics_batch_size",
+      "Bot analytics events per delivered batch",
+    ),
+    ...counterLines(
+      "ssr_bot_analytics_drains_total",
+      "Bot analytics shutdown drain outcomes",
+      botAnalyticsDrains,
+    ),
+    ...gauge(
+      "ssr_bot_analytics_queue_depth",
+      "Bot analytics events currently waiting in memory",
+      botAnalyticsQueueDepth,
+    ),
+    ...gauge(
+      "ssr_bot_analytics_in_flight",
+      "Bot analytics batches currently in flight",
+      botAnalyticsInFlight,
     ),
     ...gatewayDurations.lines(
       "ssr_gateway_request_duration_milliseconds",

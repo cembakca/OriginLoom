@@ -90,6 +90,26 @@ return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor
 2. Tüm servis implementasyonlarını `server/services/` altında tut
 3. Client/island kodu yalnızca kontratları kullanır; server servisi import etmez
 
+### Non-critical background dispatch
+
+Request başına `void gatewayFetch(...)` ile kontrolsüz background I/O başlatılmaz. Analytics gibi
+request sonucunu etkilemeyen event akışları `server/services/` altında lifecycle sahibi bounded bir
+dispatcher kullanır:
+
+- Enqueue senkrondur; request queue drain veya gateway response beklemez.
+- Queue kapasitesi, eşzamanlı sender sayısı, batch boyutu ve flush süresi üst sınırlıdır.
+- Queue doluysa event drop edilir ve bounded-label metric artırılır; HTTP request'e backpressure
+  uygulanmaz.
+- Gürültülü anahtarlar kısa TTL dedup ve gerekirse sampling ile azaltılır. Dedup process/pod-local ise
+  bu kapsam dokümante edilir; global tekillik varsayılmaz.
+- Batch payload'ı gateway runtime schema'sıyla doğrulanır ve collection üst sınırı taşır.
+- Dispatcher `SIGTERM`/`SIGINT` shutdown akışına drain fonksiyonuyla kaydedilir. Timeout'ta bekleyen
+  işler drop edilir, in-flight I/O abort edilir.
+- Raw path, user agent, tracking ID veya event içeriği metric label'ı yapılmaz.
+
+Bot trafiği için referans implementasyon `server/services/bot-analytics.ts`; gateway kontratı
+`POST /analytics/bot` için `{ events: BotVisit[] }` biçimindedir.
+
 ### Gateway payload kontratı
 
 Gateway'den gelen JSON TypeScript cast'iyle güvenilir hale gelmez. Yeni veya değişen her JSON
@@ -1023,6 +1043,8 @@ gibi gerekli değerler saf `src/lib` fonksiyonlarına context üzerinden aktarı
 - Span adı bounded olmalıdır; token, kullanıcı ID'si, cache key veya kontrolsüz query içermez.
 - Gateway çağrısında `injectActiveTrace()` korunur; request ID `correlationid` olarak iletilir.
 - Yeni metric label değerleri sınırlı bir enum olmalıdır. Raw path/request ID metric label'ı değildir.
+- Request dışı işler bounded queue/concurrency kullanmalı ve shutdown drain'e katılmalıdır; çıplak
+  fire-and-forget Promise request middleware'inde bırakılmaz.
 - Release kimliği deploy sırasında `RELEASE_ID` ile sağlanır; log, trace resource ve
   `ssr_release_info` metriğinde aynı değer görünür.
 - OpenTelemetry SDK yalnız `server/instrumentation.ts` tarafından başlatılır ve kapatılır. Service,
