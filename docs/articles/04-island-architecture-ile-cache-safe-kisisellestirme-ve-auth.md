@@ -304,6 +304,14 @@ Eager flag dikkatli kullanılmalı. Her island eager olursa architecture tekrar 
 maliyetine yaklaşır. Hiçbiri eager olmazsa above-the-fold kullanıcı menüsü görünür olduğu anda dahi
 observer callback’ini ve chunk download’unu bekleyebilir.
 
+Production runtime'da `layout-client` ve `page-analytics` için ikinci bir optimizasyon daha vardır:
+server, Vite manifestindeki hash'li island chunk'larını ve recursive static import'larını HTML head'e
+`modulepreload` olarak yazar. Browser bu dosyaları entry çalışıp `data-eager` root'ları bulmadan önce
+indirmeye başlayabilir. Bu preload modülü çalıştırmaz; yalnız network discovery'sini erkene alır.
+Viewport island'ları preload edilmediği için lazy indirme kontratı korunur. Route'a özgü kritik
+island'lar ayrıca `preloadIslands` ile opt-in seçilebilir. Uygulamanın önce/sonra waterfall'ı ve ölçüm
+rehberi [Vite Manifest ile Island Preload](./07-vite-manifest-ile-island-modulepreload.md) yazısındadır.
+
 Bu optimizasyon client bootstrap'ın tek hata noktası olmamalıdır. Runtime eager root'ları observer'a
 dokunmadan önce başlatır. Ardından `IntersectionObserver` yoksa bütün lazy island'ları doğrudan mount
 eder. Yalnız feature detection yetmez: browser extension'ı veya test harness global constructor'ı

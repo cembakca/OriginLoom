@@ -81,6 +81,31 @@ Cache in-memory çalışır; process restart sonrası sıfırlanır.
 - Development sırasında `dist/client` veya manifest yeniden üretilmez.
 - Production build hâlâ hashed asset ve `.vite/manifest.json` kullanır.
 
+## Island module preload
+
+Production SSR document'i Vite manifestindeki recursive static import grafiğini okuyarak ana client
+entry, `layout-client`, `page-analytics` ve bunların shared dependency'leri için
+`<link rel="modulepreload">` üretir. Böylece browser, her sayfada hemen çalışacağı bilinen bu island
+chunk'larını `entry.client` çalıştıktan sonra keşfetmek yerine HTML head parse edilirken indirmeye
+başlayabilir.
+
+Bu optimizasyon JavaScript miktarını azaltmaz; gerekli eager modüllerin network waterfall'ını kısaltır.
+`mobile-menu`, `footer-accordion` ve diğer viewport/deferred island'lar preload edilmez, lazy
+davranışlarını korur. İlk yükte gerçekten kritik olan route island'ları açıkça eklenebilir:
+
+```ts
+defineRoute({
+  path: "/kredi-hesaplama",
+  preloadIslands: ["filter-panel"],
+  // loader, Component...
+});
+```
+
+`preloadIslands` yalnız indirmeyi erkene alır; island'ı çalıştırmaz. Client'ta hemen mount edilmesi
+gerekiyorsa ilgili `<Island>` ayrıca `eager` olmalıdır. Ayrıntılı ağ akışı, trade-off ve ölçüm rehberi
+için [Vite Manifest ile Island Preload](docs/articles/07-vite-manifest-ile-island-modulepreload.md)
+yazısına bakın.
+
 Gateway'i tek başına başlatmak için:
 
 ```bash

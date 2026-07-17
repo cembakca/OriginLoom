@@ -733,6 +733,48 @@ describe("handler", () => {
     expect(body).not.toContain('rel="modulepreload"');
   });
 
+  it("preloads global and explicitly opted-in route islands without deferred chunks", async () => {
+    const route: Route = {
+      path: "/island-preloads",
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("main", null, "preloaded"),
+      preloadIslands: ["filter-panel"],
+      minimalChrome: true,
+    };
+    const preloadAssets = {
+      ...assets,
+      modulePreloads: [
+        "/assets/entry.client.js",
+        "/assets/layout-client.js",
+        "/assets/page-analytics.js",
+        "/assets/shared.js",
+      ],
+      islandModulePreloads: {
+        "filter-panel": ["/assets/filter-panel.js", "/assets/entry.client.js", "/assets/shared.js"],
+        "mobile-menu": ["/assets/mobile-menu.js"],
+      },
+    };
+
+    const response = await handle(
+      new Request("http://localhost/island-preloads"),
+      [route],
+      preloadAssets,
+    );
+    const body = await response.text();
+
+    for (const href of [
+      "/assets/entry.client.js",
+      "/assets/layout-client.js",
+      "/assets/page-analytics.js",
+      "/assets/shared.js",
+      "/assets/filter-panel.js",
+    ]) {
+      expect(body).toContain(`rel="modulepreload" href="${href}"`);
+    }
+    expect(body.match(/href="\/assets\/shared\.js"/g)).toHaveLength(1);
+    expect(body).not.toContain("/assets/mobile-menu.js");
+  });
+
   it("does not replace stale cache content with a failed revalidation", async () => {
     vi.useFakeTimers();
     let result = { data: { text: "fresh" }, status: 200 };

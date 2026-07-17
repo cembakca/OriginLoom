@@ -22,6 +22,8 @@ export type Assets = {
   js: string;
   css: string[];
   fonts: FontAsset[];
+  modulePreloads?: string[];
+  islandModulePreloads?: Record<string, string[]>;
   development?: { client: string; reactRefresh: string };
 };
 
@@ -49,7 +51,10 @@ export async function renderDocument<T>(
     metadata: seo,
     pageMeta,
     imagePreloads,
-    ...stripUndefined({ minimalChrome: route.minimalChrome }),
+    ...stripUndefined({
+      preloadIslands: route.preloadIslands,
+      minimalChrome: route.minimalChrome,
+    }),
   });
 }
 
@@ -60,6 +65,7 @@ export async function renderDocumentView({
   metadata,
   pageMeta,
   imagePreloads = [],
+  preloadIslands = [],
   minimalChrome,
 }: {
   assets: Assets;
@@ -68,6 +74,7 @@ export async function renderDocumentView({
   metadata: ResolvedMetadata;
   pageMeta: PageAnalyticsMeta;
   imagePreloads?: ImagePreload[];
+  preloadIslands?: readonly string[];
   minimalChrome?: boolean;
 }): Promise<string> {
   const isBot = isBotRequest(routeCtx.request);
@@ -79,6 +86,7 @@ export async function renderDocumentView({
   const preconnectOrigins = [
     ...new Set([cdnOrigin, viteOrigin, ...imageCdnOrigins()].filter(Boolean)),
   ] as string[];
+  const modulePreloads = assets.development ? [] : resolveModulePreloads(assets, preloadIslands);
 
   const html = renderToString(
     <html lang="tr">
@@ -128,9 +136,10 @@ export async function renderDocumentView({
               }}
             />
           </>
-        ) : (
-          <link rel="modulepreload" href={assets.js} />
-        )}
+        ) : null}
+        {modulePreloads.map((href) => (
+          <link key={href} rel="modulepreload" href={href} />
+        ))}
         <GtmBootstrap containerId={config.gtmContainerId} isBot={isBot} />
       </head>
       <body>
@@ -148,6 +157,18 @@ export async function renderDocumentView({
     </html>,
   );
   return "<!DOCTYPE html>" + html;
+}
+
+function resolveModulePreloads(assets: Assets, preloadIslands: readonly string[]): string[] {
+  const preloads = new Set(assets.modulePreloads ?? [assets.js]);
+  for (const island of preloadIslands) {
+    const islandPreloads = assets.islandModulePreloads?.[island];
+    if (!islandPreloads) {
+      throw new Error(`Route preload island not found in Vite manifest: ${island}`);
+    }
+    for (const href of islandPreloads) preloads.add(href);
+  }
+  return [...preloads];
 }
 
 function reactRefreshPreamble(refreshRuntimeUrl: string): string {

@@ -4,7 +4,18 @@ import { config } from "./config";
 import type { Assets } from "./document";
 import { readFontAssets } from "./media";
 
-type ManifestChunk = { isEntry?: boolean; file: string; css?: string[] };
+export type ManifestChunk = {
+  isEntry?: boolean;
+  isDynamicEntry?: boolean;
+  src?: string;
+  file: string;
+  css?: string[];
+  imports?: string[];
+};
+
+export type ViteManifest = Record<string, ManifestChunk>;
+
+const GLOBAL_EAGER_ISLANDS = ["layout-client", "page-analytics"] as const;
 
 /** Mantıksal asset path → CDN veya origin URL. */
 export function assetUrl(path: string): string {
@@ -31,18 +42,79 @@ export function readAssets(): Assets {
     };
   }
 
-  const manifest = JSON.parse(readFileSync("dist/client/.vite/manifest.json", "utf8")) as Record<
-    string,
-    ManifestChunk
-  >;
-  const entry = Object.values(manifest).find((chunk) => chunk.isEntry);
-  if (!entry) throw new Error("Vite manifest entry not found — run npm run build first");
+  const manifest = JSON.parse(
+    readFileSync("dist/client/.vite/manifest.json", "utf8"),
+  ) as ViteManifest;
+  const resolved = resolveManifestPreloads(manifest);
 
   return {
-    js: assetUrl(`/${entry.file}`),
-    css: (entry.css ?? []).map((file) => assetUrl(`/${file}`)),
+    js: assetUrl(`/${resolved.entry.file}`),
+    css: (resolved.entry.css ?? []).map((file) => assetUrl(`/${file}`)),
     fonts: readFontAssets(),
+    modulePreloads: resolved.modulePreloadFiles.map((file) => assetUrl(`/${file}`)),
+    islandModulePreloads: Object.fromEntries(
+      Object.entries(resolved.islandModulePreloadFiles).map(([name, files]) => [
+        name,
+        files.map((file) => assetUrl(`/${file}`)),
+      ]),
+    ),
   };
+}
+
+export function resolveManifestPreloads(manifest: ViteManifest): {
+  entry: ManifestChunk;
+  modulePreloadFiles: string[];
+  islandModulePreloadFiles: Record<string, string[]>;
+} {
+  const entryRecord = Object.entries(manifest).find(([, chunk]) => chunk.isEntry);
+  if (!entryRecord) throw new Error("Vite manifest entry not found — run npm run build first");
+  const [entryKey, entry] = entryRecord;
+  const islandModulePreloadFiles = buildIslandModulePreloadFiles(manifest);
+  const globalModuleKeys = [
+    entryKey,
+    ...GLOBAL_EAGER_ISLANDS.map((name) => islandManifestKey(manifest, name)),
+  ];
+  return {
+    entry,
+    modulePreloadFiles: collectManifestFiles(manifest, globalModuleKeys),
+    islandModulePreloadFiles,
+  };
+}
+
+export function collectManifestFiles(manifest: ViteManifest, entryKeys: string[]): string[] {
+  const visited = new Set<string>();
+  const files: string[] = [];
+
+  const visit = (key: string): void => {
+    if (visited.has(key)) return;
+    visited.add(key);
+    const chunk = manifest[key];
+    if (!chunk) throw new Error(`Vite manifest chunk not found: ${key}`);
+    files.push(chunk.file);
+    for (const dependency of chunk.imports ?? []) visit(dependency);
+  };
+
+  for (const key of entryKeys) visit(key);
+  return files;
+}
+
+function buildIslandModulePreloadFiles(manifest: ViteManifest): Record<string, string[]> {
+  const islands: Record<string, string[]> = {};
+  for (const [key, chunk] of Object.entries(manifest)) {
+    if (!chunk.isDynamicEntry || !chunk.src?.startsWith("src/islands/")) continue;
+    const name = chunk.src.slice("src/islands/".length).replace(/\.tsx?$/, "");
+    islands[name] = collectManifestFiles(manifest, [key]);
+  }
+  return islands;
+}
+
+function islandManifestKey(manifest: ViteManifest, name: string): string {
+  const source = `src/islands/${name}.tsx`;
+  const record = Object.entries(manifest).find(
+    ([key, chunk]) => key === source || chunk.src === source,
+  );
+  if (!record) throw new Error(`Eager island not found in Vite manifest: ${name}`);
+  return record[0];
 }
 
 /** CDN origin — preconnect için (ör. https://cdn.hangikredi.com). */

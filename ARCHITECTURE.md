@@ -422,6 +422,13 @@ chunk'ıdır. `eager` root'lar (layout, analytics) observer kurulmadan önce ba�
 constructor override edilmişse veya `observe()` hata verirse bütün lazy island'lar doğrudan mount
 edilerek client bootstrap fail-open kalır.
 
+`eager` çalışma kararı ile network preload kararı ayrı kontratlardır. Production document,
+`layout-client` ve `page-analytics` chunk'larını Vite manifestinden bulur; bunlarla ana entry'nin
+recursive static `imports` grafiğini tekilleştirerek `<link rel="modulepreload">` üretir. Böylece
+browser bu modülleri entry çalışıp DOM'daki `data-eager` root'ları keşfetmeden önce indirmeye
+başlayabilir. Route'a özgü kritik island'lar `Route.preloadIslands` ile opt-in eklenir. Viewport/deferred
+island'lar listeye otomatik girmez ve kullanılmayacak JS'nin ilk yükte indirilmemesi korunur.
+
 Island module yüklemesi toplam 10 saniyelik bütçe, React root ise gerçek effect commit'ine kadar ayrı
 10 saniyelik watchdog taşır. Yalnız browser online, document visible ve hata transient module-fetch
 sınıfındaysa 250ms sonra tek retry yapılır. Missing module, chunk load, timeout, props parse, mount ve
@@ -478,7 +485,10 @@ bundle eder. Docker runtime katmanı yalnızca production bağımlılıklarını
 
 Production client build `src/entry.client.tsx` başlangıç noktasıyla `dist/client/` altına island
 bundle'ları + CSS üretir. Manifest (`manifest.json`) sunucu tarafından okunarak HTML'e doğru hashed
-asset URL'leri enjekte edilir. CDN varsa `ASSET_CDN_URL` env ile asset base URL değiştirilir.
+asset URL'leri enjekte edilir. `server/assets.ts`, `isEntry`, `isDynamicEntry`, `src`, `file` ve
+recursive `imports` alanlarını kullanarak global ve route-scoped island preload grafiğini çıkarır.
+Ortak dependency URL'leri document başına tek linke indirilir. CDN varsa `ASSET_CDN_URL` env ile asset
+base URL değiştirilir.
 
 Development bu manifest yolunu kullanmaz. `scripts/dev.mjs` Hono, mock gateway, Vite dev server ve
 `tsx watch` süreçlerini tek lifecycle altında çalıştırır. Hono document'i Vite `/@vite/client`, React

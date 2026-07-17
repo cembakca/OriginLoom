@@ -114,6 +114,9 @@ export type Route<T = unknown> = {
   /** LCP candidates emitted as <link rel="preload" as="image"> in the document head. */
   preloadImages?: RouteDataCallback<T, ImagePreload[]>;
 
+  /** Additional eager island chunks to modulepreload for this route. Deferred islands stay lazy. */
+  preloadIslands?: readonly string[];
+
   /** @deprecated Prefer generateMetadata */
   title?: RouteTitleCallback<T>;
 

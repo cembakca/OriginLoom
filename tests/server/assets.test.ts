@@ -49,4 +49,50 @@ describe("assetUrl", () => {
     expect(assets.fonts).toHaveLength(2);
     expect(assets.fonts[0]?.href).toMatch(/^\/assets\/media\/inter-latin\.[a-f0-9]+\.woff2$/);
   });
+
+  it("collects only global eager islands and their recursive static imports", async () => {
+    const { resolveManifestPreloads } = await import("@server/assets");
+    const resolved = resolveManifestPreloads({
+      "src/entry.client.tsx": {
+        file: "assets/entry.js",
+        isEntry: true,
+        imports: ["_entry-shared.js"],
+      },
+      "_entry-shared.js": { file: "assets/entry-shared.js" },
+      "_island-shared.js": { file: "assets/island-shared.js" },
+      "src/islands/layout-client.tsx": {
+        file: "assets/layout-client.js",
+        src: "src/islands/layout-client.tsx",
+        isDynamicEntry: true,
+        imports: ["src/entry.client.tsx", "_island-shared.js"],
+      },
+      "src/islands/page-analytics.tsx": {
+        file: "assets/page-analytics.js",
+        src: "src/islands/page-analytics.tsx",
+        isDynamicEntry: true,
+        imports: ["src/entry.client.tsx", "_island-shared.js"],
+      },
+      "src/islands/mobile-menu.tsx": {
+        file: "assets/mobile-menu.js",
+        src: "src/islands/mobile-menu.tsx",
+        isDynamicEntry: true,
+        imports: ["src/entry.client.tsx", "_island-shared.js"],
+      },
+    });
+
+    expect(resolved.modulePreloadFiles).toEqual([
+      "assets/entry.js",
+      "assets/entry-shared.js",
+      "assets/layout-client.js",
+      "assets/island-shared.js",
+      "assets/page-analytics.js",
+    ]);
+    expect(resolved.modulePreloadFiles).not.toContain("assets/mobile-menu.js");
+    expect(resolved.islandModulePreloadFiles["mobile-menu"]).toEqual([
+      "assets/mobile-menu.js",
+      "assets/entry.js",
+      "assets/entry-shared.js",
+      "assets/island-shared.js",
+    ]);
+  });
 });
