@@ -707,9 +707,11 @@ pod scrape annotation ise ayrı `9090` metrics portunu görür. Böylece ingress
 Prometheus yüzeyini yanlışlıkla internete açmaz.
 
 SSR catch-all ayrıca method kontratıdır. Route ile eşleşen resource yalnız `GET` ve `HEAD` kabul eder;
-diğer methodlar `405` ve `Allow: GET, HEAD` alır. HEAD route kimliği ile bounded param validation'ı
-çalıştırır ama loader ve React render maliyetini taşımaz. Gateway `/api/*` proxy'sinin POST/PUT gibi
-methodları bu guard'dan etkilenmez.
+diğer methodlar `405` ve `Allow: GET, HEAD` alır. HEAD de GET gibi auth/session/CMS redirect
+pipeline'ından geçer. Shared cache hit'inde loader çalışmaz; miss'te representation'ın gerçek status ve
+header kararlarını korumak için loader çalışır. Buna karşılık React document render edilmez, response
+body üretilmez ve HTML cache doldurulmaz. Gateway `/api/*` proxy'sinin POST/PUT gibi methodları bu
+guard'dan etkilenmez.
 
 Liveness ile readiness’i ayırmak deploy sırasında önemlidir. Redis geçici olarak yoksa process’i
 sürekli öldürmek yerine readiness politikası trafiği kontrollü biçimde kesebilir.

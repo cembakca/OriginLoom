@@ -73,7 +73,7 @@ describe("handler", () => {
     ).toBe(false);
   });
 
-  it("answers HEAD without running the route loader or renderer", async () => {
+  it("runs the loader on a HEAD cache miss but never renders or fills the cache", async () => {
     const loader = vi.fn(async () => ({ data: {} }));
     const component = vi.fn(() => createElement("p", null, "unreachable"));
     const route: Route = {
@@ -90,11 +90,138 @@ describe("handler", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("x-cache")).toBe("HEAD");
+    expect(response.headers.get("x-cache")).toBe("MISS");
     expect(response.headers.get("x-request-id")).toBe("head-request");
     expect(await response.text()).toBe("");
+    expect(loader).toHaveBeenCalledOnce();
+    expect(component).not.toHaveBeenCalled();
+
+    loader.mockClear();
+    const second = await handleHead(
+      new Request("http://localhost/head-contract", { method: "HEAD" }),
+      [route],
+    );
+    expect(second.headers.get("x-cache")).toBe("MISS");
+    expect(loader).toHaveBeenCalledOnce();
+  });
+
+  it("answers a cached HEAD with GET metadata without running its loader or renderer", async () => {
+    const loader = vi.fn(async () => ({ data: { title: "cached" } }));
+    const component = vi.fn(({ data }: { data: { title: string } }) =>
+      createElement("p", null, data.title),
+    );
+    const route: Route<{ title: string }> = {
+      path: "/head-cache-hit",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["head-cache-hit"] }),
+      loader,
+      Component: component,
+    };
+
+    const get = await handle(new Request("http://localhost/head-cache-hit"), [route], assets);
+    expect(get.status).toBe(200);
+    expect(get.headers.get("x-cache")).toBe("MISS");
+    loader.mockClear();
+    component.mockClear();
+
+    const head = await handleHead(
+      new Request("http://localhost/head-cache-hit", { method: "HEAD" }),
+      [route],
+    );
+
+    expect(head.status).toBe(200);
+    expect(head.headers.get("x-cache")).toBe("HIT");
+    expect(await head.text()).toBe("");
     expect(loader).not.toHaveBeenCalled();
     expect(component).not.toHaveBeenCalled();
+  });
+
+  it("preserves HEAD loader terminal outcomes, status and safe response headers", async () => {
+    const component = vi.fn(() => createElement("p", null, "unreachable"));
+    const routes: Route[] = [
+      {
+        path: "/head-not-found",
+        loader: async () => ({ kind: "notFound", headers: { "x-route-result": "missing" } }),
+        Component: component,
+      },
+      {
+        path: "/head-redirect",
+        loader: async () => ({
+          kind: "redirect",
+          location: "/target?from=head",
+          status: 308,
+          headers: { "x-route-result": "redirect" },
+        }),
+        Component: component,
+      },
+      {
+        path: "/head-error",
+        loader: async () => ({
+          kind: "error",
+          error: { code: "EXPECTED", message: "Expected failure" },
+          status: 422,
+          headers: { "x-route-result": "error" },
+        }),
+        Component: component,
+      },
+      {
+        path: "/head-data-status",
+        loader: async () => ({
+          data: {},
+          status: 202,
+          headers: { "x-route-result": "data" },
+        }),
+        Component: component,
+      },
+    ];
+
+    const missing = await handleHead(
+      new Request("http://localhost/head-not-found", { method: "HEAD" }),
+      routes,
+    );
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("x-route-result")).toBe("missing");
+    expect(missing.headers.get("x-cache")).toBe("BYPASS");
+
+    const redirected = await handleHead(
+      new Request("http://localhost/head-redirect", { method: "HEAD" }),
+      routes,
+    );
+    expect(redirected.status).toBe(308);
+    expect(redirected.headers.get("location")).toBe("http://localhost/target?from=head");
+    expect(redirected.headers.get("x-route-result")).toBe("redirect");
+
+    const failed = await handleHead(
+      new Request("http://localhost/head-error", { method: "HEAD" }),
+      routes,
+    );
+    expect(failed.status).toBe(422);
+    expect(failed.headers.get("x-route-result")).toBe("error");
+
+    const accepted = await handleHead(
+      new Request("http://localhost/head-data-status", { method: "HEAD" }),
+      routes,
+    );
+    expect(accepted.status).toBe(202);
+    expect(accepted.headers.get("x-route-result")).toBe("data");
+    expect(await accepted.text()).toBe("");
+    expect(component).not.toHaveBeenCalled();
+  });
+
+  it("keeps paginated blog HEAD status aligned with GET loader decisions", async () => {
+    for (const query of ["page=abc", "page=5"]) {
+      const get = await handle(
+        new Request(`http://localhost/blogs/paginated?${query}`),
+        [blogsPaginatedRoute],
+        assets,
+      );
+      const head = await handleHead(
+        new Request(`http://localhost/blogs/paginated?${query}`, { method: "HEAD" }),
+        [blogsPaginatedRoute],
+      );
+
+      expect(head.status).toBe(get.status);
+      expect(await head.text()).toBe("");
+    }
   });
 
   it("redirects a non-canonical public path before matching, rewrites and cache lookup", async () => {

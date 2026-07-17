@@ -178,30 +178,33 @@ function createApp(assets: Assets) {
       setActiveHttpRoute(method, "<method-not-allowed>");
       return methodNotAllowedResponse(requestId);
     }
-    if (ssrRoute && method === "HEAD") {
-      return handleHead(c.req.raw, routes, { requestId, clientIp });
-    }
-
     if (shouldUsePipeline(pathname)) {
       const pipeline = await runPipeline(c.req.raw, requestId, clientIp);
 
       if (pipeline.response) {
-        const res = finalizePipelineResponse(pipeline);
+        const pipelineResponse = finalizePipelineResponse(pipeline);
+        const res = method === "HEAD" ? withoutBody(pipelineResponse) : pipelineResponse;
         if (requestId) res.headers.set("x-request-id", requestId);
         return res;
       }
 
-      const ssr = await handle(pipeline.request, routes, assets, {
+      const handleContext = {
         requestId,
         clientIp,
         ...stripUndefined({ trackingId: pipeline.trackingId }),
-      });
+      };
+      const ssr =
+        method === "HEAD"
+          ? await handleHead(pipeline.request, routes, handleContext)
+          : await handle(pipeline.request, routes, assets, handleContext);
       const res = finalizeSsrResponse(ssr, pipeline);
       if (requestId) res.headers.set("x-request-id", requestId);
       return res;
     }
 
-    return handle(c.req.raw, routes, assets, { requestId, clientIp });
+    return method === "HEAD"
+      ? handleHead(c.req.raw, routes, { requestId, clientIp })
+      : handle(c.req.raw, routes, assets, { requestId, clientIp });
   });
 
   return app;
@@ -211,6 +214,14 @@ function closeServer(server: ServerType | null): Promise<void> {
   return new Promise((resolve) => {
     if (!server) return resolve();
     server.close(() => resolve());
+  });
+}
+
+function withoutBody(response: Response): Response {
+  return new Response(null, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
   });
 }
 

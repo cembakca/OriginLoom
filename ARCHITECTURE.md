@@ -308,7 +308,9 @@ kendisinin veya shell'in hata vermesi ayrı global hata sayfasına düşer. Vars
 
 SSR route method kontratı `GET, HEAD` ile kapalıdır. Diğer methodlar loader/pipeline çalışmadan `405`
 ve `Allow: GET, HEAD` alır; `/api/*` external proxy methodları bu kontrolden etkilenmez. `HEAD`, route
-ve parametre kimliğini doğrular ancak loader veya React render çalıştırmadan headers-only cevap verir.
+ile aynı auth/session/redirect pipeline'ından geçer. Shared cache hit'inde loader çalışmadan cached GET
+metadata'sını döner; miss'te `notFound`, `redirect`, `error`, custom status ve header kararlarını almak
+için loader'ı çalıştırır. React render, body üretimi, cache fill ve SWR başlatmaz.
 
 #### Rewrite/Redirect Kuralları — `src/routing/rules.ts`
 

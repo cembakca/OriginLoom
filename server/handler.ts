@@ -64,7 +64,7 @@ export function methodNotAllowedResponse(requestId?: string): Response {
   return new Response(null, { status: 405, headers });
 }
 
-/** Resolve route identity and headers without running its loader or rendering React. */
+/** Resolve the same route outcome as GET without rendering React or filling the HTML cache. */
 export async function handleHead(
   request: Request,
   routeTable: Route[],
@@ -92,7 +92,7 @@ export async function handleHead(
     internalUrl.pathname = resolution.pathname;
     if (resolution.kind === "rewrite") internalUrl.search = resolution.search;
     const matched = match(routeTable, resolution.pathname);
-    if (!matched) return headResponse(404, { kind: "none" }, requestId);
+    if (!matched) return headResponse(404, { kind: "none" }, "BYPASS", undefined, requestId);
 
     setActiveHttpRoute("HEAD", matched.route.path);
     const routeCtx = createRouteContext(
@@ -103,20 +103,83 @@ export async function handleHead(
       ctx,
     );
     if (matched.route.validateParams && !(await matched.route.validateParams(routeCtx))) {
-      return headResponse(404, { kind: "none" }, requestId);
+      return headResponse(404, { kind: "none" }, "BYPASS", undefined, requestId);
     }
-    const policy = matched.route.cache?.(routeCtx) ?? { kind: "none" as const };
-    const response = headResponse(200, policy, requestId);
+    const { route } = matched;
+    const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };
+    const key = cache.cacheKey(policy);
+
+    if (key) {
+      const hit = await cache.read(key);
+      if (hit) {
+        const state = hit.state === "fresh" ? "HIT" : "STALE";
+        const response = headResponse(200, policy, state, undefined, requestId);
+        logRequest(requestId, {
+          path: url.pathname,
+          status: response.status,
+          cache: state,
+          durationMs: Date.now() - started,
+        });
+        return response;
+      }
+    }
+
+    const result = await runLoader(route, routeCtx, "request");
+    if (result.kind === "redirect") {
+      const response = loaderRedirectResponse(result, routeCtx, requestId);
+      logRequest(requestId, {
+        path: url.pathname,
+        status: response.status,
+        cache: "REDIRECT",
+        durationMs: Date.now() - started,
+      });
+      return response;
+    }
+
+    if (result.kind === "notFound") {
+      const response = headResponse(404, { kind: "none" }, "BYPASS", result.headers, requestId);
+      logRequest(requestId, {
+        path: url.pathname,
+        status: response.status,
+        cache: "BYPASS",
+        durationMs: Date.now() - started,
+      });
+      return response;
+    }
+
+    if (result.kind === "error") {
+      const status = normalizeErrorStatus(result.status);
+      const errorId = randomUUID();
+      logger.warn("route expected error", {
+        errorId,
+        requestId,
+        path: url.pathname,
+        route: route.path,
+        status,
+        code: result.error.code,
+      });
+      const response = headResponse(status, { kind: "none" }, "BYPASS", result.headers, requestId);
+      logRequest(requestId, {
+        path: url.pathname,
+        status: response.status,
+        cache: "BYPASS",
+        durationMs: Date.now() - started,
+      });
+      return response;
+    }
+
+    const state = key ? "MISS" : "BYPASS";
+    const response = headResponse(result.status ?? 200, policy, state, result.headers, requestId);
     logRequest(requestId, {
       path: url.pathname,
       status: response.status,
-      cache: "HEAD",
+      cache: state,
       durationMs: Date.now() - started,
     });
     return response;
   } catch (error) {
     logError(error, { msg: "HEAD route resolution failed", requestId, path: url.pathname });
-    return headResponse(500, { kind: "none" }, requestId);
+    return headResponse(500, { kind: "none" }, "ERROR", undefined, requestId);
   }
 }
 
@@ -608,12 +671,15 @@ function html(
 function headResponse(
   status: number,
   policy: ReturnType<NonNullable<Route["cache"]>>,
+  state: string,
+  extra?: Record<string, string>,
   requestId?: string,
 ): Response {
   const headers = new Headers({
+    ...extra,
     "content-type": "text/html; charset=utf-8",
     "cache-control": cache.cacheControl(policy),
-    "x-cache": "HEAD",
+    "x-cache": state,
   });
   if (requestId) headers.set("x-request-id", requestId);
   return new Response(null, { status, headers });

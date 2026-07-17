@@ -841,7 +841,9 @@ builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder
 
 - Eşleşen SSR route'ta GET/HEAD dışı method `405` + `Allow: GET, HEAD` döner.
 - `/api/*` gateway proxy methodları SSR method guard'ına girmez.
-- HEAD route/param doğrulaması yapar; loader ve React render çalıştırmaz.
+- HEAD, GET ile aynı auth/session/redirect pipeline'ını ve route/param doğrulamasını kullanır.
+- Shared cache hit'inde loader çalışmaz. Miss'te terminal status/header kararları için loader çalışır;
+  React render, response body, cache fill ve SWR işi üretilmez.
 - Route error retry aksiyonu boş `href` veya mevcut URL'ye anchor üretmez. `data-reload-page` taşıyan
   button, merkezi client bootstrap listener'ıyla `location.reload()` çağırır.
 

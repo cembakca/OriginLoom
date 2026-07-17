@@ -45,7 +45,7 @@ try {
             fetch(`http://127.0.0.1:${port}/metrics`),
             fetch(`http://127.0.0.1:${metricsPort}/metrics`),
             fetch(`http://127.0.0.1:${port}/robots.txt`),
-            fetch(`http://127.0.0.1:${port}/`, { method: "HEAD" }),
+            fetch(`http://127.0.0.1:${port}/?utm_source=head-smoke`, { method: "HEAD" }),
             fetch(`http://127.0.0.1:${port}/`, { method: "POST" }),
           ]);
         if (
@@ -55,6 +55,8 @@ try {
           (await clusterMetrics.text()).includes("ssr_http_requests_total") &&
           robots.ok &&
           head.ok &&
+          head.headers.get("set-cookie")?.includes("utm_source=head-smoke") &&
+          head.headers.get("cache-control") === "private, no-store" &&
           method.status === 405 &&
           method.headers.get("allow") === "GET, HEAD"
         ) {
