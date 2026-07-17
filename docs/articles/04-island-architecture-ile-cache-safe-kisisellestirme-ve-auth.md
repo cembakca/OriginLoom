@@ -304,8 +304,64 @@ Eager flag dikkatli kullanılmalı. Her island eager olursa architecture tekrar 
 maliyetine yaklaşır. Hiçbiri eager olmazsa above-the-fold kullanıcı menüsü görünür olduğu anda dahi
 observer callback’ini ve chunk download’unu bekleyebilir.
 
-Mevcut runtime modern browser’da `IntersectionObserver` bulunduğunu varsayıyor. Daha geniş browser
-desteği gerekiyorsa observer yokluğunda bütün island’ları mount eden bir fallback eklenmelidir.
+Bu optimizasyon client bootstrap'ın tek hata noktası olmamalıdır. Runtime eager root'ları observer'a
+dokunmadan önce başlatır. Ardından `IntersectionObserver` yoksa bütün lazy island'ları doğrudan mount
+eder. Yalnız feature detection yetmez: browser extension'ı veya test harness global constructor'ı
+override etmiş olabilir; constructor ya da `observe()` throw ederse observer disconnect edilir ve
+aynı fallback çalışır. WeakSet tabanlı started kaydı bir root'un iki kez mount edilmesini engeller.
+
+```ts
+for (const element of roots) {
+  if (element.dataset.eager !== undefined) start(element);
+  else lazy.push(element);
+}
+
+try {
+  if (typeof IntersectionObserver !== "function") return mountAll(lazy);
+  const observer = new IntersectionObserver(onIntersect, { rootMargin: "200px" });
+  for (const element of lazy) observer.observe(element);
+} catch (error) {
+  reportClientError("island-bootstrap", error);
+  mountAll(lazy);
+}
+```
+
+Bu tercih performans optimizasyonunu kaybeder ama sayfanın bütün etkileşim katmanını kaybetmez.
+`IntersectionObserver` asynchronous visibility scheduling için uygun ve yaygın bir API olsa da
+constructor ve `observe()` hâlâ runtime I/O sınırı gibi fail-open ele alınır.
+
+## Chunk yükleme de bounded bir iştir
+
+Dynamic import Promise'i network, service worker veya bozuk CDN davranışı yüzünden uzun süre pending
+kalabilir. Her island module yüklemesi bu nedenle toplam 10 saniyelik bootstrap deadline'ı taşır.
+Module geldikten sonra React tree, DOM üretmeyen küçük bir commit-signal wrapper ile kurulur; effect 10
+saniyede çalışmazsa root ayrıca `island-mount-timeout` üretir. Böylece “import resolve oldu” ile
+“island gerçekten commit edildi” aynı başarı kabul edilmez. Import reddedilirse `island-chunk-load`,
+registry'de isim yoksa `island-module-missing` raporlanır. Props parse ve React root kurulumu da ayrı
+source sınıflarıdır; tek `island-mount` etiketi altında operasyonel anlam kaybolmaz.
+
+Retry genel bir “bir daha dene” döngüsü değildir. Yalnızca şu koşullar birlikte sağlanırsa bir kez ve
+250ms sonra çalışır:
+
+- Hata transient module-fetch/`ChunkLoadError` sınıfındadır.
+- Browser offline değildir.
+- Document hidden değildir.
+- İkinci deneme ilk 10 saniyelik toplam deadline içinde kalır.
+
+Syntax error, registry mismatch ve sürekli 404 retry edilmez. Aynı loader'ın sınırsız yeniden
+çağrılması CDN yükünü büyütürken kullanıcıya recovery garantisi vermez.
+
+## Analytics kritik olabilir ama bloklayıcı olamaz
+
+`page-analytics` eager island'dır; pageview payload'ını yazdıktan sonra inline EventQueue'ya React
+ready sinyali gönderir. Önceki tasarımda chunk hiç yüklenemezse `gtm.dom` ve `gtm.load` queue'da
+sınırsız kalabiliyordu. EventQueue artık 5 saniyelik fail-open timer taşır. Normal yolda pageview önce
+yazılır ve sinyal timer'ı iptal eder; hata yolunda lifecycle event'leri süre sonunda sırasıyla serbest
+bırakılır.
+
+Bu recovery kayıp pageview'i uydurmaz. Daha dar ve doğru bir garanti verir: analytics island arızası
+GTM lifecycle kuyruğunu kalıcı olarak kilitlemez. Sinyal lifecycle event'lerinden önce gelse bile daha
+sonra gelen `gtm.dom` ve `gtm.load` kaybolmadan normal dataLayer'a geçer.
 
 ## Fallback tasarımı yalnız loading spinner değildir
 
@@ -773,6 +829,11 @@ Production runtime için her island root’un şu bilgileri raporlaması değerl
 - Render error boundary sonucu.
 - Mount süresi.
 
+Mevcut telemetry bunları `island-bootstrap`, `island-module-missing`, `island-chunk-load`,
+`island-mount-timeout`, `island-props`, `island-mount`, `react-caught`, `react-recoverable` ve
+`react-uncaught` kapalı source listesiyle sınıflandırır. Raw error mesajı metric label'ına dönüşmez;
+detay bounded client-error payload'ıyla server loguna gider.
+
 React `hydrateRoot` `onRecoverableError`, `onCaughtError` ve `onUncaughtError` gibi root options sunar.
 Hydrate island’larda bu callback’leri merkezi telemetry’ye bağlamak mismatch ve client-only hataları
 route/request bilgisiyle ilişkilendirmeyi kolaylaştırır.
@@ -821,6 +882,10 @@ Island runtime için ek browser testleri de değerlidir:
 - Unknown island adı diğer island’ları engelliyor mu?
 - JavaScript kapalıyken public navigation erişilebilir mi?
 - Hint cookie spoof edildiğinde hiçbir protected JSON sızıyor mu?
+
+Unit suite ayrıca kritik `layout-client` ve `page-analytics` eager root'larının observer yokken de ilk
+başlatılan island'lar olduğunu; overridden observer fallback'ini; transient tek retry'ı; non-transient
+chunk error sınıflandırmasını; mount timeout'u ve analytics queue fail-open süresini korur.
 
 Bu testler cache, browser ve auth sınırlarını birlikte doğrular.
 
@@ -921,6 +986,8 @@ hangi koşulları gerektirdiği.
 - [React `createRoot`](https://react.dev/reference/react-dom/client/createRoot)
 - [React `useSyncExternalStore`](https://react.dev/reference/react/useSyncExternalStore)
 - [Vite glob import ve dynamic code splitting](https://vite.dev/guide/features.html#glob-import)
+- [MDN `IntersectionObserver`](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver)
+- [MDN dynamic `import()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import)
 - [Astro Islands Architecture](https://docs.astro.build/en/concepts/islands/)
 - [Next.js Server and Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components)
 - [Next.js Cache Components](https://nextjs.org/docs/app/getting-started/caching)

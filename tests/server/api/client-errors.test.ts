@@ -23,8 +23,8 @@ describe("client error telemetry API", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         errorId: "client-123",
-        source: "react-recoverable",
-        message: "hydration mismatch",
+        source: "island-chunk-load",
+        message: "dynamic import failed",
         path: "/blogs?page=2",
         island: "blog-pagination",
       }),

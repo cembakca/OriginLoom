@@ -401,7 +401,18 @@ Referanslar: [RFC 8259 JSON string grammar](https://www.rfc-editor.org/rfc/rfc82
 
 #### Client Tarafı
 
-Vite `import.meta.glob("./islands/*.tsx")` ile tüm island'ları code-split eder. Her island kendi chunk'ı. `IntersectionObserver` (rootMargin: 200px) viewport'a yaklaşınca chunk indirir. `eager` attribute olan island'lar anında yüklenir (layout, analytics).
+Vite `import.meta.glob("./islands/*.tsx")` ile tüm island'ları code-split eder. Her island kendi
+chunk'ıdır. `eager` root'lar (layout, analytics) observer kurulmadan önce başlatılır; diğerleri
+`IntersectionObserver` (`rootMargin: 200px`) ile viewport'a yaklaşınca yüklenir. API yoksa,
+constructor override edilmişse veya `observe()` hata verirse bütün lazy island'lar doğrudan mount
+edilerek client bootstrap fail-open kalır.
+
+Island module yüklemesi toplam 10 saniyelik bütçe, React root ise gerçek effect commit'ine kadar ayrı
+10 saniyelik watchdog taşır. Yalnız browser online, document visible ve hata transient module-fetch
+sınıfındaysa 250ms sonra tek retry yapılır. Missing module, chunk load, timeout, props parse, mount ve
+React root hataları ayrı telemetry source'larıdır. Inline GTM EventQueue, `page-analytics` chunk'ı hiç
+yüklenemese bile 5 saniye sonra `gtm.dom`/`gtm.load` kuyruğunu serbest bırakır; analytics arızası
+lifecycle event'lerini sonsuza kadar tutmaz.
 
 ---
 

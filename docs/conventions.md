@@ -72,6 +72,21 @@ return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor
 
 **Kural:** Yeni island'larda `eager` ekleme — yalnızca analytics veya global store seed gibi erken client state gerekiyorsa kullan.
 
+Client bootstrap dayanıklılık kontratı:
+
+- `layout-client` ve `page-analytics` observer kurulmadan önce başlatılan kritik eager island'lardır.
+- `IntersectionObserver` yoksa veya constructor/`observe()` hata verirse lazy island'ların tamamı
+  doğrudan mount edilir. Bu fallback'i kaldırma veya polyfill zorunluluğuna dönüştürme.
+- Island import toplam 10 saniyede timeout olur; React root'un gerçek effect commit'i de ayrı 10
+  saniyelik watchdog ile izlenir. Transient chunk fetch hatası yalnız online, visible document
+  koşulunda 250ms sonra bir kez retry edilir; syntax/missing module ve offline/hidden durumları retry
+  edilmez.
+- Telemetry source sınıfları korunur: `island-bootstrap`, `island-module-missing`,
+  `island-chunk-load`, `island-mount-timeout`, `island-props`, `island-mount` ve React root
+  callback'leri.
+- `page-analytics` sinyali gelmezse inline EventQueue 5 saniyede fail-open olur. Bu süreyi sınırsız
+  beklemeye çevirme; analytics temel client lifecycle'ını kilitlememelidir.
+
 ## Paylaşılan bileşen ekleme
 
 1. `src/components/{category}/{name}.tsx` oluştur
@@ -739,6 +754,7 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
                        body: layout-client → main → page-analytics
 4. entry.client        layout-client (store seed) → page-analytics (pageview)
 5. EventQueue          originalLocation → GAVirtual → signalReactReady → gtm.dom/load
+                       page-analytics başarısızsa 5s timeout → gtm.dom/load fail-open
 ```
 
 ### Dosya haritası

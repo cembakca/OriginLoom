@@ -1,9 +1,15 @@
 import "./styles/globals.css";
 
-import type { ComponentType } from "react";
+import { type ComponentType, type ReactNode, useEffect } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
 import { reportClientError } from "~/lib/client/error-telemetry";
+import {
+  bootstrapIslandElements,
+  createIslandMountWatchdog,
+  IslandRuntimeError,
+  loadIslandModule,
+} from "~/lib/client/island-runtime";
 import { parseEmbeddedJson } from "~/lib/embedded-json";
 import { AppQueryProvider } from "~/lib/query/provider";
 
@@ -20,30 +26,73 @@ for (const [path, load] of Object.entries(registry)) {
 
 async function mount(el: HTMLElement) {
   const island = el.dataset.island ?? "unknown";
+  const load = byName.get(island);
+  if (!load) {
+    reportClientError("island-module-missing", new Error(`Island module not found: ${island}`), {
+      island,
+    });
+    return;
+  }
+
+  let Comp: IslandModule["default"];
   try {
-    const load = byName.get(island);
-    if (!load) throw new Error(`Island module not found: ${island}`);
-    const { default: Comp } = await load();
+    ({ default: Comp } = await loadIslandModule(load));
+  } catch (error) {
+    const source =
+      error instanceof IslandRuntimeError && error.failure === "mount-timeout"
+        ? "island-mount-timeout"
+        : "island-chunk-load";
+    reportClientError(source, error, { island });
+    return;
+  }
 
-    const props = parseEmbeddedJson<Record<string, unknown>>(el.dataset.props || "{}");
+  let props: Record<string, unknown>;
+  try {
+    props = parseEmbeddedJson<Record<string, unknown>>(el.dataset.props || "{}");
+  } catch (error) {
+    reportClientError("island-props", error, { island });
+    return;
+  }
+
+  try {
+    const cancelMountTimeout = createIslandMountWatchdog(() => {
+      reportClientError("island-mount-timeout", new Error("Island root did not commit in time"), {
+        island,
+      });
+    });
     const tree = (
-      <AppQueryProvider>
-        <Comp {...props} />
-      </AppQueryProvider>
+      <IslandCommitSignal onCommit={cancelMountTimeout}>
+        <AppQueryProvider>
+          <Comp {...props} />
+        </AppQueryProvider>
+      </IslandCommitSignal>
     );
-    const errorOptions = reactErrorOptions(island);
+    const errorOptions = reactErrorOptions(island, cancelMountTimeout);
 
-    if (el.dataset.mode === "hydrate") {
-      hydrateRoot(el, tree, errorOptions);
-    } else {
-      createRoot(el, errorOptions).render(tree);
+    try {
+      if (el.dataset.mode === "hydrate") {
+        hydrateRoot(el, tree, errorOptions);
+      } else {
+        createRoot(el, errorOptions).render(tree);
+      }
+    } catch (error) {
+      cancelMountTimeout();
+      throw error;
     }
   } catch (error) {
     reportClientError("island-mount", error, { island });
   }
 }
 
-function reactErrorOptions(island: string): NonNullable<Parameters<typeof hydrateRoot>[2]> {
+function IslandCommitSignal({ children, onCommit }: { children: ReactNode; onCommit: () => void }) {
+  useEffect(onCommit, [onCommit]);
+  return children;
+}
+
+function reactErrorOptions(
+  island: string,
+  cancelMountTimeout: () => void,
+): NonNullable<Parameters<typeof hydrateRoot>[2]> {
   return {
     onCaughtError: (error, errorInfo) => {
       reportClientError("react-caught", error, {
@@ -58,6 +107,7 @@ function reactErrorOptions(island: string): NonNullable<Parameters<typeof hydrat
       });
     },
     onUncaughtError: (error, errorInfo) => {
+      cancelMountTimeout();
       reportClientError("react-uncaught", error, {
         island,
         componentStack: errorInfo.componentStack,
@@ -66,18 +116,10 @@ function reactErrorOptions(island: string): NonNullable<Parameters<typeof hydrat
   };
 }
 
-const io = new IntersectionObserver(
-  (entries, obs) => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      obs.unobserve(e.target);
-      void mount(e.target as HTMLElement);
-    }
+bootstrapIslandElements(
+  document.querySelectorAll<HTMLElement>("[data-island]"),
+  (element) => void mount(element),
+  {
+    onObserverError: (error) => reportClientError("island-bootstrap", error),
   },
-  { rootMargin: "200px" },
 );
-
-for (const el of document.querySelectorAll<HTMLElement>("[data-island]")) {
-  if (el.dataset.eager !== undefined) void mount(el);
-  else io.observe(el);
-}

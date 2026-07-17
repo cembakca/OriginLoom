@@ -3,6 +3,8 @@ type GtmBootstrapProps = {
   isBot: boolean;
 };
 
+export const ANALYTICS_FAIL_OPEN_MS = 5_000;
+
 /** Inline early tracking — runs in browser, reads cookies (cache-safe). */
 const EARLY_TRACKING_SCRIPT = `
 (function(){
@@ -14,27 +16,44 @@ const EARLY_TRACKING_SCRIPT = `
 })();
 `.trim();
 
-/** EventQueue — holds gtm.dom / gtm.load until React pageview is ready. */
-const EVENT_QUEUE_SCRIPT = `
+/** EventQueue — holds gtm.dom / gtm.load until React pageview is ready, then fails open. */
+export function buildEventQueueScript(failOpenMs = ANALYTICS_FAIL_OPEN_MS): string {
+  return `
 (function(){
   window.dataLayer=window.dataLayer||[];
   var domQ=[],loadQ=[],betweenQ=[],reactReady=false,domReleased=false,loadReleased=false;
   var orig=window.dataLayer.push.bind(window.dataLayer);
+  var failOpenTimer;
   function flush(q){for(var i=0;i<q.length;i++)orig(q[i]);q.length=0;}
   function releaseDom(){if(domReleased)return;domReleased=true;flush(domQ);flush(betweenQ);}
   function releaseLoad(){if(loadReleased)return;loadReleased=true;flush(loadQ);}
+  function signalReactReady(){
+    if(reactReady)return;
+    reactReady=true;
+    if(failOpenTimer)clearTimeout(failOpenTimer);
+    if(domQ.length||betweenQ.length)releaseDom();
+    if(domReleased&&loadQ.length)releaseLoad();
+  }
   window.dataLayer.push=function(){
     for(var i=0;i<arguments.length;i++){
       var p=arguments[i];
-      if(p&&p.event==='gtm.dom'){reactReady?releaseDom():domQ.push(p);continue;}
-      if(p&&p.event==='gtm.load'){domReleased?releaseLoad():loadQ.push(p);continue;}
+      if(p&&p.event==='gtm.dom'){
+        if(domReleased){orig(p);continue;}
+        domQ.push(p);if(reactReady)releaseDom();continue;
+      }
+      if(p&&p.event==='gtm.load'){
+        if(loadReleased){orig(p);continue;}
+        loadQ.push(p);if(domReleased)releaseLoad();continue;
+      }
       orig(p);
     }
     return window.dataLayer.length;
   };
-  window.__ssrKitSignalReactReady=function(){reactReady=true;if(domQ.length||betweenQ.length)releaseDom();};
+  window.__ssrKitSignalReactReady=signalReactReady;
+  failOpenTimer=setTimeout(signalReactReady,${Math.max(0, Math.floor(failOpenMs))});
 })();
 `.trim();
+}
 
 export function GtmBootstrap({ containerId, isBot }: GtmBootstrapProps) {
   if (!containerId) return null;
@@ -49,7 +68,7 @@ j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNo
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: "window.dataLayer=window.dataLayer||[];" }} />
-      <script dangerouslySetInnerHTML={{ __html: EVENT_QUEUE_SCRIPT }} />
+      <script dangerouslySetInnerHTML={{ __html: buildEventQueueScript() }} />
       <script dangerouslySetInnerHTML={{ __html: EARLY_TRACKING_SCRIPT }} />
       <script dangerouslySetInnerHTML={{ __html: gtmScript }} />
       {!isBot && (

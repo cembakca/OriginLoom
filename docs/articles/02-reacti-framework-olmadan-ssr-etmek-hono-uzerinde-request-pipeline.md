@@ -609,7 +609,11 @@ Bu nedenle interactive alanları island olarak işaretliyoruz:
 
 Client entry `import.meta.glob("./islands/*.tsx")` ile her island’ı ayrı chunk’a dönüştürüyor.
 DOM’daki `data-island` değerine göre doğru module dinamik olarak yükleniyor. Eager island’lar hemen,
-diğerleri viewport’a 200 piksel kala `IntersectionObserver` ile başlatılıyor.
+diğerleri viewport’a 200 piksel kala `IntersectionObserver` ile başlatılıyor. Observer API yoksa veya
+override edilmiş implementation hata verirse bütün lazy island'lar doğrudan mount edilerek client
+bootstrap fail-open kalıyor. Dynamic import toplam 10 saniyelik bütçe, sınıflandırılmış telemetry ve
+yalnız transient/online/visible koşulunda tek retry taşıyor. Analytics eager island'ı yüklenemezse
+inline EventQueue 5 saniye sonunda `gtm.dom`/`gtm.load` lifecycle event'lerini serbest bırakıyor.
 
 İki farklı çalışma modu var:
 

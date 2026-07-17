@@ -3,7 +3,17 @@ import { logger } from "@server/logger";
 import type { AppVariables } from "@server/middleware/request-id";
 import type { Hono } from "hono";
 
-const SOURCES = new Set(["island-mount", "react-caught", "react-recoverable", "react-uncaught"]);
+const SOURCES = new Set([
+  "island-bootstrap",
+  "island-chunk-load",
+  "island-module-missing",
+  "island-mount",
+  "island-mount-timeout",
+  "island-props",
+  "react-caught",
+  "react-recoverable",
+  "react-uncaught",
+]);
 
 type ClientErrorPayload = {
   errorId: string;

@@ -1,5 +1,13 @@
 export type ClientErrorSource =
-  "island-mount" | "react-caught" | "react-recoverable" | "react-uncaught";
+  | "island-bootstrap"
+  | "island-chunk-load"
+  | "island-module-missing"
+  | "island-mount"
+  | "island-mount-timeout"
+  | "island-props"
+  | "react-caught"
+  | "react-recoverable"
+  | "react-uncaught";
 
 export type ClientErrorContext = {
   island?: string;
