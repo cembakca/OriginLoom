@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run quality, coverage, build and smoke checks
+        run: npm run ci
+
+      - name: Audit production dependencies
+        run: npm run audit:prod
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Build production container
+        run: docker build --tag ssr-kit-ci:${{ github.sha }} .
+
+      - name: Smoke test production container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name ssr-kit-ci --publish 3005:3005 \
+            --env CACHE_BACKEND=redis \
+            --env CACHE_REQUIRED=false \
+            --env REDIS_URL=redis://127.0.0.1:6379 \
+            --env GATEWAY_URL=http://127.0.0.1:4002 \
+            --env SITE_URL=http://127.0.0.1:3005 \
+            --env CACHE_PURGE_SECRET=container-smoke-secret \
+            --env RELEASE_ID=${{ github.sha }} \
+            ssr-kit-ci:${{ github.sha }}
+          trap 'docker logs ssr-kit-ci || true; docker rm --force ssr-kit-ci || true' EXIT
+
+          for attempt in {1..30}; do
+            if response="$(curl --fail --silent http://127.0.0.1:3005/healthz)" && [[ "$response" == "ok" ]]; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Container did not become healthy" >&2
+          exit 1
+
+      - name: Scan production container
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ssr-kit-ci:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL

@@ -11,5 +11,15 @@ export default defineConfig({
   },
   test: {
     globalSetup: ["./tests/global-setup.mjs"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov"],
+      thresholds: {
+        statements: 65,
+        branches: 75,
+        functions: 80,
+        lines: 65,
+      },
+    },
   },
 });

@@ -1,53 +1,18 @@
-import { isIP } from "node:net";
-
 import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
-import { getConnInfo } from "@hono/node-server/conninfo";
-import { serveStatic } from "@hono/node-server/serve-static";
-import { Hono } from "hono";
-import { compress } from "hono/compress";
 
-import { stripUndefined } from "~/lib/strip-undefined";
-import { normalizePublicUrl } from "~/routing";
 import { createRewrites, redirects } from "~/routing/rules";
 import { validateRoutingRules } from "~/routing/validate";
 
-// Extend HTML cache bypass at bootstrap, e.g.:
-// import { registerCacheBypassCheck, hasPid } from "~/lib/cache-policy";
-// registerCacheBypassCheck(hasPid);
-import { mountApi } from "./api";
+import { createApp } from "./app";
 import { readAssets } from "./assets";
-import { closeCache, initCache, pingCache } from "./cache";
+import { closeCache, initCache } from "./cache";
 import { config, validateConfig } from "./config";
-import type { Assets } from "./document";
-import {
-  drainRevalidations,
-  handle,
-  handleHead,
-  isSsrRouteRequest,
-  methodNotAllowedResponse,
-} from "./handler";
+import { drainRevalidations } from "./handler";
 import { register, shutdownInstrumentation } from "./instrumentation";
 import { logError, logger } from "./logger";
-import { observeRequest } from "./metrics";
 import { createMetricsApp } from "./metrics-server";
-import {
-  finalizePipelineResponse,
-  finalizeSsrResponse,
-  runPipeline,
-  shouldUsePipeline,
-} from "./middleware/pipeline";
-import { publicBodyLimit } from "./middleware/public-body-limit";
-import { contextRequest, requestDeadline } from "./middleware/request-deadline";
-import { type AppVariables, requestId } from "./middleware/request-id";
-import { securityMiddleware } from "./middleware/security";
-import { staticAssetCacheHeaders } from "./middleware/static-assets";
-import { setActiveHttpRoute, SpanStatusCode, withRequestSpan } from "./observability";
-import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
-import { routes } from "./routes";
-import { mountSeoRoutes } from "./seo";
 import { drainBotAnalytics } from "./services/bot-analytics";
-import { ssrCapacity, SsrCapacityError, ssrCapacityResponse } from "./ssr-capacity";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
@@ -60,7 +25,7 @@ async function main() {
   await initCache();
 
   const assets = readAssets();
-  const app = createApp(assets);
+  const app = createApp({ assets, isShuttingDown: () => shuttingDown });
 
   httpServer = serve({ fetch: app.fetch, port: config.port }, (info) => {
     logger.info("server started", {
@@ -108,137 +73,11 @@ async function main() {
   process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-function createApp(assets: Assets) {
-  const app = new Hono<{ Variables: AppVariables }>();
-
-  app.use("*", requestId);
-  app.use("*", requestDeadline(routes));
-  app.use("*", async (c, next) => {
-    await withRequestSpan(contextRequest(c), c.get("requestId"), async (span) => {
-      await next();
-      span.setAttribute("http.response.status_code", c.res.status);
-      span.setAttribute("ssr.cache.state", c.res.headers.get("x-cache") ?? "NONE");
-      if (c.res.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
-    });
-  });
-  app.use("*", securityMiddleware);
-  app.use("*", compress());
-  app.use("*", async (c, next) => {
-    const started = performance.now();
-    await next();
-    observeRequest(
-      c.res.status,
-      c.res.headers.get("x-cache") ?? "NONE",
-      performance.now() - started,
-    );
-  });
-  app.use("*", async (c, next) => {
-    const normalized = normalizePublicUrl(new URL(c.req.url));
-    if (normalized.kind === "invalid") {
-      return publicUrlErrorResponse(c.get("requestId"));
-    }
-    if (normalized.kind === "redirect") {
-      return publicUrlRedirectResponse(normalized.location, c.get("requestId"));
-    }
-    await next();
-  });
-  app.use("*", publicBodyLimit(config.proxyBodyLimitBytes));
-
-  app.use("/assets/*", staticAssetCacheHeaders);
-  app.use("/assets/*", serveStatic({ root: "./dist/client" }));
-
-  app.get("/healthz", (c) => c.text("ok"));
-
-  // Metrics live on the dedicated cluster listener; never render or proxy this path publicly.
-  app.all("/metrics", (c) => c.body(null, 404, { "cache-control": "private, no-store" }));
-
-  app.get("/readyz", async (c) => {
-    if (shuttingDown) return c.text("shutting down", 503);
-    const ok = await pingCache();
-    return ok || !config.cacheRequired ? c.text("ok") : c.text("cache unavailable", 503);
-  });
-
-  mountSeoRoutes(app, config.siteUrl);
-
-  mountApi(app);
-
-  app.all("*", async (c) => {
-    if (shuttingDown) return c.text("shutting down", 503);
-
-    const requestId = c.get("requestId");
-    const request = contextRequest(c);
-    const pathname = new URL(request.url).pathname;
-    const clientIp = resolveClientIp(c);
-    const method = request.method.toUpperCase();
-    const ssrRoute = isSsrRouteRequest(request, routes);
-
-    if (ssrRoute && method !== "GET" && method !== "HEAD") {
-      setActiveHttpRoute(method, "<method-not-allowed>");
-      return methodNotAllowedResponse(requestId);
-    }
-    const execute = async (): Promise<Response> => {
-      if (shouldUsePipeline(pathname)) {
-        const pipeline = await runPipeline(request, requestId, clientIp);
-
-        if (pipeline.response) {
-          const pipelineResponse = finalizePipelineResponse(pipeline);
-          const res = method === "HEAD" ? withoutBody(pipelineResponse) : pipelineResponse;
-          if (requestId) res.headers.set("x-request-id", requestId);
-          return res;
-        }
-
-        const handleContext = {
-          requestId,
-          clientIp,
-          ...stripUndefined({ trackingId: pipeline.trackingId }),
-        };
-        const ssr =
-          method === "HEAD"
-            ? await handleHead(pipeline.request, routes, handleContext)
-            : await handle(pipeline.request, routes, assets, handleContext);
-        const res = finalizeSsrResponse(ssr, pipeline);
-        if (requestId) res.headers.set("x-request-id", requestId);
-        return res;
-      }
-
-      return method === "HEAD"
-        ? handleHead(request, routes, { requestId, clientIp })
-        : handle(request, routes, assets, { requestId, clientIp });
-    };
-
-    if (c.get("requestClass") !== "ssr") return execute();
-    try {
-      return await ssrCapacity.run(request.signal, execute);
-    } catch (error) {
-      if (error instanceof SsrCapacityError) return ssrCapacityResponse(error, requestId);
-      throw error;
-    }
-  });
-
-  return app;
-}
-
 function closeServer(server: ServerType | null): Promise<void> {
   return new Promise((resolve) => {
     if (!server) return resolve();
     server.close(() => resolve());
   });
-}
-
-function withoutBody(response: Response): Response {
-  return new Response(null, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
-}
-
-function resolveClientIp(c: Parameters<typeof getConnInfo>[0]): string {
-  const remote = getConnInfo(c).remote.address ?? "127.0.0.1";
-  if (!config.trustProxy) return remote;
-  const forwarded =
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("x-real-ip") || "";
-  return isIP(forwarded) ? forwarded : remote;
 }
 
 main().catch(async (err) => {
