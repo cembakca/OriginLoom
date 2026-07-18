@@ -93,15 +93,17 @@ export const securityMiddleware: MiddlewareHandler<{ Variables: AppVariables }> 
   c,
   next,
 ) => {
-  const nonce = randomBytes(18).toString("base64");
-  c.set("cspNonce", nonce);
+  // A nonce/hash source makes browsers ignore 'unsafe-inline'. Development intentionally relies on
+  // 'unsafe-inline' for Vite/React Refresh, so nonce must be a production-only contract.
+  const nonce = config.isProduction ? randomBytes(18).toString("base64") : undefined;
+  if (nonce) c.set("cspNonce", nonce);
   const cspDirectives = {
     ...baseCspDirectives,
     scriptSrc: [
       "'self'",
       "https://www.googletagmanager.com",
       ...hashes,
-      `'nonce-${nonce}'`,
+      ...(nonce ? [`'nonce-${nonce}'`] : []),
       ...devScripts,
       ...devViteUrls,
     ],
