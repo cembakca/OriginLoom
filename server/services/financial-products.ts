@@ -20,6 +20,7 @@ import type {
   HousingLoanDetail,
   HousingLoanList,
   ProductBank,
+  ReferralCreated,
   ReferralDetail,
 } from "~/lib/contracts/financial-products";
 
@@ -60,6 +61,23 @@ export async function getReferral(productType: string, slug: string, signal: Abo
   );
 }
 
+export async function createReferral(
+  productType: string,
+  slug: string,
+  signal: AbortSignal,
+): Promise<ReferralCreated | null> {
+  const response = await gatewayFetch("/finance/referrals", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ productType, slug }),
+    signal,
+  });
+  if (response.status === 400 || response.status === 404) return null;
+  if (!response.ok) throw new Error(`Finance gateway returned ${response.status}`);
+  const payload = await readGatewayJson(response, "finance_referral", INVALID_FINANCE);
+  return requireGatewayPayload("finance_referral", payload, isReferralCreated, INVALID_FINANCE);
+}
+
 async function getJson<T>(
   path: string,
   contract: "housing_loans" | "credit_cards",
@@ -97,6 +115,14 @@ function isBank(value: unknown): value is ProductBank {
 function isLoan(value: unknown): value is HousingLoan {
   if (!isRecord(value) || !isRecord(value.calculation)) return false;
   return (
+    isLoanIdentity(value) &&
+    isLoanTerms(value) &&
+    isLoanCalculation(value.calculation)
+  );
+}
+
+function isLoanIdentity(value: Record<string, unknown>): boolean {
+  return (
     isString(value.id, 120) &&
     isString(value.slug, 120) &&
     value.productType === "housing-loan" &&
@@ -107,22 +133,32 @@ function isLoan(value: unknown): value is HousingLoan {
     isNumber(value.annualCostRate, 0, 1_000) &&
     isNumber(value.minAmount) &&
     isNumber(value.maxAmount) &&
-    Array.isArray(value.terms) &&
-    value.terms.length <= 30 &&
-    value.terms.every((term) => isInteger(term, 1, 600)) &&
     isNumber(value.allocationFeeRate, 0, 100) &&
     isNumber(value.appraisalFee) &&
     isNumber(value.maxLoanToValue, 0, 100) &&
-    typeof value.featured === "boolean" &&
+    typeof value.featured === "boolean"
+  );
+}
+
+function isLoanTerms(value: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(value.terms) &&
+    value.terms.length <= 30 &&
+    value.terms.every((term) => isInteger(term, 1, 600)) &&
     isStringArray(value.badges, 10, 80) &&
     isStringArray(value.requirements, 20) &&
-    isStringArray(value.features, 20) &&
-    isNumber(value.calculation.amount) &&
-    isInteger(value.calculation.term, 1, 600) &&
-    isNumber(value.calculation.monthlyPayment) &&
-    isNumber(value.calculation.totalPayment) &&
-    isNumber(value.calculation.allocationFee) &&
-    isNumber(value.calculation.appraisalFee)
+    isStringArray(value.features, 20)
+  );
+}
+
+function isLoanCalculation(value: Record<string, unknown>): boolean {
+  return (
+    isNumber(value.amount) &&
+    isInteger(value.term, 1, 600) &&
+    isNumber(value.monthlyPayment) &&
+    isNumber(value.totalPayment) &&
+    isNumber(value.allocationFee) &&
+    isNumber(value.appraisalFee)
   );
 }
 
@@ -168,8 +204,12 @@ function isCampaign(value: unknown): value is CreditCardCampaign {
 }
 
 function isCard(value: unknown): value is CreditCard {
+  if (!isRecord(value)) return false;
+  return isCardIdentity(value) && isCardBenefits(value);
+}
+
+function isCardIdentity(value: Record<string, unknown>): boolean {
   return (
-    isRecord(value) &&
     isString(value.id, 120) &&
     isString(value.slug, 120) &&
     value.productType === "credit-card" &&
@@ -182,7 +222,12 @@ function isCard(value: unknown): value is CreditCard {
     isString(value.rewardProgram, 160) &&
     isString(value.imageUrl, 500) &&
     typeof value.featured === "boolean" &&
-    isString(value.summary) &&
+    isString(value.summary)
+  );
+}
+
+function isCardBenefits(value: Record<string, unknown>): boolean {
+  return (
     isStringArray(value.benefits, 20) &&
     (value.campaignCount === undefined || isInteger(value.campaignCount, 0, 100)) &&
     (value.campaigns === undefined ||
@@ -234,6 +279,21 @@ function isReferralDetail(value: unknown): value is ReferralDetail {
     isBank(value.product.bank) &&
     isString(value.disclosure, 2_000) &&
     typeof value.consentRequired === "boolean"
+  );
+}
+
+function isReferralCreated(value: unknown): value is ReferralCreated {
+  return (
+    isRecord(value) &&
+    isString(value.referralId, 160) &&
+    isRecord(value.product) &&
+    isString(value.product.id, 120) &&
+    isString(value.product.slug, 120) &&
+    (value.product.productType === "housing-loan" || value.product.productType === "credit-card") &&
+    isString(value.product.name, 240) &&
+    isBank(value.product.bank) &&
+    isString(value.redirectUrl, 2_048) &&
+    isString(value.expiresAt, 64)
   );
 }
 

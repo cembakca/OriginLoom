@@ -110,3 +110,10 @@ export type ReferralDetail = {
   disclosure: string;
   consentRequired: boolean;
 };
+
+export type ReferralCreated = {
+  referralId: string;
+  product: ReferralProduct;
+  redirectUrl: string;
+  expiresAt: string;
+};

@@ -10,6 +10,7 @@ import type { CachePolicy, Ctx } from "~/lib/types";
 
 import { financeQueryNormalizers } from "./finance-query";
 import { knowledgeQueryNormalizers } from "./knowledge-query";
+import { marketQueryNormalizers } from "./market-query";
 
 export type { CacheKeyApiEntry } from "~/lib/cache/key-codec";
 export {
@@ -39,6 +40,8 @@ export const PageCacheId = {
   creditCardDetail: "credit-card-detail",
   knowledgeCenter: "knowledge-center",
   knowledgeArticle: "knowledge-article",
+  bist100: "bist100",
+  financeReferral: "finance-referral",
 } as const;
 
 export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
@@ -291,6 +294,32 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     buildKey: (ctx) => [
       "knowledge-article",
+      ctx.params.slug ?? "-",
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
+    ],
+  },
+  [PageCacheId.bist100]: {
+    id: PageCacheId.bist100,
+    description: "BIST 100 hisse listesi",
+    path: "/piyasalar/bist-100",
+    strategy: "shared",
+    contentQueryParams: ["sortBy", "page"],
+    contentQueryDefaults: { sortBy: "market-cap-desc", page: "1" },
+    contentQueryNormalize: marketQueryNormalizers,
+    buildKey: (ctx) => {
+      const entry = pageCacheRegistry[PageCacheId.bist100];
+      return ["bist100", queryPart(entry, ctx), locale(ctx.request), layoutCacheFragment(ctx)];
+    },
+  },
+  [PageCacheId.financeReferral]: {
+    id: PageCacheId.financeReferral,
+    description: "Finans ürünü başvuru yönlendirme onayı",
+    path: "/basvuru/:productType/:slug/yonlendirme",
+    strategy: "shared",
+    buildKey: (ctx) => [
+      "finance-referral",
+      ctx.params.productType ?? "-",
       ctx.params.slug ?? "-",
       locale(ctx.request),
       layoutCacheFragment(ctx),

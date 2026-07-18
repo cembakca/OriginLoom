@@ -1,11 +1,13 @@
 import type { Route } from "~/lib/types";
 
 import account from "./account";
+import bist100 from "./bist100";
 import blogsPaginated from "./blogs-paginated";
 import blogsPaginatedStreaming from "./blogs-paginated-streaming";
 import blogsPopularFragments from "./blogs-popular-streaming";
 import creditCardDetail from "./credit-card-detail";
 import creditCards from "./credit-cards";
+import financeReferral from "./finance-referral";
 import home from "./home";
 import housingLoanDetail from "./housing-loan-detail";
 import housingLoans from "./housing-loans";
@@ -26,6 +28,8 @@ export const routes: Route[] = [
   creditCardDetail,
   knowledgeCenter,
   knowledgeArticle,
+  bist100,
+  financeReferral,
   account,
   recourseRedirect,
   loanCompare,
