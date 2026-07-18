@@ -1,6 +1,8 @@
 import { getPaginatedBlogs } from "@server/services/blogs";
 import { Suspense, use } from "react";
 
+import { BlogExplorerShell } from "~/features/blogs-paginated/blog-explorer-shell";
+import { PaginationShell } from "~/features/blogs-paginated/pagination-shell";
 import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
 import { type Blog, DEFAULT_BLOG_ORDER, type PaginatedBlogs } from "~/lib/contracts/blogs";
@@ -8,8 +10,6 @@ import { Island } from "~/lib/island";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
-import { BlogExplorerShell } from "~/routes/blogs-paginated/blog-explorer-shell";
-import { PaginationShell } from "~/routes/blogs-paginated/pagination-shell";
 
 type StreamingBlogsData = PaginatedBlogs & {
   deferredPostsPromise: Promise<Blog[]>;

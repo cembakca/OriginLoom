@@ -493,7 +493,7 @@ base URL değiştirilir.
 Development bu manifest yolunu kullanmaz. `scripts/dev.mjs` Hono, mock gateway, Vite dev server ve
 `tsx watch` süreçlerini tek lifecycle altında çalıştırır. Hono document'i Vite `/@vite/client`, React
 Refresh preamble ve source `src/entry.client.tsx` modülünü enjekte eder. Island/client değişiklikleri
-Fast Refresh ile uygulanır. SSR üreten `server/`, `src/routes/` ve paylaşılan component değişiklikleri
+Fast Refresh ile uygulanır. SSR üreten `server/`, `src/features/` ve paylaşılan component değişiklikleri
 Hono restartından sonra Vite websocket üzerinden bilinçli full document reload üretir. Böylece client
 değişikliğinde gereksiz reload yapılmaz, SSR değişikliğinde eski HTML ile yeni client ağacı karışmaz.
 `VITE_DEV_SERVER_URL` production config doğrulamasında reddedilir; production manifest davranışı dev
@@ -645,7 +645,7 @@ payload metriği için provider drift alarmı içerir.
 
 **1. Repository teslim durumu**
 
-Servis ve route taşımaları çalışma ağacında henüz stage/commit edilmemiş olabilir. Release veya PR öncesinde eski `src/services/*` ve `src/routes/*/index.tsx` silmeleriyle yeni `server/services/*` ve `server/routes/*` dosyalarının aynı commit'e girdiği doğrulanmalıdır. Bu runtime mimari riski değil, eksik commit oluşturabilecek bir teslim riskidir.
+Servis ve route taşımaları çalışma ağacında henüz stage/commit edilmemiş olabilir. Release veya PR öncesinde eski `src/services/*` ve `src/features/*` silmeleriyle yeni `server/services/*` ve `server/routes/*` dosyalarının aynı commit'e girdiği doğrulanmalıdır. Bu runtime mimari riski değil, eksik commit oluşturabilecek bir teslim riskidir.
 
 **2. `@ts-expect-error` — streaming Request `duplex` tipi**
 

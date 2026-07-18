@@ -94,7 +94,7 @@ export default tseslint.config(
               message: "SSR components must not import islands directly.",
             },
             {
-              target: "./src/routes",
+              target: "./src/features",
               from: "./src/islands",
               message: "SSR routes must not import islands directly.",
             },
@@ -189,7 +189,7 @@ export default tseslint.config(
   {
     files: [
       "server/routes/**/*.{ts,tsx}",
-      "src/routes/**/*.{ts,tsx}",
+      "src/features/**/*.{ts,tsx}",
       "src/components/**/*.{ts,tsx}",
     ],
     ignores: ["src/components/ui/**"],

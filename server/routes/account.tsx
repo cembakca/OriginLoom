@@ -1,9 +1,9 @@
+import { AccountDashboardShell } from "~/features/account/dashboard-shell";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { Island } from "~/lib/island";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
-import { AccountDashboardShell } from "~/routes/account/dashboard-shell";
 
 /** SSR shell — kişisel veri defer island + TanStack Query BFF'den gelir. */
 export default defineRoute({

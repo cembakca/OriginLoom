@@ -1,5 +1,7 @@
 import { getPaginatedBlogs } from "@server/services/blogs";
 
+import { BlogExplorerShell } from "~/features/blogs-paginated/blog-explorer-shell";
+import { PaginationShell } from "~/features/blogs-paginated/pagination-shell";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
@@ -8,8 +10,6 @@ import { Island } from "~/lib/island";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
-import { BlogExplorerShell } from "~/routes/blogs-paginated/blog-explorer-shell";
-import { PaginationShell } from "~/routes/blogs-paginated/pagination-shell";
 
 export default defineRoute<PaginatedBlogs>({
   path: "/blogs/paginated",

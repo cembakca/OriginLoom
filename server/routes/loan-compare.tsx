@@ -3,6 +3,7 @@ import { isKnownLoanCity } from "@server/services/route-domains";
 
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { FilterPanelShell } from "~/features/loan-compare/filter-panel-shell";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { parseLoanAmount, parseTheme } from "~/lib/content-values";
 import type { Offer } from "~/lib/contracts/offers";
@@ -11,7 +12,6 @@ import { publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { cookie, device } from "~/lib/request";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
-import { FilterPanelShell } from "~/routes/loan-compare/components";
 
 type Data = { offers: Offer[]; amount: number; city: string; theme: string };
 

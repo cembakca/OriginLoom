@@ -51,7 +51,7 @@ function requiresDocumentReload(file: string): boolean {
   const normalized = file.replaceAll("\\", "/");
   return (
     normalized.includes("/server/") ||
-    normalized.includes("/src/routes/") ||
+    normalized.includes("/src/features/") ||
     normalized.includes("/src/components/") ||
     normalized.endsWith("/src/lib/island.tsx")
   );

@@ -1,5 +1,5 @@
+import { BlogList, PageSummary } from "~/features/blogs-paginated/components";
 import type { PaginatedBlogs } from "~/lib/contracts/blogs";
-import { BlogList, PageSummary } from "~/routes/blogs-paginated/components";
 
 /** SSR fallback — defer island mount öncesi varsayılan sıralama. */
 export function BlogExplorerShell({ data }: { data: PaginatedBlogs }) {

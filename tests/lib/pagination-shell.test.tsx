@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { PaginationShell } from "~/routes/blogs-paginated/pagination-shell";
+import { PaginationShell } from "~/features/blogs-paginated/pagination-shell";
 
 describe("pagination SSR shell", () => {
   it("renders crawler-visible anchors and a non-link current page", () => {

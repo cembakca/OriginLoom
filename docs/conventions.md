@@ -9,7 +9,7 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 | Dizin                   | Amaç                                                            |
 | ----------------------- | --------------------------------------------------------------- |
 | `server/routes/`        | Loader, cache, metadata ve route tablosu                        |
-| `src/routes/{name}/`    | Route'a özel SSR-safe sunum/shell bileşenleri                   |
+| `src/features/{name}/`  | Feature'a özel SSR-safe sunum/shell bileşenleri                 |
 | `src/islands/`          | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir |
 | `src/components/`       | Paylaşılan SSR-güvenli UI (hook yok)                            |
 | `src/assets/svg/`       | SVG kaynakları — `npm run icons` ile TSX'e dönüşür              |
@@ -30,7 +30,7 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 ## Yeni sayfa (route) ekleme
 
 1. `server/routes/{feature}.tsx` oluştur — `defineRoute()` kullan
-2. Sunum bileşenlerini `src/routes/{feature}/components.tsx` içinde tut
+2. Sunum bileşenlerini `src/features/{feature}/` altında görev odaklı dosyalarda tut
 3. Veri erişimini `server/services/` üzerinden yap
 4. `server/routes/index.ts`'e kaydet — sıra önemli (ilk eşleşen kazanır)
 5. Etkileşim için: `src/islands/{name}.tsx` + route içinde `<Island />`
@@ -765,13 +765,13 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 
 ### Dosya haritası
 
-| Next.js             | ssr-kit                                | Sorumluluk                   |
-| ------------------- | -------------------------------------- | ---------------------------- |
-| `app/layout.tsx`    | `server/document.tsx` + `RootLayout`   | HTML shell, GTM bootstrap    |
-| `layout.client.tsx` | `src/islands/layout-client.tsx`        | Chrome + store seed          |
-| `page.tsx`          | `server/routes/*.tsx` + `src/routes/*` | Loader/metadata + SSR UI     |
-| `page.client.tsx`   | `src/islands/page-analytics.tsx`       | Yalnızca page-view dataLayer |
-| Container           | route `Component` + `<Island />`       | UI + etkileşim               |
+| Next.js             | ssr-kit                                  | Sorumluluk                   |
+| ------------------- | ---------------------------------------- | ---------------------------- |
+| `app/layout.tsx`    | `server/document.tsx` + `RootLayout`     | HTML shell, GTM bootstrap    |
+| `layout.client.tsx` | `src/islands/layout-client.tsx`          | Chrome + store seed          |
+| `page.tsx`          | `server/routes/*.tsx` + `src/features/*` | Loader/metadata + SSR UI     |
+| `page.client.tsx`   | `src/islands/page-analytics.tsx`         | Yalnızca page-view dataLayer |
+| Container           | route `Component` + `<Island />`         | UI + etkileşim               |
 
 ### Cache + analytics
 
@@ -1178,10 +1178,10 @@ asset URL'si elle kopyalanmaz; `asset-pipeline.json` tek otoritedir.
 
 ### SSR vs island
 
-| Alan                                                     | Browser API        |
-| -------------------------------------------------------- | ------------------ |
-| `server/routes/**`, `src/routes/**`, `src/components/**` | **Yasak** (ESLint) |
-| `src/islands/**`, `entry.client.tsx`                     | Serbest            |
+| Alan                                                       | Browser API        |
+| ---------------------------------------------------------- | ------------------ |
+| `server/routes/**`, `src/features/**`, `src/components/**` | **Yasak** (ESLint) |
+| `src/islands/**`, `entry.client.tsx`                       | Serbest            |
 
 ### Komutlar
 
