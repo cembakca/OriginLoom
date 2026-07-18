@@ -1,6 +1,11 @@
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 
+import { menu } from "./data/menu.js";
+import { resolveFinanceRequest } from "./routes/finance.js";
+import { resolveKnowledgeCenterRequest } from "./routes/knowledge-center.js";
+import { resolveMarketsRequest } from "./routes/markets.js";
+
 const port = Number(process.env.PORT ?? 4002);
 const host = process.env.HOST ?? "0.0.0.0";
 const quiet = process.env.MOCK_GW_QUIET === "1";
@@ -26,108 +31,6 @@ const blogs = Array.from({ length: 24 }, (_, index) => {
     tags: [TAGS[index % TAGS.length] ?? "web", TAGS[(index + 2) % TAGS.length] ?? "ssr"],
   };
 });
-
-const headerItems = [
-  {
-    id: 1,
-    name: "Kredi",
-    url: "/ihtiyac-kredisi/istanbul",
-    displayOrder: 1,
-    mobileDisplayOrder: 1,
-    itemType: 4,
-    subMenuItemList: [
-      {
-        id: 11,
-        parentId: 1,
-        name: "İhtiyaç Kredisi",
-        url: "/ihtiyac-kredisi/istanbul",
-        displayOrder: 1,
-        mobileDisplayOrder: 1,
-        itemType: 4,
-      },
-      {
-        id: 12,
-        parentId: 1,
-        name: "Emekli Bankacılığı",
-        hamburgerName: "Emekli",
-        url: "/emekli-bankaciligi",
-        displayOrder: 2,
-        mobileDisplayOrder: 2,
-        itemType: 4,
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Blog",
-    url: "/blogs/paginated",
-    displayOrder: 2,
-    mobileDisplayOrder: 2,
-    itemType: 4,
-    subMenuItemList: [
-      {
-        id: 21,
-        parentId: 2,
-        name: "Blog Listesi",
-        url: "/blogs/paginated",
-        displayOrder: 1,
-        mobileDisplayOrder: 1,
-        itemType: 4,
-      },
-      {
-        id: 22,
-        parentId: 2,
-        name: "Blog Listesi Streaming",
-        hamburgerName: "Blog Streaming",
-        url: "/blogs/paginated/streaming",
-        displayOrder: 2,
-        mobileDisplayOrder: 2,
-        itemType: 4,
-      },
-      {
-        id: 23,
-        parentId: 2,
-        name: "Popüler Bloglar (Fragment)",
-        hamburgerName: "Popüler Bloglar",
-        url: "/blogs/popular-fragments",
-        displayOrder: 3,
-        mobileDisplayOrder: 3,
-        itemType: 4,
-      },
-    ],
-  },
-];
-
-const menu = {
-  headerItems,
-  hamburgerItems: headerItems,
-  footerItems: [
-    {
-      id: 100,
-      name: "Hakkımızda",
-      url: "/hakkimizda",
-      displayOrder: 1,
-      mobileDisplayOrder: 1,
-      itemType: 16,
-    },
-    {
-      id: 101,
-      name: "Gizlilik",
-      url: "/gizlilik.pdf",
-      displayOrder: 2,
-      mobileDisplayOrder: 2,
-      itemType: 16,
-    },
-    {
-      id: 102,
-      name: "İletişim",
-      url: "/iletisim",
-      displayOrder: 3,
-      mobileDisplayOrder: 3,
-      itemType: 16,
-    },
-  ],
-};
 
 const retirementBankingPage = {
   headline: "Emekli Bankacılığı",
@@ -253,6 +156,13 @@ async function route(request, response) {
   }
   if (request.method === "GET" && url.pathname === "/routing/domains") {
     return json(response, 200, routeDomains);
+  }
+  const publicCatalogResponse =
+    (await resolveFinanceRequest(request, url, readJson)) ??
+    resolveKnowledgeCenterRequest(request, url) ??
+    resolveMarketsRequest(request, url);
+  if (publicCatalogResponse) {
+    return json(response, publicCatalogResponse.status, publicCatalogResponse.body);
   }
   if (request.method === "GET" && url.pathname === "/pages/retirement-banking") {
     return json(response, 200, retirementBankingPage);
