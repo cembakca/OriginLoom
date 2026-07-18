@@ -1,3 +1,5 @@
+import type { JsonLdObject } from "./jsonld";
+
 /** Backend / CMS SEO payload (ISeoInfo subset). */
 export type SeoInfo = {
   title?: string;
@@ -16,24 +18,47 @@ export type PageMetadata = {
   title?: string;
   description?: string;
   canonical?: string;
-  robots?: { index?: boolean; follow?: boolean };
+  robots?: {
+    index?: boolean;
+    follow?: boolean;
+    noarchive?: boolean;
+    nosnippet?: boolean;
+    noimageindex?: boolean;
+    notranslate?: boolean;
+    maxSnippet?: number;
+    maxImagePreview?: "none" | "standard" | "large";
+    maxVideoPreview?: number;
+  };
   openGraph?: {
     title?: string;
     description?: string;
     url?: string;
     image?: string;
+    imageAlt?: string;
+    imageType?: string;
+    imageWidth?: number;
+    imageHeight?: number;
     siteName?: string;
     type?: string;
     locale?: string;
+    publishedTime?: string;
+    modifiedTime?: string;
+    authors?: string[];
+    section?: string;
+    tags?: string[];
   };
   twitter?: {
     card?: "summary" | "summary_large_image";
     title?: string;
     description?: string;
     image?: string;
+    imageAlt?: string;
+    site?: string;
+    creator?: string;
   };
   icons?: { icon?: string; apple?: string };
   verification?: Record<string, string>;
+  structuredData?: JsonLdObject[];
 };
 
 /** Site-wide defaults from root layout metadata. */
@@ -59,6 +84,8 @@ export type SiteMetadataConfig = {
 
 /** Final merged head output. */
 export type ResolvedMetadata = {
+  applicationName: string;
+  siteName: string;
   title: string;
   description: string;
   canonical: string;
@@ -70,4 +97,7 @@ export type ResolvedMetadata = {
   twitter: Required<Pick<NonNullable<PageMetadata["twitter"]>, "card" | "title" | "description">> &
     NonNullable<PageMetadata["twitter"]>;
   icons: { icon: string; apple?: string };
+  verification: Record<string, string>;
+  formatDetection: { telephone: boolean };
+  structuredData: JsonLdObject[];
 };

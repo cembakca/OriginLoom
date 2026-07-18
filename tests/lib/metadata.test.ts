@@ -56,6 +56,31 @@ describe("metadata merge", () => {
   it("respects noindex robots", () => {
     const resolved = mergeMetadata({ robots: { index: false, follow: false } }, ctx("/hesabim"));
     expect(resolved.robots).toBe("noindex, nofollow");
+    expect(resolved.structuredData).toEqual([]);
+  });
+
+  it("emits unrestricted preview directives and a WebPage graph for indexable pages", () => {
+    const resolved = mergeMetadata({ title: "Konut Kredisi" }, ctx("/konut-kredisi"));
+
+    expect(resolved.robots).toBe(
+      "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
+    );
+    expect(resolved.structuredData).toContainEqual(
+      expect.objectContaining({
+        "@type": "WebPage",
+        "@id": "http://localhost:3005/konut-kredisi#webpage",
+        url: "http://localhost:3005/konut-kredisi",
+      }),
+    );
+  });
+
+  it("adds Organization and WebSite identity only to the home canonical", () => {
+    const resolved = mergeMetadata({ title: "Hangikredi" }, ctx("/"));
+    expect(resolved.structuredData.map((node) => node["@type"])).toEqual([
+      "Organization",
+      "WebSite",
+      "WebPage",
+    ]);
   });
 
   it("does not let canonical or og:url escape the configured site origin", () => {
