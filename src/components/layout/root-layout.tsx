@@ -17,18 +17,27 @@ export type RootLayoutProps = {
 /** Application shell — menu SSR + Radix islands for interactivity. */
 export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
   const showChrome = !shell.minimalChrome && shell.menu;
+  const { menu, ...shellClientProps } = shell;
 
   return (
     <div className="flex min-h-screen flex-col">
-      {showChrome ? <Header menu={shell.menu!} deviceType={shell.deviceType} /> : null}
+      {showChrome ? (
+        <ssr-fragment name="header" style={{ display: "contents" }}>
+          <Header menu={menu!} deviceType={shell.deviceType} />
+        </ssr-fragment>
+      ) : null}
 
-      <Island name="layout-client" mode="defer" eager props={shell} />
+      <Island name="layout-client" mode="defer" eager props={shellClientProps} />
 
       <main id="page-main" className="flex-1 py-8">
         <Container>{children}</Container>
       </main>
 
-      {showChrome ? <Footer menu={shell.menu!} deviceType={shell.deviceType} /> : null}
+      {showChrome ? (
+        <ssr-fragment name="footer" style={{ display: "contents" }}>
+          <Footer menu={menu!} deviceType={shell.deviceType} />
+        </ssr-fragment>
+      ) : null}
 
       <Island name="page-analytics" mode="defer" eager props={pageMeta} />
     </div>

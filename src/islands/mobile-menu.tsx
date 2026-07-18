@@ -1,5 +1,4 @@
 import { Menu } from "~/components/icons";
-
 import {
   AccordionContent,
   AccordionItem,

@@ -38,6 +38,8 @@ export type Ctx = {
   siteUrl?: string;
   /** Set by session middleware when pipeline runs. */
   trackingId?: string;
+  /** Per-response CSP nonce for React streaming runtime scripts. */
+  cspNonce?: string;
 };
 
 /**

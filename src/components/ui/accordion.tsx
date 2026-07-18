@@ -1,8 +1,8 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronDown } from "~/components/icons";
 import type { ComponentPropsWithoutRef, ElementRef } from "react";
 import { forwardRef } from "react";
 
+import { ChevronDown } from "~/components/icons";
 import { cn } from "~/lib/utils";
 
 export const AccordionRoot = Accordion.Root;

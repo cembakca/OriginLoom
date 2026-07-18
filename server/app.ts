@@ -82,6 +82,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     const handleContext = {
       requestId: c.get("requestId"),
       clientIp: c.get("clientIp") ?? resolveClientIp(c),
+      ...stripUndefined({ cspNonce: c.get("cspNonce") }),
     };
     return request.method === "HEAD"
       ? handleHead(request, routeTable, handleContext)
@@ -145,6 +146,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     if (isShuttingDown()) return c.text("shutting down", 503);
 
     const requestIdValue = c.get("requestId");
+    const cspNonce = c.get("cspNonce");
     const request = contextRequest(c);
     const pathname = new URL(request.url).pathname;
     const clientIp = c.get("clientIp") ?? resolveClientIp(c);
@@ -173,7 +175,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
         const handleContext = {
           requestId: requestIdValue,
           clientIp,
-          ...stripUndefined({ trackingId: pipeline.trackingId }),
+          ...stripUndefined({ trackingId: pipeline.trackingId, cspNonce }),
         };
         const ssr =
           method === "HEAD"
@@ -185,8 +187,16 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
       }
 
       return method === "HEAD"
-        ? handleHead(request, routeTable, { requestId: requestIdValue, clientIp })
-        : handle(request, routeTable, options.assets, { requestId: requestIdValue, clientIp });
+        ? handleHead(request, routeTable, {
+            requestId: requestIdValue,
+            clientIp,
+            ...stripUndefined({ cspNonce }),
+          })
+        : handle(request, routeTable, options.assets, {
+            requestId: requestIdValue,
+            clientIp,
+            ...stripUndefined({ cspNonce }),
+          });
     };
 
     if (c.get("requestClass") !== "ssr") return execute();

@@ -18,52 +18,16 @@ services:
     build: .
     ports:
       - "3005:3005"
+    env_file:
+      - .env.production
     environment:
-      NODE_ENV: production
-      PORT: 3005
-      METRICS_PORT: 9090
-      CLIENT_ERROR_RATE_LIMIT: 120
-      CLIENT_ERROR_WINDOW_MS: 60000
-      CLIENT_ERROR_SAMPLE_RATE: 1
-      CLIENT_ERROR_IP_RATE_LIMIT: 20
-      CLIENT_ERROR_IP_MAX_ENTRIES: 10000
-      CLIENT_ERROR_IP_TTL_MS: 300000
-      SSR_REQUEST_TIMEOUT_MS: 15000
-      API_REQUEST_TIMEOUT_MS: 12000
-      PROXY_REQUEST_TIMEOUT_MS: 8000
-      SSR_MAX_CONCURRENCY: 32
-      SSR_MAX_QUEUE: 64
-      SSR_QUEUE_WAIT_MS: 250
-      CACHE_BACKEND: redis
-      CACHE_REQUIRED: "false"
+      # Override cluster-internal hostnames and secrets for local Docker simulation
+      GATEWAY_URL: http://mock-gw:4002
       REDIS_URL: redis://redis:6379
-      CACHE_FILL_TIMEOUT_MS: 12000
-      CACHE_FILL_WAIT_MS: 12500
-      CACHE_FILL_POLL_MS: 100
-      BOT_ANALYTICS_QUEUE_CAPACITY: 1000
-      BOT_ANALYTICS_CONCURRENCY: 2
-      BOT_ANALYTICS_BATCH_SIZE: 25
-      BOT_ANALYTICS_FLUSH_MS: 250
-      BOT_ANALYTICS_DEDUP_TTL_MS: 60000
-      BOT_ANALYTICS_SAMPLE_RATE: 1
-      BOT_ANALYTICS_DRAIN_TIMEOUT_MS: 3000
-      GATEWAY_URL: ${GATEWAY_URL:-http://mock-gw:4002}
-      ALLOW_INSECURE_GATEWAY: "true"
-      GTM_CONTAINER_ID: GTM-XXXXXX
-      SITE_URL: http://localhost:3005
       RELEASE_ID: docker-compose
-      OTEL_SDK_DISABLED: "false"
-      # Opsiyonel OTLP/HTTP collector; tanımlı değilse tracing no-op çalışır.
-      # OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      MENU_CACHE_TTL: 14400
-      CACHE_PURGE_SECRET: ${CACHE_PURGE_SECRET:-dev-purge-secret}
-      # Statik JS/CSS CDN — boş bırakılırsa origin /assets kullanılır
-      # ASSET_CDN_URL: https://cdn.hangikredi.com
-      # Dönüşümsüz image dosyaları için path-preserving CDN prefix
-      # IMAGE_CDN_URL: https://cdn.hangikredi.com/images
-      IMAGE_CDN_URL: http://localhost:3005
-      # Responsive image transformer — url,w,q,format query kontratı
-      # IMAGE_TRANSFORM_URL: https://images.hangikredi.com/transform
+      SITE_URL: http://localhost:3005
+      CACHE_PURGE_SECRET: dev-purge-secret
+      ALLOW_INSECURE_GATEWAY: "true"
     depends_on:
       mock-gw:
         condition: service_healthy

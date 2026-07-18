@@ -52,6 +52,7 @@ describe("Hono application integration", () => {
 
     expect(response.headers.get(cspHeader)).toBeDefined();
     expect(response.headers.get(cspHeader)).toContain("default-src 'self'");
+    expect(response.headers.get(cspHeader)).toMatch(/script-src[^;]*'nonce-[A-Za-z0-9+/=]+'/);
     if (config.isProduction) {
       expect(response.headers.get(cspHeader)).toContain("sha256-");
     } else {

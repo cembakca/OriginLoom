@@ -34,14 +34,15 @@ describe("session response isolation", () => {
     };
 
     const result = await sessionStep(ctx, createInitialResult(request));
+    if (!result) throw new Error("sessionStep returned no pipeline result");
 
-    expect(result?.trackingId).not.toBe("invalid-uuid-value");
-    expect(result?.trackingId).toMatch(/^[\da-f-]{36}$/i);
+    expect(result.trackingId).not.toBe("invalid-uuid-value");
+    expect(result.trackingId).toMatch(/^[\da-f-]{36}$/i);
 
-    const cookies = result?.cookies?.toHeaderStrings();
-    expect(cookies).toBeDefined();
-    expect(cookies!.length).toBe(1);
-    expect(cookies![0]).toContain("user_tracking_id=");
-    expect(cookies![0]).toContain(result?.trackingId!);
+    if (!result.cookies) throw new Error("sessionStep returned no cookie mutations");
+    const cookies = result.cookies.toHeaderStrings();
+    expect(cookies).toHaveLength(1);
+    expect(cookies[0]).toContain("user_tracking_id=");
+    expect(cookies[0]).toContain(result.trackingId);
   });
 });

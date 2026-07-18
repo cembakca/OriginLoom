@@ -1,4 +1,7 @@
-import crypto from "node:crypto";
+import crypto, { randomBytes } from "node:crypto";
+
+import { config } from "@server/config";
+import type { MiddlewareHandler } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 
 import {
@@ -7,7 +10,7 @@ import {
   EARLY_TRACKING_SCRIPT,
 } from "~/components/analytics/gtm-bootstrap";
 
-import { config } from "../config";
+import type { AppVariables } from "./request-id";
 
 function sha256(content: string): string {
   const hash = crypto.createHash("sha256").update(content).digest("base64");
@@ -58,15 +61,8 @@ if (config.viteDevServerUrl) {
 }
 
 // Build standard CSP directives object at startup for O(1) request-time execution
-const cspDirectives = {
+const baseCspDirectives = {
   defaultSrc: ["'self'"],
-  scriptSrc: [
-    "'self'",
-    "https://www.googletagmanager.com",
-    ...hashes,
-    ...devScripts,
-    ...devViteUrls,
-  ],
   connectSrc: [
     "'self'",
     "https://www.google-analytics.com",
@@ -93,16 +89,35 @@ const cspDirectives = {
   ...(config.cspReportUri ? { reportUri: [config.cspReportUri] } : {}),
 };
 
-export const securityMiddleware = secureHeaders({
-  xContentTypeOptions: "nosniff",
-  xFrameOptions: "DENY",
-  referrerPolicy: "strict-origin-when-cross-origin",
-  permissionsPolicy: {
-    camera: [],
-    microphone: [],
-    geolocation: [],
-  },
-  ...(config.cspEnforce
-    ? { contentSecurityPolicy: cspDirectives }
-    : { contentSecurityPolicyReportOnly: cspDirectives }),
-});
+export const securityMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (
+  c,
+  next,
+) => {
+  const nonce = randomBytes(18).toString("base64");
+  c.set("cspNonce", nonce);
+  const cspDirectives = {
+    ...baseCspDirectives,
+    scriptSrc: [
+      "'self'",
+      "https://www.googletagmanager.com",
+      ...hashes,
+      `'nonce-${nonce}'`,
+      ...devScripts,
+      ...devViteUrls,
+    ],
+  };
+  const middleware = secureHeaders({
+    xContentTypeOptions: "nosniff",
+    xFrameOptions: "DENY",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+    },
+    ...(config.cspEnforce
+      ? { contentSecurityPolicy: cspDirectives }
+      : { contentSecurityPolicyReportOnly: cspDirectives }),
+  });
+  return middleware(c, next);
+};

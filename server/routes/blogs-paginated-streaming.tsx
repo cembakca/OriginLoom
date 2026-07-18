@@ -1,10 +1,9 @@
 import { getPaginatedBlogs } from "@server/services/blogs";
-import { use, Suspense } from "react";
+import { Suspense, use } from "react";
 
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
-import { DEFAULT_BLOG_ORDER, type Blog, type PaginatedBlogs } from "~/lib/contracts/blogs";
+import { type Blog, DEFAULT_BLOG_ORDER, type PaginatedBlogs } from "~/lib/contracts/blogs";
 import { Island } from "~/lib/island";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";

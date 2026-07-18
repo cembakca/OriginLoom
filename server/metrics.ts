@@ -332,7 +332,6 @@ export function renderMetrics(): string {
   const cpu = process.cpuUsage();
   const release = escapeLabel(process.env.RELEASE_ID ?? "development");
   const service = escapeLabel(process.env.OTEL_SERVICE_NAME ?? "ssr-kit");
-  const eventLoopScale = 1e6;
 
   const lines = [
     ...counterLines("ssr_http_requests_total", "HTTP requests", requests),

@@ -3,6 +3,7 @@ import type { Route } from "~/lib/types";
 import account from "./account";
 import blogsPaginated from "./blogs-paginated";
 import blogsPaginatedStreaming from "./blogs-paginated-streaming";
+import blogsPopularFragments from "./blogs-popular-streaming";
 import home from "./home";
 import loanCompare from "./loan-compare";
 import mediaPipeline from "./media-pipeline";
@@ -19,6 +20,7 @@ export const routes: Route[] = [
   mediaPipeline,
   blogsPaginated,
   blogsPaginatedStreaming,
+  blogsPopularFragments,
   retirementBanking,
   remoteCustomerObtain,
 ];

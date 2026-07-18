@@ -62,8 +62,39 @@ const headerItems = [
     name: "Blog",
     url: "/blogs/paginated",
     displayOrder: 2,
-    mobileDisplayOrder: 3,
+    mobileDisplayOrder: 2,
     itemType: 4,
+    subMenuItemList: [
+      {
+        id: 21,
+        parentId: 2,
+        name: "Blog Listesi",
+        url: "/blogs/paginated",
+        displayOrder: 1,
+        mobileDisplayOrder: 1,
+        itemType: 4,
+      },
+      {
+        id: 22,
+        parentId: 2,
+        name: "Blog Listesi Streaming",
+        hamburgerName: "Blog Streaming",
+        url: "/blogs/paginated/streaming",
+        displayOrder: 2,
+        mobileDisplayOrder: 2,
+        itemType: 4,
+      },
+      {
+        id: 23,
+        parentId: 2,
+        name: "Popüler Bloglar (Fragment)",
+        hamburgerName: "Popüler Bloglar",
+        url: "/blogs/popular-fragments",
+        displayOrder: 3,
+        mobileDisplayOrder: 3,
+        itemType: 4,
+      },
+    ],
   },
 ];
 
@@ -297,6 +328,12 @@ async function route(request, response) {
       };
     });
     return json(response, 200, offers);
+  }
+  if (request.method === "GET" && url.pathname === "/blogs/popular") {
+    const ordered = sortBlogs("date-desc");
+    return json(response, 200, {
+      posts: ordered.slice(0, 5),
+    });
   }
   if (request.method === "GET" && url.pathname === "/blogs") {
     const requestedPage = Math.max(1, Number(url.searchParams.get("page") ?? 1));

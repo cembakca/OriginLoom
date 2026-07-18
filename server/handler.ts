@@ -1,18 +1,24 @@
 import { randomUUID } from "node:crypto";
 
+import { isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import { match } from "~/lib/match";
 import type { Ctx, LoaderResult, Route } from "~/lib/types";
 import { normalizePublicUrl, resolveRoute } from "~/routing";
 
 import * as cache from "./cache";
 import { coalesceColdMiss } from "./cache/cold-fill";
+import {
+  fragmentRequiresShell,
+  getOrSetFragmentByName,
+  shouldResolveFragment,
+} from "./cache/fragment";
 import { config } from "./config";
 import {
   type Assets,
   renderDocument,
   renderDocumentToStream,
-  streamToString,
   type StreamResult,
+  streamToString,
 } from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
@@ -22,12 +28,13 @@ import { setActiveHttpRoute, SpanKind, SpanStatusCode, withSpan } from "./observ
 import { proxyRequest } from "./proxy";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
 import { renderNotFoundDocument, renderRouteErrorDocument } from "./route-boundary";
-import { isBotRequest } from "~/components/analytics/gtm-bootstrap";
+import { buildShellData } from "./services/shell-data";
 
 export type HandleContext = {
   requestId?: string;
   trackingId?: string;
   clientIp?: string;
+  cspNonce?: string;
 };
 
 const revalidationsInFlight = new Map<string, Promise<void>>();
@@ -322,7 +329,8 @@ export async function handle(
           cache: state,
           durationMs: Date.now() - started,
         });
-        return html(hit.body, 200, policy, state, undefined, requestId);
+        const stitchedBody = await stitchCachedHtml(hit.body, route, routeCtx, true);
+        return html(stitchedBody, 200, policy, state, undefined, requestId);
       }
     }
 
@@ -356,7 +364,8 @@ export async function handle(
             cache: coldMiss.state,
             durationMs: Date.now() - started,
           });
-          return html(coldMiss.body, 200, policy, coldMiss.state, undefined, requestId);
+          const stitchedBody = await stitchCachedHtml(coldMiss.body, route, routeCtx, true);
+          return html(stitchedBody, 200, policy, coldMiss.state, undefined, requestId);
         }
         execution = coldMiss.work.value;
       } else {
@@ -440,8 +449,12 @@ export async function handle(
           requestId,
         );
       } else {
+        // Fresh shell fragments already contain current SSR output. Resolve
+        // only fragments that opt into first-response stitching (for example,
+        // public widgets with an independent cache policy).
+        const stitchedBody = await stitchCachedHtml(body ?? "", route, routeCtx, false);
         return html(
-          body ?? "",
+          stitchedBody,
           result.status ?? 200,
           policy,
           cacheState,
@@ -547,7 +560,12 @@ async function executeRoute(
           });
         },
       );
-    } catch (err) {
+    } catch (error) {
+      rethrowRequestDeadline(routeCtx.request, error);
+      logError(error, {
+        msg: "stream shell render failed",
+        path: routeCtx.url.pathname,
+      });
       const errorBody = await renderRouteErrorDocument(assets, routeCtx, route, null, 500);
       return {
         result: {
@@ -583,6 +601,7 @@ function createRouteContext(
     publicPath,
     siteUrl: config.siteUrl,
     ...(ctx.trackingId !== undefined ? { trackingId: ctx.trackingId } : {}),
+    ...(ctx.cspNonce !== undefined ? { cspNonce: ctx.cspNonce } : {}),
   };
 }
 
@@ -805,4 +824,69 @@ function logRequest(
     ...fields,
     ...(requestId !== undefined ? { requestId } : {}),
   });
+}
+
+async function stitchCachedHtml(
+  htmlContent: string,
+  route: Route,
+  routeCtx: Ctx,
+  cachedDocument: boolean,
+): Promise<string> {
+  if (route.minimalChrome) {
+    return htmlContent;
+  }
+
+  const fragmentRegex =
+    /<ssr-fragment name="([a-zA-Z0-9_-]+)" style="display:\s*contents">[\s\S]*?<\/ssr-fragment>/g;
+  const matches = [...htmlContent.matchAll(fragmentRegex)].filter((match) =>
+    shouldResolveFragment(match[1]!, cachedDocument),
+  );
+
+  if (matches.length === 0) {
+    return htmlContent;
+  }
+
+  try {
+    const needsShell = matches.some((match) => fragmentRequiresShell(match[1]!));
+    const shell = needsShell ? await buildShellData(routeCtx) : null;
+    if (needsShell && !shell?.menu) {
+      return htmlContent;
+    }
+
+    const names = [...new Set(matches.map((match) => match[1]!))];
+    const resolvedHtmls = await Promise.all(
+      names.map(async (name): Promise<[string, string | undefined]> => {
+        try {
+          return [name, await getOrSetFragmentByName(name, shell, routeCtx)];
+        } catch (error) {
+          rethrowRequestDeadline(routeCtx.request, error);
+          logError(error, {
+            msg: "Failed to resolve cached HTML fragment",
+            fragment: name,
+            path: routeCtx.url.pathname,
+          });
+          return [name, undefined];
+        }
+      }),
+    );
+    const htmlMap = new Map(resolvedHtmls);
+
+    let stitched = htmlContent;
+    stitched = stitched.replace(fragmentRegex, (fullMatch: string, name: string) => {
+      const freshHtml = htmlMap.get(name);
+      if (freshHtml !== undefined) {
+        return `<ssr-fragment name="${name}" style="display: contents">${freshHtml}</ssr-fragment>`;
+      }
+      return fullMatch;
+    });
+
+    return stitched;
+  } catch (error) {
+    rethrowRequestDeadline(routeCtx.request, error);
+    logError(error, {
+      msg: "Failed to stitch cached HTML fragments",
+      path: routeCtx.url.pathname,
+    });
+    return htmlContent;
+  }
 }

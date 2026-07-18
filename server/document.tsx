@@ -1,8 +1,9 @@
 import { PassThrough, Readable } from "node:stream";
+
 import { assetCdnOrigin } from "@server/assets";
 import { buildShellData } from "@server/services/shell-data";
 import type { ReactElement } from "react";
-import { renderToString, renderToPipeableStream } from "react-dom/server";
+import { renderToPipeableStream, renderToString } from "react-dom/server";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import { HeadClient } from "~/components/head/head-client";
@@ -12,7 +13,7 @@ import type { PageAnalyticsMeta } from "~/lib/analytics/types";
 import type { ImagePreload } from "~/lib/media";
 import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
 import type { ResolvedMetadata } from "~/lib/metadata/types";
-import { defaultPageMeta } from "~/lib/shell-data";
+import { defaultPageMeta, type ShellData } from "~/lib/shell-data";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx, Route } from "~/lib/types";
 
@@ -33,7 +34,7 @@ export type DocumentContext = {
 };
 
 export type StreamResult = {
-  stream: ReadableStream;
+  stream: ReadableStream<Uint8Array>;
   abort: () => void;
   allReady: Promise<void>;
 };
@@ -45,7 +46,7 @@ type DocumentLayoutProps = {
   imagePreloads: ImagePreload[];
   modulePreloads: string[];
   isBot: boolean;
-  shell: any;
+  shell: ShellData;
   pageMeta: PageAnalyticsMeta;
   content: ReactElement;
 };
@@ -275,19 +276,20 @@ export async function renderDocumentToStream<T>(
       onError(error) {
         onError(error);
       },
+      ...stripUndefined({ nonce: routeCtx.cspNonce }),
     },
   );
 
   await shellReadyPromise;
 
   return {
-    stream: Readable.toWeb(passThrough) as any,
+    stream: Readable.toWeb(passThrough) as unknown as ReadableStream<Uint8Array>,
     abort: () => rxStream.abort(),
     allReady: allReadyPromise,
   };
 }
 
-export async function streamToString(stream: ReadableStream): Promise<string> {
+export async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let result = "";

@@ -1,8 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "~/components/icons";
 import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
 import { forwardRef } from "react";
 
+import { X } from "~/components/icons";
 import { cn } from "~/lib/utils";
 
 export const Sheet = Dialog.Root;

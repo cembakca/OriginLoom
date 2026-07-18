@@ -1,6 +1,6 @@
-import { User } from "~/components/icons";
 import { useSyncExternalStore } from "react";
 
+import { User } from "~/components/icons";
 import { Button } from "~/components/ui/button";
 import {
   DropdownMenuContent,

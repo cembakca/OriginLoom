@@ -4,6 +4,7 @@ export type GatewayPayloadContract =
   | "account"
   | "auth_refresh"
   | "blogs"
+  | "popular_blogs"
   | "menu"
   | "offers"
   | "page"
@@ -17,6 +18,7 @@ const MAX_PAYLOAD_BYTES: Record<GatewayPayloadContract, number> = {
   account: 131_072,
   auth_refresh: 16_384,
   blogs: 524_288,
+  popular_blogs: 524_288,
   menu: 262_144,
   offers: 131_072,
   page: 65_536,

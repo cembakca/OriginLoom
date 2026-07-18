@@ -10,6 +10,7 @@ import {
 } from "~/lib/contracts/blogs";
 
 const MAX_PAGE_SIZE = 100;
+const MAX_POPULAR_BLOGS = 10;
 const MAX_TOTAL_ITEMS = 1_000_000;
 const MAX_TEXT_LENGTH = 4_000;
 const INVALID_BLOGS = "Blogs gateway returned an invalid payload";
@@ -54,6 +55,18 @@ export async function getPaginatedBlogs(
   return data;
 }
 
+type PopularBlogs = { posts: Blog[] };
+
+export async function getPopularBlogs(options?: { signal?: AbortSignal }): Promise<PopularBlogs> {
+  const response = await gatewayFetch("/blogs/popular", {
+    ...(options?.signal ? { signal: options.signal } : {}),
+  });
+  if (!response.ok) throw new Error(`Popular blogs gateway returned ${response.status}`);
+
+  const payload = await readGatewayJson(response, "popular_blogs", INVALID_BLOGS);
+  return requireGatewayPayload("popular_blogs", payload, isPopularBlogs, INVALID_BLOGS);
+}
+
 export function parsePageParam(raw: string | null): number {
   return parsePage(raw);
 }
@@ -72,6 +85,16 @@ function isPaginatedBlogs(data: unknown): data is PaginatedBlogs {
     isIntegerInRange(value.totalPages, 0, MAX_PAGE) &&
     typeof value.orderBy === "string" &&
     (VALID_ORDER as string[]).includes(value.orderBy)
+  );
+}
+
+function isPopularBlogs(data: unknown): data is PopularBlogs {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  const value = data as Record<string, unknown>;
+  return (
+    Array.isArray(value.posts) &&
+    value.posts.length <= MAX_POPULAR_BLOGS &&
+    value.posts.every(isBlog)
   );
 }
 

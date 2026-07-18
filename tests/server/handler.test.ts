@@ -15,15 +15,17 @@ import {
   methodNotAllowedResponse,
 } from "@server/handler";
 import { renderMetrics } from "@server/metrics";
+import { RequestDeadlineError } from "@server/middleware/request-deadline";
 import account from "@server/routes/account";
 import blogsPaginated from "@server/routes/blogs-paginated";
 import home from "@server/routes/home";
 import loanCompare from "@server/routes/loan-compare";
 import mediaPipeline from "@server/routes/media-pipeline";
 import recourseRedirect from "@server/routes/recourse-redirect";
-import { createElement } from "react";
+import { createElement, Suspense, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { formatCacheKey } from "~/lib/cache-keys";
 import type { Route } from "~/lib/types";
 
 const assets = { js: "/assets/entry.client.js", css: [], fonts: [] };
@@ -873,6 +875,36 @@ describe("handler", () => {
     expect(body).toContain("<!DOCTYPE html>");
   });
 
+  it("adds the request CSP nonce to React streaming runtime scripts", async () => {
+    let resolveText: ((value: string) => void) | undefined;
+    const text = new Promise<string>((resolve) => {
+      resolveText = resolve;
+    });
+    const Deferred = ({ value }: { value: Promise<string> }) =>
+      createElement("strong", null, use(value));
+    const route: Route<{ text: Promise<string> }> = {
+      path: "/stream-nonce-test",
+      streaming: true,
+      loader: async () => ({ data: { text } }),
+      minimalChrome: true,
+      Component: ({ data }) =>
+        createElement(
+          Suspense,
+          { fallback: createElement("span", null, "loading") },
+          createElement(Deferred, { value: data.text }),
+        ),
+    };
+
+    const res = await handle(new Request("http://localhost/stream-nonce-test"), [route], assets, {
+      cspNonce: "test-stream-nonce",
+    });
+    resolveText?.("ready");
+    const body = await res.text();
+
+    expect(body).toContain('nonce="test-stream-nonce"');
+    expect(body).toContain("ready");
+  });
+
   it("buffers the response for bot requests even if the route is streaming", async () => {
     const route: Route<{ text: string }> = {
       path: "/stream-bot-test",
@@ -909,5 +941,70 @@ describe("handler", () => {
     expect(res.headers.get("transfer-encoding")).toBeNull();
     const body = await res.text();
     expect(body).toContain("hello cached stream");
+  });
+
+  it("stitches cached HTML fragments with updated Header/Footer on cache hit", async () => {
+    const route: Route = {
+      path: "/stitch-test",
+      cache: () => ({ kind: "shared", ttl: 10, key: ["stitch-test"] }),
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("main", null, "main content"),
+    };
+
+    const key = formatCacheKey(["stitch-test"]);
+    const oldHtml = `
+      <html>
+        <body>
+          <ssr-fragment name="header" style="display: contents">
+            <header>Old Header</header>
+          </ssr-fragment>
+          <main>main content</main>
+          <ssr-fragment name="footer" style="display: contents">
+            <footer>Old Footer</footer>
+          </ssr-fragment>
+        </body>
+      </html>
+    `;
+    await write(key, oldHtml, { kind: "shared", ttl: 60, key: [key] });
+
+    const request = new Request("http://localhost/stitch-test", {
+      headers: {
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      },
+    });
+    const res = await handle(request, [route], assets);
+    expect(res.status).toBe(200);
+
+    const body = await res.text();
+    expect(body).toContain('<ssr-fragment name="header"');
+    expect(body).toContain('<ssr-fragment name="footer"');
+    expect(body).not.toContain("Old Header");
+    expect(body).not.toContain("Old Footer");
+  });
+
+  it("does not turn a fragment request deadline into a cached 200 response", async () => {
+    const route: Route = {
+      path: "/stitch-deadline",
+      cache: () => ({ kind: "shared", ttl: 10, key: ["stitch-deadline"] }),
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("main", null, "main content"),
+    };
+    const key = formatCacheKey(["stitch-deadline"]);
+    await write(
+      key,
+      '<html><body><ssr-fragment name="popular-blogs" style="display: contents">fallback</ssr-fragment></body></html>',
+      { kind: "shared", ttl: 60, key: [key] },
+    );
+    const controller = new AbortController();
+    const deadline = new RequestDeadlineError("ssr", 10);
+    controller.abort(deadline);
+
+    await expect(
+      handle(
+        new Request("http://localhost/stitch-deadline", { signal: controller.signal }),
+        [route],
+        assets,
+      ),
+    ).rejects.toBe(deadline);
   });
 });

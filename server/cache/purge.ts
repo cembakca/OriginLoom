@@ -122,8 +122,18 @@ export async function executePurge(request: PurgeRequest, backend: string): Prom
     return { mode: "all", deleted, backend };
   }
 
+  // Menu invalidation also removes obsolete fingerprinted shell fragments.
+  const shouldPurgeFragments =
+    (request.mode === "prefix" && request.prefix.startsWith("menu:")) ||
+    (request.mode === "keys" && request.keys.some((key) => key.startsWith("menu:")));
+
+  const relatedDeleted = shouldPurgeFragments
+    ? (await store.deleteByPrefix("fragment:header:")) +
+      (await store.deleteByPrefix("fragment:footer:"))
+    : 0;
+
   if (request.mode === "keys") {
-    const deleted = await store.deleteKeys(request.keys);
+    const deleted = relatedDeleted + (await store.deleteKeys(request.keys));
     return { mode: "keys", deleted, keys: request.keys, backend };
   }
 
@@ -135,7 +145,7 @@ export async function executePurge(request: PurgeRequest, backend: string): Prom
     return { mode: "pageIds", deleted, pageIds: request.pageIds, backend };
   }
 
-  const deleted = await store.deleteByPrefix(request.prefix);
+  const deleted = relatedDeleted + (await store.deleteByPrefix(request.prefix));
   return { mode: "prefix", deleted, prefix: request.prefix, backend };
 }
 
