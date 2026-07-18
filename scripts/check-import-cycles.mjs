@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
+import ts from "typescript";
 
 const root = process.cwd();
 const sourceRoots = [join(root, "server"), join(root, "src")];
@@ -10,13 +11,12 @@ const graph = new Map();
 
 for (const file of files) {
   const source = await readFile(file, "utf8");
-  const dependencies = [];
-  const imports = source.matchAll(/(?:import|export)\s+(?!type\b)[\s\S]*?from\s+["']([^"']+)["']/g);
-  for (const match of imports) {
-    const dependency = resolveImport(file, match[1]);
-    if (dependency) dependencies.push(dependency);
+  const dependencies = new Set();
+  for (const specifier of collectRuntimeImports(file, source)) {
+    const dependency = resolveImport(file, specifier);
+    if (dependency) dependencies.add(dependency);
   }
-  graph.set(file, dependencies);
+  graph.set(file, [...dependencies]);
 }
 
 const visiting = new Set();
@@ -55,6 +55,66 @@ function resolveImport(importer, specifier) {
         ...extensions.map((extension) => join(base, `index${extension}`)),
       ];
   return candidates.find((candidate) => fileSet.has(candidate)) ?? null;
+}
+
+function collectRuntimeImports(file, source) {
+  const specifiers = [];
+  const sourceFile = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKind(file),
+  );
+
+  visitNode(sourceFile);
+  return specifiers;
+
+  function visitNode(node) {
+    if (ts.isImportDeclaration(node) && isRuntimeImport(node)) {
+      addModuleSpecifier(node.moduleSpecifier);
+    } else if (ts.isExportDeclaration(node) && isRuntimeExport(node)) {
+      addModuleSpecifier(node.moduleSpecifier);
+    } else if (ts.isImportEqualsDeclaration(node) && !node.isTypeOnly) {
+      const reference = node.moduleReference;
+      if (ts.isExternalModuleReference(reference)) addModuleSpecifier(reference.expression);
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      addModuleSpecifier(node.arguments[0]);
+    }
+
+    ts.forEachChild(node, visitNode);
+  }
+
+  function addModuleSpecifier(node) {
+    if (node && ts.isStringLiteralLike(node)) specifiers.push(node.text);
+  }
+}
+
+function isRuntimeImport(node) {
+  const clause = node.importClause;
+  if (!clause) return true;
+  if (clause.isTypeOnly) return false;
+  if (clause.name || !clause.namedBindings || ts.isNamespaceImport(clause.namedBindings))
+    return true;
+  return (
+    clause.namedBindings.elements.length === 0 ||
+    clause.namedBindings.elements.some((item) => !item.isTypeOnly)
+  );
+}
+
+function isRuntimeExport(node) {
+  if (!node.moduleSpecifier || node.isTypeOnly) return false;
+  if (!node.exportClause || ts.isNamespaceExport(node.exportClause)) return true;
+  return (
+    node.exportClause.elements.length === 0 ||
+    node.exportClause.elements.some((item) => !item.isTypeOnly)
+  );
+}
+
+function scriptKind(file) {
+  if (file.endsWith(".tsx")) return ts.ScriptKind.TSX;
+  if (file.endsWith(".js") || file.endsWith(".mjs")) return ts.ScriptKind.JS;
+  return ts.ScriptKind.TS;
 }
 
 async function walk(directory) {
