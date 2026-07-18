@@ -304,6 +304,8 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "BIST 100 hisse listesi",
     path: "/piyasalar/bist-100",
     strategy: "shared",
+    ttl: 30,
+    swr: 300,
     contentQueryParams: ["sortBy", "page"],
     contentQueryDefaults: { sortBy: "market-cap-desc", page: "1" },
     contentQueryNormalize: marketQueryNormalizers,

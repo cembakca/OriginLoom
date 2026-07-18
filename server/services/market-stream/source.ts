@@ -2,8 +2,7 @@ import { gatewayUrl } from "@server/adapters/gateway";
 import { config } from "@server/config";
 
 import type { MarketQuoteBatch } from "~/lib/contracts/markets";
-
-import { parseMarketQuoteBatch } from "./contract";
+import { parseMarketQuoteBatch } from "~/lib/market-stream";
 
 const MAX_SSE_BUFFER_BYTES = 128 * 1024;
 const MAX_INVALID_EVENTS = 5;

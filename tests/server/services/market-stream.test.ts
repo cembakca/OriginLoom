@@ -1,5 +1,6 @@
-import { parseMarketQuoteBatch } from "@server/services/market-stream/contract";
 import { describe, expect, it } from "vitest";
+
+import { parseMarketQuoteBatch } from "~/lib/market-stream";
 
 const valid = {
   type: "quotes",

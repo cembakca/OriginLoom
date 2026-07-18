@@ -1,15 +1,14 @@
 import { CatalogPagination } from "~/components/catalog-pagination";
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
+import { MarketLiveTable } from "~/features/markets/market-live-table";
 import type { StockList } from "~/lib/contracts/markets";
-
-const number = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
-const compact = new Intl.NumberFormat("tr-TR", { notation: "compact", maximumFractionDigits: 1 });
+import { Island } from "~/lib/island";
 
 export function Bist100Page({ data }: { data: StockList }) {
   return (
     <div className="space-y-8">
-      <header className="grid gap-6 border-b border-slate-200 pb-8 lg:grid-cols-[1fr_auto] lg:items-end">
+      <header className="border-b border-slate-200 pb-8">
         <div className="space-y-3">
           <div className="flex gap-2">
             <Badge>{data.index.code}</Badge>
@@ -28,68 +27,24 @@ export function Bist100Page({ data }: { data: StockList }) {
             Endeks şirketlerini fiyat, günlük değişim, sektör ve piyasa değerine göre inceleyin.
           </p>
         </div>
-        <div className="text-right text-xs text-slate-500">
-          <p>Son güncelleme</p>
-          <time dateTime={data.index.asOf}>
-            {new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(
-              new Date(data.index.asOf),
-            )}
-          </time>
-          <p>{data.index.delayedByMinutes} dakika gecikmeli</p>
-        </div>
       </header>
       <MarketFilters data={data} />
-      <section
-        aria-labelledby="stocks-title"
-        className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+      <Island
+        name="market-live"
+        eager
+        props={{
+          initialStocks: data.items,
+          initialAsOf: data.index.asOf,
+          delayedByMinutes: data.index.delayedByMinutes,
+        }}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 p-5">
-          <div>
-            <h2 id="stocks-title" className="text-xl font-semibold">
-              Hisse listesi
-            </h2>
-            <p className="text-sm text-slate-500">{data.pagination.total} şirket</p>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <Th>Hisse</Th>
-                <Th>Sektör</Th>
-                <Th right>Son fiyat</Th>
-                <Th right>Günlük değişim</Th>
-                <Th right>Gün içi</Th>
-                <Th right>Piyasa değeri</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((stock) => (
-                <tr key={stock.symbol} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-5 py-4">
-                    <strong className="block text-slate-950">{stock.symbol}</strong>
-                    <span className="text-xs text-slate-500">{stock.name}</span>
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">{stock.sector}</td>
-                  <td className="px-5 py-4 text-right font-semibold">
-                    {number.format(stock.lastPrice)} TL
-                  </td>
-                  <td
-                    className={`px-5 py-4 text-right font-semibold ${stock.changePercent >= 0 ? "text-emerald-700" : "text-rose-700"}`}
-                  >
-                    {stock.changePercent >= 0 ? "+" : ""}
-                    {number.format(stock.changePercent)}%
-                  </td>
-                  <td className="px-5 py-4 text-right text-xs text-slate-500">
-                    {number.format(stock.dayLow)} – {number.format(stock.dayHigh)}
-                  </td>
-                  <td className="px-5 py-4 text-right">{compact.format(stock.marketCap)} TL</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <MarketLiveTable
+          stocks={data.items}
+          asOf={data.index.asOf}
+          delayedByMinutes={data.index.delayedByMinutes}
+          status="connecting"
+        />
+      </Island>
       <CatalogPagination
         pathname="/piyasalar/bist-100"
         search={stockSearch(data)}
@@ -144,13 +99,6 @@ function MarketFilters({ data }: { data: StockList }) {
         Uygula
       </button>
     </form>
-  );
-}
-function Th({ children, right = false }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <th scope="col" className={`px-5 py-3 font-semibold ${right ? "text-right" : ""}`}>
-      {children}
-    </th>
   );
 }
 function stockSearch(data: StockList) {
