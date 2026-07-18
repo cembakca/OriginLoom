@@ -9,6 +9,8 @@ import creditCards from "./credit-cards";
 import home from "./home";
 import housingLoanDetail from "./housing-loan-detail";
 import housingLoans from "./housing-loans";
+import knowledgeArticle from "./knowledge-article";
+import knowledgeCenter from "./knowledge-center";
 import loanCompare from "./loan-compare";
 import mediaPipeline from "./media-pipeline";
 import recourseRedirect from "./recourse-redirect";
@@ -22,6 +24,8 @@ export const routes: Route[] = [
   housingLoanDetail,
   creditCards,
   creditCardDetail,
+  knowledgeCenter,
+  knowledgeArticle,
   account,
   recourseRedirect,
   loanCompare,

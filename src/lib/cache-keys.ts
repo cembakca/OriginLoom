@@ -9,6 +9,7 @@ import { layoutCacheFragment } from "~/lib/shell-data";
 import type { CachePolicy, Ctx } from "~/lib/types";
 
 import { financeQueryNormalizers } from "./finance-query";
+import { knowledgeQueryNormalizers } from "./knowledge-query";
 
 export type { CacheKeyApiEntry } from "~/lib/cache/key-codec";
 export {
@@ -36,6 +37,8 @@ export const PageCacheId = {
   housingLoanDetail: "housing-loan-detail",
   creditCards: "credit-cards",
   creditCardDetail: "credit-card-detail",
+  knowledgeCenter: "knowledge-center",
+  knowledgeArticle: "knowledge-article",
 } as const;
 
 export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
@@ -258,6 +261,36 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     buildKey: (ctx) => [
       "credit-card-detail",
+      ctx.params.slug ?? "-",
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
+    ],
+  },
+  [PageCacheId.knowledgeCenter]: {
+    id: PageCacheId.knowledgeCenter,
+    description: "Bilgi Merkezi içerik listesi",
+    path: "/bilgi-merkezi",
+    strategy: "shared",
+    contentQueryParams: ["category", "orderBy", "page"],
+    contentQueryDefaults: { category: "all", orderBy: "date-desc", page: "1" },
+    contentQueryNormalize: knowledgeQueryNormalizers,
+    buildKey: (ctx) => {
+      const entry = pageCacheRegistry[PageCacheId.knowledgeCenter];
+      return [
+        "knowledge-center",
+        queryPart(entry, ctx),
+        locale(ctx.request),
+        layoutCacheFragment(ctx),
+      ];
+    },
+  },
+  [PageCacheId.knowledgeArticle]: {
+    id: PageCacheId.knowledgeArticle,
+    description: "Bilgi Merkezi makale detayı",
+    path: "/bilgi-merkezi/:slug",
+    strategy: "shared",
+    buildKey: (ctx) => [
+      "knowledge-article",
       ctx.params.slug ?? "-",
       locale(ctx.request),
       layoutCacheFragment(ctx),
