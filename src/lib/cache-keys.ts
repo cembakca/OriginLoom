@@ -8,6 +8,17 @@ import { cookie, locale } from "~/lib/request";
 import { layoutCacheFragment } from "~/lib/shell-data";
 import type { CachePolicy, Ctx } from "~/lib/types";
 
+export type { CacheKeyApiEntry } from "~/lib/cache/key-codec";
+export {
+  CACHE_KEY_SEP,
+  decodeCacheKeyFromApi,
+  displayCacheKey,
+  encodeCacheKeyForApi,
+  formatCacheKey,
+  parseCacheKey,
+  toCacheKeyApiEntry,
+} from "~/lib/cache/key-codec";
+
 /** HTML sayfa cache kimlikleri — purge API ve dokümantasyonda referans. */
 export const PageCacheId = {
   home: "home",
@@ -210,58 +221,6 @@ export function listPageCachePrefixes(): Array<{
     strategy: entry.strategy,
     description: entry.description,
   }));
-}
-
-export const CACHE_KEY_SEP = "\0";
-
-function escapePart(part: string): string {
-  return part.replaceAll("%", "%25").replaceAll(CACHE_KEY_SEP, "%00");
-}
-
-function unescapePart(part: string): string {
-  return part.replaceAll("%00", CACHE_KEY_SEP).replaceAll("%25", "%");
-}
-
-export function formatCacheKey(parts: string[]): string {
-  return parts.map(escapePart).join(CACHE_KEY_SEP);
-}
-
-export function parseCacheKey(key: string): string[] {
-  return key.split(CACHE_KEY_SEP).map(unescapePart);
-}
-
-/** Purge API / operasyon için okunabilir gösterim (kopyalanabilir). */
-export function displayCacheKey(key: string): string {
-  return parseCacheKey(key).join("::");
-}
-
-/** Null ayırıcı içeren key'leri güvenli taşımak için base64url. */
-export function encodeCacheKeyForApi(key: string): string {
-  return Buffer.from(key, "utf8").toString("base64url");
-}
-
-export function decodeCacheKeyFromApi(encoded: string): string {
-  return Buffer.from(encoded, "base64url").toString("utf8");
-}
-
-export type CacheKeyApiEntry = {
-  /** Store'daki ham mantıksal key (`\0` ayırıcılı). */
-  key: string;
-  /** Purge body'de `keysEncoded` olarak kullan — kopyala-yapıştır güvenli. */
-  encoded: string;
-  /** Key parçaları (route registry ile aynı sıra). */
-  parts: string[];
-  /** İnsan okunur gösterim; silme için değil, debug için. */
-  display: string;
-};
-
-export function toCacheKeyApiEntry(key: string): CacheKeyApiEntry {
-  return {
-    key,
-    encoded: encodeCacheKeyForApi(key),
-    parts: parseCacheKey(key),
-    display: displayCacheKey(key),
-  };
 }
 
 export function isKnownPageCachePrefix(prefix: string): prefix is PageCacheId {
