@@ -57,6 +57,45 @@ if (config.viteDevServerUrl) {
   );
 }
 
+// Build standard CSP directives object at startup for O(1) request-time execution
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: [
+    "'self'",
+    "https://www.googletagmanager.com",
+    ...hashes,
+    ...devScripts,
+    ...devViteUrls,
+  ],
+  connectSrc: [
+    "'self'",
+    "https://www.google-analytics.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+    "https://*.googletagmanager.com",
+    ...devViteUrls,
+    ...devViteWsUrls,
+  ],
+  imgSrc: [
+    "'self'",
+    "data:",
+    "https://www.googletagmanager.com",
+    "https://www.google-analytics.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+    "https://*.googlesyndication.com",
+  ],
+  frameSrc: [
+    "'self'",
+    "https://www.googletagmanager.com",
+  ],
+  styleSrc: ["'self'", "'unsafe-inline'", ...devViteUrls],
+  fontSrc: ["'self'", "data:"],
+  objectSrc: ["'none'"],
+  baseUri: ["'self'"],
+  ...(config.cspReportUri ? { reportUri: [config.cspReportUri] } : {}),
+};
+
 export const securityMiddleware = secureHeaders({
   xContentTypeOptions: "nosniff",
   xFrameOptions: "DENY",
@@ -66,40 +105,7 @@ export const securityMiddleware = secureHeaders({
     microphone: [],
     geolocation: [],
   },
-  contentSecurityPolicyReportOnly: {
-    defaultSrc: ["'self'"],
-    scriptSrc: [
-      "'self'",
-      "https://www.googletagmanager.com",
-      ...hashes,
-      ...devScripts,
-      ...devViteUrls,
-    ],
-    connectSrc: [
-      "'self'",
-      "https://www.google-analytics.com",
-      "https://*.google-analytics.com",
-      "https://*.analytics.google.com",
-      "https://*.googletagmanager.com",
-      ...devViteUrls,
-      ...devViteWsUrls,
-    ],
-    imgSrc: [
-      "'self'",
-      "data:",
-      "https://www.googletagmanager.com",
-      "https://www.google-analytics.com",
-      "https://*.google-analytics.com",
-      "https://*.analytics.google.com",
-      "https://*.googlesyndication.com",
-    ],
-    frameSrc: [
-      "'self'",
-      "https://www.googletagmanager.com",
-    ],
-    styleSrc: ["'self'", "'unsafe-inline'", ...devViteUrls],
-    fontSrc: ["'self'", "data:"],
-    objectSrc: ["'none'"],
-    baseUri: ["'self'"],
-  },
+  ...(config.cspEnforce
+    ? { contentSecurityPolicy: cspDirectives }
+    : { contentSecurityPolicyReportOnly: cspDirectives }),
 });

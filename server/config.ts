@@ -80,6 +80,8 @@ export const config = {
   imageTransformUrl: publicHttpUrlEnv("IMAGE_TRANSFORM_URL"),
   viteDevServerUrl: process.env.VITE_DEV_SERVER_URL?.replace(/\/$/, "") || undefined,
   gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),
+  cspEnforce: booleanEnv("CSP_ENFORCE", false),
+  cspReportUri: process.env.CSP_REPORT_URI?.trim() || undefined,
 } as const;
 
 /** Read at request time so rotated secrets can be injected without coupling API code to process.env. */

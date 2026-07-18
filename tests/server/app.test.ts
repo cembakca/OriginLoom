@@ -45,12 +45,17 @@ describe("Hono application integration", () => {
     expect(response.headers.get("strict-transport-security")).toContain("max-age=");
     expect(response.headers.get("permissions-policy")).toBeDefined();
     expect(response.headers.get("permissions-policy")).toContain("camera=()");
-    expect(response.headers.get("content-security-policy-report-only")).toBeDefined();
-    expect(response.headers.get("content-security-policy-report-only")).toContain("default-src 'self'");
+    
+    const cspHeader = config.cspEnforce
+      ? "content-security-policy"
+      : "content-security-policy-report-only";
+      
+    expect(response.headers.get(cspHeader)).toBeDefined();
+    expect(response.headers.get(cspHeader)).toContain("default-src 'self'");
     if (config.isProduction) {
-      expect(response.headers.get("content-security-policy-report-only")).toContain("sha256-");
+      expect(response.headers.get(cspHeader)).toContain("sha256-");
     } else {
-      expect(response.headers.get("content-security-policy-report-only")).toContain("'unsafe-inline'");
+      expect(response.headers.get(cspHeader)).toContain("'unsafe-inline'");
     }
   });
 
