@@ -70,8 +70,6 @@ describe("request deadline middleware", () => {
     const response = await app.request("/api/external-fallback");
     expect(response.status).toBe(504);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(renderMetrics()).toContain(
-      'request_timeout_total{class="proxy",route="<proxy>"}',
-    );
+    expect(renderMetrics()).toContain('request_timeout_total{class="proxy",route="<proxy>"}');
   });
 });

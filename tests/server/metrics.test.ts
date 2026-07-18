@@ -50,7 +50,9 @@ describe("production metrics", () => {
     expect(metrics).toContain(
       'ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/blogs/paginated"}',
     );
-    expect(metrics).toContain('ssr_cache_response_duration_milliseconds_count{state="HIT",route="/blogs/paginated"}');
+    expect(metrics).toContain(
+      'ssr_cache_response_duration_milliseconds_count{state="HIT",route="/blogs/paginated"}',
+    );
     expect(metrics).toContain('ssr_gateway_requests_total{status_class="error",outcome="timeout"}');
     expect(metrics).toContain(
       'ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="read",outcome="success"}',

@@ -9,6 +9,9 @@ afterEach(() => {
 
 async function validateWith(env: Record<string, string | undefined>): Promise<void> {
   process.env = { ...originalEnv };
+  if (env.NODE_ENV === "production") {
+    delete process.env.VITE_DEV_SERVER_URL;
+  }
   for (const [key, value] of Object.entries(env)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -217,6 +220,7 @@ describe("server config", () => {
       RELEASE_ID: "release-1",
       IMAGE_CDN_URL: "localhost:3005/images/",
     };
+    delete process.env.VITE_DEV_SERVER_URL;
     vi.resetModules();
     const { config, validateConfig } = await import("@server/config");
 

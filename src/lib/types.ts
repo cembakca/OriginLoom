@@ -75,6 +75,7 @@ export type LoaderResult<T> =
 
 export type Route<T = unknown> = {
   path: string;
+  streaming?: boolean;
 
   /**
    * Resolves dynamic route-domain membership before cache lookup. False is a

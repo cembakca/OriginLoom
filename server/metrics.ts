@@ -120,7 +120,12 @@ function statusClass(status: number): string {
   return status === 0 ? "error" : `${Math.floor(status / 100)}xx`;
 }
 
-export function observeRequest(status: number, cacheState: string, durationMs: number, route: string): void {
+export function observeRequest(
+  status: number,
+  cacheState: string,
+  durationMs: number,
+  route: string,
+): void {
   const knownCacheStates = new Set([
     "HIT",
     "MISS",
@@ -455,21 +460,9 @@ export function renderMetrics(): string {
       `Distinct cache keys exceeding the bounded ${MAX_DISTINCT_KEYS_PER_ROUTE}-key observation window`,
       cacheCardinalityOverflows,
     ),
-    ...gauge(
-      "ssr_event_loop_lag_p50_seconds",
-      "Event loop delay p50",
-      getEventLoopP50(),
-    ),
-    ...gauge(
-      "ssr_event_loop_lag_p95_seconds",
-      "Event loop delay p95",
-      getEventLoopP95(),
-    ),
-    ...gauge(
-      "ssr_event_loop_lag_p99_seconds",
-      "Event loop delay p99",
-      getEventLoopP99(),
-    ),
+    ...gauge("ssr_event_loop_lag_p50_seconds", "Event loop delay p50", getEventLoopP50()),
+    ...gauge("ssr_event_loop_lag_p95_seconds", "Event loop delay p95", getEventLoopP95()),
+    ...gauge("ssr_event_loop_lag_p99_seconds", "Event loop delay p99", getEventLoopP99()),
     ...gauge("process_resident_memory_bytes", "Resident memory size", memory.rss),
     ...gauge("process_heap_used_bytes", "Process heap used", memory.heapUsed),
     ...gauge("process_uptime_seconds", "Process uptime", process.uptime()),

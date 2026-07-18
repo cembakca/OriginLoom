@@ -13,6 +13,7 @@ export const PageCacheId = {
   home: "home",
   loanCompare: "loan",
   blogsPaginated: "blogs-paginated",
+  blogsPaginatedStreaming: "blogs-paginated-streaming",
   retirementBanking: "retirement-banking",
   remoteCustomerObtain: "remote-customer-obtain",
   recourseRedirect: "recourse-redirect",
@@ -95,6 +96,26 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
       const entry = pageCacheRegistry[PageCacheId.blogsPaginated];
       return [
         "blogs-paginated",
+        ctx.publicPath,
+        queryPart(entry, ctx),
+        locale(ctx.request),
+        layoutCacheFragment(ctx),
+      ];
+    },
+  },
+
+  [PageCacheId.blogsPaginatedStreaming]: {
+    id: PageCacheId.blogsPaginatedStreaming,
+    description: "Blog listesi (akışlı / streaming)",
+    path: "/blogs/paginated/streaming",
+    strategy: "shared",
+    contentQueryParams: ["page"],
+    contentQueryDefaults: { page: "1" },
+    contentQueryNormalize: { page: (raw) => String(parsePage(raw)) },
+    buildKey: (ctx) => {
+      const entry = pageCacheRegistry[PageCacheId.blogsPaginatedStreaming];
+      return [
+        "blogs-paginated-streaming",
         ctx.publicPath,
         queryPart(entry, ctx),
         locale(ctx.request),

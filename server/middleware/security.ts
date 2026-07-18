@@ -85,10 +85,7 @@ const cspDirectives = {
     "https://*.analytics.google.com",
     "https://*.googlesyndication.com",
   ],
-  frameSrc: [
-    "'self'",
-    "https://www.googletagmanager.com",
-  ],
+  frameSrc: ["'self'", "https://www.googletagmanager.com"],
   styleSrc: ["'self'", "'unsafe-inline'", ...devViteUrls],
   fontSrc: ["'self'", "data:"],
   objectSrc: ["'none'"],

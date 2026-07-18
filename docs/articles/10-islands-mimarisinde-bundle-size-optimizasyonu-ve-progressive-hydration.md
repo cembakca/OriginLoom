@@ -6,7 +6,7 @@
 
 Next.js'ten kendi geliştirdiğimiz Hono ve React tabanlı explicit SSR mimarisine geçişimiz, sunucu tarafındaki cache kontrolünü, bellek yönetimini ve response akışlarını tamamen kontrol altına almamızı sağladı. Ancak bu geçiş, istemci tarafında (client-side) çözülmesi gereken yeni bir optimizasyon problemini de beraberinde getirdi: **İlk yükleme JavaScript paket boyutu (Initial Bundle Size).**
 
-İlk başta her şey harika görünüyordu. Sayfalar sunucuda render ediliyor, Redis cache'inden mikrosaniyeler içinde HTML olarak dönüyor ve tarayıcıya sadece adacıkların (islands) kodları gönderiliyordu. Ancak tarayıcı geliştirici konsolunu açıp network sekmesini incelediğimizde acı bir gerçekle karşılaştık: 
+İlk başta her şey harika görünüyordu. Sayfalar sunucuda render ediliyor, Redis cache'inden mikrosaniyeler içinde HTML olarak dönüyor ve tarayıcıya sadece adacıkların (islands) kodları gönderiliyordu. Ancak tarayıcı geliştirici konsolunu açıp network sekmesini incelediğimizde acı bir gerçekle karşılaştık:
 
 > Üzerinde hiçbir etkileşimli eleman (button, form, mobile menu vb.) bulunmayan tamamen statik bir bilgi sayfasına girdiğimizde dahi, tarayıcı arka planda **230 kB (gzipped 72 kB)** boyutundaki bir JavaScript dosyasını (`entry.client.js`) indirmek ve parse etmek zorundaydı.
 
@@ -25,6 +25,7 @@ import { Menu } from "lucide-react";
 ```
 
 Bu importlar nedeniyle:
+
 1. **React ve React DOM**: Sayfada etkileşimli tek bir alan olmasa bile tarayıcıya iniyor ve hydration runtime'ı çalıştırıyordu.
 2. **TanStack Query**: Sunucu ile senkronizasyon için kullandığımız React Query kütüphanesi, global entry seviyesinde import edildiği için tüm sayfalara zorunlu olarak dağıtılıyordu.
 3. **Lucide İkonları**: Basit bir hamburger menü ikonu için kütüphanenin gereksiz pek çok ortak kodu bundle içerisine sızıyordu.
@@ -38,6 +39,7 @@ Amacımız "Pure HTML" hızı ve sıfır JavaScript yükü iken, kullanıcıya h
 İlk olarak, tarayıcıda koşan bootstrap kodu ile ağır hydration runtime'ını birbirinden ayırmaya karar verdik. Tarayıcının ilk indirdiği `entry.client.tsx` dosyası, sayfada etkileşimli bir adacık (`[data-island]`) olup olmadığını kontrol eden, hiçbir harici kütüphane bağımlılığı olmayan minik bir script olmalıydı.
 
 Bunun için giriş noktasını ikiye böldük:
+
 - **`entry.client.tsx` (Bootstrap)**: Sayfayı tarayan hafif gözetçi script.
 - **`hydrate.client.tsx` (Hydration Runtime)**: React ve React DOM bağımlılıklarını içeren ağır yük.
 
@@ -97,6 +99,7 @@ export default function BlogExplorer(props: Props) {
 ```
 
 ### Sonuç:
+
 Vite/Rollup kod bölme (code-splitting) algoritması, `@tanstack/react-query` kütüphanesini ana paketten söktü ve sadece `blog-explorer` adacığı yüklendiğinde asenkron olarak indirilecek olan `blog-explorer-XXXX.js` chunk'ının içerisine yerleştirdi.
 
 ---
@@ -119,12 +122,12 @@ Bu sayede tüm harici ikon paketlerini devre dışı bırakarak projenin üretti
 
 Yaptığımız bu üç optimizasyonun ardından elde ettiğimiz sonuçlar kurumsal hedeflerimiz için devasa bir sıçrama oldu:
 
-| Metrik / Çıktı | Eski Yapı (Next.js Esintili) | Yeni Yapı (Progressive Islands) | İyileşme Oranı |
-| :--- | :--- | :--- | :--- |
-| **Statik Sayfa JS Boyutu** | 230.78 kB | **4.41 kB** | **%98.1 Azalma** |
-| **Gzipped Statik JS** | 72.36 kB | **2.07 kB** | **%97.1 Azalma** |
-| **React Query Yükü** | Global (Tüm sayfalar) | Yalnızca `/blogs` (On-demand) | **%100 İzolasyon** |
-| **İkon Bağımlılığı** | `lucide-react` (Global) | Bağımsız SVG Bileşenleri | **Sıfır Bağımlılık** |
+| Metrik / Çıktı             | Eski Yapı (Next.js Esintili) | Yeni Yapı (Progressive Islands) | İyileşme Oranı       |
+| :------------------------- | :--------------------------- | :------------------------------ | :------------------- |
+| **Statik Sayfa JS Boyutu** | 230.78 kB                    | **4.41 kB**                     | **%98.1 Azalma**     |
+| **Gzipped Statik JS**      | 72.36 kB                     | **2.07 kB**                     | **%97.1 Azalma**     |
+| **React Query Yükü**       | Global (Tüm sayfalar)        | Yalnızca `/blogs` (On-demand)   | **%100 İzolasyon**   |
+| **İkon Bağımlılığı**       | `lucide-react` (Global)      | Bağımsız SVG Bileşenleri        | **Sıfır Bağımlılık** |
 
 Bu mimari sayesinde, sitenin reklam veya SEO odaklı statik sayfaları artık **sıfır React yüküyle** ultra hızlı açılırken; kullanıcı etkileşimli finansal hesaplama sayfaları ise ihtiyaç anında dinamik olarak hydration runtime'ını indirip çalıştırabilmektedir.
 

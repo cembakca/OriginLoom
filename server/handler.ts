@@ -7,7 +7,13 @@ import { normalizePublicUrl, resolveRoute } from "~/routing";
 import * as cache from "./cache";
 import { coalesceColdMiss } from "./cache/cold-fill";
 import { config } from "./config";
-import { type Assets, renderDocument } from "./document";
+import {
+  type Assets,
+  renderDocument,
+  renderDocumentToStream,
+  streamToString,
+  type StreamResult,
+} from "./document";
 import { errorResponse } from "./error";
 import { logError, logger } from "./logger";
 import { observeRevalidation } from "./metrics";
@@ -16,6 +22,7 @@ import { setActiveHttpRoute, SpanKind, SpanStatusCode, withSpan } from "./observ
 import { proxyRequest } from "./proxy";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
 import { renderNotFoundDocument, renderRouteErrorDocument } from "./route-boundary";
+import { isBotRequest } from "~/components/analytics/gtm-bootstrap";
 
 export type HandleContext = {
   requestId?: string;
@@ -25,7 +32,11 @@ export type HandleContext = {
 
 const revalidationsInFlight = new Map<string, Promise<void>>();
 
-type RouteExecution = { result: LoaderResult<unknown>; body?: string };
+type RouteExecution = {
+  result: LoaderResult<unknown>;
+  body?: string;
+  streamResult?: StreamResult;
+};
 
 class CacheFillTimeoutError extends Error {
   constructor() {
@@ -406,7 +417,10 @@ export async function handle(
       }
 
       const body = execution.body;
-      if (body === undefined) throw new Error("Route data result was not rendered");
+      const streamResult = execution.streamResult;
+      if (body === undefined && streamResult === undefined) {
+        throw new Error("Route data result was not rendered");
+      }
 
       const cacheState = key ? "MISS" : "BYPASS";
       logRequest(requestId, {
@@ -416,7 +430,25 @@ export async function handle(
         durationMs: Date.now() - started,
       });
 
-      return html(body, result.status ?? 200, policy, cacheState, result.headers, requestId);
+      if (streamResult) {
+        return html(
+          streamResult.stream,
+          result.status ?? 200,
+          policy,
+          cacheState,
+          result.headers,
+          requestId,
+        );
+      } else {
+        return html(
+          body ?? "",
+          result.status ?? 200,
+          policy,
+          cacheState,
+          result.headers,
+          requestId,
+        );
+      }
     } catch (routeError) {
       rethrowRequestDeadline(request, routeError);
       const errorId = randomUUID();
@@ -495,8 +527,46 @@ async function executeRoute(
 ): Promise<RouteExecution> {
   const result = await runLoader(route, routeCtx, phase);
   if (result.kind && result.kind !== "data") return { result };
-  const body = await runRender(route, result.data, assets, routeCtx, phase);
-  return { result, body };
+
+  const isBot = isBotRequest(routeCtx.request);
+  const shouldStream = route.streaming && phase === "request" && !isBot;
+
+  if (shouldStream) {
+    let streamResult: StreamResult;
+    try {
+      streamResult = await renderDocumentToStream(
+        route,
+        result.data,
+        assets,
+        { routeCtx },
+        (error) => {
+          logError(error, {
+            requestId: routeCtx.trackingId,
+            msg: "deferred stream render error",
+            path: routeCtx.url.pathname,
+          });
+        },
+      );
+    } catch (err) {
+      const errorBody = await renderRouteErrorDocument(assets, routeCtx, route, null, 500);
+      return {
+        result: {
+          kind: "error",
+          error: { code: "stream_shell_error", message: "Stream shell render error" },
+        },
+        body: errorBody,
+      };
+    }
+
+    routeCtx.request.signal.addEventListener("abort", () => {
+      streamResult.abort();
+    });
+
+    return { result, streamResult };
+  } else {
+    const body = await runRender(route, result.data, assets, routeCtx, phase);
+    return { result, body };
+  }
 }
 
 function createRouteContext(
@@ -639,20 +709,40 @@ function runLoader(
   );
 }
 
-function runRender<T>(
+async function runRender<T>(
   route: Route<T>,
   data: T,
   assets: Assets,
   routeCtx: Parameters<Route<T>["loader"]>[0],
   phase: "request" | "revalidation" | "cache_fill",
-) {
+): Promise<string> {
   return withSpan(
     "ssr.render",
     {
       kind: SpanKind.INTERNAL,
       attributes: { "http.route": route.path, "ssr.phase": phase },
     },
-    () => renderDocument(route, data, assets, { routeCtx }),
+    async () => {
+      if (route.streaming) {
+        const streamResult = await renderDocumentToStream(
+          route,
+          data,
+          assets,
+          { routeCtx },
+          (error) => {
+            logError(error, {
+              requestId: routeCtx.trackingId,
+              msg: "runRender stream error",
+              path: routeCtx.url.pathname,
+            });
+          },
+        );
+        await streamResult.allReady;
+        return streamToString(streamResult.stream);
+      } else {
+        return renderDocument(route, data, assets, { routeCtx });
+      }
+    },
   );
 }
 
@@ -661,20 +751,26 @@ function delay(ms: number): Promise<void> {
 }
 
 function html(
-  body: string,
+  body: string | ReadableStream,
   status: number,
   policy: ReturnType<NonNullable<Route["cache"]>>,
   state: string,
   extra?: Record<string, string>,
   requestId?: string,
 ) {
+  const isStream = body instanceof ReadableStream;
   const headers: Record<string, string> = {
     ...extra,
     "content-type": "text/html; charset=utf-8",
-    "cache-control": cache.cacheControl(policy),
+    "cache-control": isStream
+      ? "no-transform, no-cache, no-store, must-revalidate"
+      : cache.cacheControl(policy),
     "x-cache": state,
   };
   if (requestId) headers["x-request-id"] = requestId;
+  if (isStream) {
+    headers["transfer-encoding"] = "chunked";
+  }
 
   return new Response(body, { status, headers });
 }

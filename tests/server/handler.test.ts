@@ -855,4 +855,59 @@ describe("handler", () => {
     release?.();
     await vi.runAllTimersAsync();
   });
+
+  it("streams responses with chunked transfer-encoding for streaming routes", async () => {
+    const route: Route<{ text: string }> = {
+      path: "/stream-test",
+      streaming: true,
+      loader: async () => ({ data: { text: "hello streaming" } }),
+      minimalChrome: true,
+      Component: ({ data }) => createElement("main", null, data.text),
+    };
+    const request = new Request("http://localhost/stream-test");
+    const res = await handle(request, [route], assets);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("transfer-encoding")).toBe("chunked");
+    const body = await res.text();
+    expect(body).toContain("hello streaming");
+    expect(body).toContain("<!DOCTYPE html>");
+  });
+
+  it("buffers the response for bot requests even if the route is streaming", async () => {
+    const route: Route<{ text: string }> = {
+      path: "/stream-bot-test",
+      streaming: true,
+      loader: async () => ({ data: { text: "hello bot" } }),
+      minimalChrome: true,
+      Component: ({ data }) => createElement("main", null, data.text),
+    };
+    const request = new Request("http://localhost/stream-bot-test", {
+      headers: {
+        "user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+      },
+    });
+    const res = await handle(request, [route], assets);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("transfer-encoding")).toBeNull();
+    const body = await res.text();
+    expect(body).toContain("hello bot");
+    expect(body).toContain("<!DOCTYPE html>");
+  });
+
+  it("buffers the response for cold cache misses even if the route is streaming", async () => {
+    const route: Route<{ text: string }> = {
+      path: "/stream-cache-miss-test",
+      streaming: true,
+      cache: () => ({ kind: "shared", ttl: 10, key: ["stream-cache-miss"] }),
+      loader: async () => ({ data: { text: "hello cached stream" } }),
+      minimalChrome: true,
+      Component: ({ data }) => createElement("main", null, data.text),
+    };
+    const request = new Request("http://localhost/stream-cache-miss-test");
+    const res = await handle(request, [route], assets);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("transfer-encoding")).toBeNull();
+    const body = await res.text();
+    expect(body).toContain("hello cached stream");
+  });
 });

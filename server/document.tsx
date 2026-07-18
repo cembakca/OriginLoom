@@ -1,7 +1,8 @@
+import { PassThrough, Readable } from "node:stream";
 import { assetCdnOrigin } from "@server/assets";
 import { buildShellData } from "@server/services/shell-data";
 import type { ReactElement } from "react";
-import { renderToString } from "react-dom/server";
+import { renderToString, renderToPipeableStream } from "react-dom/server";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import { HeadClient } from "~/components/head/head-client";
@@ -31,64 +32,36 @@ export type DocumentContext = {
   routeCtx: Ctx;
 };
 
-export async function renderDocument<T>(
-  route: Route<T>,
-  data: T,
-  assets: Assets,
-  docCtx: DocumentContext,
-): Promise<string> {
-  const { routeCtx } = docCtx;
-  const seo = resolveDocumentMetadata(route, data, routeCtx);
-  const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
-  const pageMeta =
-    route.pageMeta?.(data, routeCtx) ??
-    defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
+export type StreamResult = {
+  stream: ReadableStream;
+  abort: () => void;
+  allReady: Promise<void>;
+};
 
-  return renderDocumentView({
-    assets,
-    routeCtx,
-    content: <route.Component data={data} />,
-    metadata: seo,
-    pageMeta,
-    imagePreloads,
-    ...stripUndefined({
-      preloadIslands: route.preloadIslands,
-      minimalChrome: route.minimalChrome,
-    }),
-  });
-}
-
-export async function renderDocumentView({
-  assets,
-  routeCtx,
-  content,
-  metadata,
-  pageMeta,
-  imagePreloads = [],
-  preloadIslands = [],
-  minimalChrome,
-}: {
+type DocumentLayoutProps = {
+  seo: ResolvedMetadata;
   assets: Assets;
-  routeCtx: Ctx;
-  content: ReactElement;
-  metadata: ResolvedMetadata;
+  preconnectOrigins: string[];
+  imagePreloads: ImagePreload[];
+  modulePreloads: string[];
+  isBot: boolean;
+  shell: any;
   pageMeta: PageAnalyticsMeta;
-  imagePreloads?: ImagePreload[];
-  preloadIslands?: readonly string[];
-  minimalChrome?: boolean;
-}): Promise<string> {
-  const isBot = isBotRequest(routeCtx.request);
-  const shell = await buildShellData(routeCtx, stripUndefined({ minimalChrome }));
-  const seo = metadata;
+  content: ReactElement;
+};
 
-  const cdnOrigin = assetCdnOrigin();
-  const viteOrigin = assets.development ? new URL(assets.development.client).origin : null;
-  const preconnectOrigins = [
-    ...new Set([cdnOrigin, viteOrigin, ...imageCdnOrigins()].filter(Boolean)),
-  ] as string[];
-  const modulePreloads = assets.development ? [] : resolveModulePreloads(assets, preloadIslands);
-
-  const html = renderToString(
+function DocumentLayout({
+  seo,
+  assets,
+  preconnectOrigins,
+  imagePreloads,
+  modulePreloads,
+  isBot,
+  shell,
+  pageMeta,
+  content,
+}: DocumentLayoutProps) {
+  return (
     <html lang="tr">
       <head>
         <meta charSet="utf-8" />
@@ -154,9 +127,177 @@ export async function renderDocumentView({
           crossOrigin={assets.development ? "anonymous" : undefined}
         />
       </body>
-    </html>,
+    </html>
+  );
+}
+
+export async function renderDocument<T>(
+  route: Route<T>,
+  data: T,
+  assets: Assets,
+  docCtx: DocumentContext,
+): Promise<string> {
+  const { routeCtx } = docCtx;
+  const seo = resolveDocumentMetadata(route, data, routeCtx);
+  const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
+  const pageMeta =
+    route.pageMeta?.(data, routeCtx) ??
+    defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
+
+  return renderDocumentView({
+    assets,
+    routeCtx,
+    content: <route.Component data={data} />,
+    metadata: seo,
+    pageMeta,
+    imagePreloads,
+    ...stripUndefined({
+      preloadIslands: route.preloadIslands,
+      minimalChrome: route.minimalChrome,
+    }),
+  });
+}
+
+export async function renderDocumentView({
+  assets,
+  routeCtx,
+  content,
+  metadata,
+  pageMeta,
+  imagePreloads = [],
+  preloadIslands = [],
+  minimalChrome,
+}: {
+  assets: Assets;
+  routeCtx: Ctx;
+  content: ReactElement;
+  metadata: ResolvedMetadata;
+  pageMeta: PageAnalyticsMeta;
+  imagePreloads?: ImagePreload[];
+  preloadIslands?: readonly string[];
+  minimalChrome?: boolean;
+}): Promise<string> {
+  const isBot = isBotRequest(routeCtx.request);
+  const shell = await buildShellData(routeCtx, stripUndefined({ minimalChrome }));
+  const seo = metadata;
+
+  const cdnOrigin = assetCdnOrigin();
+  const viteOrigin = assets.development ? new URL(assets.development.client).origin : null;
+  const preconnectOrigins = [
+    ...new Set([cdnOrigin, viteOrigin, ...imageCdnOrigins()].filter(Boolean)),
+  ] as string[];
+  const modulePreloads = assets.development ? [] : resolveModulePreloads(assets, preloadIslands);
+
+  const html = renderToString(
+    <DocumentLayout
+      seo={seo}
+      assets={assets}
+      preconnectOrigins={preconnectOrigins}
+      imagePreloads={imagePreloads}
+      modulePreloads={modulePreloads}
+      isBot={isBot}
+      shell={shell}
+      pageMeta={pageMeta}
+      content={content}
+    />,
   );
   return "<!DOCTYPE html>" + html;
+}
+
+export async function renderDocumentToStream<T>(
+  route: Route<T>,
+  data: T,
+  assets: Assets,
+  docCtx: DocumentContext,
+  onError: (error: unknown) => void,
+): Promise<StreamResult> {
+  const { routeCtx } = docCtx;
+  const seo = resolveDocumentMetadata(route, data, routeCtx);
+  const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
+  const pageMeta =
+    route.pageMeta?.(data, routeCtx) ??
+    defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
+  const preloadIslands = route.preloadIslands ?? [];
+  const isBot = isBotRequest(routeCtx.request);
+  const shell = await buildShellData(
+    routeCtx,
+    stripUndefined({ minimalChrome: route.minimalChrome }),
+  );
+
+  const cdnOrigin = assetCdnOrigin();
+  const viteOrigin = assets.development ? new URL(assets.development.client).origin : null;
+  const preconnectOrigins = [
+    ...new Set([cdnOrigin, viteOrigin, ...imageCdnOrigins()].filter(Boolean)),
+  ] as string[];
+  const modulePreloads = assets.development ? [] : resolveModulePreloads(assets, preloadIslands);
+
+  const passThrough = new PassThrough();
+  passThrough.write("<!DOCTYPE html>");
+
+  let shellReadyResolve: () => void;
+  let shellReadyReject: (err: unknown) => void;
+  const shellReadyPromise = new Promise<void>((resolve, reject) => {
+    shellReadyResolve = resolve;
+    shellReadyReject = reject;
+  });
+
+  let allReadyResolve: () => void;
+  const allReadyPromise = new Promise<void>((resolve) => {
+    allReadyResolve = resolve;
+  });
+
+  const content = <route.Component data={data} />;
+
+  const rxStream = renderToPipeableStream(
+    <DocumentLayout
+      seo={seo}
+      assets={assets}
+      preconnectOrigins={preconnectOrigins}
+      imagePreloads={imagePreloads}
+      modulePreloads={modulePreloads}
+      isBot={isBot}
+      shell={shell}
+      pageMeta={pageMeta}
+      content={content}
+    />,
+    {
+      onShellReady() {
+        rxStream.pipe(passThrough);
+        shellReadyResolve();
+      },
+      onAllReady() {
+        allReadyResolve();
+      },
+      onShellError(error) {
+        passThrough.destroy(error as Error);
+        shellReadyReject(error);
+      },
+      onError(error) {
+        onError(error);
+      },
+    },
+  );
+
+  await shellReadyPromise;
+
+  return {
+    stream: Readable.toWeb(passThrough) as any,
+    abort: () => rxStream.abort(),
+    allReady: allReadyPromise,
+  };
+}
+
+export async function streamToString(stream: ReadableStream): Promise<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    result += decoder.decode(value, { stream: true });
+  }
+  result += decoder.decode();
+  return result;
 }
 
 function resolveModulePreloads(assets: Assets, preloadIslands: readonly string[]): string[] {

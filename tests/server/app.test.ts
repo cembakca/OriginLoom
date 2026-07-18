@@ -45,11 +45,11 @@ describe("Hono application integration", () => {
     expect(response.headers.get("strict-transport-security")).toContain("max-age=");
     expect(response.headers.get("permissions-policy")).toBeDefined();
     expect(response.headers.get("permissions-policy")).toContain("camera=()");
-    
+
     const cspHeader = config.cspEnforce
       ? "content-security-policy"
       : "content-security-policy-report-only";
-      
+
     expect(response.headers.get(cspHeader)).toBeDefined();
     expect(response.headers.get(cspHeader)).toContain("default-src 'self'");
     if (config.isProduction) {

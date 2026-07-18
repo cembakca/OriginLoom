@@ -19,7 +19,7 @@ Bu mimaride çözüm: **Deterministik SHA-256 script hashing** ve **GTM allowlis
 
 ### Deterministik SHA-256 Hash Hesabı
 
-Sayfa yüklenirken ilk koşan inline scriptlerin (early tracking, event queue, dataLayer init, GTM loader vb.) string içerikleri sunucu tarafında ve tarayıcı tarafında tamamen deterministiktir. 
+Sayfa yüklenirken ilk koşan inline scriptlerin (early tracking, event queue, dataLayer init, GTM loader vb.) string içerikleri sunucu tarafında ve tarayıcı tarafında tamamen deterministiktir.
 
 Projemizde bu betiklerin tam içerikleri [gtm-bootstrap.tsx](file:///Users/cembakca/Downloads/files/ssr-kit/src/components/analytics/gtm-bootstrap.tsx) bileşeninden dışa aktarılarak güvenlik katmanıyla paylaşılmıştır. Sunucu ayağa kalkarken (startup / module load time) bu betiklerin SHA-256 hash'leri Node.js `crypto` modülü kullanılarak base64 formatında hesaplanır:
 
@@ -94,10 +94,12 @@ export const securityMiddleware = secureHeaders({
 Observability metriklerinin doğruluğu, yüksek trafik altında doğru alarm kurallarını (SLO/Alerting contracts) çalıştırmak için hayati önem taşır.
 
 ### Cardinality Kontrolü ve Route Şablonları
-Gelen isteklerin metrikleri (`ssr_http_requests_total`) toplanırken `/blogs/paginated?page=2` veya `/ihtiyac-kredisi/istanbul` gibi rotalar direkt olarak metrik etiketine (label) yazılırsa, sonsuz sayıda farklı etiket değeri (cardinality explosion) oluşur ve Prometheus sunucusunu kilitleyebilir. 
+
+Gelen isteklerin metrikleri (`ssr_http_requests_total`) toplanırken `/blogs/paginated?page=2` veya `/ihtiyac-kredisi/istanbul` gibi rotalar direkt olarak metrik etiketine (label) yazılırsa, sonsuz sayıda farklı etiket değeri (cardinality explosion) oluşur ve Prometheus sunucusunu kilitleyebilir.
 Düzeltilen semantikte, Hono context'ine yazılan `requestRoute` şablonları (örn. `/blogs/paginated`, `/ihtiyac-kredisi/:city?`) metrik etiketine basılmıştır.
 
 ### Gateway Hatalarında Gerçek Timeout vs İstemci Abort Ayrımı
+
 Gateway istekleri (`gatewayFetch`) sırasında istemciler tarayıcı sekmesini kapatabilir veya sayfadan ayrılabilir. Bu durum Node.js tarafında `AbortError` fırlatılmasına neden olur.
 
 Eski kodda hem gerçek gateway timeout'ları hem de istemci kaynaklı iptaller tek bir `isTimeout` kontrolü ile `"timeout"` metriği olarak sınıflandırılıyordu. Bu durum, gateway sağlıklı olsa bile kullanıcıların sayfadan ayrılma sıklığına göre yanlış gateway alarmları (false positive) tetikliyordu.

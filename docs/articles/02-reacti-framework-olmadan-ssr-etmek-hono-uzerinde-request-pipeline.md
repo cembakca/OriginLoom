@@ -537,28 +537,74 @@ bu API’nin React ağacını HTML string’ine çevirdiğini, fakat streaming�
 senaryolarını desteklemediğini açıkça belirtiyor. Bizim kullanımımızda bütün loader verisi render’dan
 önce hazır olduğu için bu sınır bilinçli bir tercih.
 
-### Neden şimdilik streaming kullanmıyoruz?
+### Akışlı SSR (Progressive HTML Streaming) Mimarisi
 
-React, Node ortamı için `renderToPipeableStream` gibi streaming API’leri öneriyor. Streaming ilk
-byte’ı daha erken gönderebilir ve Suspense boundary’leri hazır oldukça açabilir. Bu gerçek bir
-avantajdır; `renderToString` modern React’in en gelişmiş SSR yolu değildir.
+React, Node ortamı için `renderToPipeableStream` gibi streaming API’leri öneriyor. Streaming ilk byte’ı daha erken gönderebilir ve Suspense boundary’leri hazır oldukça açabilir. Bu gerçek bir avantajdır; `renderToString` modern React’in en gelişmiş SSR yolu değildir.
 
-Fakat bu projede HTML cache entry’si tam belge olarak atomik biçimde yazılıyor. Streaming’e geçmek şu
-soruları da çözmeyi gerektirir:
+Mimarimizde HTML cache entry’leri tam belge olarak atomik biçimde yazılır. Bu doğrultuda geliştirdiğimiz streaming altyapısı şu 5 ana sorunu otomatik olarak çözmektedir:
 
-- Header’lar gönderildikten sonra loader veya render hatası çıkarsa status nasıl değişecek?
-- Kısmi stream cache’e yazılmayacağından nasıl emin olunacak?
-- Client disconnect olduğunda render ve upstream fetch’ler nasıl iptal edilecek?
-- CDN veya Redis için tam response hangi noktada commit edilecek?
-- Bot ve kullanıcı isteklerinde farklı streaming stratejisi gerekecek mi?
+1. **Header’lar gönderildikten sonra hata çıkarsa HTTP status nasıl değişecek?**
+   - _Çözüm_: React 19'un `onShellError` ve `onAllReady` / `onError` callback yapıları kullanılır. Eğer hata shell gönderilmeden önce (yani ilk header'lar yazılmadan önce) oluşursa, `onShellError` tetiklenir ve response temiz bir `500 Internal Server Error` koduna yönlendirilir. Shell gönderildikten sonra oluşan hatalar ise istemci tarafında React'in client-side recovery (istemci tarafında kurtarma) mekanizmasına devredilir; tarayıcı ilgili bileşeni istemcide tekrar render etmeyi dener.
 
-Hono da stream başladıktan sonra oluşan hatalarda global error handler’ın response’u artık overwrite
-edemeyeceği konusunda uyarıyor.
-[Hono streaming rehberi](https://hono.dev/docs/helpers/streaming)
+2. **Kısmi stream cache’e yazılmayacağından nasıl emin olunacak?**
+   - _Çözüm (Dual-Writer Pattern)_: Redis cache'inin tutarlılığını korumak için, veritabanına yazılacak olan cache `MISS` çıktıları doğrudan istemci akışıyla eş zamanlı olarak Redis'e yazılmaz. Bunun yerine, sunucu çıktıyı bir `Writable` buffer'a yönlendirir. Sayfa render'ı tamamen bittiğinde (yani `onAllReady` tetiklendiğinde) bu birikmiş tampon bellek (buffer) tek bir atomik işlemle Redis'e yazılır. Arka planda çalışan revalidation (SWR) süreçleri ise zaten tamamen arka planda çalışıp doğrudan string/buffer olarak Redis'e yazar, canlı akış (streaming) yapmaz.
 
-Dolayısıyla mevcut karar “streaming gereksiz” değil; “önce tam-document SSR ve atomik shared cache
-invariant’ını sade tutuyoruz” kararı. Ölçümler TTFB’nin kritik sorun olduğunu gösterirse streaming ayrı
-bir tasarım çalışması olarak eklenebilir.
+3. **Client disconnect olduğunda render ve upstream fetch’ler nasıl iptal edilecek?**
+   - _Çözüm_: Hono request context'inden alınan `c.req.raw.signal` (AbortSignal) dinlenir. İstemci tarayıcı sekmesini kapattığında veya bağlantıyı kestiğinde, React'in stream nesnesi üzerindeki `stream.abort()` fonksiyonu tetiklenir. Bu tetikleme, React'in sunucu tarafındaki render işlemini anında sonlandırır ve upstream API'lara giden fetch isteklerini iptal ederek sunucu kaynaklarının israf edilmesini engeller.
+
+4. **CDN veya Redis için tam response hangi noktada commit edilecek?**
+   - _Çözüm_: CDN cache kuralları (`s-maxage`) ve Redis yazma işlemleri sadece `onAllReady` callback'i başarıyla tamamlandığında commit edilir. Eğer `onShellError` tetiklenirse veya shell sonrasında ölümcül bir render hatası alınırsa, response başlıkları `private, no-store` olarak ezilir.
+
+5. **Bot ve kullanıcı isteklerinde farklı streaming stratejisi gerekecek mi?**
+   - _Çözüm (Conditional Buffering)_: Arama motoru botları (Googlebot vb.) sayfa içeriğini parçalı akışlar yerine tek bir parça halinde görmeyi tercih eder. Bu nedenle, bot isteklerinde `onAllReady` tetiklenene kadar response istemciye akıtılmaz (buffer edilir) ve tüm HTML tek seferde statik olarak döner. Gerçek kullanıcı isteklerinde ise `onShellReady` kullanılarak kabuk (shell) anında tarayıcıya gönderilir ve Suspense adacıkları dinamik olarak yüklenir.
+
+#### Nasıl Kullanılır? (How to Use)
+
+Biz bu ayarı **rota bazında (route-level)** yönetiyoruz. Varsayılan olarak her rota geleneksel `renderToString` ile senkron ve kararlı biçimde çalışır.
+
+Projemizde bunun canlı bir örneğini görmek için `blogs-paginated.tsx` rotasının akışlı (streaming) bir klonu olan **`blogs-paginated-streaming.tsx`** rotasını hazırladık. İki rota arasındaki tek fark, streaming sürümünün route tanımında `streaming: true` parametresini almasıdır:
+
+```tsx
+import { defineRoute } from "~/lib/types";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+
+export default defineRoute<PaginatedBlogs>({
+  // 1. Path ve caching anahtarını streaming sayfasına özel tanımlıyoruz:
+  path: "/blogs/paginated/streaming",
+
+  // 2. Rota seviyesinde streaming özelliğini aktif ediyoruz:
+  streaming: true,
+
+  cache: () => neverCache(),
+
+  loader: async (ctx) => {
+    // Veri çekme ve loader mantığı geleneksel rota ile tamamen aynı kalır...
+    const data = await getPaginatedBlogs(page, { signal: ctx.request.signal });
+    return { data };
+  },
+
+  Component: ({ data }) => (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold text-slate-900">Blog Yazıları (Akışlı SSR)</h1>
+
+      {/* 3. React Hydration adasını Suspense ile sarmalıyoruz */}
+      <Island name="blog-explorer" mode="defer" props={{ page: data.page, initialData: data }}>
+        <BlogExplorerShell data={data} />
+      </Island>
+
+      <PaginationShell page={data.page} totalPages={data.totalPages} />
+    </div>
+  ),
+});
+```
+
+`streaming: true` yapıldığında:
+
+- Bot tespiti, abort sinyalleri (istemci bağlantıyı kestiğinde render'ın iptali) ve cache MISS durumlarındaki tamponlama işlemleri arka planda **otomatik olarak** handler katmanı tarafından yönetilir.
+- Geliştirici olarak sadece `streaming: true` yapıp bileşen ağacında `Suspense` sınırlarını veya hydration adacıklarını yerleştirmeniz yeterlidir. Geri kalan tüm karmaşıklık platform tarafından üstlenilir.
+
+> [!NOTE]
+> React 19 ile Progressive HTML Streaming entegrasyonu, karşılaşılan mimari zorluklar (caching, bot algılama, client disconnect, CDN bypass ve MutationObserver ile dynamic hydration) hakkında detaylı teknik dökümana ve çözüm detaylarına **[11. React 19 Progressive HTML Streaming Mimarisi](file:///Users/cembakca/Downloads/files/ssr-kit/docs/articles/11-react-19-progressive-html-streaming-ve-cozumleri.md)** dosyasından ulaşabilirsiniz.
 
 ## 13. Client ve server build’lerini ayırmak
 
