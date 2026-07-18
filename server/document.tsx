@@ -1,127 +1,24 @@
 import { PassThrough, Readable } from "node:stream";
 
-import { assetCdnOrigin, type Assets } from "@server/assets";
+import type { Assets } from "@server/assets";
 import { buildShellData } from "@server/services/shell-data";
 import type { ReactElement } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
 
-import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
-import { HeadClient } from "~/components/head/head-client";
-import { MetadataHead } from "~/components/head/metadata-head";
-import { RootLayout } from "~/components/layout/root-layout";
+import { isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import type { PageAnalyticsMeta } from "~/lib/analytics/types";
 import type { ImagePreload } from "~/lib/media";
 import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
 import type { ResolvedMetadata } from "~/lib/metadata/types";
-import { defaultPageMeta, type ShellData } from "~/lib/shell-data";
+import { defaultPageMeta } from "~/lib/shell-data";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx, Route } from "~/lib/types";
 
-import { config } from "./config";
-import { type FontAsset, imageCdnOrigins } from "./media";
+import { resolveDocumentHeadAssets } from "./document/head-assets";
+import { DocumentLayout } from "./document/layout";
+import type { DocumentContext, StreamResult } from "./document/types";
 
-export type DocumentContext = {
-  routeCtx: Ctx;
-};
-
-export type StreamResult = {
-  stream: ReadableStream<Uint8Array>;
-  abort: () => void;
-  allReady: Promise<void>;
-};
-
-type DocumentLayoutProps = {
-  seo: ResolvedMetadata;
-  assets: Assets;
-  preconnectOrigins: string[];
-  imagePreloads: ImagePreload[];
-  modulePreloads: string[];
-  isBot: boolean;
-  shell: ShellData;
-  pageMeta: PageAnalyticsMeta;
-  content: ReactElement;
-};
-
-function DocumentLayout({
-  seo,
-  assets,
-  preconnectOrigins,
-  imagePreloads,
-  modulePreloads,
-  isBot,
-  shell,
-  pageMeta,
-  content,
-}: DocumentLayoutProps) {
-  return (
-    <html lang="tr">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <MetadataHead meta={seo} />
-        <HeadClient />
-        {assets.fonts.map((font) =>
-          font.preload ? (
-            <link
-              key={`preload-${font.href}`}
-              rel="preload"
-              as="font"
-              type="font/woff2"
-              href={font.href}
-              crossOrigin="anonymous"
-            />
-          ) : null,
-        )}
-        {imagePreloads.map((preload) => (
-          <link
-            key={`${preload.type}-${preload.href}`}
-            rel="preload"
-            as="image"
-            href={preload.href}
-            type={preload.type}
-            imageSrcSet={preload.imageSrcSet}
-            imageSizes={preload.imageSizes}
-            fetchPriority="high"
-          />
-        ))}
-        {assets.fonts.length > 0 ? <style>{fontFaceCss(assets.fonts)}</style> : null}
-        {preconnectOrigins.map((origin) => (
-          <link key={origin} rel="preconnect" href={origin} crossOrigin="anonymous" />
-        ))}
-        {assets.css.map((href) => (
-          <link key={href} rel="stylesheet" href={href} />
-        ))}
-        {assets.development ? (
-          <>
-            <script type="module" src={assets.development.client} />
-            <script
-              type="module"
-              dangerouslySetInnerHTML={{
-                __html: reactRefreshPreamble(assets.development.reactRefresh),
-              }}
-            />
-          </>
-        ) : null}
-        {modulePreloads.map((href) => (
-          <link key={href} rel="modulepreload" href={href} />
-        ))}
-        <GtmBootstrap containerId={config.gtmContainerId} isBot={isBot} />
-      </head>
-      <body>
-        <div id="root">
-          <RootLayout shell={shell} pageMeta={pageMeta}>
-            {content}
-          </RootLayout>
-        </div>
-        <script
-          type="module"
-          src={assets.js}
-          crossOrigin={assets.development ? "anonymous" : undefined}
-        />
-      </body>
-    </html>
-  );
-}
+export type { DocumentContext, StreamResult } from "./document/types";
 
 export async function renderDocument<T>(
   route: Route<T>,
@@ -173,12 +70,7 @@ export async function renderDocumentView({
   const shell = await buildShellData(routeCtx, stripUndefined({ minimalChrome }));
   const seo = metadata;
 
-  const cdnOrigin = assetCdnOrigin();
-  const viteOrigin = assets.development ? new URL(assets.development.client).origin : null;
-  const preconnectOrigins = [
-    ...new Set([cdnOrigin, viteOrigin, ...imageCdnOrigins()].filter(Boolean)),
-  ] as string[];
-  const modulePreloads = assets.development ? [] : resolveModulePreloads(assets, preloadIslands);
+  const { preconnectOrigins, modulePreloads } = resolveDocumentHeadAssets(assets, preloadIslands);
 
   const html = renderToString(
     <DocumentLayout
@@ -216,12 +108,7 @@ export async function renderDocumentToStream<T>(
     stripUndefined({ minimalChrome: route.minimalChrome }),
   );
 
-  const cdnOrigin = assetCdnOrigin();
-  const viteOrigin = assets.development ? new URL(assets.development.client).origin : null;
-  const preconnectOrigins = [
-    ...new Set([cdnOrigin, viteOrigin, ...imageCdnOrigins()].filter(Boolean)),
-  ] as string[];
-  const modulePreloads = assets.development ? [] : resolveModulePreloads(assets, preloadIslands);
+  const { preconnectOrigins, modulePreloads } = resolveDocumentHeadAssets(assets, preloadIslands);
 
   const passThrough = new PassThrough();
   passThrough.write("<!DOCTYPE html>");
@@ -291,42 +178,4 @@ export async function streamToString(stream: ReadableStream<Uint8Array>): Promis
   }
   result += decoder.decode();
   return result;
-}
-
-function resolveModulePreloads(assets: Assets, preloadIslands: readonly string[]): string[] {
-  const preloads = new Set(assets.modulePreloads ?? [assets.js]);
-  for (const island of preloadIslands) {
-    const islandPreloads = assets.islandModulePreloads?.[island];
-    if (!islandPreloads) {
-      throw new Error(`Route preload island not found in Vite manifest: ${island}`);
-    }
-    for (const href of islandPreloads) preloads.add(href);
-  }
-  return [...preloads];
-}
-
-function reactRefreshPreamble(refreshRuntimeUrl: string): string {
-  const url = JSON.stringify(refreshRuntimeUrl).replaceAll("<", "\\u003c");
-  return `import RefreshRuntime from ${url};
-RefreshRuntime.injectIntoGlobalHook(window);
-window.$RefreshReg$ = () => {};
-window.$RefreshSig$ = () => (type) => type;
-window.__vite_plugin_react_preamble_installed__ = true;`;
-}
-
-function fontFaceCss(fonts: FontAsset[]): string {
-  return fonts
-    .map(
-      (font) =>
-        `@font-face{font-family:${cssString(font.family)};src:url(${cssString(
-          font.href,
-        )}) format("woff2");font-style:${font.style};font-weight:${font.weight};font-display:${
-          font.display
-        };unicode-range:${font.unicodeRange}}`,
-    )
-    .join("");
-}
-
-function cssString(value: string): string {
-  return JSON.stringify(value).replaceAll("<", "\\3c ");
 }
