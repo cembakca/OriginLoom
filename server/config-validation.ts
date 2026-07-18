@@ -105,6 +105,25 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   ) {
     throw new Error(`Invalid CLIENT_ERROR_SAMPLE_RATE: ${config.clientErrorSampleRate}`);
   }
+  assertPositiveInteger("MARKET_STREAM_MAX_CONNECTIONS", config.marketStreamMaxConnections);
+  assertPositiveInteger(
+    "MARKET_STREAM_MAX_CONNECTIONS_PER_IP",
+    config.marketStreamMaxConnectionsPerIp,
+  );
+  assertPositiveInteger("MARKET_STREAM_MAX_SYMBOLS", config.marketStreamMaxSymbols);
+  assertPositiveInteger("MARKET_STREAM_MAX_DURATION_MS", config.marketStreamMaxDurationMs);
+  assertPositiveInteger("MARKET_STREAM_HEARTBEAT_MS", config.marketStreamHeartbeatMs);
+  if (config.marketStreamMaxConnectionsPerIp > config.marketStreamMaxConnections) {
+    throw new Error(
+      "MARKET_STREAM_MAX_CONNECTIONS_PER_IP must not exceed MARKET_STREAM_MAX_CONNECTIONS",
+    );
+  }
+  if (config.marketStreamMaxSymbols > 100) {
+    throw new Error("MARKET_STREAM_MAX_SYMBOLS must not exceed 100");
+  }
+  if (config.marketStreamHeartbeatMs >= config.marketStreamMaxDurationMs) {
+    throw new Error("MARKET_STREAM_HEARTBEAT_MS must be lower than MARKET_STREAM_MAX_DURATION_MS");
+  }
   if (config.gtmContainerId && !/^GTM-[A-Z0-9]{4,20}$/.test(config.gtmContainerId)) {
     throw new Error(`Invalid GTM_CONTAINER_ID: ${config.gtmContainerId}`);
   }
@@ -126,6 +145,7 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     if (!config.referralStatsSecret) {
       throw new Error("REFERRAL_STATS_SECRET is required in production");
     }
+    if (!config.marketStreamToken) throw new Error("MARKET_STREAM_TOKEN is required in production");
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
   }
 }

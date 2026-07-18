@@ -21,7 +21,9 @@ const KNOWN_API_ROUTES = new Set([
   "/api/internal/cache/purge",
   "/api/internal/client-errors",
   "/api/internal/refresh",
+  "/api/markets/stream",
 ]);
+const LONG_LIVED_API_ROUTES = new Set(["/api/markets/stream"]);
 
 export class RequestDeadlineError extends Error {
   constructor(
@@ -51,6 +53,13 @@ export function requestDeadline(
     c.set("request", request);
     c.set("requestClass", requestClass);
     c.set("requestRoute", route);
+
+    // The endpoint owns heartbeat, connection lifetime and admission limits; a short API
+    // deadline would terminate a healthy SSE connection before its first rotation.
+    if (LONG_LIVED_API_ROUTES.has(new URL(raw.url).pathname)) {
+      await next();
+      return;
+    }
 
     const deadline = timeout(timeoutMs, () => {
       const error = new RequestDeadlineError(requestClass, timeoutMs);

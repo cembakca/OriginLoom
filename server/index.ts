@@ -13,6 +13,7 @@ import { register, shutdownInstrumentation } from "./instrumentation";
 import { logError, logger } from "./logger";
 import { createMetricsApp } from "./metrics-server";
 import { drainBotAnalytics } from "./services/bot-analytics";
+import { stopMarketQuoteHub } from "./services/market-stream/hub";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
@@ -55,6 +56,7 @@ async function main() {
           closeServer(metricsServer),
           drainRevalidations(config.revalidationDrainTimeoutMs),
           drainBotAnalytics(config.botAnalyticsDrainTimeoutMs),
+          stopMarketQuoteHub(),
         ]);
         if (!revalidationsDrained) logger.warn("revalidation drain timed out");
         if (!botAnalyticsDrained) logger.warn("bot analytics drain timed out");

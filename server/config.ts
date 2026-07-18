@@ -66,6 +66,13 @@ export const config = {
   clientErrorIpRateLimit: numberEnv("CLIENT_ERROR_IP_RATE_LIMIT", 20),
   clientErrorIpMaxEntries: numberEnv("CLIENT_ERROR_IP_MAX_ENTRIES", 10_000),
   clientErrorIpTtlMs: numberEnv("CLIENT_ERROR_IP_TTL_MS", 300_000),
+  marketStreamToken:
+    process.env.MARKET_STREAM_TOKEN ?? (nodeEnv === "production" ? "" : "dev-market-stream-token"),
+  marketStreamMaxConnections: numberEnv("MARKET_STREAM_MAX_CONNECTIONS", 1_000),
+  marketStreamMaxConnectionsPerIp: numberEnv("MARKET_STREAM_MAX_CONNECTIONS_PER_IP", 5),
+  marketStreamMaxSymbols: numberEnv("MARKET_STREAM_MAX_SYMBOLS", 25),
+  marketStreamMaxDurationMs: numberEnv("MARKET_STREAM_MAX_DURATION_MS", 300_000),
+  marketStreamHeartbeatMs: numberEnv("MARKET_STREAM_HEARTBEAT_MS", 15_000),
   siteUrl: (process.env.SITE_URL ?? "http://localhost:3005").replace(/\/$/, ""),
   menuCacheTtl: numberEnv("MENU_CACHE_TTL", 14_400),
   menuCacheSwr: numberEnv("MENU_CACHE_SWR", 86_400),

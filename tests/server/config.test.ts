@@ -103,6 +103,22 @@ describe("server config", () => {
     ).rejects.toThrow("REFERRAL_STATS_SECRET is required in production");
   });
 
+  it("requires a server-only production token for the upstream market stream", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        REFERRAL_STATS_SECRET: "referral-secret",
+        MARKET_STREAM_TOKEN: undefined,
+        RELEASE_ID: "release-1",
+      }),
+    ).rejects.toThrow("MARKET_STREAM_TOKEN is required in production");
+  });
+
   it("rejects the Vite development runtime in production", async () => {
     await expect(
       validateWith({
@@ -159,6 +175,7 @@ describe("server config", () => {
       SITE_URL: "https://www.example.com",
       CACHE_PURGE_SECRET: "secret",
       REFERRAL_STATS_SECRET: "referral-secret",
+      MARKET_STREAM_TOKEN: "market-secret",
       RELEASE_ID: "release-1",
     };
     await expect(validateWith(production)).rejects.toThrow("Production GATEWAY_URL must use https");
@@ -236,6 +253,7 @@ describe("server config", () => {
       SITE_URL: "https://www.example.com",
       CACHE_PURGE_SECRET: "secret",
       REFERRAL_STATS_SECRET: "referral-secret",
+      MARKET_STREAM_TOKEN: "market-secret",
       RELEASE_ID: "release-1",
       IMAGE_CDN_URL: "localhost:3005/images/",
     };

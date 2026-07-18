@@ -3,6 +3,8 @@ services:
     build: ./mock-gw
     ports:
       - "4002:4002"
+    environment:
+      MARKET_STREAM_TOKEN: dev-market-stream-token
 
   redis:
     image: redis:7-alpine
@@ -28,6 +30,7 @@ services:
       SITE_URL: http://localhost:3005
       CACHE_PURGE_SECRET: dev-purge-secret
       REFERRAL_STATS_SECRET: dev-referral-stats-secret
+      MARKET_STREAM_TOKEN: dev-market-stream-token
       ALLOW_INSECURE_GATEWAY: "true"
     depends_on:
       mock-gw:
