@@ -2,6 +2,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 COPY package.json server.js ./
+COPY data ./data
+COPY lib ./lib
+COPY routes ./routes
 
 ENV PORT=4002
 EXPOSE 4002
