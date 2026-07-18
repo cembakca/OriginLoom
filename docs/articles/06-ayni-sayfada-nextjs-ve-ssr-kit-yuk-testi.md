@@ -5,6 +5,12 @@
 Bu yazı “Next.js yavaştır” iddiası taşımaz. Yerel makinede, kontrollü ama **asimetrik** bir
 karşılaştırmada ne ölçtüğümüzü, sayıların ne anlama geldiğini ve neyi kanıtlamadığını netleştirir.
 
+> **Okuma notu (Temmuz 2026):** Aşağıdaki sonuçlar belirli commit, makine, route ve cache durumu için
+> tarihsel bir benchmark snapshot'ıdır; bugünkü kapasite taahhüdü değildir. Sonradan eklenen referral,
+> BIST snapshot/SSE ve observability yüzeyleri bu test route'unda ölçülmemiştir. Framework seçimi için
+> tek başına bu tablo değil, aynı production topolojisinde p50/p95/p99, hata oranı, CPU, memory ve
+> gateway yükü birlikte değerlendirilmelidir.
+
 Serinin birinci yazısı ([Dynamic Rendering Bizi Neden Next.js’ten Uzaklaştırdı?](./01-dynamic-rendering-bizi-neden-nextjsten-uzaklastirdi.md))
 framework karar modeliyle operasyonel ihtiyaç arasındaki uyumsuzluğu anlatıyordu. Bu yazı aynı
 motivasyonun **ölçülebilir bir yüzünü** gösterir: explicit route cache ile App Router SSR’ın aynı
@@ -179,6 +185,7 @@ sayfa, aynı gateway, farklı cache kontratı — farklı origin kapasitesi.**
 
 - [01 — Dynamic Rendering Bizi Neden Next.js’ten Uzaklaştırdı?](./01-dynamic-rendering-bizi-neden-nextjsten-uzaklastirdi.md)
 - [03 — Cache bir optimizasyon değil, route kontratıdır](./03-cache-bir-optimizasyon-degil-route-kontratidir.md)
-- [nextjs-overhead-poc README](../../nextjs-overhead-poc/README.md)
+- Ölçümde kullanılan `nextjs-overhead-poc` çalışma dizini bu repository'nin dağıtılan parçası değildir;
+  sonuçlar yukarıdaki koşul ve sınırlamalarla tarihsel kayıt olarak tutulur.
 - [autocannon](https://github.com/mcollina/autocannon)
 - [Next.js caching](https://nextjs.org/docs/app/guides/caching)

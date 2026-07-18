@@ -182,6 +182,17 @@ Production değerlendirmesinde şunlar ölçülmelidir:
 Quality artırmak yalnız Redis byte’ını düşürüyorsa değil, toplam CPU/memory maliyetini iyileştiriyorsa
 doğrudur.
 
+### Canlı event stream bu codec'in konusu değildir
+
+`text/event-stream` uzun yaşayan bir taşıma kanalıdır; tamamlanmış bir HTML document değildir. Quote
+event'lerini biriktirip Brotli frame olarak Redis'e yazmak hem latency'yi artırır hem de sınırsız bir
+body üretir. BIST route'unda yalnız ilk SSR snapshot'ı normal HTML cache codec'inden geçer; hydration
+sonrasındaki SSE response `private, no-store, no-transform` taşır ve Redis body cache'ine girmez.
+
+Bu ayrım ingress için de önemlidir. HTML cache compression storage optimizasyonudur; SSE'deki
+`no-transform` ise ara proxy'nin event'leri sıkıştırmak için buffer etmemesi gereken transport
+kontratıdır. Aynı “compression” kelimesi iki farklı katmanı ifade eder.
+
 ## Neden uygulamaya özel dictionary yok?
 
 Uygulama tarafından üretilen dictionary daha yüksek oran verebilir; fakat beraberinde şu lifecycle’ı
@@ -222,3 +233,4 @@ artifact’e bağlamaz.
 - [Node.js 22.17 zlib/Brotli API](https://nodejs.org/docs/latest-v22.x/api/zlib.html)
 - [RFC 7932 — Brotli Compressed Data Format](https://www.rfc-editor.org/rfc/rfc7932)
 - [Cache Bir Optimizasyon Değil, Route Kontratıdır](./03-cache-bir-optimizasyon-degil-route-kontratidir.md)
+- [SSR Snapshot ile Güvenli Canlı Piyasa Verisi](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md)

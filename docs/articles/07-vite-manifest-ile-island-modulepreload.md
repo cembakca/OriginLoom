@@ -99,7 +99,7 @@ assets/layout-client-Dng8Sgyo.js
 ```
 
 Server source dosya adını production dosya adıyla eşlemek için
-`dist/client/.vite/manifest.json` okur. Vite 6 Backend Integration rehberi, backend’in entry
+`dist/client/.vite/manifest.json` okur. Vite Backend Integration rehberi, backend’in entry
 chunk’ının `css`, `file` ve recursive `imports` alanlarını kullanarak stylesheet, script ve isteğe
 bağlı `modulepreload` linkleri üretmesini önerir.
 
@@ -229,11 +229,16 @@ keşfedilsin?” sorusunu çözer.
 Kazancımız bütün sayfayı daha fazla JavaScript ile doldurmak değil; yalnız kritik iki island’ın network
 waterfall’ını kısaltırken deferred island’ların lazy davranışını korumaktır.
 
+Route'a özgü canlı piyasa island'ı bu ayrım için iyi bir örnektir. `market-live` production manifestte
+ayrı dynamic entry olarak bulunur; global preload listesine eklenmez. BIST route'u ilk ekranda daha
+erken interactivity isterse `preloadIslands: ["market-live"]` diyebilir, fakat bu karar diğer bütün
+sayfalara market stream kodu yükletmez. Preload ile çalıştırma yine ayrı kontratlardır.
+
 ---
 
 ## Kaynaklar
 
-- [Vite 6 Backend Integration](https://v6.vite.dev/guide/backend-integration)
-- [Vite Manifest](https://v6.vite.dev/guide/backend-integration#manifest)
+- [Vite Backend Integration](https://vite.dev/guide/backend-integration)
+- [Vite Manifest](https://vite.dev/guide/backend-integration#manifest)
 - [MDN `rel="modulepreload"`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/modulepreload)
 - [Island Architecture ile Cache-Safe Kişiselleştirme ve Auth](./04-island-architecture-ile-cache-safe-kisisellestirme-ve-auth.md)

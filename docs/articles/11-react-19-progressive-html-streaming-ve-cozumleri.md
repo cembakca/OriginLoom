@@ -1,152 +1,220 @@
-# 11. React 19 Progressive HTML Streaming (Akışlı SSR) Mimarisi
+# React 19 ile Progressive HTML Streaming: Kontratlar ve Sınırlar
 
-Geleneksel sunucu taraflı render (SSR) sistemlerinde, sayfada bulunan tüm veri çağrıları (API fetch işlemleri) tamamlanana kadar sunucu tarayıcıya HTML göndermez. Bu durum, özellikle yavaş yanıt veren harici API bağımlılıklarında sayfa açılışını (TTFB) ciddi şekilde geciktirir.
+Progressive SSR, tüm loader verisini beklemeden shell’i ve hazır Suspense sınırlarını browser’a
+gönderebilir. Fakat bu yalnız `renderToPipeableStream()` çağırma işi değildir. Status code, cache,
+Content Security Policy, bot çıktısı, client disconnect ve hydration discovery aynı anda çözülmelidir.
 
-Bu döküman, `ssr-kit` platformunda React 19'un `renderToPipeableStream` motoru ile gerçekleştirdiğimiz **Progressive HTML Streaming (Akışlı SSR)** mimarisini, karşılaşılan problemleri ve bu problemlere yönelik ürettiğimiz çözümleri detaylandırır.
+Bu projede streaming opt-in bir route özelliğidir. Normal route’ların buffered SSR davranışı değişmez.
 
----
+## Buffered SSR ile streaming arasındaki gerçek fark
 
-## Karşılaşılan 5 Temel Engel ve Çözümlerimiz
+```text
+Buffered
+loader → tüm React render → tam HTML string → status/header/body
 
-Akışlı SSR mimarisine geçiş, geleneksel önbellekleme ve hata yönetimi kuralları ile çelişen bazı engeller barındırır. Bu engeller platform genelinde şu şekilde çözülmüştür:
+Streaming
+loader shell verisi → onShellReady → response başlar
+                         └─ Suspense içerikleri hazır oldukça akar
+```
 
-### 1. Header'lar Gönderildikten Sonra Oluşan Render Hataları
+Streaming, yavaş dependency’nin işini hızlandırmaz. Yalnız kullanıcıya gösterilebilir shell ile bütün
+verinin hazır olduğu an arasındaki beklemeyi böler. Bu nedenle fayda TTFB kadar fallback kalitesi,
+Suspense sınırlarının yeri ve gerçek proxy davranışına bağlıdır.
 
-- **Problem**: Akış başladıktan sonra tarayıcıya çoktan `200 OK` HTTP durum kodu ve başlıkları gönderilmiş olur. Akış sırasında (örneğin Suspense içindeki bir bileşenin render'ında) bir hata çıkarsa HTTP durum kodunu `500` olarak değiştirmek imkansızlaşır.
-- **Çözüm**: React 19'un `onShellError` ve `onAllReady` / `onError` callback yapıları entegre edilmiştir. Hata, sayfanın ana şablonu (shell) tarayıcıya iletilmeden önce oluşursa, `onShellError` tetiklenir ve yanıt temiz bir `500 Internal Server Error` durum koduna yönlendirilir. Şablon gönderildikten sonra oluşan hatalar ise React'in yerleşik **Client-Side Recovery** mekanizmasına bırakılır; tarayıcı ilgili bileşeni istemci tarafında (CSR) tekrar render etmeyi dener.
+## Route kontratı
 
-### 2. Kısmi HTML Çıktısının Önbelleğe (Redis) Yazılması
-
-- **Problem**: Akış parça parça gerçekleştiğinden, veritabanına yazılacak olan cache `MISS` çıktıları doğrudan istemci akışıyla eş zamanlı olarak Redis'e yazılamaz. Aksi takdirde yarım kalmış veya skeleton'lı HTML önbelleğe kaydedilir.
-- **Çözüm (Dual-Writer / Buffering Pattern)**:
-  - Canlı kullanıcı isteklerinde (`phase === "request"`), akış doğrudan tarayıcıya gönderilir.
-  - Önbelleğin doldurulması gereken durumlarda (SWR revalidation veya cold cache MISS durumlarında), `runRender` fonksiyonu arka planda `renderDocumentToStream` çağrısını başlatır ve tüm akış bitene kadar (`streamResult.allReady`) bekler. Akış tamamlandığında, `streamToString` yardımcı fonksiyonu ile tüm stream bir HTML string'ine dönüştürülüp Redis'e **tek parça atomik bir veri** olarak yazılır.
-
-### 3. Client Disconnect (İstemci Bağlantı Kesintisi) Yönetimi
-
-- **Problem**: Kullanıcı sayfa yüklenirken sekmeyi kapattığında, sunucunun arka planda render etmeye ve harici API'leri sorgulamaya devam etmesi kaynak israfına yol açar.
-- **Çözüm**: Hono request context'inden alınan `c.req.raw.signal` (AbortSignal) dinlenir. İstemci bağlantıyı kestiğinde React stream nesnesi üzerindeki `.abort()` tetiklenerek sunucu tarafındaki render anında kesilir ve harici API'lere giden fetch istekleri iptal edilir.
-
-### 4. CDN ve Sıkıştırma (Compression) Katmanlarının Bypass Edilmesi
-
-- **Problem**: Nginx, Cloudflare gibi proxy'ler veya Hono'nun `compress` middleware'i, Brotli/Gzip sıkıştırması yapmak için yanıtı tamponlar (buffer). Bu durum HTML akışının tarayıcıya progressive olarak ulaşmasını engeller.
-- **Çözüm**: Streaming yanıtlarında HTTP `transfer-encoding: chunked` ve `cache-control: no-transform` başlıkları eklenmiştir. Bu başlıklar aradaki tüm sıkıştırma ve proxy katmanlarına veriyi arabelleğe almadan doğrudan tarayıcıya iletmesi talimatını verir.
-
-### 5. Googlebot ve SEO Crawler Uyumluluğu
-
-- **Problem**: Arama motoru botları progressive akışları tam olarak beklemeyebilir veya JavaScript hydration'ı gerçekleştirmeden ham HTML'i indexlemek isteyebilir.
-- **Çözüm (Conditional Buffering)**: Gelen isteklerin User-Agent bilgisi taranarak bot tespiti yapılır. İstek atan bir bot ise streaming bypass edilir, sunucuda akış sonuna kadar beklenip tam sayfa HTML tek seferde (buffered) servis edilir. Gerçek kullanıcılara ise anlık progressive akış gönderilir.
-
----
-
-## İstemci Tarafı Hydration ve MutationObserver
-
-Islands (Adacıklar) mimarisinde, sayfa ilk yüklendiğinde DOM'da bulunan adacıklar hydrate edilir. Ancak streaming modunda, sayfa ilk yüklendiğinde DOM'da sadece **loading skeleton** bulunur; gerçek adacık HTML'i sunucudaki veri çözüldükten sonra akışla gelir.
-
-Bu durum, tarayıcıda çalışan bootstrap scriptinin adacığı kaçırmasına (unhydrated kalmasına) yol açar.
-
-### Çözüm (Dynamic Hydration Watcher)
-
-`src/entry.client.tsx` içerisine bir **`MutationObserver`** eklenmiştir. Bu observer:
-
-1. Sunucudan akan yeni HTML parçalarını izler,
-2. DOM'a yeni bir `[data-island]` eklendiğini fark ettiği an dinamik olarak hydration runtime'ını yükler ve adacığı hydrate eder,
-3. Sayfa yüklemesi tamamen bittiğinde (`DOMContentLoaded` anında) `observer.disconnect()` çağrısı ile kendini yok ederek ** runtime CPU yükünü sıfırlar**.
-
----
-
-## Nasıl Kullanılır? (How to Use)
-
-Geliştirici olarak, bir sayfa üzerinde progressive streaming uygulamak için sadece iki adım atmanız yeterlidir:
-
-### 1. Rota Ayarı (`streaming: true` & `neverCache`)
-
-Rota tanımında `streaming: true` parametresi geçilir. Eğer sayfada dinamik veri akışını ve skeleton'ı her yüklemede görmek istiyorsanız cache politikası `neverCache()` olarak ayarlanır:
+Bir route `streaming: true` diyerek bu davranışı açıkça seçer:
 
 ```tsx
-import { defineRoute } from "~/lib/types";
-import { neverCache } from "~/lib/cache-policy";
-
 export default defineRoute<StreamingData>({
   path: "/blogs/paginated/streaming",
   streaming: true,
-  cache: () => neverCache(), // Canlı akış için cache bypass edilir
-
-  loader: async (ctx) => {
-    // Ağır verileri Promise olarak loader'dan döneriz (await etmeden):
-    const dataPromise = getSlowBlogs(ctx.request.signal);
-    return {
-      data: {
-        page: 1,
-        deferredBlogsPromise: dataPromise, // Promise olarak component'e geçer
-      },
-    };
-  },
-
-  Component: ({ data }) => (
-    <div>
-      <h1>Haberler</h1>
-      {/* 2. Suspense ve Skeleton bileşeni kurgulanır: */}
-      <Suspense fallback={<BlogListSkeleton />}>
-        <StreamingBlogList postsPromise={data.deferredBlogsPromise} />
-      </Suspense>
-    </div>
-  ),
+  cache: () => neverCache(),
+  loader: async (ctx) => ({
+    data: {
+      deferredBlogsPromise: getSlowBlogs(ctx.request.signal),
+    },
+  }),
+  Component: StreamingBlogPage,
 });
 ```
 
-### 2. Component Seviyesinde Promise Çözme (`use` hook)
-
-React 19'un `use` hook'u kullanılarak sunucuda bekletilen Promise çözülür:
+Component React 19 `use()` ile promise’i Suspense sınırında çözer:
 
 ```tsx
-import { use } from "react";
-
-function StreamingBlogList({ postsPromise }) {
-  // Promise çözülene kadar bu bileşen askıya alınır (Suspend olur)
+function StreamingBlogList({ postsPromise }: Props) {
   const posts = use(postsPromise);
-
-  return (
-    <Island name="blog-list" props={{ posts }}>
-      <BlogList posts={posts} />
-    </Island>
-  );
+  return <BlogList posts={posts} />;
 }
+
+<Suspense fallback={<BlogListSkeleton />}>
+  <StreamingBlogList postsPromise={deferredBlogsPromise} />
+</Suspense>;
 ```
 
+`neverCache()` teknik zorunluluk değildir; bu demo canlı akışı her request’te göstermek için kullanır.
+Cacheable streaming route’ta mevcut uygulama cold fill sırasında kullanıcıya yarım stream vermez:
+render `cache_fill` fazında `allReady` sonuna kadar buffer edilir, sonra atomik body olarak Redis’e
+yazılır. Dolayısıyla cache MISS yolu ile gerçek progressive BYPASS yolu aynı latency davranışına sahip
+değildir.
+
+## 1. Header gönderildikten sonra status değişmez
+
+`onShellReady` sonrasında response başlamışsa sonradan oluşan render hatasını HTTP `500` yapmak mümkün
+değildir. Uygulama iki hata evresini ayırır:
+
+- `onShellError`: Shell başlamadan hata; route error document’i ve `500` üretilebilir.
+- `onError`: Shell başladıktan sonra hata; loglanır, React’in client recovery mekanizmasına bırakılır.
+
+Bu yüzden kritik authorization, redirect, not-found ve domain validation kararları Suspense içindeki
+geç bir render’a bırakılmamalı; loader aşamasında çözülmelidir.
+
+“Her async widget hata izolasyonuna sahiptir” de otomatik doğru değildir. Beklenen widget hatası için
+component/error boundary veya loader sonucu tasarlanmadıysa stream yine bozulabilir. Suspense loading
+sınırıdır; tek başına error boundary değildir.
+
+## 2. Redis'e yarım HTML yazmamak
+
+Bir stream chunk’ını geldikçe shared cache’e append etmek tehlikelidir. Process ölürse skeleton,
+tamamlanmamış tag veya React runtime’ın yarısı kalabilir. Uygulama cache fill ve SWR fazında:
+
+1. React stream’i başlatır.
+2. `allReady` tamamlanmasını bekler.
+3. Stream’i tam string’e çevirir.
+4. Yalnız başarılı ve cacheable sonucu tek entry olarak yazar.
+
+Canlı BYPASS response ise Redis’e yazılmaz. Bu, “dual writer ile aynı anda hem browser’a hem Redis’e
+stream ediyoruz” anlamına gelmez; iki render fazının kontratı ayrıdır.
+
+## 3. Client disconnect bütün işi kesmeli
+
+Request `AbortSignal`, loader’ın gateway fetch’lerine taşınır. Browser bağlantıyı kapatırsa React
+stream `.abort()` ile durdurulur. Aksi durumda artık kimsenin okumadığı HTML için React render ve
+upstream I/O devam eder.
+
+Abort listener’larının kendisi de lifecycle kaynağıdır. Uzun yaşayan global emitter’a sınırsız listener
+eklenmemeli; stream bittiğinde veya request kapandığında cleanup doğrulanmalıdır.
+
+## 4. Proxy buffering uygulama koduyla tamamen çözülemez
+
+Streaming HTML response `no-transform, no-cache, no-store, must-revalidate` taşır. Bu, ara katmanlara
+body’nin dönüştürülmemesi gerektiğini söyler ve shared cache riskini kapatır. Fakat yalnız
+`Cache-Control: no-transform` her CDN veya reverse proxy’nin buffering yapmayacağını garanti etmez.
+
+Production doğrulamasında bütün zincir test edilmelidir:
+
+```text
+Node/Hono → service mesh → ingress → CDN/WAF → browser
+```
+
+Nginx benzeri katmanlarda buffering’in kapatılması gerekebilir. HTTP/2 kullanmak da tek başına
+uygulama/proxy buffer’ını ortadan kaldırmaz. İlk chunk’ın gerçekten erken ulaştığı `curl --no-buffer`
+ve browser timing ile ölçülmelidir.
+
+SSE endpoint’i ayrıca `X-Accel-Buffering: no` gönderir; bu header’ı HTML streaming route’larının da
+gönderdiğini varsaymıyoruz. İki streaming türünün response kontratları ayrıdır.
+
+## 5. Botlar için conditional buffering
+
+Bot tespiti `server/handler.ts` içinde değil, SSR execution katmanında uygulanır. `isBotRequest()`
+sonucu true ise `shouldStream` false olur; route yine React stream renderer kullanabilse de server
+`allReady` sonuna kadar bekleyip tam HTML string üretir.
+
+```text
+human + streaming route + request phase → progressive Response body
+bot   + streaming route                 → allReady → buffered full HTML
+cache fill / revalidation               → allReady → buffered full HTML
+```
+
+Bu yaklaşım crawler’a final content vermeyi kolaylaştırır, fakat “SEO hiçbir şekilde risk taşımaz”
+garantisi vermez. User-Agent spoof edilebilir; bot listesi eskir; canonical, robots, status, crawlable
+anchor ve embedded JSON escaping ayrı SEO kontratlarıdır. Bot buffering bunların yerine geçmez.
+
+## Streaming ile CSP
+
+React Suspense boundary’lerini açmak için dinamik inline script üretebilir. Script text’i her response
+için sabit kabul edilip hash’lenemez. Security middleware’in ürettiği request nonce’u hem CSP header’a
+hem `renderToPipeableStream({ nonce })` seçeneğine verilir.
+
+Cache fill buffered olduğu ve request nonce’unu shared body identity’sine dönüştürmediği için nonce
+yeniden kullanım riski oluşmaz. Bu invariant streaming/caching kodu değiştirilirken birlikte test
+edilmelidir.
+
+## Sonradan gelen island'ları hydrate etmek
+
+Client bootstrap ilk DOM taramasında yalnız skeleton’ı görebilir. Gerçek island markup’ı React stream
+chunk’ıyla sonra eklenirse ilk tarama onu kaçırır. `MutationObserver` eklenen node’larda
+`[data-island]` arar ve aynı bounded mount scheduler’a yollar.
+
+Observer document parse tamamlandığında disconnect olur. Buradaki varsayım React’in stream
+insertion’larının `DOMContentLoaded` öncesinde gerçekleşmesidir. Bu davranış browser/proxy testinde
+korunmalıdır; gelecekte stream insertion daha geç sürebilecekse observer lifecycle’ı “bitti” sinyaline
+bağlanmalıdır.
+
+`IntersectionObserver` yoksa client runtime fail-open biçimde island’ları doğrudan mount eder. Chunk
+load ve recoverable hydration hataları client telemetry’ye gider; kritik eager island’ların başarısı
+bootstrap testleriyle korunur.
+
+## Ne zaman streaming kullanmamalıyız?
+
+- Bütün içerik tek hızlı gateway çağrısıyla geliyorsa.
+- Route full-document cache’ten çoğunlukla HIT dönüyorsa.
+- Skeleton ile final layout arasında büyük shift varsa.
+- Status/redirect kararı geç async render’a bağlıysa.
+- Ingress/CDN zinciri response’u buffer ediyorsa.
+- Operasyon ekibi partial response ve post-shell error’ı gözlemleyemiyorsa.
+
+Streaming tüm route’lara açılan global switch değildir. Yalnız kullanıcıya erken ve anlamlı shell
+verebilen route’larda kullanılır.
+
+## Ölçülmesi gerekenler
+
+- Shell TTFB ve `allReady` süresi ayrı ayrı.
+- İlk anlamlı içerik ve LCP; yalnız ilk byte değil.
+- Post-shell render error oranı.
+- Client abort sonrası loader/render’ın gerçekten kesilme süresi.
+- Proxy arkasında ilk ve son chunk zamanı.
+- Bot response’unun final içerik ve status bütünlüğü.
+- Streaming route’un cache state dağılımı.
+- Hydration recovery ve geç keşfedilen island sayısı.
+
+“Shell 20–50 ms’de görünür” gibi sabit bir garanti vermiyoruz. Bu değer gateway, shell loader,
+container CPU, network RTT ve proxy zincirine bağlıdır; production RUM ve server histogramlarıyla
+ölçülmelidir.
+
+## Next.js ile karşılaştırma
+
+Next.js App Router Suspense ve `loading.tsx` ile streaming’i framework içinde sunar; self-hosting
+rehberi proxy buffering’in kapatılması gerektiğini ayrıca belirtir. Bu projede kazanç “Next.js streaming
+yapamıyor” değildir. Fark, bot buffering, cache-fill atomikliği, route cache state’i ve CSP nonce
+taşımasının kendi execution kontratımızda görünür olmasıdır.
+
+Bu görünürlük beraberinde bakım borcu getirir. React streaming callback semantiği, ingress davranışı,
+client observer ve hata telemetry’si artık bizim sorumluluğumuzdur.
+
+## Sonuç
+
+Progressive HTML streaming doğru yerde kullanıldığında yavaş widget’ın bütün shell’i bekletmesini
+engeller. Production doğruluğu ise şu sınırlarla gelir:
+
+- Loader terminal kararları stream başlamadan verir.
+- Cache entry yalnız tamamlanmış body’den oluşur.
+- Bot ve cache-fill yolları `allReady` sonuna kadar buffer edilir.
+- Request abort React ve gateway I/O’yu keser.
+- CSP nonce React runtime script’lerine taşınır.
+- Proxy zinciri gerçek chunk timing ile doğrulanır.
+- Geç gelen island’lar kontrollü biçimde hydrate edilir.
+
+Streaming bir render flag’inden çok response lifecycle kontratıdır.
+
 ---
 
-## Sıkça Sorulan Sorular (FAQ) & Sık Yapılan Endişeler
+## Kaynaklar
 
-### 1. Birden Fazla Yavaş Widget Varsa Hepsi Tek Skeleton'a mı Döner?
-
-**Hayır, her bileşen kendi hızında yüklenir ve kendi skeleton'ına sahiptir.** React'in `<Suspense>` mimarisi tamamen bağımsız çalışır.
-
-Örneğin, sayfada biri 500ms süren "Popüler Bloglar", diğeri ise 1500ms süren "Tüm Bloglar" adında iki farklı asenkron widget varsa:
-
-- Her iki widget'ı da kendi `<Suspense>` sınırı ile ayrı ayrı sarmalayabilirsiniz.
-- Sayfa yüklendiğinde iki skeleton aynı anda gösterilir.
-- 500. ms'de popüler bloglar yüklenir ve kendi skeleton'ını silerek ekranda yerini alır (bu sırada diğer skeleton yüklenmeye devam eder).
-- 1500. ms'de ana blog listesi de yüklenir ve kendi skeleton'ının yerini alır.
-
-Geliştirici olarak sayfa tasarımı ve kullanıcı deneyimine göre isterseniz widget'ları tek bir ortak `<Suspense>` içine alabilir, isterseniz ayrı ayrı yüklenmelerini sağlayabilirsiniz.
-
-### 2. Akışlı (Streaming) SSR SEO Açısından Sorun Yaratır mı?
-
-**Hayır, platformumuzda arama motoru botları için özel bir güvenlik bariyeri bulunmaktadır.**
-
-- `server/handler.ts` içerisinde gelen isteklerin `User-Agent` bilgisi taranır (Googlebot, Bingbot, Yandex vb. bot tespitleri yapılır).
-- İstek atan bir bot ise **akışlı SSR (streaming) otomatik olarak devre dışı bırakılır**.
-- Sunucu, tüm Suspense sınırlarının ve asenkron veri yüklemelerinin çözülmesini (`onAllReady`) bekler.
-- Botun karşısına **hiçbir skeleton veya streaming betiği içermeyen, tamamen birleştirilmiş ve nihai içeriği barındıran statik HTML** döndürülür.
-- Gerçek kullanıcılara ise anlık progressive akış gönderilerek en hızlı TTFB deneyimi sunulur.
-
-Bu sayede platformda streaming kullanımı SEO indekslemesini hiçbir şekilde riske atmaz.
-
----
-
-## Mimari Avantajlar
-
-- **Gelişmiş TTFB & LCP**: Kullanıcı sayfa iskeletini ve logoları ilk 20-50ms içinde görür.
-- **Hata İzolasyonu**: Yavaşlayan tek bir API tüm sayfanın yüklenmesini veya çökmesini engellemez.
-- **Geliştirici Dostu**: Karmaşık soket veya chunk yönetim işlemleri tamamen platform katmanı (`handler.ts` ve `document.tsx`) tarafından soyutlanmıştır.
+- [React `renderToPipeableStream`](https://react.dev/reference/react-dom/server/renderToPipeableStream)
+- [React `Suspense`](https://react.dev/reference/react/Suspense)
+- [Next.js Streaming](https://nextjs.org/learn/dashboard-app/streaming)
+- [Next.js Self-hosting — Streaming and Suspense](https://nextjs.org/docs/app/guides/self-hosting#streaming-and-suspense)
+- [MDN `MutationObserver`](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver)
+- [Hono Streaming Helper](https://hono.dev/docs/helpers/streaming)
+- [Hono Request Context yazısı](./02-reacti-framework-olmadan-ssr-etmek-hono-uzerinde-request-pipeline.md)

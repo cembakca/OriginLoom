@@ -198,6 +198,18 @@ kullanılabilir.
 9. Prefix purge operasyonu tanımlı mı?
 10. HIT, MISS, abort, key varyasyonu ve purge testleri var mı?
 
+## Her değişken widget fragment cache olmamalı
+
+Fragment cache, yenilenme aralığı saniye/dakika ölçeğinde olan public widget'larda gateway ve React
+render maliyetini paylaşır. Saniyede birden çok kez değişen fiyat tablosu için aynı desen doğru
+değildir. Her quote batch'inde fragment purge/fill yapmak Redis write amplification, lock yarışı ve
+gereksiz HTML serialization üretir.
+
+BIST ekranı bu nedenle ikiye ayrılır: crawlable ilk tablo route snapshot'ından SSR edilir, sonraki
+fiyatlar `market-live` island'ına SSE ile taşınır. Akış yoksa snapshot fallback olarak kalır. Fragment
+cache'i “dinamik görünen her şeyi Redis'e koyma” aracı değil; bounded freshness'e sahip public HTML
+parçalarının kontratıdır.
+
 ## Sonuç
 
 Fragment cache’in faydası yalnız daha küçük invalidation değildir. Her public HTML parçasına açık bir
@@ -214,3 +226,7 @@ Bu sistemde:
 
 Bu sınırlar olmadan registry’ye “tek resolver satırı eklemek” kolay görünür fakat cache izolasyonu ve
 freshness hatalarını gizler.
+
+Canlı ve yüksek frekanslı veri sınırı için
+[SSR Snapshot ile Güvenli Canlı Piyasa Verisi](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md)
+yazısına bakın.

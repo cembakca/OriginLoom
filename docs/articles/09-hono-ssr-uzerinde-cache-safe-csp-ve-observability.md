@@ -1,139 +1,187 @@
-# Hono SSR Üzerinde Cache-Safe CSP ve Observability Metrikleri
+# Hono SSR Üzerinde Cache-Safe CSP ve Observability
 
-> Yüksek trafikli ve HTML önbellekleme (caching) uygulayan bir SSR mimarisinde güvenlik ve gözlemlenebilirlik (observability) sıradan yöntemlerle çözülemez. Bu makale, Hono BFF ve Vite dev sunucu ortamında cache-safe CSP, Permissions-Policy ve doğru telemetry metrik sekanslarının nasıl kurulduğunu anlatmaktadır.
+> Full-document Redis cache, React streaming ve uzun yaşayan SSE bağlantıları aynı uygulamada
+> bulununca güvenlik başlıkları ile telemetry semantiği request pipeline’ın açık kontratı olmalıdır.
 
----
+Bu yazının ilk sürümü CSP’yi yalnız sabit inline script hash’leri üzerinden anlatıyordu. React
+streaming eklendiğinde bu model tek başına yeterli kalmadı: React, Suspense boundary’lerini açmak için
+response’a dinamik inline runtime script’leri yazabilir. Bugünkü sistem bu nedenle sabit hash ile
+request-scoped nonce’u birlikte, farklı amaçlarla kullanıyor.
 
-Yüksek trafik hedefleyen web platformlarında sunucu yükünü azaltmak ve yanıt sürelerini mikrosaniyelere düşürmek için tam sayfa HTML önbelleklemesi (HTML caching) yaygın bir yöntemdir. Ancak, sayfa çıktısı bir kez üretilip Redis veya in-memory cache'e yazıldığında ve sonraki binlerce isteğe doğrudan bu cache'den servis edildiğinde iki kritik problem ortaya çıkar:
+## Cache body ile güvenlik header'ını ayırmak
 
-1. **Güvenlik (CSP Nonce Çelişkisi)**: İstek başına üretilen geleneksel CSP `nonce` değerleri cache'lenerek static hale gelir ve güvenlik işlevini tamamen yitirir.
-2. **Gözlemlenebilirlik (Metric Semantics)**: Önbellekten dönen (`HIT`) istekler ile sunucuda render edilen (`MISS`/`STALE`) isteklerin ve arka plandaki kuyruk yapılarının telemetry metrikleri doğru ayrıştırılmalıdır.
+Redis full HTML body’yi saklar; HTTP güvenlik header’ları ise her request’in finalization aşamasında
+yeniden üretilir. Shared body içinde request’e özel değer bulunmamalıdır.
 
----
-
-## 1. Cache-Safe Content Security Policy (CSP)
-
-HTML çıktılarının cache'lendiği sistemlerde istek başına rastgele `nonce` (number used once) üretmek ve bunu HTML içerisine enjekte etmek imkansızdır. Cache'lenen `nonce` statikleşeceği için saldırganlar tarafından bypass edilebilir.
-
-Bu mimaride çözüm: **Deterministik SHA-256 script hashing** ve **GTM allowlist** yaklaşımıdır.
-
-### Deterministik SHA-256 Hash Hesabı
-
-Sayfa yüklenirken ilk koşan inline scriptlerin (early tracking, event queue, dataLayer init, GTM loader vb.) string içerikleri sunucu tarafında ve tarayıcı tarafında tamamen deterministiktir.
-
-Projemizde bu betiklerin tam içerikleri [gtm-bootstrap.tsx](file:///Users/cembakca/Downloads/files/ssr-kit/src/components/analytics/gtm-bootstrap.tsx) bileşeninden dışa aktarılarak güvenlik katmanıyla paylaşılmıştır. Sunucu ayağa kalkarken (startup / module load time) bu betiklerin SHA-256 hash'leri Node.js `crypto` modülü kullanılarak base64 formatında hesaplanır:
+Buffered/cached document’te analytics bootstrap script’leri deterministik metin taşır. Bunların
+SHA-256 hash’leri module load sırasında bir kez hesaplanır:
 
 ```ts
 function sha256(content: string): string {
-  const hash = crypto.createHash("sha256").update(content).digest("base64");
-  return `'sha256-${hash}'`;
+  return `'sha256-${crypto.createHash("sha256").update(content).digest("base64")}'`;
 }
 ```
 
-Bu yaklaşım sayesinde istek anında (request-time) herhangi bir hash hesaplama maliyeti oluşmaz. O(1) CPU performansı ile yüksek trafik altında ek yük yaratılmaz.
+Streaming response ise cache’e canlı akış olarak yazılmaz. Security middleware request başında nonce
+üretir, route context’e koyar ve aynı değer React’in `renderToPipeableStream` çağrısına verilir:
 
----
-
-## 2. Geliştirme Ortamı (Vite Dev Server) ile Uyum
-
-CSP standartlarında (CSP Level 2/3) kritik bir kural vardır:
-
-> Eğer `script-src` kural kümesinde herhangi bir **hash** veya **nonce** bulunuyorsa, tarayıcılar güvenlik nedeniyle `'unsafe-inline'` anahtar kelimesini otomatik olarak **yok sayar (ignore eder)**.
-
-Yerel geliştirme ortamında (`npm run dev`) Vite dev sunucusu (HMR) ve React Refresh mekanizmaları sayfaya dinamik olarak inline betikler enjekte eder. Eğer GTM hash'leri geliştirme ortamında da CSP kurallarına eklenirse, tarayıcı `'unsafe-inline'` iznini kapatır ve tüm Vite betikleri CSP ihlali fırlatarak çalışmaz hale gelir.
-
-### Çözüm: Koşullu Hash Enjeksiyonu
-
-Yerel geliştirme ortamının kusursuz çalışması, üretim ortamının (production) ise maksimum düzeyde güvenli kalması için `hashes` dizisi production koşuluna bağlanmıştır:
-
-```ts
-const hashes = config.isProduction
-  ? [
-      sha256("window.dataLayer=window.dataLayer||[];"),
-      sha256(buildEventQueueScript()),
-      sha256(EARLY_TRACKING_SCRIPT),
-    ]
-  : [];
+```text
+request nonce
+  ├─ Content-Security-Policy: script-src 'nonce-{value}' ...
+  └─ React stream runtime <script nonce="{value}">
 ```
 
-Geliştirme ortamında hash listesi boş bırakılarak tarayıcının `'unsafe-inline'` iznine saygı duyması sağlanır. Ayrıca, Vite geliştirme sunucusunun originleri (`http://localhost:5174`) ve WebSocket HMR bağlantısı (`ws://localhost:5174`) CSP allowlist'ine eklenmiştir. Production modunda ise bu bypass'lar kapatılarak sadece hash'ler ve güvenli domainler bırakılır.
+Bu ayrım nonce’un cache’te tekrar kullanılmasını engeller. Sabit analytics script’leri hash ile,
+response’a özgü React runtime script’leri nonce ile yetkilendirilir.
 
----
+## “Nonce var, cache güvenli” demek için gereken invariant'lar
 
-## 3. Operasyonel Esneklik: Enforce vs Report-Only
+1. Request nonce’u cached HTML body’ye yazılmamalıdır.
+2. Streaming response doğrudan shared HTML cache entry’sine dönüşmemelidir.
+3. Cache HIT’inde body aynı kalsa da CSP header yeni nonce ile yeniden üretilebilir olmalıdır.
+4. Nonce gereken dinamik script ile header aynı request context’ini kullanmalıdır.
+5. Static inline script metni değişirse hash testi/build kontrolü bunu yakalamalıdır.
 
-Yüksek trafikli kurumsal platformlarda yeni bir CSP kuralını doğrudan canlıya almak (enforced CSP) büyük bir risktir; üçüncü parti bir kütüphane veya analitik aracı engellenerek iş kaybına yol açabilir.
+Projede normal full-document render `renderToString` kullanır ve React streaming runtime script’i
+üretmez. `streaming: true` route’un canlı request’i cache yerine pipe edilir; bot ve cache-fill yolu
+`allReady` tamamlanana kadar buffer edilir. Bu davranışlar değişirse CSP kontratı da birlikte yeniden
+incelenmelidir.
 
-Mimaride bu geçişi esnek kılmak için iki çevre değişkeni (env) entegre edilmiştir:
+## Development CSP neden production ile aynı olamaz?
 
-1. `CSP_ENFORCE` (boolean): `true` ise CSP doğrudan engelleme modunda (`Content-Security-Policy`) çalışır. `false` ise sadece raporlama modundadır (`Content-Security-Policy-Report-Only`).
-2. `CSP_REPORT_URI` (string): Tarayıcıların CSP ihlal raporlarını göndereceği raporlama uç noktası (örn. Sentry, Datadog veya şirket içi log collector).
+Vite HMR ve React Refresh development’ta inline script ve WebSocket bağlantısı kullanır. CSP’de hash
+veya nonce varken browser’ın `'unsafe-inline'` davranışı beklendiği gibi olmayabilir. Bu nedenle:
 
-Hono'un `secureHeaders` middleware'i bu konfigürasyonu startup sırasında derleyerek sıfır runtime maliyetle doğru başlığı hazırlar:
+- Production: sabit hash’ler + request nonce + kapalı origin listesi.
+- Development: Vite HTTP/WS origin’leri + yalnız local ortam için `'unsafe-inline'`.
 
-```ts
-export const securityMiddleware = secureHeaders({
-  xContentTypeOptions: "nosniff",
-  xFrameOptions: "DENY",
-  referrerPolicy: "strict-origin-when-cross-origin",
-  permissionsPolicy: {
-    camera: [],
-    microphone: [],
-    geolocation: [],
-  },
-  ...(config.cspEnforce
-    ? { contentSecurityPolicy: cspDirectives }
-    : { contentSecurityPolicyReportOnly: cspDirectives }),
-});
+Bu bir production gevşetmesi değildir. `VITE_DEV_SERVER_URL` production config’inde kabul edilmez;
+production protocol/origin validasyonu startup’ta fail-fast çalışır.
+
+`CSP_ENFORCE=false` ise aynı direktifler `Content-Security-Policy-Report-Only` olarak gönderilir.
+Rollout sırasında raporları izlemek faydalıdır, fakat report-only güvenlik kontrolü değildir; nihai
+hedef enforce modudur.
+
+## `connect-src` artık yalnız analytics değildir
+
+Browser canlı piyasa verisini aynı-origin `/api/markets/stream` üzerinden aldığı için CSP’de ayrı
+gateway origin’i veya credential açılmaz; `'self'` yeterlidir. Gateway bearer token yalnız server
+process’inde kalır.
+
+Bu tasarım iki riski azaltır:
+
+- Gerçek gateway hostname/token browser bundle veya DevTools’a sızmaz.
+- CSP’ye geniş `https://*` ya da `wss://*` eklemek gerekmez.
+
+İleride stream ayrı public origin’e taşınırsa `connect-src`, CORS, credential ve Origin politikası
+birlikte tasarlanmalıdır; yalnız CSP allowlist eklemek yetmez.
+
+## Observability: her süre aynı request histogram'ına girmez
+
+Kısa HTTP request ile beş dakika açık kalan SSE bağlantısını aynı latency histogramında ölçmek p95/p99
+değerlerini anlamsızlaştırır. Normal SSR request’lerinde status, route template, cache state ve duration
+ölçülür. Market stream’de ise lifecycle ayrı metriklerle izlenir:
+
+```text
+ssr_market_stream_active_connections
+ssr_market_stream_connections_total{outcome=...}
+ssr_market_stream_events_total{outcome=...}
 ```
 
----
+Connection outcome kapalı bir kümedir: accepted, invalid request, IP/global limit ve closed gibi
+sonuçlar. Event outcome da received, invalid veya coalesced gibi bounded değerlerden oluşur. Symbol,
+IP, request ID, raw URL ve user ID metric label’ı değildir.
 
-## 4. Gözlemlenebilirlik (Observability) Metriklerinin Doğruluğu
+## Cardinality kontrolü route template ile başlar
 
-Observability metriklerinin doğruluğu, yüksek trafik altında doğru alarm kurallarını (SLO/Alerting contracts) çalıştırmak için hayati önem taşır.
+`/blogs/paginated?page=2` veya benzersiz ürün slug’ını doğrudan Prometheus label’ına yazmak sonsuz seri
+üretir. Hono context’teki `requestRoute` normalize şablonu kullanılır:
 
-### Cardinality Kontrolü ve Route Şablonları
-
-Gelen isteklerin metrikleri (`ssr_http_requests_total`) toplanırken `/blogs/paginated?page=2` veya `/ihtiyac-kredisi/istanbul` gibi rotalar direkt olarak metrik etiketine (label) yazılırsa, sonsuz sayıda farklı etiket değeri (cardinality explosion) oluşur ve Prometheus sunucusunu kilitleyebilir.
-Düzeltilen semantikte, Hono context'ine yazılan `requestRoute` şablonları (örn. `/blogs/paginated`, `/ihtiyac-kredisi/:city?`) metrik etiketine basılmıştır.
-
-### Gateway Hatalarında Gerçek Timeout vs İstemci Abort Ayrımı
-
-Gateway istekleri (`gatewayFetch`) sırasında istemciler tarayıcı sekmesini kapatabilir veya sayfadan ayrılabilir. Bu durum Node.js tarafında `AbortError` fırlatılmasına neden olur.
-
-Eski kodda hem gerçek gateway timeout'ları hem de istemci kaynaklı iptaller tek bir `isTimeout` kontrolü ile `"timeout"` metriği olarak sınıflandırılıyordu. Bu durum, gateway sağlıklı olsa bile kullanıcıların sayfadan ayrılma sıklığına göre yanlış gateway alarmları (false positive) tetikliyordu.
-
-Düzeltilen yapıda, fetch composite abort signal'inin hangi kaynaktan kesildiği tespit edilmiştir:
-
-```typescript
-} catch (error) {
-  // Sadece internal timeout sinyali tetiklenmişse gerçek timeout'tur
-  const outcome = timeout.aborted ? "timeout" : "network_error";
-  span.setAttribute("gateway.outcome", outcome);
-  observeGatewayRequest(0, performance.now() - started, outcome);
-  throw error;
-}
+```text
+/blogs/paginated
+/konut-kredisi/:slug
+/api/markets/stream
 ```
 
-Bu ayrım, gateway alarmlarının sadece sistem kaynaklı gerçek tıkanıklıklarda tetiklenmesini garanti altına alır.
+Request ID log ve trace correlation içindir; metric label değildir. Cache key sayısı da label’a
+çevrilmez. Route bazlı cardinality gözlemi aggregate counter/histogram veya kontrollü inventory ile
+yapılır.
 
----
+## Gateway timeout, client abort ve stream disconnect aynı şey değildir
+
+Gateway fetch’inde internal timeout controller tetiklendiyse outcome `timeout` olabilir. Browser
+sekmesini kapattığı için request signal kesildiyse bu gateway SLA ihlali değildir. Canlı upstream
+stream’in kopması ise tekrar bağlanabilir lifecycle olayıdır ve kısa JSON fetch error metriğine
+karıştırılmamalıdır.
+
+Trace ağacında ayrım şu şekilde görünmelidir:
+
+```text
+http.server request
+  ├─ route.loader
+  ├─ gateway.fetch
+  ├─ cache.lookup / cache.fill
+  └─ ssr.render
+
+market stream process lifecycle
+  ├─ upstream handshake
+  ├─ batch parse/publish
+  └─ reconnect/backoff
+```
+
+Process hub tek upstream bağlantıyı birçok browser subscriber’a dağıttığı için upstream lifecycle
+tek bir kullanıcı request span’ının child’ı değildir. Uzun yaşayan background span’lerde sampling ve
+span süresi maliyeti ayrıca değerlendirilmelidir; temel sağlık sinyali bounded metric ve structured
+log olabilir.
+
+## Alarm için anlamlı oranlar
+
+Tek counter değeri yerine zaman penceresinde oran ve saturation izlenmelidir:
+
+- `invalid_request / total_connections`: abuse veya client contract regresyonu.
+- `ip_limited + global_limited`: admission saturation.
+- `invalid_events / received_events`: upstream schema/drift problemi.
+- `coalesced_events / received_events`: slow consumer veya publish hızı baskısı.
+- Active connections / configured process limit: kapasite headroom’u.
+- Upstream reconnect sıklığı ve son başarılı batch yaşı: provider sağlığı.
+- Client `market-stream` telemetry oranı: parse/chunk/runtime problemi.
+
+Connection limitleri process-local olduğu için cluster kapasitesi `replica × process limit` diye körlemesine
+varsayılmamalıdır. Load balancer dağılımı, pod headroom’u, file descriptor limiti ve gateway fan-out
+kapasitesi birlikte ölçülmelidir.
+
+## Release ve trace context
+
+Structured log, trace resource ve metrics scrape aynı `service`/`releaseId` bağlamını taşımalıdır.
+Gateway çağrılarında request ID ile W3C trace context aktarılır. Böylece “yeni release sonrası yalnız
+MISS render mı yavaşladı, yoksa upstream stream mi sık koptu?” sorusu deployment ile korele edilebilir.
+
+OpenTelemetry SDK `OTEL_SDK_DISABLED=false` varsayımıyla başlar; exporter endpoint’i yoksa API no-op
+kalırken Prometheus-style process/application metrics çalışmaya devam eder. Bu, tracing exporter
+arızasının uygulama startup’ını veya `/metrics` yüzeyini zorunlu olarak düşürmemesini sağlar.
 
 ## Sonuç
 
-Hono tabanlı SSR kit mimarimizde güvenlik ve gözlemlenebilirlik optimizasyonları şu prensiplerle hayata geçirilmiştir:
+Cache-safe CSP’nin bugünkü kontratı “yalnız hash” değildir:
 
-- **Sıfır İstek-Anı Maliyeti**: CSP hash'leri ve Permissions-Policy kuralları startup anında derlenerek istek başına CPU harcanması engellenmiştir.
-- **Kusursuz Dev Modu & Katı Üretim Güvenliği**: Vite dev sunucusu ve React Refresh ile uyumlu bypass mekanizması, production ortamının katı güvenliğini bozmadan yerel geliştirmeyi kolaylaştırmıştır.
-- **Dinamik Operasyon Kontrolü**: CSP enforce/report modu ve log endpoint'i kod yayılımı gerektirmeden env ile yönetilebilir hale getirilmiştir.
-- **Temiz Telemetry Kontratı**: Doğru etiketleme ve istemci-iptal ayrımıyla cardinality patlamaları engellenmiş ve alarm hassasiyeti maksimuma çıkarılmıştır.
+- Shared buffered HTML deterministik inline script hash’leri kullanır.
+- React streaming runtime request-scoped nonce taşır.
+- Nonce cached body’ye gömülmez.
+- Dev HMR istisnaları production’a taşınmaz.
+- Browser gateway’e değil same-origin BFF stream’ine bağlanır.
+
+Observability tarafında da başarı “çok metric” değildir. Kısa request, background iş ve uzun yaşayan
+bağlantının farklı lifecycle’ları vardır. Label domain’i kapalı, error sınıfları anlamlı ve release
+correlation’ı kurulmuşsa sistem üretimde yorumlanabilir hale gelir.
 
 ---
 
 ## Kaynaklar
 
 - [Hono Secure Headers Middleware](https://hono.dev/docs/middleware/builtin/secure-headers)
+- [Hono Streaming Helper](https://hono.dev/docs/helpers/streaming)
 - [W3C Content Security Policy Level 3](https://www.w3.org/TR/CSP3/)
-- [React 19 Hydration Invariants](https://react.dev/link/hydration-mismatch)
+- [OpenTelemetry Metrics](https://opentelemetry.io/docs/concepts/signals/metrics/)
+- [Prometheus Naming ve Labels](https://prometheus.io/docs/practices/naming/)
 - [Cache Bir Optimizasyon Değil, Route Kontratıdır](./03-cache-bir-optimizasyon-degil-route-kontratidir.md)
+- [SSR Snapshot ile Güvenli Canlı Piyasa Verisi](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md)

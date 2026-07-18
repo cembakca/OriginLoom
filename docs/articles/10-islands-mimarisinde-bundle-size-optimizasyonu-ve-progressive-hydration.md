@@ -1,94 +1,81 @@
-# Büyük Bundle Boyutundan Nasıl Kurtulduk? Islands Mimarisinde Progressive Hydration
+# Büyük Bundle’dan Kontrollü Runtime’a: Islands ve Progressive Hydration
 
-> Hono ve React tabanlı explicit SSR mimarimizde, statik sayfalardaki 230 kB'lık gereksiz JavaScript yükünü progressive hydration, provider izolasyonu ve bağımlılıksız ikon sistemine geçerek %98 oranında nasıl düşürdüğümüzün teknik hikâyesi.
+> Islands mimarisi “React hiç indirilmez” garantisi değildir. Doğru vaat, her route'un yalnız ihtiyaç
+> duyduğu client davranışını keşfedilebilir, ölçülebilir ve bağımsız chunk'lar halinde yüklemesidir.
 
----
+Next.js’ten Hono + React SSR’a geçtiğimizde server cache kararlarını görünür hale getirdik. Fakat
+framework’ün client runtime kararlarını da artık biz taşıyorduk. İlk implementasyonda `entry.client`
+React DOM, TanStack Query ve etkileşimli bileşenleri statik import ediyordu. Bir sayfada yalnız küçük
+bir menü olsa bile bütün client grafiği başlangıç chunk’ına giriyordu.
 
-Next.js'ten kendi geliştirdiğimiz Hono ve React tabanlı explicit SSR mimarisine geçişimiz, sunucu tarafındaki cache kontrolünü, bellek yönetimini ve response akışlarını tamamen kontrol altına almamızı sağladı. Ancak bu geçiş, istemci tarafında (client-side) çözülmesi gereken yeni bir optimizasyon problemini de beraberinde getirdi: **İlk yükleme JavaScript paket boyutu (Initial Bundle Size).**
+Sorun React’in varlığı değil, dependency graph’ın tek entry altında birleşmesiydi.
 
-İlk başta her şey harika görünüyordu. Sayfalar sunucuda render ediliyor, Redis cache'inden mikrosaniyeler içinde HTML olarak dönüyor ve tarayıcıya sadece adacıkların (islands) kodları gönderiliyordu. Ancak tarayıcı geliştirici konsolunu açıp network sekmesini incelediğimizde acı bir gerçekle karşılaştık:
+## Bir route'un JavaScript maliyeti tek dosya değildir
 
-> Üzerinde hiçbir etkileşimli eleman (button, form, mobile menu vb.) bulunmayan tamamen statik bir bilgi sayfasına girdiğimizde dahi, tarayıcı arka planda **230 kB (gzipped 72 kB)** boyutundaki bir JavaScript dosyasını (`entry.client.js`) indirmek ve parse etmek zorundaydı.
+Bundle raporundaki “entry 5 kB” değerini sayfanın toplam JavaScript maliyeti diye okumak hatalıdır.
+Browser şu katmanların bir bölümünü veya tamamını indirebilir:
 
-Bu durum, Next.js'ten kaçarken yakalandığımız klasik bir "global runtime" tuzağıydı. Sayfanın adacık mimarisine sahip olması tek başına yetmiyordu; tarayıcıdaki giriş noktamız her şeyi peşinen yüklüyordu.
-
----
-
-## 1. Neden 230 kB İndiriyorduk?
-
-İstemci tarafındaki giriş noktamız olan `entry.client.tsx` dosyasını incelediğimizde, mimariyi kurarken yaptığımız şu statik import kabullerini gördük:
-
-```typescript
-import { createRoot, hydrateRoot } from "react-dom/client";
-import { AppQueryProvider } from "~/lib/query/provider";
-import { Menu } from "lucide-react";
+```text
+bootstrap entry
+  └─ hydration runtime (React + React DOM)
+       ├─ global eager island'lar
+       ├─ route island'ları
+       └─ island'a özel provider/dependency'ler
 ```
 
-Bu importlar nedeniyle:
+Toplam transfer; HTML’de hangi island’ların bulunduğuna, hangilerinin preload edildiğine, ortak
+chunk’ların browser cache’inde olup olmadığına ve sıkıştırmaya bağlıdır. Bu yüzden tek chunk boyutu ile
+“statik sayfa sıfır React” sonucu çıkarılamaz.
 
-1. **React ve React DOM**: Sayfada etkileşimli tek bir alan olmasa bile tarayıcıya iniyor ve hydration runtime'ı çalıştırıyordu.
-2. **TanStack Query**: Sunucu ile senkronizasyon için kullandığımız React Query kütüphanesi, global entry seviyesinde import edildiği için tüm sayfalara zorunlu olarak dağıtılıyordu.
-3. **Lucide İkonları**: Basit bir hamburger menü ikonu için kütüphanenin gereksiz pek çok ortak kodu bundle içerisine sızıyordu.
+Projede her document’te `layout-client` ve `page-analytics` bulunduğu için bugünkü global shell React
+runtime’ını gerçekten kullanır. Sıfır-JavaScript route hedeflenirse bu global island’ların da o route
+için kaldırıldığı `minimalChrome` benzeri açık bir document kontratı gerekir.
 
-Amacımız "Pure HTML" hızı ve sıfır JavaScript yükü iken, kullanıcıya her sayfa açılışında React ve React Query'nin tüm runtime motorunu yükletiyorduk. Bu problemi çözmek için mimariyi üç adımda yeniden tasarladık.
+## 1. Bootstrap ile hydration runtime’ını ayırmak
 
----
+`entry.client.tsx` yalnız DOM’daki `[data-island]` elemanlarını bulur, sonradan stream edilen island’ları
+izler ve gerektiğinde `hydrate.client` modülünü dynamic import eder. React ve `react-dom/client` ana
+entry’nin statik import grafiğinde değildir.
 
-## 2. Çözüm 1: Progressive Hydration (Giriş Noktasını Bölmek)
-
-İlk olarak, tarayıcıda koşan bootstrap kodu ile ağır hydration runtime'ını birbirinden ayırmaya karar verdik. Tarayıcının ilk indirdiği `entry.client.tsx` dosyası, sayfada etkileşimli bir adacık (`[data-island]`) olup olmadığını kontrol eden, hiçbir harici kütüphane bağımlılığı olmayan minik bir script olmalıydı.
-
-Bunun için giriş noktasını ikiye böldük:
-
-- **`entry.client.tsx` (Bootstrap)**: Sayfayı tarayan hafif gözetçi script.
-- **`hydrate.client.tsx` (Hydration Runtime)**: React ve React DOM bağımlılıklarını içeren ağır yük.
-
-Yeni bootstrap akışımız şu şekilde tasarlandı:
-
-```typescript
-// src/entry.client.tsx
-import "./styles/globals.css";
-import { reportClientError } from "~/lib/client/error-telemetry";
-import { bootstrapIslandElements } from "~/lib/client/island-runtime";
-import { installReloadButtons } from "~/lib/client/reload-button";
-
-installReloadButtons();
-
-// Sayfadaki adacıkları tara
+```ts
 const elements = document.querySelectorAll<HTMLElement>("[data-island]");
 
 if (elements.length > 0) {
-  // Sadece adacık varsa ağır React hydration kodunu dinamik olarak indir!
   import("./hydrate.client")
-    .then(({ mount }) => {
-      bootstrapIslandElements(elements, (element) => void mount(element));
-    })
-    .catch((error) => {
-      reportClientError("island-bootstrap", error);
-    });
+    .then(({ mount }) => bootstrapIslandElements(elements, (element) => void mount(element)))
+    .catch((error) => reportClientError("island-bootstrap", error));
 }
 ```
 
-Bu basit değişiklik sayesinde, statik bir sayfaya giren kullanıcılar için React ve React DOM kütüphaneleri tarayıcı tarafından **hiç indirilmez**.
+Bu bölme iki kazanç sağlar:
 
----
+- Island olmayan özel document’ler hydration runtime’ını indirmek zorunda kalmaz.
+- Bootstrap, React graph’ından bağımsız küçük ve kolay denetlenebilir bir lifecycle katmanı olur.
 
-## 3. Çözüm 2: React Query Sağlayıcısının İzolasyonu
+Fakat normal application shell global island içerdiği için ikinci chunk’ın yükleneceği gerçeğini
+saklamıyoruz. Optimizasyonun değeri yalnız “React’i hiç yüklememek” değil; React’i bootstrap’tan ve
+route’a özel ağır bağımlılıklardan ayırmaktır.
 
-Uygulamadaki adacıkları incelediğimizde; `mobile-menu`, `user-chrome`, `filter-panel` gibi adacıkların hiçbirinin api fetch veya global state yönetimi için React Query kullanmadığını gördük. React Query'ye sadece paginated blog listesini yöneten `blog-explorer.tsx` bileşeni ihtiyaç duyuyordu.
+## 2. Island registry gerçek code-splitting sınırıdır
 
-Buna rağmen, eski yapıda `entry.client.tsx` içindeki mount fonksiyonu her bileşeni `AppQueryProvider` ile sarıyordu. Bu da React Query'nin global pakete dahil olmasına neden oluyordu.
+Island dosyaları `import.meta.glob()` ile lazy importer registry’sine dönüşür. Runtime bir island adı
+gördüğünde yalnız ilgili modülü ister:
 
-`AppQueryProvider` sarmalamasını global hydration kodundan çıkardık ve sadece React Query kullanan adacığın kendi içerisine taşıdık:
+```text
+data-island="market-live"   → src/islands/market-live.tsx
+data-island="user-chrome"   → src/islands/user-chrome.tsx
+data-island="blog-explorer" → src/islands/blog-explorer.tsx
+```
 
-```typescript
-// src/islands/blog-explorer.tsx
-import { AppQueryProvider } from "~/lib/query/provider";
+Bu isim aynı zamanda runtime contract’tır. Server bilinmeyen bir island üretirse production manifest
+ve client registry bunu sessizce tolere etmez; test/build aşamasında görünür olması gerekir.
 
-function BlogExplorerInner({ page, initialData }: Props) {
-  // useBlogs hook'u burada güvenle çalışır...
-}
+## 3. Provider'ı kullanan island'a taşımak
 
+TanStack Query’yi hydration root’unun tamamına provider olarak koymak, query kullanmayan bütün
+island’lara kütüphane maliyetini taşır. Provider yalnız query kullanan island’ın içinde yaşar:
+
+```tsx
 export default function BlogExplorer(props: Props) {
   return (
     <AppQueryProvider>
@@ -98,43 +85,88 @@ export default function BlogExplorer(props: Props) {
 }
 ```
 
-### Sonuç:
+Bu kararın bedeli bağımsız root’ların otomatik olarak tek QueryClient paylaşmamasıdır. Aynı query
+state’ini birden fazla island paylaşacaksa singleton client veya external store açıkça tasarlanmalıdır.
+“Provider’ı içeri taşı” mekanik bir performans kuralı değil, state ownership kararıdır.
 
-Vite/Rollup kod bölme (code-splitting) algoritması, `@tanstack/react-query` kütüphanesini ana paketten söktü ve sadece `blog-explorer` adacığı yüklendiğinde asenkron olarak indirilecek olan `blog-explorer-XXXX.js` chunk'ının içerisine yerleştirdi.
+## 4. Eager, viewport ve preload farklı kavramlardır
 
----
+- `eager`: island’ın mount zamanını öne alır.
+- viewport/deferred scheduling: görünür olana kadar mount’u erteler.
+- `modulepreload`: network discovery’yi öne alır, modülü çalıştırmaz.
 
-## 4. Çözüm 3: Lucide İkon Bağımlılığından Kurtulma
+Global eager island’lar production manifest üzerinden head’de preload edilir. Route’a özel bir island
+ilk ekranda kritikse route `preloadIslands` ile bunu ayrıca ilan edebilir. Bütün dynamic entry’leri
+preload etmek code-splitting avantajını ağ katmanında geri alır.
 
-Son olarak, bundle boyutunu miligram seviyesinde optimize etmek için `lucide-react` bağımlılığını inceledik. Projemizde zaten SVG dosyalarımızı optimize edilmiş, sıfır bağımlılıklı React komponentlerine dönüştüren SVGR tabanlı bir ikon oluşturucu (`generate-icons.mjs`) bulunuyordu.
+BIST sayfasındaki `market-live` bu ayrımı görünür kılar. Chunk bütün siteye global olarak eklenmez;
+yalnız BIST document’inde island bulunduğunda yüklenir. SSE bağlantısı da mount’tan sonra açılır.
 
-Kullandığımız tüm Lucide ikonlarını (Menu, ChevronDown, X, User) projenin kendi SVG klasörüne (`src/assets/svg/`) taşıdık ve ikon scriptini koşturduk:
+## 5. Bağımlılık silmek ile doğru import aynı şey değildir
 
-```bash
-npm run icons
-```
+İkonlarda uygulama içi SVG component üretimi kullandık. Bu, birkaç basit shell ikonunun geniş bir
+paketin ortak runtime’ına bağlanmasını engeller. Güncel source graph’ında `lucide-react` import’u yoktur;
+dolayısıyla client bundle’a girmez. Buna karşılık paket hâlâ `package.json` dependency listesinde
+duruyor. “Bundle’dan çıkarmak” ile “dependency’yi repository’den kaldırmak” aynı tamamlanma kriteri
+değildir; ikincisi lockfile ve supply-chain yüzeyi için ayrı bir temizlik işidir.
 
-Bu sayede tüm harici ikon paketlerini devre dışı bırakarak projenin ürettiği native SVG React bileşenlerine geçtik.
+Genel kural:
 
----
+- Package deep import’u gerçekten public API ise kullan.
+- Barrel import’un tree-shaking davranışını tahmin etme; bundle analyzer ile doğrula.
+- Aynı dependency’yi farklı island’larda kopyalamak yerine Vite’ın shared chunk üretimini kontrol et.
+- Yalnız byte azaltmak için maintainability’yi bozan private path import’larına girme.
 
-## Sonuç: Somut Rakamlar
+## Temmuz 2026 build snapshot'ı nasıl okunmalı?
 
-Yaptığımız bu üç optimizasyonun ardından elde ettiğimiz sonuçlar kurumsal hedeflerimiz için devasa bir sıçrama oldu:
+Vite 8.1.5 production build’i aşağıdaki seçili chunk’ları raporladı:
 
-| Metrik / Çıktı             | Eski Yapı (Next.js Esintili) | Yeni Yapı (Progressive Islands) | İyileşme Oranı       |
-| :------------------------- | :--------------------------- | :------------------------------ | :------------------- |
-| **Statik Sayfa JS Boyutu** | 230.78 kB                    | **4.41 kB**                     | **%98.1 Azalma**     |
-| **Gzipped Statik JS**      | 72.36 kB                     | **2.07 kB**                     | **%97.1 Azalma**     |
-| **React Query Yükü**       | Global (Tüm sayfalar)        | Yalnızca `/blogs` (On-demand)   | **%100 İzolasyon**   |
-| **İkon Bağımlılığı**       | `lucide-react` (Global)      | Bağımsız SVG Bileşenleri        | **Sıfır Bağımlılık** |
+| Chunk            |       Raw |     Gzip | Yorum                                  |
+| ---------------- | --------: | -------: | -------------------------------------- |
+| `entry.client`   |   5.08 kB |  2.29 kB | Hafif bootstrap                        |
+| `hydrate.client` | 182.21 kB | 57.86 kB | React hydration graph’ının ana parçası |
+| `market-live`    |   5.92 kB |  2.32 kB | Yalnız canlı piyasa island’ı           |
+| `blog-explorer`  |  13.11 kB |  4.25 kB | Blog etkileşimi; shared imports hariç  |
+| `user-chrome`    |  49.93 kB | 16.94 kB | Auth/query ağırlıklı kişisel island    |
 
-Bu mimari sayesinde, sitenin reklam veya SEO odaklı statik sayfaları artık **sıfır React yüküyle** ultra hızlı açılırken; kullanıcı etkileşimli finansal hesaplama sayfaları ise ihtiyaç anında dinamik olarak hydration runtime'ını indirip çalıştırabilmektedir.
+Bu tablo route toplamı değildir. Örneğin `market-live` çalışırken hydration runtime ve manifestteki
+ortak React chunk’ları da gerekebilir. Rakamlar build çıktısının 18 Temmuz 2026 snapshot’ıdır; her build
+hash ve boyutu değiştirebilir. CI’da budget koyacaksak raw tekil chunk yerine route bazlı transfer ve
+parse/execute maliyetini ölçmeliyiz.
+
+Önceki 4.41 kB / 2.07 kB bootstrap ölçümü eski bir build’e aitti. Onu bugünkü sayfanın toplam maliyeti
+olarak sunmak yanıltıcı olurdu; bu nedenle tarihsel iddia yerine yeniden üretilebilir build çıktısını
+ve kapsamını birlikte veriyoruz.
+
+## Ölçüm checklist'i
+
+1. Production build kullan; Vite dev/HMR grafiğini kıyaslama.
+2. Route’u boş browser cache ve sıcak cache ile ayrı ölç.
+3. Transfer size, resource size, parse ve execute süresini ayır.
+4. Hangi island’ın hangi anda import edildiğini Network initiator’dan doğrula.
+5. Viewport dışı island’ın scroll öncesi indirilmediğini kontrol et.
+6. LCP görseli/font ile modulepreload bandwidth yarışını izle.
+7. Düşük seviye cihazda INP ve long task ölç.
+8. Client error telemetry’de chunk load, mount timeout ve recoverable hydration hatalarını ayır.
+
+## Sonuç
+
+Islands mimarisinin dürüst performans vaadi şudur:
+
+> Client davranışını route ve component sınırlarına böler; ama gerçekten kullanılan React runtime’ını
+> sihirli biçimde yok etmez.
+
+Bootstrap ayrımı, lazy registry, provider ownership ve manifest preload birlikte kullanıldığında ağır
+özellikler ihtiyaç duyulan route’a taşınır. Başarıyı tek bir küçük entry dosyasıyla değil, gerçek route
+waterfall’ı ve kullanıcı cihazındaki çalışma süresiyle ölçmek gerekir.
 
 ---
 
 ## Kaynaklar
 
-- [React 19 Dynamic Import ve Hydration Kılavuzu](https://react.dev/reference/react-dom/client/hydrateRoot)
-- [Vite Dynamic Imports ve Code Splitting](https://vite.dev/guide/features.html#dynamic-import)
-- [Islands Architecture (Jason Miller)](https://jasonformat.com/islands-architecture/)
+- [React `hydrateRoot`](https://react.dev/reference/react-dom/client/hydrateRoot)
+- [Vite Features — Dynamic Import ve Glob Import](https://vite.dev/guide/features.html#glob-import)
+- [Vite Backend Integration ve Manifest](https://vite.dev/guide/backend-integration)
+- [MDN `modulepreload`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/modulepreload)
+- [Island Architecture ile Cache-Safe Kişiselleştirme](./04-island-architecture-ile-cache-safe-kisisellestirme-ve-auth.md)
+- [Vite Manifest ile Island Preload](./07-vite-manifest-ile-island-modulepreload.md)
