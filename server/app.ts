@@ -9,10 +9,10 @@ import type { Route } from "~/lib/types";
 import { normalizePublicUrl } from "~/routing";
 
 import { mountApi } from "./api";
+import type { Assets } from "./assets";
 import { pingCache } from "./cache";
 import { resolveTrustedClientIp } from "./client-ip";
 import { config } from "./config";
-import type { Assets } from "./document";
 import { errorResponse } from "./error";
 import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from "./handler";
 import { logError } from "./logger";

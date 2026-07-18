@@ -1,4 +1,10 @@
-import type { CookieOptions } from "./types";
+export type CookieOptions = {
+  maxAge?: number;
+  path?: string;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: "lax" | "strict" | "none";
+};
 
 type Entry = { value: string; options: CookieOptions };
 

@@ -5,6 +5,7 @@ import { match } from "~/lib/match";
 import type { Ctx, LoaderResult, Route } from "~/lib/types";
 import { normalizePublicUrl, resolveRoute } from "~/routing";
 
+import type { Assets } from "./assets";
 import * as cache from "./cache";
 import { coalesceColdMiss } from "./cache/cold-fill";
 import {
@@ -14,7 +15,6 @@ import {
 } from "./cache/fragment";
 import { config } from "./config";
 import {
-  type Assets,
   renderDocument,
   renderDocumentToStream,
   type StreamResult,

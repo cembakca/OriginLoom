@@ -8,9 +8,9 @@ import { match } from "~/lib/match";
 import type { Route } from "~/lib/types";
 import { resolveRoute } from "~/routing";
 
-import type { AppVariables } from "./request-id";
+import type { AppVariables, RequestClass } from "./context";
 
-export type RequestClass = "api" | "proxy" | "ssr";
+export type { RequestClass } from "./context";
 type DeadlineOptions = Partial<Record<RequestClass, number>>;
 
 const KNOWN_API_ROUTES = new Set([

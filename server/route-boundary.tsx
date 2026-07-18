@@ -3,7 +3,7 @@ import { mergeMetadata } from "~/lib/metadata/merge";
 import { defaultPageMeta } from "~/lib/shell-data";
 import type { Ctx, Route, RouteError } from "~/lib/types";
 
-import type { Assets } from "./document";
+import type { Assets } from "./assets";
 import { renderDocumentView } from "./document";
 
 export function NotFoundPage() {

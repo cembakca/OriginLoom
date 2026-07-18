@@ -1,6 +1,6 @@
 import { PassThrough, Readable } from "node:stream";
 
-import { assetCdnOrigin } from "@server/assets";
+import { assetCdnOrigin, type Assets } from "@server/assets";
 import { buildShellData } from "@server/services/shell-data";
 import type { ReactElement } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
@@ -19,15 +19,6 @@ import type { Ctx, Route } from "~/lib/types";
 
 import { config } from "./config";
 import { type FontAsset, imageCdnOrigins } from "./media";
-
-export type Assets = {
-  js: string;
-  css: string[];
-  fonts: FontAsset[];
-  modulePreloads?: string[];
-  islandModulePreloads?: Record<string, string[]>;
-  development?: { client: string; reactRefresh: string };
-};
 
 export type DocumentContext = {
   routeCtx: Ctx;

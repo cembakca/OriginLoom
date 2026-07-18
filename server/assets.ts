@@ -1,8 +1,16 @@
 import { readFileSync } from "node:fs";
 
 import { config } from "./config";
-import type { Assets } from "./document";
-import { readFontAssets } from "./media";
+import { type FontAsset, readFontAssets } from "./media";
+
+export type Assets = {
+  js: string;
+  css: string[];
+  fonts: FontAsset[];
+  modulePreloads?: string[];
+  islandModulePreloads?: Record<string, string[]>;
+  development?: { client: string; reactRefresh: string };
+};
 
 export type ManifestChunk = {
   isEntry?: boolean;

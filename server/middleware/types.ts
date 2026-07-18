@@ -3,20 +3,14 @@ export { Cookie } from "~/lib/cookies";
 
 import type { CookieJar } from "./cookie-jar";
 
+export type { CookieOptions } from "./cookie-jar";
+
 export type PipelineContext = {
   url: URL;
   pathname: string;
   publicPath: string;
   requestId?: string;
   clientIp: string;
-};
-
-export type CookieOptions = {
-  maxAge?: number;
-  path?: string;
-  httpOnly?: boolean;
-  secure?: boolean;
-  sameSite?: "lax" | "strict" | "none";
 };
 
 export type PipelineResult = {

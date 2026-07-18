@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 
-import type { Assets } from "./document";
+import type { Assets } from "./assets";
 
 export function renderErrorPage(assets: Assets): string {
   const html = renderToString(
