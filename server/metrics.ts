@@ -1,4 +1,5 @@
 import { cacheRouteLabel } from "./metrics/cache-label";
+import { marketStreamMetricLines } from "./metrics/market-stream";
 import {
   counterLines,
   type CounterMap,
@@ -347,6 +348,7 @@ export function renderMetrics(): string {
       "SSR requests currently waiting for render capacity",
       ssrRenderQueueDepth,
     ),
+    ...marketStreamMetricLines(),
     ...gatewayDurations.lines(
       "ssr_gateway_request_duration_milliseconds",
       "Gateway request duration",

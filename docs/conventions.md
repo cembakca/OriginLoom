@@ -977,6 +977,28 @@ uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/ser
 - Referral response'ları `private, no-store`; operations özeti ayrı `REFERRAL_STATS_SECRET` ile
   korunur. Token'ı query string'e veya client bundle'a koyma.
 
+### Canlı piyasa verisi
+
+- İlk render her zaman SSR snapshot'tır. Canlı stream olmadan da anlamlı tablo, timestamp ve gecikme
+  açıklaması bulunmalıdır; socket'i loader'ın yerine koyma.
+- Tek yönlü quote akışında SSE kullan. Browser'dan komut/işlem taşınması gerekmiyorsa WebSocket'in daha
+  geniş protokol yüzeyini açma.
+- Browser gateway URL'sine veya `MARKET_STREAM_TOKEN` değerine erişmez. Yalnız aynı-origin
+  `/api/markets/stream` endpoint'ine bağlanır; credential query string'e konmaz.
+- Sembol listesi regex, uzunluk, tekrar ve adet sınırından geçer. `Origin`, `Sec-Fetch-Site` ve SSE
+  `Accept` kontrolü yapılır; response `private, no-store, no-transform` ve `X-Accel-Buffering: no`
+  taşır.
+- Event payload'ı server ve client'ta runtime schema ile doğrulanır. `NaN`, `Infinity`, bozuk timestamp,
+  geçersiz sembol ve geriye giden sequence UI state'ine uygulanmaz.
+- Her client için upstream bağlantı açma. Process-level hub tek gateway stream'ini paylaşır ve yavaş
+  client queue'sunda yalnız en son batch'i tutar.
+- Sekme hidden/offline olduğunda stream'i kapat; dönüşte jitter'lı exponential backoff uygula. Stream
+  hatasında SSR snapshot'ı silme veya tabloyu loading ekranına çevirme.
+- Process/IP limitlerini origin savunması sanma. Çok podlu ortamda WAF/load balancer seviyesinde cluster
+  connection kotası ve idle timeout da tanımlanmalıdır.
+- İzlenecek metrikler: `ssr_market_stream_active_connections`,
+  `ssr_market_stream_connections_total`, `ssr_market_stream_events_total`.
+
 ---
 
 ## Routing — rewrite, redirect, proxy

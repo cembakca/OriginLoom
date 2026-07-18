@@ -1,5 +1,6 @@
 import { gatewayUrl } from "@server/adapters/gateway";
 import { config } from "@server/config";
+import { observeMarketStreamEvent } from "@server/metrics/market-stream";
 
 import type { MarketQuoteBatch } from "~/lib/contracts/markets";
 import { parseMarketQuoteBatch } from "~/lib/market-stream";
@@ -70,6 +71,7 @@ async function consumeSseBody(
       ) {
         const batch = parseFrame(frame);
         if (!batch) {
+          observeMarketStreamEvent("invalid");
           invalidEvents++;
           if (invalidEvents >= MAX_INVALID_EVENTS) {
             throw new Error("Market stream returned repeated invalid events");

@@ -58,6 +58,21 @@ describe("request deadline middleware", () => {
     expect(renderMetrics()).toContain('request_timeout_total{class="ssr",route="/slow"}');
   });
 
+  it("leaves the market stream to its own connection lifetime contract", async () => {
+    const app = new Hono<{ Variables: AppVariables }>();
+    app.use("*", requestId);
+    app.use("*", requestDeadline([], { api: 5 }));
+    app.get("/api/markets/stream", async (c) => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return c.text("stream-owned-timeout");
+    });
+
+    const response = await app.request("/api/markets/stream");
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("stream-owned-timeout");
+  });
+
   it("classifies fallback external rewrites as proxy requests", async () => {
     const app = new Hono<{ Variables: AppVariables }>();
     app.use("*", requestId);

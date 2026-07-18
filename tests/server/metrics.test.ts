@@ -22,6 +22,11 @@ import {
   setBotAnalyticsQueueState,
   setSsrCapacityState,
 } from "@server/metrics";
+import {
+  observeMarketStreamConnection,
+  observeMarketStreamEvent,
+  setMarketStreamActiveConnections,
+} from "@server/metrics/market-stream";
 import { describe, expect, it } from "vitest";
 
 describe("production metrics", () => {
@@ -46,6 +51,9 @@ describe("production metrics", () => {
     observeSsrCapacityRejection("queue_full");
     observeSsrQueueWait("accepted", 4);
     setSsrCapacityState(3, 2);
+    observeMarketStreamConnection("accepted");
+    observeMarketStreamEvent("received");
+    setMarketStreamActiveConnections(4);
 
     const metrics = renderMetrics();
 
@@ -91,6 +99,9 @@ describe("production metrics", () => {
     expect(metrics).toContain('ssr_render_queue_wait_milliseconds_count{outcome="accepted"}');
     expect(metrics).toContain("ssr_render_in_flight 3");
     expect(metrics).toContain("ssr_render_queue_depth 2");
+    expect(metrics).toContain('ssr_market_stream_connections_total{outcome="accepted"}');
+    expect(metrics).toContain('ssr_market_stream_events_total{outcome="received"}');
+    expect(metrics).toContain("ssr_market_stream_active_connections 4");
   });
 
   it("exports event-loop, process and release gauges", () => {

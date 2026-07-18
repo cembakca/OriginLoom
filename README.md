@@ -255,6 +255,9 @@ Temel değişkenler:
 - `CACHE_MAX_ENTRIES` — memory cache kapasitesi
 - `CACHE_PURGE_SECRET` — production purge endpoint yetkilendirmesi
 - `REFERRAL_STATS_SECRET` — internal referral sayı/latency endpoint'i için operations token'ı
+- `MARKET_STREAM_TOKEN` — BFF ile gateway canlı piyasa stream'i arasındaki server-only token
+- `MARKET_STREAM_MAX_CONNECTIONS` / `MARKET_STREAM_MAX_CONNECTIONS_PER_IP` — process/IP aktif SSE kotası
+- `MARKET_STREAM_MAX_SYMBOLS` — browser bağlantısı başına sembol üst sınırı
 - `MENU_CACHE_TTL` / `MENU_CACHE_SWR` — menü cache süreleri
 - `SITE_URL` — canonical URL tabanı
 - `RELEASE_ID` — release/Git SHA; Redis HTML cache namespace'i

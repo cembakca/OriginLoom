@@ -493,6 +493,27 @@ olarak **redirect-issued** semantiğindedir: sistem bankaya yönlendirme kararı
 landing sayfasının açıldığını veya başvurunun tamamlandığını ancak banka callback/postback'i varsa
 ölçebilir.
 
+### Canlı piyasa: hızlı snapshot + güvenli SSE island
+
+BIST sayfası iki ayrı freshness kontratı kullanır. İlk HTML, Redis'teki 30 saniyelik SSR snapshot'tan
+anında gelir ve JavaScript/socket çalışmasa bile kullanılabilir tablo sunar. Above-the-fold
+`market-live` island hydrate olduktan sonra aynı-origin `GET /api/markets/stream` SSE kanalına bağlanır;
+yalnız fiyat, değişim, gün içi aralık ve zaman alanları yerinde güncellenir. Canlı olaylar HTML cache
+key'i veya Redis write üretmez.
+
+Akış tek yönlü olduğu için WebSocket yerine SSE seçilmiştir. Browser gateway credential'ı veya upstream
+URL'si görmez; BFF gateway'e server-only `MARKET_STREAM_TOKEN` taşır. BFF katmanı `Origin` /
+`Sec-Fetch-Site` kontrolü, zorunlu `Accept: text/event-stream`, kapalı sembol formatı, en fazla 25 sembol,
+IP ve process başına aktif bağlantı kotası, beş dakikalık connection rotation, `no-store/no-transform`
+ve proxy buffering yasağı uygular. Upstream event'leri hem server hem client tarafında runtime schema,
+finite sayılar, timestamp ve monotonic sequence ile doğrulanır.
+
+Bir Node process'indeki browser bağlantıları tek upstream gateway stream'ini paylaşır; yavaş client için
+queue büyütülmez, yalnız en yeni batch tutulur. Sekme arka plana geçtiğinde client bağlantıyı kapatır;
+online/visible olduğunda jitter'lı exponential backoff ile yeniden bağlanır. Stream yoksa SSR snapshot
+ekranda kalır. Limitler process başınadır; çok podlu production'da load balancer/WAF seviyesinde ayrıca
+cluster ve IP connection limiti uygulanmalıdır.
+
 ---
 
 ### 9. Build ve Runtime

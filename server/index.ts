@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { createRewrites, redirects } from "~/routing/rules";
 import { validateRoutingRules } from "~/routing/validate";
 
+import { stopMarketStreamClients } from "./api/market-stream";
 import { createApp } from "./app";
 import { readAssets } from "./assets";
 import { closeCache, initCache } from "./cache";
@@ -42,6 +43,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info("shutdown signal received", { signal });
+    stopMarketStreamClients();
 
     const forceExit = setTimeout(() => {
       logger.error("shutdown timeout — forcing exit");

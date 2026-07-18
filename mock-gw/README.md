@@ -37,6 +37,7 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 | GET    | `/content/articles?...`                 | Bilgi Merkezi filtreli içerik listesi     |
 | GET    | `/content/articles/:slug`               | Finansal makale detayı ve ilişkili içerik |
 | GET    | `/markets/bist100?...`                  | BIST 100 tarzı hisse listesi              |
+| GET    | `/internal/markets/stream`              | Token korumalı SSE quote batch akışı      |
 | POST   | `/analytics/bot`                        | Bounded bot event batch sink              |
 
 `/blogs` SSR-kit'in teknik blog örneklerini korur. `/content/articles` ise tüketici finansmanı,
@@ -60,3 +61,8 @@ ve başvuru sonucu ancak banka callback'iyle doğrulanabilir.
 Kredi şehirleri ve başvuru sayfaları gibi iş-domain değerlerinin kaynağı deployment env'i
 değildir. Mock geliştirme ortamında `/routing/domains` bu sahipliği temsil eder; gerçek sistemde
 aynı kontrat gateway veya CMS tarafından beslenir.
+
+Canlı piyasa endpoint'i public browser endpoint'i değildir. `MARKET_STREAM_TOKEN` bearer token'ı ile
+BFF tarafından açılır, en fazla 100 doğrulanmış sembol kabul eder ve monotonic sequence taşıyan bounded
+quote batch'leri üretir. Browser yalnız UI uygulamasındaki aynı-origin `/api/markets/stream` kanalını
+görür.

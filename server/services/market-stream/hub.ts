@@ -1,4 +1,5 @@
 import { logger } from "@server/logger";
+import { observeMarketStreamEvent } from "@server/metrics/market-stream";
 
 import type { MarketQuoteBatch } from "~/lib/contracts/markets";
 
@@ -62,6 +63,7 @@ class ProcessMarketQuoteHub implements MarketQuoteHub {
   }
 
   private publish(batch: MarketQuoteBatch): void {
+    observeMarketStreamEvent("received");
     this.deliverySequence++;
     for (const listener of this.listeners.values()) {
       const quotes = batch.quotes.filter((quote) => listener.symbols.has(quote.symbol));

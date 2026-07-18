@@ -1,4 +1,9 @@
 import { config } from "@server/config";
+import {
+  observeMarketStreamConnection,
+  observeMarketStreamEvent,
+  setMarketStreamActiveConnections,
+} from "@server/metrics/market-stream";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
 import { type MarketQuoteHub, marketQuoteHub } from "@server/services/market-stream/hub";
@@ -14,6 +19,7 @@ const defaultAdmission = new MarketStreamAdmission(
   config.marketStreamMaxConnections,
   config.marketStreamMaxConnectionsPerIp,
 );
+const shutdownController = new AbortController();
 
 type MarketStreamOptions = {
   hub?: MarketQuoteHub;
@@ -40,22 +46,33 @@ function handleMarketStream(
 ): Response {
   const request = contextRequest(c);
   const securityError = validateBrowserRequest(request);
-  if (securityError) return securityError;
+  if (securityError) {
+    observeMarketStreamConnection("invalid_request");
+    return securityError;
+  }
 
   const symbols = parseSymbols(new URL(request.url).searchParams.get("symbols"));
-  if (!symbols) return errorResponse("Geçersiz piyasa sembolleri", 400);
+  if (!symbols) {
+    observeMarketStreamConnection("invalid_request");
+    return errorResponse("Geçersiz piyasa sembolleri", 400);
+  }
 
   const admitted = admission.acquire(c.get("clientIp") ?? "unknown");
   if (admitted.kind !== "accepted") {
+    observeMarketStreamConnection(admitted.kind === "ip_limit" ? "ip_limited" : "global_limited");
     return errorResponse("Canlı piyasa bağlantı limiti aşıldı", 429, { "retry-after": "15" });
   }
+  observeMarketStreamConnection("accepted");
+  setMarketStreamActiveConnections(admission.activeConnections);
 
   const response = streamSSE(c, async (stream) => {
     const inbox = new LatestBatchInbox();
     const unsubscribe = hub.subscribe(symbols, (batch) => inbox.push(batch));
     stream.onAbort(() => inbox.close());
     const onRequestAbort = () => inbox.close();
+    const onShutdown = () => inbox.close();
     request.signal.addEventListener("abort", onRequestAbort, { once: true });
+    shutdownController.signal.addEventListener("abort", onShutdown, { once: true });
     const expiresAt = Date.now() + config.marketStreamMaxDurationMs;
 
     try {
@@ -64,7 +81,12 @@ function handleMarketStream(
         retry: 2_000,
         data: JSON.stringify({ connected: true, symbols: [...symbols] }),
       });
-      while (!stream.aborted && !request.signal.aborted && Date.now() < expiresAt) {
+      while (
+        !stream.aborted &&
+        !request.signal.aborted &&
+        !shutdownController.signal.aborted &&
+        Date.now() < expiresAt
+      ) {
         const waitMs = Math.min(
           config.marketStreamHeartbeatMs,
           Math.max(1, expiresAt - Date.now()),
@@ -81,14 +103,17 @@ function handleMarketStream(
           await stream.writeSSE({ event: "heartbeat", data: String(Date.now()) });
         }
       }
-      if (!stream.aborted && !request.signal.aborted) {
+      if (!stream.aborted && !request.signal.aborted && !shutdownController.signal.aborted) {
         await stream.writeSSE({ event: "rotate", data: "reconnect" });
       }
     } finally {
       request.signal.removeEventListener("abort", onRequestAbort);
+      shutdownController.signal.removeEventListener("abort", onShutdown);
       inbox.close();
       unsubscribe();
       admitted.lease.release();
+      observeMarketStreamConnection("closed");
+      setMarketStreamActiveConnections(admission.activeConnections);
     }
   });
 
@@ -96,6 +121,10 @@ function handleMarketStream(
   response.headers.set("x-accel-buffering", "no");
   response.headers.set("vary", "Accept");
   return response;
+}
+
+export function stopMarketStreamClients(): void {
+  shutdownController.abort();
 }
 
 function validateBrowserRequest(request: Request): Response | null {
@@ -149,6 +178,7 @@ class LatestBatchInbox {
   push(batch: MarketQuoteBatch): void {
     if (this.closed) return;
     if (!this.waiter) {
+      if (this.latest) observeMarketStreamEvent("coalesced");
       this.latest = batch;
       return;
     }
