@@ -7,7 +7,8 @@ import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
 import { DEFAULT_BLOG_ORDER, type PaginatedBlogs } from "~/lib/contracts/blogs";
 import { Island } from "~/lib/island";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
 
@@ -40,14 +41,25 @@ export default defineRoute<PaginatedBlogs>({
   },
 
   generateMetadata: (data, ctx) => {
-    const title = `Blog — Sayfa ${data.page}`;
-    const canonicalPath = data.page === 1 ? ctx.publicPath : `${ctx.publicPath}?page=${data.page}`;
-    const url = publicAbsoluteUrl(ctx, canonicalPath);
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    const metadata = generatePaginatedMetadata(
+      data.seoInfo,
+      ctx,
+      data.page,
+      data.totalPages,
+      "/blogs/paginated",
+    );
     return {
-      title,
-      description: `Finans ve bankacılık blog yazıları — sayfa ${data.page}.`,
-      canonical: url,
-      openGraph: { title, url },
+      ...metadata,
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Blog", url: metadata.canonical ?? "/blogs/paginated" },
+          ],
+          base,
+        ),
+      ]),
     };
   },
 

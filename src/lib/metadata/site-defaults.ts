@@ -15,7 +15,7 @@ export function siteMetadata(baseUrl: string): SiteMetadataConfig {
       siteName: "Hangikredi",
       type: "website",
       locale: "tr_TR",
-      defaultImage: `${baseUrl}/og-default.png`,
+      defaultImage: `${baseUrl}/assets/media/og-default.jpg`,
     },
     twitter: {
       card: "summary_large_image",
@@ -23,8 +23,8 @@ export function siteMetadata(baseUrl: string): SiteMetadataConfig {
     },
     robots: { index: true, follow: true },
     icons: {
-      icon: "/favicon.ico",
-      apple: "/apple-touch-icon.png",
+      icon: "/assets/media/favicon-32.png",
+      apple: "/assets/media/apple-touch-icon.png",
     },
     formatDetection: { telephone: false },
   };

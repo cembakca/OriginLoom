@@ -14,6 +14,7 @@ import {
   parsePageSize,
 } from "../lib/query.js";
 import { recordReferralIssued, referralStatsSnapshot } from "../lib/referral-analytics.js";
+import { seoInfo } from "../lib/seo.js";
 
 const housingSorts = new Set([
   "recommended",
@@ -45,6 +46,12 @@ export async function resolveFinanceRequest(request, url, readJson) {
     return {
       status: 200,
       body: {
+        seoInfo: seoInfo({
+          title: `${product.bank.name} ${product.name} Konut Kredisi`,
+          description: `${product.name} faiz oranı, örnek ödeme planı, masraflar ve başvuru koşulları.`,
+          path: `/konut-kredisi/${product.slug}`,
+          openGraphType: "product",
+        }),
         product: calculateHousingLoanOffer(product, amount, term),
         disclosures: [
           "Hesaplama örnek amaçlıdır; kesin oran ve masraflar banka değerlendirmesiyle belirlenir.",
@@ -69,6 +76,14 @@ export async function resolveFinanceRequest(request, url, readJson) {
       ? {
           status: 200,
           body: {
+            seoInfo: seoInfo({
+              title: `${card.name} Kredi Kartı`,
+              description: `${card.bank.name} ${card.name} kart özellikleri, ücretleri, avantajları ve güncel kampanyaları.`,
+              path: `/kredi-kartlari/${card.slug}`,
+              image: card.imageUrl,
+              imageAlt: `${card.bank.name} ${card.name} kredi kartı`,
+              openGraphType: "product",
+            }),
             product: { ...card, campaigns: campaignsFor(card.slug) },
             applicationRequirements: [
               "18 yaşını doldurmuş olmak",
@@ -114,6 +129,20 @@ function housingLoanList(searchParams) {
     .map((item) => calculateHousingLoanOffer(item, amount, item.terms.includes(term) ? term : 120));
   sortHousingLoans(filtered, sortBy);
   return {
+    seoInfo: seoInfo({
+      title: "Konut Kredisi Faiz Oranları ve Hesaplama",
+      description:
+        "Bankaların konut kredisi faiz oranlarını, aylık taksitleri ve toplam geri ödeme tutarlarını karşılaştırın.",
+      path: "/konut-kredisi",
+      noindex: Boolean(
+        bank ||
+        query ||
+        amount !== 2_000_000 ||
+        term !== 120 ||
+        city !== "istanbul" ||
+        sortBy !== "recommended",
+      ),
+    }),
     ...paginate(filtered, parsePage(searchParams), parsePageSize(searchParams, 6)),
     query: { amount, term, city, bank: bank || null, sortBy },
     facets: {
@@ -145,6 +174,20 @@ function creditCardList(searchParams) {
     .map((item) => summaryCard(item));
   sortCards(filtered, sortBy);
   return {
+    seoInfo: seoInfo({
+      title: "Kredi Kartı Karşılaştırma ve Kampanyalar",
+      description:
+        "Kredi kartlarını yıllık ücret, kart türü, banka, ödeme ağı ve güncel kampanyalara göre karşılaştırın.",
+      path: "/kredi-kartlari",
+      noindex: Boolean(
+        bank ||
+        query ||
+        cardType !== "all" ||
+        fee !== "all" ||
+        network !== "all" ||
+        sortBy !== "recommended",
+      ),
+    }),
     ...paginate(filtered, parsePage(searchParams), parsePageSize(searchParams, 8)),
     query: { bank: bank || null, cardType, annualFee: fee, network, sortBy },
     facets: {
@@ -187,6 +230,12 @@ function referralDetail(path) {
     ? {
         status: 200,
         body: {
+          seoInfo: seoInfo({
+            title: `${product.bank.name} ${product.name} Başvurusu`,
+            description: `${product.name} başvurusuna bankanın güvenli kanalında devam edin.`,
+            path: `/basvuru/${product.productType}/${product.slug}/yonlendirme`,
+            noindex: true,
+          }),
           product: referralProduct(product),
           disclosure: "Başvurunuz seçtiğiniz bankanın güvenli başvuru kanalında tamamlanacaktır.",
           consentRequired: false,

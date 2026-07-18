@@ -22,6 +22,7 @@ export const BLOG_ORDER_OPTIONS: Array<{ value: BlogOrderBy; label: string }> = 
 export const DEFAULT_BLOG_ORDER: BlogOrderBy = "date-desc";
 
 export type PaginatedBlogs = {
+  seoInfo: SeoInfo;
   posts: Blog[];
   page: number;
   pageSize: number;
@@ -29,3 +30,4 @@ export type PaginatedBlogs = {
   totalPages: number;
   orderBy: BlogOrderBy;
 };
+import type { SeoInfo } from "~/lib/metadata/types";

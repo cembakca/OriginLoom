@@ -54,4 +54,42 @@ describe("finance content SSR pages", () => {
     expect(knowledge.headers.get("x-cache")).toBe("BYPASS");
     expect(market.headers.get("x-cache")).toBe("BYPASS");
   });
+
+  it("emits content-specific JSON-LD only on matching visible pages", async () => {
+    const [loan, card, article, list] = await Promise.all([
+      app.request("/konut-kredisi/ziraat-konut-kredisi"),
+      app.request("/kredi-kartlari/maximum"),
+      app.request("/bilgi-merkezi/bist-100-endeksi-nedir"),
+      app.request("/konut-kredisi"),
+    ]);
+    const [loanHtml, cardHtml, articleHtml, listHtml] = await Promise.all([
+      loan.text(),
+      card.text(),
+      article.text(),
+      list.text(),
+    ]);
+
+    expect(loanHtml).toContain('"@type":"LoanOrCredit"');
+    expect(loanHtml).toContain('"@type":"BreadcrumbList"');
+    expect(cardHtml).toContain('"@type":"CreditCard"');
+    expect(articleHtml).toContain('"@type":"Article"');
+    expect(articleHtml).toContain('"@type":"FAQPage"');
+    expect(listHtml).toContain('"@type":"ItemList"');
+    expect(listHtml).not.toContain('"@type":"Article"');
+  });
+
+  it("publishes the gateway catalog in sitemap without technical or faceted URLs", async () => {
+    const response = await app.request("/sitemap.xml");
+    const xml = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/xml");
+    expect(xml).toContain("/konut-kredisi/ziraat-konut-kredisi</loc>");
+    expect(xml).toContain("/kredi-kartlari/maximum</loc>");
+    expect(xml).toContain("/bilgi-merkezi/bist-100-endeksi-nedir</loc>");
+    expect(xml).toContain("<lastmod>");
+    expect(xml).not.toContain("/blogs/paginated");
+    expect(xml).not.toContain("/medya-pipeline");
+    expect(xml).not.toContain("?page=");
+  });
 });

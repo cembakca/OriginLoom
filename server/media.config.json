@@ -1,4 +1,8 @@
 {
+  "seoAssets": {
+    "openGraphSource": "src/assets/images/home-hero.svg",
+    "brandSource": "src/assets/svg/brand-mark.svg"
+  },
   "images": [
     {
       "id": "home-hero",

@@ -1,5 +1,6 @@
 import { gatewayFetch } from "@server/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
+import { isSeoInfo } from "@server/services/seo-info";
 
 import { MAX_PAGE, parsePage } from "~/lib/content-values";
 import {
@@ -76,6 +77,7 @@ function isPaginatedBlogs(data: unknown): data is PaginatedBlogs {
   const value = data as Record<string, unknown>;
   return (
     Array.isArray(value.posts) &&
+    isSeoInfo(value.seoInfo) &&
     value.posts.length <= MAX_PAGE_SIZE &&
     value.posts.every(isBlog) &&
     isIntegerInRange(value.page, 1, MAX_PAGE) &&

@@ -221,8 +221,9 @@ env'inden gelmez; gateway/CMS'in `/routing/domains` snapshot'ı otoritedir. Snap
 response'u page, pageSize, totalPages, array ve string üst sınırlarıyla doğrulanır; pagination en
 fazla dokuz görünür öğe üretir. Pagination SSR çıktısı gerçek `<a href>` linklerinden oluşur; aktif
 sayfa link olmayan `aria-current="page"` span'idir. Page 1 query'siz canonical kullanır, page 2+
-normalize `?page=N` ile self-canonical'dır. Sitemap yalnız query'siz blog liste girişini içerir;
-pagination URL'leri sitemap'e eklenmez, `index,follow` ve semantic prev/next/page linkleriyle keşfedilir.
+normalize `?page=N` ile self-canonical'dır. Sitemap query pagination URL'lerini içermez;
+indexable katalog pagination'ı `index,follow`, document-level `rel=prev/next` ve semantic page linkleriyle
+keşfedilir. Detay route'u bulunmayan teknik blog demosu crawl tuzağı üretmemek için `noindex,follow`'dur.
 
 Her başarılı cache write route label'ı kontrollü olacak şekilde body byte, key byte ve process başına
 bounded distinct-key observation metriği üretir. `k8s/prometheus-rules.yaml`, 2000 key'lik gözlem
@@ -583,13 +584,22 @@ nedeni, batch sonucu/süresi/boyutu, queue depth, in-flight batch ve shutdown dr
 Event-loop p50/p95/p99 lag, CPU, RSS/heap, uptime ve release info process metrikleri de aynı
 endpoint'tedir. Request ID, raw URL, cache key ve kullanıcı kimliği metric label'ı değildir.
 
-### 10.1 Merkezi Robots ve Sitemap
+### 10.1 Merkezi SEO, Structured Data, Robots ve Sitemap
+
+Gateway/CMS, her gerçek sayfa payload'ında bounded `seoInfo` döndürür. Parser title/description,
+friendly/canonical URL, OG image boyut/alt bilgisi, index/follow kararı ve Article tarih/yazar/tag
+alanlarını doğrular. Merge katmanı canonical ve `og:url` değerlerini `SITE_URL` origin'ine sabitler;
+her indexable graph'a `Organization`, `WebSite` ve `WebPage` kimliği ekler. Route'lar görünür içeriğe
+göre `BreadcrumbList`, `ItemList`, `Article`, `FAQPage`, `LoanOrCredit`, `CreditCard` veya piyasa
+listesi düğümleri ekler. Gerçek review/rating/offer verisi yoksa sentetik rich-result alanı üretilmez.
+JSON-LD tek `@graph` olarak, embedded JSON escaping ve production CSP nonce'u ile yazılır.
 
 `server/seo.ts`, root seviyesinde `robots.txt` ve XML sitemap üretir. Sitemap yalnız canonical public
-URL'leri içerir; internal rewrite destination'ları, account/noindex route'ları ve query pagination
-sayfaları dışarıda kalır. Dynamic kredi şehirleri deployment env'den değil doğrulanmış gateway route
-domain snapshot'ından gelir. Domain gateway'i kesilirse statik sitemap yine `200` döner ve yalnız
-dynamic entries degrade olur.
+URL'leri içerir; internal rewrite destination'ları, account/noindex/teknik demo route'ları, filtreler
+ve query pagination sayfaları dışarıda kalır. Ürün, kredi kartı ve makale detay envanteri
+`/seo/sitemap` gateway kontratından gelir; gerçek makale güncelleme tarihi `lastmod` olur. Gateway
+kesilirse statik kategori sitemap'i yine `200` döner ve dynamic entries kontrollü degrade olur.
+Opsiyonel Google/Bing/Yandex doğrulama token'ları config'ten tüm document head'lerine eklenir.
 
 Config startup'ta `GTM_CONTAINER_ID` için kapalı `GTM-*` formatını; `SITE_URL` ve `GATEWAY_URL` için
 origin/credential/query/hash politikasını; `ASSET_CDN_URL` için HTTP(S), credential ve query/hash

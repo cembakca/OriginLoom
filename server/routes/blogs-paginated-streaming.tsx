@@ -7,7 +7,7 @@ import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
 import { type Blog, DEFAULT_BLOG_ORDER, type PaginatedBlogs } from "~/lib/contracts/blogs";
 import { Island } from "~/lib/island";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithSeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
 
@@ -94,17 +94,16 @@ export default defineRoute<StreamingBlogsData>({
     };
   },
 
-  generateMetadata: (data, ctx) => {
-    const title = `Blog (Akışlı) — Sayfa ${data.page}`;
-    const canonicalPath = data.page === 1 ? ctx.publicPath : `${ctx.publicPath}?page=${data.page}`;
-    const url = publicAbsoluteUrl(ctx, canonicalPath);
-    return {
-      title,
-      description: `Finans ve bankacılık blog yazıları (Akışlı SSR) — sayfa ${data.page}.`,
-      canonical: url,
-      openGraph: { title, url },
-    };
-  },
+  generateMetadata: (data, ctx) =>
+    generateMetaDataForPageWithSeoInfo(
+      {
+        title: `Blog Akışlı SSR Demosu — Sayfa ${data.page}`,
+        metaDescription: "React streaming SSR davranışını gösteren teknik demo sayfası.",
+        friendlyUrl: "/blogs/paginated/streaming",
+        noindex: true,
+      },
+      ctx,
+    ),
 
   pageMeta: (data, ctx) =>
     defaultPageMeta(ctx, "blog-list-streaming", {

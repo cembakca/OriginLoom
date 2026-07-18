@@ -2,7 +2,13 @@ import { serializeEmbeddedJson } from "~/lib/embedded-json";
 import type { ResolvedMetadata } from "~/lib/metadata/types";
 
 /** Metadata API çıktısı → HTML head tag'leri. GTM/analytics burada değil. */
-export function MetadataHead({ meta }: { meta: ResolvedMetadata }) {
+export function MetadataHead({
+  meta,
+  nonce,
+}: {
+  meta: ResolvedMetadata;
+  nonce?: string | undefined;
+}) {
   return (
     <>
       <title>{meta.title}</title>
@@ -14,10 +20,12 @@ export function MetadataHead({ meta }: { meta: ResolvedMetadata }) {
         content={`telephone=${meta.formatDetection.telephone ? "yes" : "no"}`}
       />
       <link rel="canonical" href={meta.canonical} />
+      {meta.pagination.previous ? <link rel="prev" href={meta.pagination.previous} /> : null}
+      {meta.pagination.next ? <link rel="next" href={meta.pagination.next} /> : null}
       <OpenGraphHead meta={meta} />
       <TwitterHead meta={meta} />
       <VerificationHead meta={meta} />
-      <StructuredDataHead meta={meta} />
+      <StructuredDataHead meta={meta} nonce={nonce} />
       <link rel="icon" href={meta.icons.icon} />
       {meta.icons.apple ? <link rel="apple-touch-icon" href={meta.icons.apple} /> : null}
     </>
@@ -91,11 +99,18 @@ function VerificationHead({ meta }: { meta: ResolvedMetadata }) {
   ));
 }
 
-function StructuredDataHead({ meta }: { meta: ResolvedMetadata }) {
+function StructuredDataHead({
+  meta,
+  nonce,
+}: {
+  meta: ResolvedMetadata;
+  nonce?: string | undefined;
+}) {
   if (meta.structuredData.length === 0) return null;
   return (
     <script
       type="application/ld+json"
+      nonce={nonce}
       dangerouslySetInnerHTML={{
         __html: serializeEmbeddedJson({
           "@context": "https://schema.org",

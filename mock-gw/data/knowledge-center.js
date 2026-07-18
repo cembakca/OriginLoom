@@ -140,7 +140,7 @@ export const knowledgeArticles = definitions.map((article, index) => ({
   publishedAt: new Date(Date.UTC(2026, 5, 20 + index)).toISOString(),
   updatedAt: new Date(Date.UTC(2026, 6, 10 + index)).toISOString(),
   readTimeMin: 6 + (index % 4),
-  imageUrl: `/media/knowledge/${article.slug}.webp`,
+  imageUrl: "/assets/media/og-default.jpg",
   sections: article.sections.map(([heading, body]) => ({ heading, body })),
   faq: [
     {

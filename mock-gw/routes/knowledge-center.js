@@ -7,6 +7,7 @@ import {
   parsePage,
   parsePageSize,
 } from "../lib/query.js";
+import { seoInfo } from "../lib/seo.js";
 
 const categories = new Set(["all", "konut-kredisi", "kredi-kartlari", "krediler", "yatirim"]);
 const sortOrders = new Set(["date-desc", "date-asc", "read-time-asc"]);
@@ -24,7 +25,26 @@ export function resolveKnowledgeCenterRequest(request, url) {
     .filter((item) => item.id !== article.id && item.category === article.category)
     .slice(0, 3)
     .map(articleSummary);
-  return { status: 200, body: { article, related } };
+  return {
+    status: 200,
+    body: {
+      seoInfo: seoInfo({
+        title: article.seo.title,
+        description: article.seo.description,
+        path: article.seo.canonicalPath,
+        image: article.imageUrl,
+        imageAlt: article.title,
+        openGraphType: "article",
+        publishedTime: article.publishedAt,
+        modifiedTime: article.updatedAt,
+        author: article.author,
+        section: article.category,
+        tags: article.tags,
+      }),
+      article,
+      related,
+    },
+  };
 }
 
 function articleList(searchParams) {
@@ -38,6 +58,13 @@ function articleList(searchParams) {
     .filter((item) => matchesQuery(query, item.title, item.excerpt, ...item.tags));
   sortArticles(articles, orderBy);
   return {
+    seoInfo: seoInfo({
+      title: "Bilgi Merkezi: Finans ve Bankacılık Rehberleri",
+      description:
+        "Krediler, kredi kartları, konut finansmanı ve yatırım hakkında güncel ve detaylı rehberleri inceleyin.",
+      path: "/bilgi-merkezi",
+      noindex: Boolean(query || tag || category !== "all" || orderBy !== "date-desc"),
+    }),
     ...paginate(
       articles.map(articleSummary),
       parsePage(searchParams),

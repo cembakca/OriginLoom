@@ -2,6 +2,9 @@ import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 
 import { menu } from "./data/menu.js";
+import { creditCards, housingLoans } from "./data/financial-products.js";
+import { knowledgeArticles } from "./data/knowledge-center.js";
+import { seoInfo } from "./lib/seo.js";
 import { resolveFinanceRequest } from "./routes/finance.js";
 import { resolveKnowledgeCenterRequest } from "./routes/knowledge-center.js";
 import { resolveMarketStreamRequest } from "./routes/market-stream.js";
@@ -18,6 +21,23 @@ const routeDomains = {
   loanCities: ["istanbul", "ankara", "izmir"],
   recoursePages: ["kredi"],
 };
+
+const sitemapEntries = [
+  "/",
+  "/bilgi-merkezi",
+  "/emekli-bankaciligi",
+  "/ihtiyac-kredisi",
+  "/konut-kredisi",
+  ...housingLoans.map((loan) => `/konut-kredisi/${loan.slug}`),
+  "/kredi-kartlari",
+  ...creditCards.map((card) => `/kredi-kartlari/${card.slug}`),
+  "/piyasalar/bist-100",
+  "/uzaktan-musteri-edinimi",
+].map((path) => ({ path }));
+
+for (const article of knowledgeArticles) {
+  sitemapEntries.push({ path: `/bilgi-merkezi/${article.slug}`, lastModified: article.updatedAt });
+}
 
 const blogs = Array.from({ length: 24 }, (_, index) => {
   const number = index + 1;
@@ -158,6 +178,9 @@ async function route(request, response) {
   if (request.method === "GET" && url.pathname === "/routing/domains") {
     return json(response, 200, routeDomains);
   }
+  if (request.method === "GET" && url.pathname === "/seo/sitemap") {
+    return json(response, 200, { entries: sitemapEntries });
+  }
   if (resolveMarketStreamRequest(request, response, url)) return;
   const publicCatalogResponse =
     (await resolveFinanceRequest(request, url, readJson)) ??
@@ -257,6 +280,12 @@ async function route(request, response) {
     const page = Math.min(requestedPage, totalPages);
     const start = (page - 1) * requestedSize;
     return json(response, 200, {
+      seoInfo: seoInfo({
+        title: "Finans ve Teknoloji Blog Yazıları",
+        description: "Finans, bankacılık ve web teknolojileri hakkında güncel blog yazıları.",
+        path: "/blogs/paginated",
+        noindex: true,
+      }),
       posts: ordered.slice(start, start + requestedSize),
       page,
       pageSize: requestedSize,

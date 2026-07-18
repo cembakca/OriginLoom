@@ -1,3 +1,5 @@
+import type { SeoInfo } from "~/lib/metadata/types";
+
 import type { FacetOption, Pagination } from "./pagination";
 
 export type ProductBank = { slug: string; name: string; logoUrl: string };
@@ -34,6 +36,7 @@ export type HousingLoan = {
 };
 
 export type HousingLoanList = {
+  seoInfo: SeoInfo;
   items: HousingLoan[];
   pagination: Pagination;
   query: {
@@ -46,7 +49,7 @@ export type HousingLoanList = {
   facets: { banks: FacetOption[]; terms: number[]; cities: string[] };
 };
 
-export type HousingLoanDetail = { product: HousingLoan; disclosures: string[] };
+export type HousingLoanDetail = { product: HousingLoan; disclosures: string[]; seoInfo: SeoInfo };
 
 export type CreditCardCampaign = {
   id: string;
@@ -79,6 +82,7 @@ export type CreditCard = {
 };
 
 export type CreditCardList = {
+  seoInfo: SeoInfo;
   items: CreditCard[];
   pagination: Pagination;
   query: {
@@ -92,6 +96,7 @@ export type CreditCardList = {
 };
 
 export type CreditCardDetail = {
+  seoInfo: SeoInfo;
   product: CreditCard & { campaigns: CreditCardCampaign[] };
   applicationRequirements: string[];
   disclosures: string[];
@@ -106,6 +111,7 @@ export type ReferralProduct = {
 };
 
 export type ReferralDetail = {
+  seoInfo: SeoInfo;
   product: ReferralProduct;
   disclosure: string;
   consentRequired: boolean;

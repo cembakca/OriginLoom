@@ -18,13 +18,14 @@ export function DocumentLayout({
   shell,
   pageMeta,
   content,
+  cspNonce,
 }: DocumentLayoutProps) {
   return (
     <html lang="tr">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <MetadataHead meta={seo} />
+        <MetadataHead meta={seo} nonce={cspNonce} />
         <HeadClient />
         {assets.fonts.map((font) =>
           font.preload ? (
@@ -62,6 +63,7 @@ export function DocumentLayout({
             <script type="module" src={assets.development.client} />
             <script
               type="module"
+              nonce={cspNonce}
               dangerouslySetInnerHTML={{
                 __html: reactRefreshPreamble(assets.development.reactRefresh),
               }}
@@ -71,7 +73,7 @@ export function DocumentLayout({
         {modulePreloads.map((href) => (
           <link key={href} rel="modulepreload" href={href} />
         ))}
-        <GtmBootstrap containerId={config.gtmContainerId} isBot={isBot} />
+        <GtmBootstrap containerId={config.gtmContainerId} isBot={isBot} nonce={cspNonce} />
       </head>
       <body>
         <div id="root">
@@ -82,6 +84,7 @@ export function DocumentLayout({
         <script
           type="module"
           src={assets.js}
+          nonce={cspNonce}
           crossOrigin={assets.development ? "anonymous" : undefined}
         />
       </body>

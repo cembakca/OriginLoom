@@ -14,6 +14,8 @@ await mkdir(outputDir, { recursive: true });
 
 const manifest = { version: 1, images: {}, fonts: [] };
 
+await buildSeoAssets(config.seoAssets);
+
 for (const image of config.images) {
   validateImageConfig(image);
   const source = resolve(root, image.source);
@@ -78,6 +80,23 @@ await writeFile(
 console.log(
   `[media] ${Object.keys(manifest.images).length} image source(s), ${manifest.fonts.length} font subset(s)`,
 );
+
+async function buildSeoAssets(seoAssets) {
+  if (!seoAssets?.openGraphSource || !seoAssets?.brandSource) {
+    throw new Error("seoAssets requires openGraphSource and brandSource");
+  }
+  const openGraphSource = resolve(root, seoAssets.openGraphSource);
+  const brandSource = resolve(root, seoAssets.brandSource);
+  await Promise.all([
+    sharp(openGraphSource)
+      .resize(1200, 630, { fit: "cover" })
+      .jpeg({ quality: 84, mozjpeg: true })
+      .toFile(resolve(outputDir, "og-default.jpg")),
+    sharp(brandSource).resize(512, 512).png().toFile(resolve(outputDir, "brand-logo-512.png")),
+    sharp(brandSource).resize(180, 180).png().toFile(resolve(outputDir, "apple-touch-icon.png")),
+    sharp(brandSource).resize(32, 32).png().toFile(resolve(outputDir, "favicon-32.png")),
+  ]);
+}
 
 async function encodeImage(source, width, format, quality) {
   const pipeline = sharp(source).resize({ width, withoutEnlargement: true });

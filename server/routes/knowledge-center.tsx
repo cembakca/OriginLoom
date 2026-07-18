@@ -6,7 +6,8 @@ import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
 import type { KnowledgeArticleList } from "~/lib/contracts/knowledge-center";
 import { knowledgeSearch } from "~/lib/knowledge-query";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd, itemListJsonLd } from "~/lib/metadata/jsonld";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
 
@@ -34,24 +35,34 @@ export default defineRoute<KnowledgeArticleList>({
     return { data };
   },
   generateMetadata: (data, ctx) => {
-    const title =
-      data.query.category === "all" ? "Bilgi Merkezi" : `${data.query.category} Rehberleri`;
-    const description =
-      "Krediler, kredi kartları ve yatırım konularında karar vermeyi kolaylaştıran finans rehberleri.";
-    const url = publicAbsoluteUrl(
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    const metadata = generatePaginatedMetadata(
+      data.seoInfo,
       ctx,
-      data.query.category === "all"
-        ? "/bilgi-merkezi"
-        : `/bilgi-merkezi?category=${data.query.category}`,
+      data.pagination.page,
+      data.pagination.totalPages,
+      "/bilgi-merkezi",
     );
     return {
-      title,
-      description,
-      canonical: url,
-      ...(data.query.q || data.query.tag
-        ? { robots: { index: false, follow: true } as const }
-        : {}),
-      openGraph: { title, description, url },
+      ...metadata,
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Bilgi Merkezi", url: metadata.canonical ?? "/bilgi-merkezi" },
+          ],
+          base,
+        ),
+        itemListJsonLd(
+          "Bilgi Merkezi yazıları",
+          data.items.map((article) => ({
+            name: article.title,
+            url: publicAbsoluteUrl(ctx, article.seo.canonicalPath),
+            image: article.imageUrl,
+          })),
+          base,
+        ),
+      ]),
     };
   },
   pageMeta: (data, ctx) =>

@@ -62,17 +62,71 @@ export function generateMetaDataForPageWithSeoInfo(seoInfo: SeoInfo, ctx: Ctx): 
     ...(title !== undefined ? { title } : {}),
     ...(description !== undefined ? { description } : {}),
     canonical,
-    ...(seoInfo.noindex ? { robots: { index: false, follow: true } as const } : {}),
+    ...(seoInfo.noindex || seoInfo.nofollow
+      ? {
+          robots: {
+            ...(seoInfo.noindex ? { index: false } : {}),
+            ...(seoInfo.nofollow ? { follow: false } : { follow: true }),
+          } as const,
+        }
+      : {}),
     openGraph: stripUndefined({
       title: title ?? undefined,
       description,
       url: canonical,
       image,
+      imageAlt: seoInfo.imageAlt,
+      imageType: image ? imageMimeType(image) : undefined,
+      imageWidth: seoInfo.imageWidth,
+      imageHeight: seoInfo.imageHeight,
+      type: seoInfo.openGraphType,
+      publishedTime: seoInfo.publishedTime,
+      modifiedTime: seoInfo.modifiedTime,
+      authors: seoInfo.author ? [seoInfo.author] : undefined,
+      section: seoInfo.section,
+      tags: seoInfo.tags,
     }),
     twitter: stripUndefined({
       title: title ?? undefined,
       description,
       image,
+      imageAlt: seoInfo.imageAlt,
+    }),
+  };
+}
+
+function imageMimeType(image: string): string | undefined {
+  const pathname = new URL(image).pathname.toLowerCase();
+  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+  if (pathname.endsWith(".png")) return "image/png";
+  if (pathname.endsWith(".webp")) return "image/webp";
+  if (pathname.endsWith(".avif")) return "image/avif";
+  return undefined;
+}
+
+/** CMS SEO + normalized pagination identity. Faceted noindex pages stay canonical to the base URL. */
+export function generatePaginatedMetadata(
+  seoInfo: SeoInfo,
+  ctx: Ctx,
+  page: number,
+  totalPages: number,
+  basePath: string,
+): PageMetadata {
+  const metadata = generateMetaDataForPageWithSeoInfo(seoInfo, ctx);
+  if (seoInfo.noindex) return metadata;
+  const pageUrl = (value: number) =>
+    publicAbsoluteUrl(ctx, value <= 1 ? basePath : `${basePath}?page=${value}`);
+  const canonical = pageUrl(page);
+  return {
+    ...metadata,
+    ...(page > 1
+      ? { title: metadata.title ? `${metadata.title} — Sayfa ${page}` : `Sayfa ${page}` }
+      : {}),
+    canonical,
+    openGraph: { ...metadata.openGraph, url: canonical },
+    pagination: stripUndefined({
+      previous: page > 1 ? pageUrl(page - 1) : undefined,
+      next: page < totalPages ? pageUrl(page + 1) : undefined,
     }),
   };
 }

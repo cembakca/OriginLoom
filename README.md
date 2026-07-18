@@ -263,6 +263,7 @@ Temel değişkenler:
 - `MARKET_STREAM_MAX_SYMBOLS` — browser bağlantısı başına sembol üst sınırı
 - `MENU_CACHE_TTL` / `MENU_CACHE_SWR` — menü cache süreleri
 - `SITE_URL` — canonical URL tabanı
+- `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` / `YANDEX_SITE_VERIFICATION` — isteğe bağlı webmaster doğrulama token'ları
 - `RELEASE_ID` — release/Git SHA; Redis HTML cache namespace'i
 - `OTEL_SERVICE_NAME` — trace ve metric service adı; varsayılan `ssr-kit`
 - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP/HTTP collector adresi; yoksa tracing no-op kalır

@@ -6,7 +6,8 @@ import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
 import type { HousingLoanList } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd, itemListJsonLd } from "~/lib/metadata/jsonld";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
 
@@ -31,12 +32,35 @@ export default defineRoute<HousingLoanList>({
       return notFound();
     return { data };
   },
-  generateMetadata: (_, ctx) => {
-    const title = "Konut Kredisi Faiz Oranları ve Hesaplama";
-    const description =
-      "Konut kredisi faiz oranlarını, aylık taksitleri ve toplam geri ödemeyi karşılaştırın.";
-    const url = publicAbsoluteUrl(ctx, "/konut-kredisi");
-    return { title, description, canonical: url, openGraph: { title, description, url } };
+  generateMetadata: (data, ctx) => {
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    const metadata = generatePaginatedMetadata(
+      data.seoInfo,
+      ctx,
+      data.pagination.page,
+      data.pagination.totalPages,
+      "/konut-kredisi",
+    );
+    return {
+      ...metadata,
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Konut Kredileri", url: metadata.canonical ?? "/konut-kredisi" },
+          ],
+          base,
+        ),
+        itemListJsonLd(
+          "Konut kredileri",
+          data.items.map((loan) => ({
+            name: `${loan.bank.name} ${loan.name}`,
+            url: publicAbsoluteUrl(ctx, `/konut-kredisi/${loan.slug}`),
+          })),
+          base,
+        ),
+      ]),
+    };
   },
   pageMeta: (_, ctx) =>
     defaultPageMeta(ctx, "housing-loans", { category: "credit", mid: "konut-kredisi" }),

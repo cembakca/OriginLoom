@@ -1,18 +1,16 @@
 import { logger } from "@server/logger";
 import { contextRequest, isRequestDeadlineError } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
-import { fetchRouteDomains } from "@server/services/route-domains";
+import { fetchSitemapEntries, type SitemapEntry } from "@server/services/sitemap";
 import type { Hono } from "hono";
 
-const STATIC_SITEMAP_PATHS = [
+const FALLBACK_SITEMAP_PATHS = [
   "/",
-  "/blogs/paginated",
   "/bilgi-merkezi",
   "/emekli-bankaciligi",
   "/ihtiyac-kredisi",
   "/konut-kredisi",
   "/kredi-kartlari",
-  "/medya-pipeline",
   "/piyasalar/bist-100",
   "/uzaktan-musteri-edinimi",
 ] as const;
@@ -23,19 +21,19 @@ export function mountSeoRoutes(app: Hono<{ Variables: AppVariables }>, siteUrl: 
   );
   app.on(["GET", "HEAD"], "/sitemap.xml", async (c) => {
     const request = contextRequest(c);
-    let loanCities: string[] = [];
+    let entries: SitemapEntry[] = FALLBACK_SITEMAP_PATHS.map((path) => ({ path }));
     try {
-      loanCities = (await fetchRouteDomains(request.signal)).loanCities;
+      entries = await fetchSitemapEntries(request.signal);
     } catch (error) {
       if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
       if (isRequestDeadlineError(error)) throw error;
-      logger.warn("sitemap route domains degraded", {
+      logger.warn("sitemap gateway degraded", {
         error: error instanceof Error ? error.message : String(error),
       });
     }
     return textResponse(
       c.req.method,
-      sitemapXml(siteUrl, loanCities),
+      sitemapXml(siteUrl, entries),
       "application/xml; charset=utf-8",
     );
   });
@@ -51,12 +49,16 @@ export function robotsText(siteUrl: string): string {
   ].join("\n");
 }
 
-export function sitemapXml(siteUrl: string, loanCities: string[]): string {
-  const paths = new Set<string>(STATIC_SITEMAP_PATHS);
-  for (const city of loanCities) paths.add(`/ihtiyac-kredisi/${encodeURIComponent(city)}`);
-  const entries = [...paths]
-    .sort()
-    .map((path) => `  <url><loc>${escapeXml(new URL(path, siteUrl).toString())}</loc></url>`)
+export function sitemapXml(siteUrl: string, sitemapEntries: SitemapEntry[]): string {
+  const entries = [...sitemapEntries]
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .map((entry) => {
+      const loc = `<loc>${escapeXml(new URL(entry.path, siteUrl).toString())}</loc>`;
+      const lastmod = entry.lastModified
+        ? `<lastmod>${escapeXml(entry.lastModified)}</lastmod>`
+        : "";
+      return `  <url>${loc}${lastmod}</url>`;
+    })
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }

@@ -15,7 +15,8 @@ export type GatewayPayloadContract =
   | "page"
   | "profile"
   | "redirect"
-  | "route_domains";
+  | "route_domains"
+  | "sitemap";
 
 type InvalidPayloadReason = "json" | "schema" | "size";
 
@@ -35,6 +36,7 @@ const MAX_PAYLOAD_BYTES: Record<GatewayPayloadContract, number> = {
   profile: 16_384,
   redirect: 16_384,
   route_domains: 65_536,
+  sitemap: 8_388_608,
 };
 
 export class GatewayPayloadError extends Error {

@@ -72,7 +72,7 @@ export const creditCards = cardDefinitions.map(
     annualFee,
     minMonthlyIncome: cardType === "premium" ? 50_000 : cardType === "student" ? 0 : 17_000,
     rewardProgram: `${name.split(" ")[0]} Puan`,
-    imageUrl: `/media/cards/${slug}.webp`,
+    imageUrl: "/assets/media/og-default.jpg",
     featured: index < 5,
     summary:
       annualFee === 0

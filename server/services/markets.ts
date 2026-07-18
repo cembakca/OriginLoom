@@ -11,6 +11,7 @@ import {
   isStringArray,
   MAX_COLLECTION,
 } from "@server/services/gateway-guards";
+import { isSeoInfo } from "@server/services/seo-info";
 
 import type { Stock, StockList } from "~/lib/contracts/markets";
 
@@ -45,6 +46,7 @@ function isStockList(value: unknown): value is StockList {
   if (!isRecord(value) || !isRecord(value.index)) return false;
   return (
     isMarketIndex(value.index) &&
+    isSeoInfo(value.seoInfo) &&
     Array.isArray(value.items) &&
     value.items.length <= MAX_COLLECTION &&
     value.items.every(isStock) &&

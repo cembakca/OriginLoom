@@ -1,3 +1,5 @@
+import type { SeoInfo } from "~/lib/metadata/types";
+
 import type { Pagination } from "./pagination";
 
 export type Stock = {
@@ -25,6 +27,7 @@ export type MarketIndex = {
 };
 
 export type StockList = {
+  seoInfo: SeoInfo;
   index: MarketIndex;
   items: Stock[];
   pagination: Pagination;

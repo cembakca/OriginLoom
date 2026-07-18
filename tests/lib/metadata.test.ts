@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   generateMetaDataForPageWithDummySeoInfo,
   generateMetaDataForPageWithSeoInfo,
+  generatePaginatedMetadata,
 } from "~/lib/metadata/generate";
 import { mergeMetadata } from "~/lib/metadata/merge";
+import { parseSeoInfo } from "~/lib/metadata/schema";
 import type { Ctx } from "~/lib/types";
 
 const ctx = (publicPath = "/emekli-bankaciligi"): Ctx => ({
@@ -30,12 +32,43 @@ describe("metadata generate", () => {
     expect(meta.description).toBe("Emekli ürünleri");
     expect(meta.canonical).toBe("https://www.hangikredi.com/emekli-bankaciligi");
     expect(meta.openGraph?.image).toBe("https://cdn.hangikredi.com/og.png");
+    expect(meta.openGraph?.imageType).toBe("image/png");
   });
 
   it("dummy fallback uses public path", () => {
     const meta = generateMetaDataForPageWithDummySeoInfo("/retirement-banking", ctx());
     expect(meta.title).toBe("Emekli Bankacılığı");
     expect(meta.canonical).toContain("/emekli-bankaciligi");
+  });
+
+  it("gives indexable pagination a self canonical and prev/next links", () => {
+    const meta = generatePaginatedMetadata(
+      { title: "Bilgi Merkezi", friendlyUrl: "/bilgi-merkezi" },
+      ctx("/bilgi-merkezi"),
+      2,
+      4,
+      "/bilgi-merkezi",
+    );
+
+    expect(meta.canonical).toBe("http://localhost:3005/bilgi-merkezi?page=2");
+    expect(meta.pagination).toEqual({
+      previous: "http://localhost:3005/bilgi-merkezi",
+      next: "http://localhost:3005/bilgi-merkezi?page=3",
+    });
+  });
+
+  it("keeps faceted noindex pagination canonicalized to the base collection", () => {
+    const meta = generatePaginatedMetadata(
+      { title: "Konut Kredisi", friendlyUrl: "/konut-kredisi", noindex: true },
+      ctx("/konut-kredisi"),
+      2,
+      4,
+      "/konut-kredisi",
+    );
+
+    expect(meta.canonical).toBe("http://localhost:3005/konut-kredisi");
+    expect(meta.pagination).toBeUndefined();
+    expect(meta.robots).toEqual({ index: false, follow: true });
   });
 });
 
@@ -74,7 +107,7 @@ describe("metadata merge", () => {
     );
   });
 
-  it("adds Organization and WebSite identity only to the home canonical", () => {
+  it("adds Organization and WebSite identity to every indexable graph", () => {
     const resolved = mergeMetadata({ title: "Hangikredi" }, ctx("/"));
     expect(resolved.structuredData.map((node) => node["@type"])).toEqual([
       "Organization",
@@ -94,6 +127,56 @@ describe("metadata merge", () => {
 
     expect(resolved.canonical).toBe("http://localhost:3005/safe-page");
     expect(resolved.openGraph.url).toBe("http://localhost:3005/safe-page");
-    expect(resolved.openGraph.image).toBe("http://localhost:3005/og-default.png");
+    expect(resolved.openGraph.image).toBe("http://localhost:3005/assets/media/og-default.jpg");
+  });
+});
+
+describe("gateway seoInfo schema", () => {
+  it("accepts the complete bounded editorial contract and strips unknown fields", () => {
+    const parsed = parseSeoInfo(
+      {
+        title: "Konut Kredisi Rehberi",
+        metaDescription: "Toplam maliyeti karşılaştırma rehberi.",
+        friendlyUrl: "/bilgi-merkezi/konut-kredisi-rehberi",
+        image: "https://cdn.example.com/article.jpg",
+        imageAlt: "Konut kredisi karşılaştırma tablosu",
+        imageWidth: 1200,
+        imageHeight: 630,
+        openGraphType: "article",
+        publishedTime: "2026-07-01T10:00:00.000Z",
+        modifiedTime: "2026-07-18T10:00:00.000Z",
+        author: "Ayşe Kaya",
+        section: "konut-kredisi",
+        tags: ["konut kredisi", "faiz"],
+        ignored: "must not cross the boundary",
+      },
+      "https://www.example.com",
+    );
+
+    expect(parsed).toMatchObject({
+      friendlyUrl: "/bilgi-merkezi/konut-kredisi-rehberi",
+      openGraphType: "article",
+      author: "Ayşe Kaya",
+      tags: ["konut kredisi", "faiz"],
+    });
+    expect(parsed).not.toHaveProperty("ignored");
+  });
+
+  it("rejects unsafe URLs, invalid dates and unbounded collections", () => {
+    expect(
+      parseSeoInfo(
+        { title: "Unsafe", canonicalUrl: "https://evil.example/page" },
+        "https://www.example.com",
+      ),
+    ).toBeNull();
+    expect(
+      parseSeoInfo({ title: "Bad date", publishedTime: "not-a-date" }, "https://www.example.com"),
+    ).toBeNull();
+    expect(
+      parseSeoInfo(
+        { title: "Too many tags", tags: Array(31).fill("tag") },
+        "https://www.example.com",
+      ),
+    ).toBeNull();
   });
 });

@@ -10,6 +10,7 @@ import {
   isStringArray,
   MAX_COLLECTION,
 } from "@server/services/gateway-guards";
+import { isSeoInfo } from "@server/services/seo-info";
 
 import type {
   CreditCard,
@@ -170,6 +171,7 @@ function isLoanCalculation(value: Record<string, unknown>): boolean {
 function isHousingLoanList(value: unknown): value is HousingLoanList {
   return (
     isRecord(value) &&
+    isSeoInfo(value.seoInfo) &&
     Array.isArray(value.items) &&
     value.items.length <= MAX_COLLECTION &&
     value.items.every(isLoan) &&
@@ -191,7 +193,12 @@ function isHousingLoanList(value: unknown): value is HousingLoanList {
 }
 
 function isHousingLoanDetail(value: unknown): value is HousingLoanDetail {
-  return isRecord(value) && isLoan(value.product) && isStringArray(value.disclosures, 20, 2_000);
+  return (
+    isRecord(value) &&
+    isSeoInfo(value.seoInfo) &&
+    isLoan(value.product) &&
+    isStringArray(value.disclosures, 20, 2_000)
+  );
 }
 
 function isCampaign(value: unknown): value is CreditCardCampaign {
@@ -245,6 +252,7 @@ function isCardBenefits(value: Record<string, unknown>): boolean {
 function isCreditCardList(value: unknown): value is CreditCardList {
   return (
     isRecord(value) &&
+    isSeoInfo(value.seoInfo) &&
     Array.isArray(value.items) &&
     value.items.length <= MAX_COLLECTION &&
     value.items.every(isCard) &&
@@ -266,6 +274,7 @@ function isCreditCardList(value: unknown): value is CreditCardList {
 function isCreditCardDetail(value: unknown): value is CreditCardDetail {
   return (
     isRecord(value) &&
+    isSeoInfo(value.seoInfo) &&
     isCard(value.product) &&
     Array.isArray(value.product.campaigns) &&
     value.product.campaigns.every(isCampaign) &&
@@ -277,6 +286,7 @@ function isCreditCardDetail(value: unknown): value is CreditCardDetail {
 function isReferralDetail(value: unknown): value is ReferralDetail {
   if (!isRecord(value) || !isRecord(value.product)) return false;
   return (
+    isSeoInfo(value.seoInfo) &&
     isString(value.product.id, 120) &&
     isString(value.product.slug, 120) &&
     isString(value.product.productType, 80) &&

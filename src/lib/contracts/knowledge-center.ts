@@ -1,3 +1,5 @@
+import type { SeoInfo } from "~/lib/metadata/types";
+
 import type { Pagination } from "./pagination";
 
 export type ArticleSeo = { title: string; description: string; canonicalPath: string };
@@ -23,6 +25,7 @@ export type KnowledgeArticle = KnowledgeArticleSummary & {
 };
 
 export type KnowledgeArticleList = {
+  seoInfo: SeoInfo;
   items: KnowledgeArticleSummary[];
   pagination: Pagination;
   query: { category: string; tag: string | null; q: string | null; orderBy: string };
@@ -30,6 +33,7 @@ export type KnowledgeArticleList = {
 };
 
 export type KnowledgeArticleDetail = {
+  seoInfo: SeoInfo;
   article: KnowledgeArticle;
   related: KnowledgeArticleSummary[];
 };

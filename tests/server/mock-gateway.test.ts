@@ -8,10 +8,11 @@ function gatewayUrl(path: string): string {
 
 describe("external mock gateway", () => {
   it("serves public content contracts", async () => {
-    const [health, menu, routeDomains, offers, blogs, redirect] = await Promise.all([
+    const [health, menu, routeDomains, sitemap, offers, blogs, redirect] = await Promise.all([
       fetch(gatewayUrl("/healthz")),
       fetch(gatewayUrl("/pages/menuitem/list")),
       fetch(gatewayUrl("/routing/domains")),
+      fetch(gatewayUrl("/seo/sitemap")),
       fetch(gatewayUrl("/offers?amount=50000&city=istanbul&device=Desktop")),
       fetch(gatewayUrl("/blogs?page=1&pageSize=6&orderBy=date-desc")),
       fetch(gatewayUrl("/cms/redirects?path=%2Feski-emeklilik")),
@@ -21,16 +22,31 @@ describe("external mock gateway", () => {
       health.status,
       menu.status,
       routeDomains.status,
+      sitemap.status,
       offers.status,
       blogs.status,
       redirect.status,
-    ]).toEqual([200, 200, 200, 200, 200, 200]);
+    ]).toEqual([200, 200, 200, 200, 200, 200, 200]);
     expect(await routeDomains.json()).toEqual({
       loanCities: ["istanbul", "ankara", "izmir"],
       recoursePages: ["kredi"],
     });
     expect((await offers.json()) as unknown[]).toHaveLength(6);
-    expect(((await blogs.json()) as { posts: unknown[] }).posts).toHaveLength(6);
+    const sitemapBody = (await sitemap.json()) as { entries: Array<{ path: string }> };
+    expect(sitemapBody.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "/konut-kredisi/ziraat-konut-kredisi" }),
+        expect.objectContaining({ path: "/kredi-kartlari/maximum" }),
+        expect.objectContaining({ path: "/bilgi-merkezi/bist-100-endeksi-nedir" }),
+      ]),
+    );
+    const blogsBody = (await blogs.json()) as {
+      posts: unknown[];
+      seoInfo: { noindex: boolean; nofollow: boolean };
+    };
+    expect(blogsBody.posts).toHaveLength(6);
+    expect(blogsBody.seoInfo.noindex).toBe(true);
+    expect(blogsBody.seoInfo.nofollow).toBe(false);
   });
 
   it("rejects offer requests outside the gateway-owned city domain", async () => {

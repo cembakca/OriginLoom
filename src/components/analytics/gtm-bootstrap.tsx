@@ -1,6 +1,7 @@
 type GtmBootstrapProps = {
   containerId: string;
   isBot: boolean;
+  nonce?: string | undefined;
 };
 
 export const ANALYTICS_FAIL_OPEN_MS = 5_000;
@@ -63,15 +64,18 @@ j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNo
 `.trim();
 }
 
-export function GtmBootstrap({ containerId, isBot }: GtmBootstrapProps) {
+export function GtmBootstrap({ containerId, isBot, nonce }: GtmBootstrapProps) {
   if (!containerId) return null;
 
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: "window.dataLayer=window.dataLayer||[];" }} />
-      <script dangerouslySetInnerHTML={{ __html: buildEventQueueScript() }} />
-      <script dangerouslySetInnerHTML={{ __html: EARLY_TRACKING_SCRIPT }} />
-      <script dangerouslySetInnerHTML={{ __html: buildGtmScript(containerId) }} />
+      <script
+        nonce={nonce}
+        dangerouslySetInnerHTML={{ __html: "window.dataLayer=window.dataLayer||[];" }}
+      />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: buildEventQueueScript() }} />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: EARLY_TRACKING_SCRIPT }} />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: buildGtmScript(containerId) }} />
       {!isBot && (
         <noscript>
           <iframe

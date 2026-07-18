@@ -50,6 +50,7 @@ export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): Resolve
       apple: pageMeta.icons?.apple ?? site.icons.apple,
     }),
     verification: pageMeta.verification ?? {},
+    pagination: resolvePagination(pageMeta, base),
     formatDetection: { telephone: site.formatDetection?.telephone ?? true },
     structuredData: [],
   };
@@ -59,6 +60,17 @@ export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): Resolve
     ...(indexable ? (pageMeta.structuredData ?? []) : []),
   ];
   return resolved;
+}
+
+function resolvePagination(page: PageMetadata, base: string): ResolvedMetadata["pagination"] {
+  return stripUndefined({
+    previous: page.pagination?.previous
+      ? (normalizeCanonicalUrl(page.pagination.previous, base) ?? undefined)
+      : undefined,
+    next: page.pagination?.next
+      ? (normalizeCanonicalUrl(page.pagination.next, base) ?? undefined)
+      : undefined,
+  });
 }
 
 function resolveCanonical(page: PageMetadata, ctx: Ctx, base: string): string {

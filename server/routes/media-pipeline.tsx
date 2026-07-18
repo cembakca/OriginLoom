@@ -8,7 +8,7 @@ import {
 } from "~/features/media-pipeline/page";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { imagePreload } from "~/lib/media";
-import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithSeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
 
@@ -23,7 +23,16 @@ export default defineRoute<MediaPipelineData>({
       transformEnabled: Boolean(config.imageTransformUrl),
     },
   }),
-  generateMetadata: (_data, ctx) => generateMetaDataForPageWithDummySeoInfo("/medya-pipeline", ctx),
+  generateMetadata: (_data, ctx) =>
+    generateMetaDataForPageWithSeoInfo(
+      {
+        title: "Image ve Font Pipeline Demosu",
+        metaDescription: "Responsive image ve self-host font pipeline teknik demosu.",
+        friendlyUrl: "/medya-pipeline",
+        noindex: true,
+      },
+      ctx,
+    ),
   pageMeta: (_data, ctx) =>
     defaultPageMeta(ctx, "media-pipeline", { category: "engineering-demo" }),
   preloadImages: (data) => [imagePreload(data.responsive, MEDIA_DEMO_SIZES)],

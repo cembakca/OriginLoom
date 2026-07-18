@@ -43,6 +43,7 @@ describe("blogs service", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
+          seoInfo: { title: "Blog", friendlyUrl: "/blogs/paginated", noindex: true },
           posts: [],
           page: 1,
           pageSize: 6,
@@ -61,6 +62,7 @@ describe("blogs service", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
+          seoInfo: { title: "Blog", friendlyUrl: "/blogs/paginated", noindex: true },
           posts: [],
           page: 1,
           pageSize: 6,

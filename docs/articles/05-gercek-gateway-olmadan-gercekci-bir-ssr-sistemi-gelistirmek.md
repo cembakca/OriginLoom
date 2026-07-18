@@ -539,6 +539,18 @@ metadata merge'in policy'yi tekrar uygulaması eski cache girdilerine ve route-l
 karşı ikinci sınırdır. Mock gateway basit kalabilir; tüketici kontratının saldırgan payload testleri
 basit gateway'in production koduna sınırsız güvenilmesine engel olur.
 
+Bu kontrat artık yalnız meta etiketlerinden ibaret değildir. Liste ve detay response'ları image
+boyut/alt bilgisi, index/follow kararı ve makalelerde published/modified/yazar/tag alanlarını taşıyan
+bounded `seoInfo` döndürür. SSR katmanı bunlardan Open Graph/Twitter etiketlerini ve görünür içerikle
+eşleşen `BreadcrumbList`, `ItemList`, `Article`, `FAQPage`, `LoanOrCredit` ve `CreditCard` JSON-LD
+düğümlerini üretir. Mock veri rating veya review sağlamıyorsa structured data da sağlamaz; rich result
+elde etmek için gerçek olmayan alan üretmek contract testinin amacıyla çelişir.
+
+Dinamik crawl envanteri de gateway sorumluluğudur. `/seo/sitemap`, yalnız gerçek kategori ve detay
+path'lerini, makalelerde gerçek `lastModified` değerini döndürür. Filtre query'leri, auth route'ları ve
+teknik demolar bu envantere girmez. Gateway kesintisinde BFF sınırlı statik kategori sitemap'ine
+degrade olur; uydurma slug veya deployment env allowlist'i üretmez.
+
 Mock server’ın şu an deterministik happy path ve auth rejection sunduğunu da dürüstçe belirtmeliyiz.
 Configurable latency, connection reset, malformed JSON veya per-endpoint `5xx` fault injection yok.
 Bu failure’lar şimdilik stubbed fetch testlerinde üretiliyor. Daha fazla integration gerçekliği

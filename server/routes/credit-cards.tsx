@@ -6,7 +6,8 @@ import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
 import type { CreditCardList } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd, itemListJsonLd } from "~/lib/metadata/jsonld";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
 
@@ -31,12 +32,36 @@ export default defineRoute<CreditCardList>({
       return notFound();
     return { data };
   },
-  generateMetadata: (_, ctx) => {
-    const title = "Kredi Kartı Karşılaştırma ve Kampanyalar";
-    const description =
-      "Kredi kartlarını yıllık ücret, kart türü ve kampanya avantajlarına göre karşılaştırın.";
-    const url = publicAbsoluteUrl(ctx, "/kredi-kartlari");
-    return { title, description, canonical: url, openGraph: { title, description, url } };
+  generateMetadata: (data, ctx) => {
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    const metadata = generatePaginatedMetadata(
+      data.seoInfo,
+      ctx,
+      data.pagination.page,
+      data.pagination.totalPages,
+      "/kredi-kartlari",
+    );
+    return {
+      ...metadata,
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Kredi Kartları", url: metadata.canonical ?? "/kredi-kartlari" },
+          ],
+          base,
+        ),
+        itemListJsonLd(
+          "Kredi kartları",
+          data.items.map((card) => ({
+            name: `${card.bank.name} ${card.name}`,
+            url: publicAbsoluteUrl(ctx, `/kredi-kartlari/${card.slug}`),
+            image: card.imageUrl,
+          })),
+          base,
+        ),
+      ]),
+    };
   },
   pageMeta: (_, ctx) =>
     defaultPageMeta(ctx, "credit-cards", { category: "card", mid: "kredi-kartlari" }),

@@ -7,6 +7,7 @@ import {
   parsePage,
   parsePageSize,
 } from "../lib/query.js";
+import { seoInfo } from "../lib/seo.js";
 
 const sortOrders = new Set([
   "symbol-asc",
@@ -28,6 +29,13 @@ export function resolveMarketsRequest(request, url) {
   return {
     status: 200,
     body: {
+      seoInfo: seoInfo({
+        title: "BIST 100 Hisseleri ve Güncel Fiyatlar",
+        description:
+          "BIST 100 şirketlerini fiyat, günlük değişim, sektör ve piyasa değerine göre inceleyin.",
+        path: "/piyasalar/bist-100",
+        noindex: Boolean(query || sector || sortBy !== "market-cap-desc"),
+      }),
       index: {
         code: "XU100",
         name: "BIST 100",

@@ -20,6 +20,26 @@ export function baseStructuredData(
   const websiteId = `${base}/#website`;
   const nodes: JsonLdObject[] = [
     {
+      "@type": "Organization",
+      "@id": organizationId,
+      name: meta.siteName,
+      url: `${base}/`,
+      logo: {
+        "@type": "ImageObject",
+        url: `${base}/assets/media/brand-logo-512.png`,
+        width: 512,
+        height: 512,
+      },
+    },
+    {
+      "@type": "WebSite",
+      "@id": websiteId,
+      url: `${base}/`,
+      name: meta.siteName,
+      inLanguage: "tr-TR",
+      publisher: { "@id": organizationId },
+    },
+    {
       "@type": "WebPage",
       "@id": `${meta.canonical}#webpage`,
       url: meta.canonical,
@@ -41,28 +61,6 @@ export function baseStructuredData(
     },
   ];
 
-  if (new URL(meta.canonical).pathname === "/") {
-    nodes.unshift(
-      {
-        "@type": "Organization",
-        "@id": organizationId,
-        name: meta.siteName,
-        url: `${base}/`,
-        logo: {
-          "@type": "ImageObject",
-          url: new URL(meta.icons.icon, `${base}/`).toString(),
-        },
-      },
-      {
-        "@type": "WebSite",
-        "@id": websiteId,
-        url: `${base}/`,
-        name: meta.siteName,
-        inLanguage: "tr-TR",
-        publisher: { "@id": organizationId },
-      },
-    );
-  }
   return nodes;
 }
 

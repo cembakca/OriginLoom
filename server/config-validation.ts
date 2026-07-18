@@ -130,6 +130,9 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   if (!/^[A-Za-z0-9._-]{1,128}$/.test(config.releaseId)) {
     throw new Error(`Invalid RELEASE_ID: ${config.releaseId}`);
   }
+  validateVerificationToken("GOOGLE_SITE_VERIFICATION", config.googleSiteVerification);
+  validateVerificationToken("BING_SITE_VERIFICATION", config.bingSiteVerification);
+  validateVerificationToken("YANDEX_SITE_VERIFICATION", config.yandexSiteVerification);
 
   validatePublicUrls(config);
 
@@ -148,6 +151,20 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     if (!config.marketStreamToken) throw new Error("MARKET_STREAM_TOKEN is required in production");
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
   }
+}
+
+function validateVerificationToken(name: string, value: string | undefined): void {
+  if (
+    value &&
+    (value.length > 256 || /[\s"'<>]/.test(value) || [...value].some(isControlCharacter))
+  ) {
+    throw new Error(`Invalid ${name}`);
+  }
+}
+
+function isControlCharacter(character: string): boolean {
+  const code = character.charCodeAt(0);
+  return code <= 31 || code === 127;
 }
 
 function validatePublicUrls(config: AppConfig): void {

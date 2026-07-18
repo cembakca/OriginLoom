@@ -25,4 +25,5 @@ export type DocumentLayoutProps = {
   shell: ShellData;
   pageMeta: PageAnalyticsMeta;
   content: ReactElement;
+  cspNonce?: string | undefined;
 };

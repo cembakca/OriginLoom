@@ -1,6 +1,6 @@
 import { neverCache } from "~/lib/cache-policy";
 import { Island } from "~/lib/island";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithSeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
 
@@ -30,16 +30,16 @@ export default defineRoute<Record<string, never>>({
 
   loader: async () => ({ data: {} }),
 
-  generateMetadata: (_data, ctx) => {
-    const title = "Finans Rehberi & En Çok Okunanlar";
-    const url = publicAbsoluteUrl(ctx, ctx.publicPath);
-    return {
-      title,
-      description: "Finans ve bankacılık hakkında rehber içerikler.",
-      canonical: url,
-      openGraph: { title, url },
-    };
-  },
+  generateMetadata: (_data, ctx) =>
+    generateMetaDataForPageWithSeoInfo(
+      {
+        title: "Fragment Cache Teknik Demosu",
+        metaDescription: "Redis fragment cache davranışını gösteren teknik demo sayfası.",
+        friendlyUrl: "/blogs/popular-fragments",
+        noindex: true,
+      },
+      ctx,
+    ),
 
   pageMeta: (_data, ctx) =>
     defaultPageMeta(ctx, "fragment-cache-demo", {

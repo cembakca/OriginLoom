@@ -4,7 +4,9 @@ import { CreditCardDetailPage } from "~/features/financial-products/credit-card-
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { isBoundedRouteSlug } from "~/lib/content-values";
 import type { CreditCardDetail } from "~/lib/contracts/financial-products";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { creditCardJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound } from "~/lib/types";
 
@@ -17,10 +19,25 @@ export default defineRoute<CreditCardDetail>({
     return data ? { data } : notFound();
   },
   generateMetadata: (data, ctx) => {
-    const title = `${data.product.name} Kampanyaları ve Özellikleri`;
-    const description = data.product.summary;
+    const base = ctx.siteUrl ?? ctx.url.origin;
     const url = publicAbsoluteUrl(ctx, `/kredi-kartlari/${data.product.slug}`);
-    return { title, description, canonical: url, openGraph: { title, description, url } };
+    const metadata = generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx);
+    return {
+      ...metadata,
+      canonical: url,
+      openGraph: { ...metadata.openGraph, url },
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Kredi Kartları", url: publicAbsoluteUrl(ctx, "/kredi-kartlari") },
+            { name: data.product.name, url },
+          ],
+          base,
+        ),
+        creditCardJsonLd(data.product, url),
+      ]),
+    };
   },
   pageMeta: (data, ctx) =>
     defaultPageMeta(ctx, "credit-card-detail", {

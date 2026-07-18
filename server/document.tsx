@@ -1,6 +1,7 @@
 import { PassThrough, Readable } from "node:stream";
 
 import type { Assets } from "@server/assets";
+import { config } from "@server/config";
 import { buildShellData } from "@server/services/shell-data";
 import type { ReactElement } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
@@ -27,7 +28,7 @@ export async function renderDocument<T>(
   docCtx: DocumentContext,
 ): Promise<string> {
   const { routeCtx } = docCtx;
-  const seo = resolveDocumentMetadata(route, data, routeCtx);
+  const seo = withSiteVerification(resolveDocumentMetadata(route, data, routeCtx));
   const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
@@ -40,6 +41,7 @@ export async function renderDocument<T>(
     metadata: seo,
     pageMeta,
     imagePreloads,
+    ...stripUndefined({ cspNonce: routeCtx.cspNonce }),
     ...stripUndefined({
       preloadIslands: route.preloadIslands,
       minimalChrome: route.minimalChrome,
@@ -56,6 +58,7 @@ export async function renderDocumentView({
   imagePreloads = [],
   preloadIslands = [],
   minimalChrome,
+  cspNonce = routeCtx.cspNonce,
 }: {
   assets: Assets;
   routeCtx: Ctx;
@@ -65,6 +68,7 @@ export async function renderDocumentView({
   imagePreloads?: ImagePreload[];
   preloadIslands?: readonly string[];
   minimalChrome?: boolean;
+  cspNonce?: string;
 }): Promise<string> {
   const isBot = isBotRequest(routeCtx.request);
   const shell = await buildShellData(routeCtx, stripUndefined({ minimalChrome }));
@@ -83,6 +87,7 @@ export async function renderDocumentView({
       shell={shell}
       pageMeta={pageMeta}
       content={content}
+      cspNonce={cspNonce}
     />,
   );
   return "<!DOCTYPE html>" + html;
@@ -96,7 +101,7 @@ export async function renderDocumentToStream<T>(
   onError: (error: unknown) => void,
 ): Promise<StreamResult> {
   const { routeCtx } = docCtx;
-  const seo = resolveDocumentMetadata(route, data, routeCtx);
+  const seo = withSiteVerification(resolveDocumentMetadata(route, data, routeCtx));
   const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
@@ -138,6 +143,7 @@ export async function renderDocumentToStream<T>(
       shell={shell}
       pageMeta={pageMeta}
       content={content}
+      cspNonce={routeCtx.cspNonce}
     />,
     {
       onShellReady() {
@@ -164,6 +170,22 @@ export async function renderDocumentToStream<T>(
     stream: Readable.toWeb(passThrough) as unknown as ReadableStream<Uint8Array>,
     abort: () => rxStream.abort(),
     allReady: allReadyPromise,
+  };
+}
+
+function withSiteVerification(metadata: ResolvedMetadata): ResolvedMetadata {
+  return {
+    ...metadata,
+    verification: {
+      ...metadata.verification,
+      ...(config.googleSiteVerification
+        ? { "google-site-verification": config.googleSiteVerification }
+        : {}),
+      ...(config.bingSiteVerification ? { "msvalidate.01": config.bingSiteVerification } : {}),
+      ...(config.yandexSiteVerification
+        ? { "yandex-verification": config.yandexSiteVerification }
+        : {}),
+    },
   };
 }
 

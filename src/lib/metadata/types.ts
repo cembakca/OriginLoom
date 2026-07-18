@@ -8,9 +8,19 @@ export type SeoInfo = {
   headingTitle?: string;
   heroDescription?: string;
   image?: string;
+  imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   noindex?: boolean;
+  nofollow?: boolean;
   badge?: string;
   friendlyUrl?: string;
+  openGraphType?: "website" | "article" | "product";
+  publishedTime?: string;
+  modifiedTime?: string;
+  author?: string;
+  section?: string;
+  tags?: string[];
 };
 
 /** Route-level metadata override (Next.js Metadata API karşılığı). */
@@ -58,6 +68,7 @@ export type PageMetadata = {
   };
   icons?: { icon?: string; apple?: string };
   verification?: Record<string, string>;
+  pagination?: { previous?: string; next?: string };
   structuredData?: JsonLdObject[];
 };
 
@@ -98,6 +109,7 @@ export type ResolvedMetadata = {
     NonNullable<PageMetadata["twitter"]>;
   icons: { icon: string; apple?: string };
   verification: Record<string, string>;
+  pagination: { previous?: string; next?: string };
   formatDetection: { telephone: boolean };
   structuredData: JsonLdObject[];
 };

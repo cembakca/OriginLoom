@@ -577,7 +577,7 @@ describe("handler", () => {
     expect(second.headers.get("x-cache")).toBe("BYPASS");
   });
 
-  it("uses a self-referencing canonical and semantic pagination links for page 2+", async () => {
+  it("keeps technical blog pagination noindex while preserving semantic navigation", async () => {
     const response = await handle(
       new Request("http://localhost/blogs/paginated?page=2&utm_source=crawler"),
       [blogsPaginatedRoute],
@@ -586,9 +586,8 @@ describe("handler", () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body).toContain(
-      '<link rel="canonical" href="http://localhost:3005/blogs/paginated?page=2"',
-    );
+    expect(body).toContain('<link rel="canonical" href="http://localhost:3005/blogs/paginated"');
+    expect(body).toContain('<meta name="robots" content="noindex, follow"');
     expect(body).toContain('<a href="/blogs/paginated" rel="prev"');
     expect(body).toContain('<a href="/blogs/paginated?page=3" rel="next"');
     expect(body).toContain('<span aria-current="page"');

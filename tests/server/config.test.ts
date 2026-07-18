@@ -229,6 +229,12 @@ describe("server config", () => {
     ).rejects.toThrow("SITE_URL must be an HTTP(S) origin");
   });
 
+  it("rejects unsafe webmaster verification tokens", async () => {
+    await expect(validateWith({ GOOGLE_SITE_VERIFICATION: 'token"><script>' })).rejects.toThrow(
+      "Invalid GOOGLE_SITE_VERIFICATION",
+    );
+  });
+
   it("requires HTTPS for a non-loopback production SITE_URL", async () => {
     await expect(
       validateWith({

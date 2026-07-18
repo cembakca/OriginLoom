@@ -6,7 +6,9 @@ import { neverCache } from "~/lib/cache-policy";
 import { resolvePageParam } from "~/lib/content-values";
 import type { StockList } from "~/lib/contracts/markets";
 import { marketSearch } from "~/lib/market-query";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { stockItemListJsonLd } from "~/lib/metadata/jsonld-market";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
 
@@ -33,12 +35,28 @@ export default defineRoute<StockList>({
       return notFound();
     return { data };
   },
-  generateMetadata: (_, ctx) => {
-    const title = "BIST 100 Hisseleri ve Güncel Fiyatlar";
-    const description =
-      "BIST 100 şirketlerini fiyat, günlük değişim, sektör ve piyasa değerine göre inceleyin.";
-    const url = publicAbsoluteUrl(ctx, "/piyasalar/bist-100");
-    return { title, description, canonical: url, openGraph: { title, description, url } };
+  generateMetadata: (data, ctx) => {
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    const metadata = generatePaginatedMetadata(
+      data.seoInfo,
+      ctx,
+      data.pagination.page,
+      data.pagination.totalPages,
+      "/piyasalar/bist-100",
+    );
+    return {
+      ...metadata,
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "BIST 100", url: metadata.canonical ?? "/piyasalar/bist-100" },
+          ],
+          base,
+        ),
+        stockItemListJsonLd(data.items),
+      ]),
+    };
   },
   pageMeta: (_, ctx) => defaultPageMeta(ctx, "bist100", { category: "market", mid: "bist-100" }),
   Component: Bist100Page,

@@ -10,6 +10,7 @@ import {
   isStringArray,
   MAX_COLLECTION,
 } from "@server/services/gateway-guards";
+import { isSeoInfo } from "@server/services/seo-info";
 
 import type {
   KnowledgeArticle,
@@ -81,6 +82,7 @@ function isArticle(value: unknown): value is KnowledgeArticle {
 function isArticleList(value: unknown): value is KnowledgeArticleList {
   return (
     isRecord(value) &&
+    isSeoInfo(value.seoInfo) &&
     Array.isArray(value.items) &&
     value.items.length <= MAX_COLLECTION &&
     value.items.every(isArticleSummary) &&
@@ -102,6 +104,7 @@ function isArticleList(value: unknown): value is KnowledgeArticleList {
 function isArticleDetail(value: unknown): value is KnowledgeArticleDetail {
   return (
     isRecord(value) &&
+    isSeoInfo(value.seoInfo) &&
     isArticle(value.article) &&
     Array.isArray(value.related) &&
     value.related.length <= 20 &&

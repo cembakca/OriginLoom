@@ -4,7 +4,9 @@ import { KnowledgeArticlePage } from "~/features/knowledge-center/article-detail
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { isBoundedRouteSlug } from "~/lib/content-values";
 import type { KnowledgeArticleDetail } from "~/lib/contracts/knowledge-center";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { articleJsonLd, faqJsonLd } from "~/lib/metadata/jsonld-article";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound } from "~/lib/types";
 
@@ -17,12 +19,25 @@ export default defineRoute<KnowledgeArticleDetail>({
     return data ? { data } : notFound();
   },
   generateMetadata: (data, ctx) => {
+    const base = ctx.siteUrl ?? ctx.url.origin;
     const url = publicAbsoluteUrl(ctx, data.article.seo.canonicalPath);
+    const metadata = generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx);
     return {
-      title: data.article.seo.title,
-      description: data.article.seo.description,
+      ...metadata,
       canonical: url,
-      openGraph: { title: data.article.seo.title, description: data.article.seo.description, url },
+      openGraph: { ...metadata.openGraph, url },
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Bilgi Merkezi", url: publicAbsoluteUrl(ctx, "/bilgi-merkezi") },
+            { name: data.article.title, url },
+          ],
+          base,
+        ),
+        articleJsonLd(data.article, url, base),
+        faqJsonLd(data.article.faq),
+      ]),
     };
   },
   pageMeta: (data, ctx) =>

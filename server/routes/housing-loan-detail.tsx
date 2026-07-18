@@ -5,7 +5,9 @@ import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { isBoundedRouteSlug } from "~/lib/content-values";
 import type { HousingLoanDetail } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
-import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { housingLoanJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound } from "~/lib/types";
 
@@ -22,10 +24,25 @@ export default defineRoute<HousingLoanDetail>({
     return data ? { data } : notFound();
   },
   generateMetadata: (data, ctx) => {
-    const title = `${data.product.name} Faiz ve Ödeme Bilgileri`;
-    const description = data.product.summary;
+    const base = ctx.siteUrl ?? ctx.url.origin;
     const url = publicAbsoluteUrl(ctx, `/konut-kredisi/${data.product.slug}`);
-    return { title, description, canonical: url, openGraph: { title, description, url } };
+    const metadata = generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx);
+    return {
+      ...metadata,
+      canonical: url,
+      openGraph: { ...metadata.openGraph, url },
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Konut Kredileri", url: publicAbsoluteUrl(ctx, "/konut-kredisi") },
+            { name: data.product.name, url },
+          ],
+          base,
+        ),
+        housingLoanJsonLd(data.product, url),
+      ]),
+    };
   },
   pageMeta: (data, ctx) =>
     defaultPageMeta(ctx, "housing-loan-detail", {

@@ -1,6 +1,6 @@
 const headerItems = [
-  menuCategory(1, "Kredi", "/ihtiyac-kredisi/istanbul", [
-    menuItem(11, 1, "İhtiyaç Kredisi", "/ihtiyac-kredisi/istanbul", 1),
+  menuCategory(1, "Kredi", "/ihtiyac-kredisi", [
+    menuItem(11, 1, "İhtiyaç Kredisi", "/ihtiyac-kredisi", 1),
     menuItem(12, 1, "Emekli Bankacılığı", "/emekli-bankaciligi", 2, "Emekli"),
   ]),
   menuCategory(2, "Blog", "/blogs/paginated", [

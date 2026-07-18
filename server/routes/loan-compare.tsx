@@ -9,6 +9,8 @@ import { parseLoanAmount, parseTheme } from "~/lib/content-values";
 import type { Offer } from "~/lib/contracts/offers";
 import { Island } from "~/lib/island";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { loanOfferItemListJsonLd } from "~/lib/metadata/jsonld-finance";
 import { cookie, device } from "~/lib/request";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute } from "~/lib/types";
@@ -39,13 +41,23 @@ export default defineRoute<Data>({
   generateMetadata: (data, ctx) => {
     const title = `${data.city.charAt(0).toUpperCase()}${data.city.slice(1)} ihtiyaç kredisi`;
     const description = `${data.city} için ${data.offers.length} kredi teklifini karşılaştır.`;
-    const url = publicAbsoluteUrl(ctx);
+    const url = publicAbsoluteUrl(ctx, "/ihtiyac-kredisi");
     return {
       title,
       description,
       canonical: url,
       openGraph: { title, description, url },
       twitter: { title, description },
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "İhtiyaç Kredisi", url },
+          ],
+          ctx.siteUrl ?? ctx.url.origin,
+        ),
+        loanOfferItemListJsonLd(data.offers),
+      ]),
     };
   },
 

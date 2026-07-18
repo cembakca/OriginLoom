@@ -311,16 +311,16 @@ Pagination kontratı:
   `<a href>`; aktif sayfa link olmayan `aria-current="page"` elementidir. Page 1 URL'si query'siz,
   page 2+ URL'si normalize `?page=N` biçimindedir.
 
-Sitemap politikası: yalnız canonical liste girişi `/blogs/paginated` sitemap'e alınır. Query tabanlı
-pagination sayfaları sitemap'e eklenmez ve `noindex` yapılmaz; her biri self-canonical `index,follow`
-sayfadır ve SSR'daki semantic prev/next/page linkleriyle keşfedilir. Blog detay sayfaları eklendiğinde
-sitemap'in asıl içerik envanteri onlar olmalıdır.
+Sitemap politikası: yalnız gerçek, canonical kategori ve detay route'ları sitemap'e alınır. Query
+pagination sayfaları sitemap'e eklenmez; indexable kataloglarda self-canonical `index,follow`,
+document-level `rel=prev/next` ve SSR semantic page linkleriyle keşfedilir. Detay route'u olmayan
+`/blogs/paginated` gibi teknik demolar `noindex,follow` olur ve sitemap'e girmez.
 
 Merkezi crawler endpoint'lerinin tek otoritesi `server/seo.ts` dosyasıdır. Yeni indexable public route
-eklenince canonical public path sitemap inventory'sine eklenir; internal rewrite destination,
-`noindex` route, auth sayfası ve filtre/pagination query varyantı eklenmez. Dynamic route değerleri
-env allowlist'inden değil gateway/CMS domain kontratından üretilir. `robots.txt`, sitemap'i absolute
-`SITE_URL` ile ilan eder.
+eklenince gateway `/seo/sitemap` envanterine canonical public path eklenir; internal rewrite
+destination, `noindex` route, auth sayfası ve filtre/pagination query varyantı eklenmez. Dinamik ürün
+ve içerik URL'leri env allowlist'inden değil gateway/CMS katalog kontratından üretilir. `robots.txt`,
+sitemap'i absolute `SITE_URL` ile ilan eder.
 
 Cache write metrikleri `route` için yalnız registry ID, `menu` veya `other` label'ını kullanır; raw
 path/key label yapılmaz:
@@ -710,12 +710,13 @@ Next.js'teki **Metadata API** + **manuel `<head>`** ayrımının karşılığı.
 
 ### Kanal 1 — Metadata API (`generateMetadata`)
 
-| Katman         | Dosya                                   | Ne                                                          |
-| -------------- | --------------------------------------- | ----------------------------------------------------------- |
-| Site defaults  | `src/lib/metadata/site-defaults.ts`     | title template, description, OG/Twitter site, icons, robots |
-| Route override | `route.generateMetadata(data, ctx)`     | title, description, canonical, robots, OG/Twitter sayfa     |
-| Merge          | `src/lib/metadata/merge.ts`             | layout ⊎ page — page ezer                                   |
-| HTML           | `src/components/head/metadata-head.tsx` | `<title>`, meta, canonical, OG, Twitter                     |
+| Katman         | Dosya                                   | Ne                                                           |
+| -------------- | --------------------------------------- | ------------------------------------------------------------ |
+| Site defaults  | `src/lib/metadata/site-defaults.ts`     | title template, identity, OG/Twitter, icons, robots          |
+| GW parser      | `src/lib/metadata/schema.ts`            | bounded `seoInfo`, URL/date/image/editorial validation       |
+| Route override | `route.generateMetadata(data, ctx)`     | canonical, robots, social metadata ve route JSON-LD          |
+| Merge          | `src/lib/metadata/merge.ts`             | defaults ⊎ page, URL policy, base structured-data graph      |
+| HTML           | `src/components/head/metadata-head.tsx` | meta, canonical, prev/next, verification ve JSON-LD `@graph` |
 
 ```ts
 loader: async (ctx) => {
@@ -743,6 +744,7 @@ generateMetadata: (data, ctx) =>
 
 ```bash
 SITE_URL=https://www.hangikredi.com   # canonical / OG url tabanı
+GOOGLE_SITE_VERIFICATION=...          # opsiyonel Search Console token'ı
 ```
 
 ---
@@ -835,7 +837,9 @@ builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder
 3. `Component` — yalnızca sayfa içeriği (header/footer yok)
 4. Etkileşim → `src/islands/` + `<Island mode="hydrate" />`
 5. Method kontratı varsayılan `GET, HEAD` — mutation gerekiyorsa SSR route değil `/api/internal/*`
-6. Indexable ise `server/seo.ts` canonical sitemap inventory'sini güncelle
+6. Indexable ise gateway `/seo/sitemap` canonical inventory'sini güncelle
+7. Görünür içerikle bire bir eşleşen Breadcrumb/Article/Product/ItemList JSON-LD düğümlerini ekle;
+   gerçek veri yoksa rating, review veya fiyat uydurma
 
 ### SSR method ve error-action kontratı
 
