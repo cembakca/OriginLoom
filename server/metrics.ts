@@ -1,5 +1,4 @@
-import { isKnownPageCachePrefix, parseCacheKey } from "~/lib/cache-keys";
-
+import { cacheRouteLabel } from "./metrics/cache-label";
 import {
   counterLines,
   type CounterMap,
@@ -8,7 +7,10 @@ import {
   Histogram,
   increment,
 } from "./metrics/primitives";
+import { referralMetricLines } from "./metrics/referrals";
 import { runtimeMetricLines } from "./metrics/runtime";
+
+export { observeReferralRedirect } from "./metrics/referrals";
 
 type GatewayOutcome = "success" | "client_error" | "server_error" | "timeout" | "network_error";
 type OperationOutcome = "success" | "error";
@@ -320,6 +322,7 @@ export function renderMetrics(): string {
       "Client runtime error ingestion outcomes",
       clientErrorTelemetry,
     ),
+    ...referralMetricLines(),
     ...counterLines(
       "request_timeout_total",
       "Requests terminated after exceeding their class deadline",
@@ -369,11 +372,4 @@ export function renderMetrics(): string {
     ...runtimeMetricLines(),
   ];
   return `${lines.join("\n")}\n`;
-}
-
-function cacheRouteLabel(key: string): string {
-  const prefix = parseCacheKey(key)[0] ?? "other";
-  if (isKnownPageCachePrefix(prefix)) return prefix;
-  if (prefix.startsWith("menu:")) return "menu";
-  return "other";
 }

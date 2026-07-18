@@ -11,6 +11,7 @@ import {
   observeColdMissLockTimeout,
   observeGatewayRequest,
   observeInvalidGatewayPayload,
+  observeReferralRedirect,
   observeRequest,
   observeRequestTimeout,
   observeRevalidation,
@@ -41,6 +42,7 @@ describe("production metrics", () => {
     setBotAnalyticsQueueState(4, 2);
     observeClientErrorTelemetry("rate_limited");
     observeRequestTimeout("ssr", "/blogs/paginated");
+    observeReferralRedirect("credit-card", "issued", 18, 2.5);
     observeSsrCapacityRejection("queue_full");
     observeSsrQueueWait("accepted", 4);
     setSsrCapacityState(3, 2);
@@ -76,6 +78,15 @@ describe("production metrics", () => {
     expect(metrics).toContain("ssr_bot_analytics_in_flight 2");
     expect(metrics).toContain('ssr_client_error_telemetry_total{outcome="rate_limited"}');
     expect(metrics).toContain('request_timeout_total{class="ssr",route="/blogs/paginated"}');
+    expect(metrics).toContain(
+      'ssr_referral_redirects_total{product_type="credit-card",outcome="issued"}',
+    );
+    expect(metrics).toContain(
+      'ssr_referral_redirect_duration_milliseconds_count{product_type="credit-card",outcome="issued"}',
+    );
+    expect(metrics).toContain(
+      'ssr_referral_gateway_processing_milliseconds_count{product_type="credit-card"}',
+    );
     expect(metrics).toContain('ssr_render_rejections_total{reason="queue_full"}');
     expect(metrics).toContain('ssr_render_queue_wait_milliseconds_count{outcome="accepted"}');
     expect(metrics).toContain("ssr_render_in_flight 3");

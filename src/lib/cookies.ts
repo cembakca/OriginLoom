@@ -6,6 +6,8 @@ export const Cookie = {
   signedIn: "signed_in",
   accountText: "account_text",
   userTrackingId: "user_tracking_id",
+  /** Referral tekil oturum ölçümü — client JS tarafından okunamaz. */
+  referralSession: "referral_session",
   theme: "theme",
   gclid: "gclid",
   utmSource: "utm_source",

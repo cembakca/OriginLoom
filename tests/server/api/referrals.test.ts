@@ -1,10 +1,10 @@
 import { handleReferralApi } from "@server/api/referrals";
 import { describe, expect, it } from "vitest";
 
-function request(body: URLSearchParams) {
+function request(body: URLSearchParams, headers: Record<string, string> = {}) {
   return new Request("http://localhost/api/referrals", {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
     body,
   });
 }
@@ -26,10 +26,14 @@ describe("referral BFF", () => {
       /^https:\/\/application\.example-bank\.test\/start\?ref=ref-/,
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("server-timing")).toMatch(/referral;dur=.*gateway-ticket;dur=/);
+    expect(response.headers.get("set-cookie")).toMatch(
+      /referral_session=[^;]+; Max-Age=2592000; Path=\/; HttpOnly; SameSite=lax/,
+    );
   });
 
-  it("rejects missing consent and unknown public product types before calling the gateway", async () => {
-    const missingConsent = await handleReferralApi(
+  it("treats the click itself as consent-free redirect intent and rejects unknown types", async () => {
+    const directClick = await handleReferralApi(
       request(new URLSearchParams({ productType: "kredi-karti", slug: "maximum" })),
     );
     const unknownType = await handleReferralApi(
@@ -42,7 +46,18 @@ describe("referral BFF", () => {
       ),
     );
 
-    expect(missingConsent.status).toBe(400);
+    expect(directClick.status).toBe(303);
     expect(unknownType.status).toBe(400);
+  });
+
+  it("rejects cross-origin form submissions that could inflate redirect counts", async () => {
+    const response = await handleReferralApi(
+      request(new URLSearchParams({ productType: "kredi-karti", slug: "maximum" }), {
+        origin: "https://attacker.example",
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("location")).toBeNull();
   });
 });
