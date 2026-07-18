@@ -8,6 +8,8 @@ import { cookie, locale } from "~/lib/request";
 import { layoutCacheFragment } from "~/lib/shell-data";
 import type { CachePolicy, Ctx } from "~/lib/types";
 
+import { financeQueryNormalizers } from "./finance-query";
+
 export type { CacheKeyApiEntry } from "~/lib/cache/key-codec";
 export {
   CACHE_KEY_SEP,
@@ -30,6 +32,10 @@ export const PageCacheId = {
   recourseRedirect: "recourse-redirect",
   account: "account",
   mediaPipeline: "media-pipeline",
+  housingLoans: "housing-loans",
+  housingLoanDetail: "housing-loan-detail",
+  creditCards: "credit-cards",
+  creditCardDetail: "credit-card-detail",
 } as const;
 
 export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
@@ -180,6 +186,82 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     ttl: 3600,
     buildKey: (ctx) => ["media-pipeline", locale(ctx.request), layoutCacheFragment(ctx)],
+  },
+  [PageCacheId.housingLoans]: {
+    id: PageCacheId.housingLoans,
+    description: "Konut kredisi ürün listesi",
+    path: "/konut-kredisi",
+    strategy: "shared",
+    contentQueryParams: ["amount", "term", "city", "bank", "sortBy", "page"],
+    contentQueryDefaults: {
+      amount: "2000000",
+      term: "120",
+      city: "istanbul",
+      bank: "-",
+      sortBy: "recommended",
+      page: "1",
+    },
+    contentQueryNormalize: financeQueryNormalizers,
+    buildKey: (ctx) => {
+      const entry = pageCacheRegistry[PageCacheId.housingLoans];
+      return [
+        "housing-loans",
+        queryPart(entry, ctx),
+        locale(ctx.request),
+        layoutCacheFragment(ctx),
+      ];
+    },
+  },
+  [PageCacheId.housingLoanDetail]: {
+    id: PageCacheId.housingLoanDetail,
+    description: "Konut kredisi ürün detayı",
+    path: "/konut-kredisi/:slug",
+    strategy: "shared",
+    contentQueryParams: ["amount", "term"],
+    contentQueryDefaults: { amount: "2000000", term: "120" },
+    contentQueryNormalize: financeQueryNormalizers,
+    buildKey: (ctx) => {
+      const entry = pageCacheRegistry[PageCacheId.housingLoanDetail];
+      return [
+        "housing-loan-detail",
+        ctx.params.slug ?? "-",
+        queryPart(entry, ctx),
+        locale(ctx.request),
+        layoutCacheFragment(ctx),
+      ];
+    },
+  },
+  [PageCacheId.creditCards]: {
+    id: PageCacheId.creditCards,
+    description: "Kredi kartı ürün listesi",
+    path: "/kredi-kartlari",
+    strategy: "shared",
+    contentQueryParams: ["bank", "cardType", "annualFee", "network", "sortBy", "page"],
+    contentQueryDefaults: {
+      bank: "-",
+      cardType: "all",
+      annualFee: "all",
+      network: "all",
+      sortBy: "recommended",
+      page: "1",
+    },
+    contentQueryNormalize: financeQueryNormalizers,
+    buildKey: (ctx) => {
+      const entry = pageCacheRegistry[PageCacheId.creditCards];
+      return ["credit-cards", queryPart(entry, ctx), locale(ctx.request), layoutCacheFragment(ctx)];
+    },
+  },
+  [PageCacheId.creditCardDetail]: {
+    id: PageCacheId.creditCardDetail,
+    description: "Kredi kartı ürün detayı ve kampanyaları",
+    path: "/kredi-kartlari/:slug",
+    strategy: "shared",
+    buildKey: (ctx) => [
+      "credit-card-detail",
+      ctx.params.slug ?? "-",
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
+    ],
   },
 };
 
