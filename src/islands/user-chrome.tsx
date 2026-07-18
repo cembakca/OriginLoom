@@ -1,4 +1,4 @@
-import { User } from "lucide-react";
+import { User } from "~/components/icons";
 import { useSyncExternalStore } from "react";
 
 import { Button } from "~/components/ui/button";

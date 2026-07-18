@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { X } from "~/components/icons";
 import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
 import { forwardRef } from "react";
 

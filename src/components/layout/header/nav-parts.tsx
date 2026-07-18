@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react";
+import { Menu } from "~/components/icons";
 import type { ReactNode } from "react";
 
 import { Button } from "~/components/ui/button";

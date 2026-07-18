@@ -15,7 +15,9 @@ type Props = {
 };
 
 /** Client sıralama — orderBy cache key dışı; TanStack Query + /api/blogs BFF. */
-export default function BlogExplorer({ page, initialData }: Props) {
+import { AppQueryProvider } from "~/lib/query/provider";
+
+function BlogExplorerInner({ page, initialData }: Props) {
   const [orderBy, setOrderBy] = useState<BlogOrderBy>(DEFAULT_BLOG_ORDER);
 
   const query = useBlogs({
@@ -63,5 +65,13 @@ export default function BlogExplorer({ page, initialData }: Props) {
 
       <BlogList posts={result.posts} />
     </div>
+  );
+}
+
+export default function BlogExplorer(props: Props) {
+  return (
+    <AppQueryProvider>
+      <BlogExplorerInner {...props} />
+    </AppQueryProvider>
   );
 }

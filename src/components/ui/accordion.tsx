@@ -1,5 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "~/components/icons";
 import type { ComponentPropsWithoutRef, ElementRef } from "react";
 import { forwardRef } from "react";
 
