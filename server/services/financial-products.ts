@@ -22,6 +22,7 @@ import type {
   ProductBank,
   ReferralCreated,
   ReferralDetail,
+  ReferralStats,
 } from "~/lib/contracts/financial-products";
 
 const INVALID_FINANCE = "Finance gateway returned an invalid payload";
@@ -64,18 +65,26 @@ export async function getReferral(productType: string, slug: string, signal: Abo
 export async function createReferral(
   productType: string,
   slug: string,
+  anonymousSessionId: string,
   signal: AbortSignal,
 ): Promise<ReferralCreated | null> {
   const response = await gatewayFetch("/finance/referrals", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ productType, slug }),
+    body: JSON.stringify({ productType, slug, anonymousSessionId }),
     signal,
   });
   if (response.status === 400 || response.status === 404) return null;
   if (!response.ok) throw new Error(`Finance gateway returned ${response.status}`);
   const payload = await readGatewayJson(response, "finance_referral", INVALID_FINANCE);
   return requireGatewayPayload("finance_referral", payload, isReferralCreated, INVALID_FINANCE);
+}
+
+export async function getReferralStats(signal: AbortSignal): Promise<ReferralStats> {
+  const response = await gatewayFetch("/finance/referrals/stats", { signal });
+  if (!response.ok) throw new Error(`Referral stats gateway returned ${response.status}`);
+  const payload = await readGatewayJson(response, "finance_referral", INVALID_FINANCE);
+  return requireGatewayPayload("finance_referral", payload, isReferralStats, INVALID_FINANCE);
 }
 
 async function getJson<T>(
@@ -270,7 +279,7 @@ function isReferralDetail(value: unknown): value is ReferralDetail {
   return (
     isString(value.product.id, 120) &&
     isString(value.product.slug, 120) &&
-    (value.product.productType === "housing-loan" || value.product.productType === "credit-card") &&
+    isString(value.product.productType, 80) &&
     isString(value.product.name, 240) &&
     isBank(value.product.bank) &&
     isString(value.disclosure, 2_000) &&
@@ -285,11 +294,44 @@ function isReferralCreated(value: unknown): value is ReferralCreated {
     isRecord(value.product) &&
     isString(value.product.id, 120) &&
     isString(value.product.slug, 120) &&
-    (value.product.productType === "housing-loan" || value.product.productType === "credit-card") &&
+    isString(value.product.productType, 80) &&
     isString(value.product.name, 240) &&
     isBank(value.product.bank) &&
     isString(value.redirectUrl, 2_048) &&
-    isString(value.expiresAt, 64)
+    isString(value.expiresAt, 64) &&
+    isRecord(value.measurement) &&
+    value.measurement.event === "redirect-issued" &&
+    isString(value.measurement.issuedAt, 64) &&
+    isNumber(value.measurement.gatewayProcessingMs, 0, 60_000)
+  );
+}
+
+function isReferralStats(value: unknown): value is ReferralStats {
+  return (
+    isRecord(value) &&
+    isString(value.generatedAt, 64) &&
+    value.measurement === "redirect-issued" &&
+    Array.isArray(value.products) &&
+    value.products.length <= MAX_COLLECTION &&
+    value.products.every(isReferralStat)
+  );
+}
+
+function isReferralStat(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isString(value.productType, 80) &&
+    isString(value.slug, 120) &&
+    isString(value.name, 240) &&
+    isString(value.bank, 160) &&
+    isInteger(value.redirectIssued, 0, Number.MAX_SAFE_INTEGER) &&
+    isInteger(value.uniqueSessions, 0, 50_000) &&
+    isRecord(value.latency) &&
+    isInteger(value.latency.sampleCount, 0, 1_000) &&
+    isNumber(value.latency.averageMs, 0, 60_000) &&
+    isNumber(value.latency.p95Ms, 0, 60_000) &&
+    isNumber(value.latency.maxMs, 0, 60_000) &&
+    (value.lastIssuedAt === null || isString(value.lastIssuedAt, 64))
   );
 }
 

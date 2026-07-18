@@ -21,7 +21,7 @@ export async function handleReferralApi(request: Request): Promise<Response> {
     return new Response("Geçersiz başvuru isteği", { status: 400 });
   }
 
-  const created = await createReferral(productType, slug, request.signal);
+  const created = await createReferral(productType, slug, crypto.randomUUID(), request.signal);
   if (!created) return new Response("Ürün bulunamadı", { status: 404 });
   const destination = normalizeNavigationUrl(created.redirectUrl, {
     siteUrl: config.siteUrl,

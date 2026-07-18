@@ -100,7 +100,7 @@ export type CreditCardDetail = {
 export type ReferralProduct = {
   id: string;
   slug: string;
-  productType: "housing-loan" | "credit-card";
+  productType: string;
   name: string;
   bank: ProductBank;
 };
@@ -116,4 +116,24 @@ export type ReferralCreated = {
   product: ReferralProduct;
   redirectUrl: string;
   expiresAt: string;
+  measurement: {
+    event: "redirect-issued";
+    issuedAt: string;
+    gatewayProcessingMs: number;
+  };
+};
+
+export type ReferralStats = {
+  generatedAt: string;
+  measurement: "redirect-issued";
+  products: Array<{
+    productType: string;
+    slug: string;
+    name: string;
+    bank: string;
+    redirectIssued: number;
+    uniqueSessions: number;
+    latency: { sampleCount: number; averageMs: number; p95Ms: number; maxMs: number };
+    lastIssuedAt: string | null;
+  }>;
 };

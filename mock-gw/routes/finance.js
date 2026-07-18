@@ -13,6 +13,7 @@ import {
   parsePage,
   parsePageSize,
 } from "../lib/query.js";
+import { recordReferralIssued, referralStatsSnapshot } from "../lib/referral-analytics.js";
 
 const housingSorts = new Set([
   "recommended",
@@ -29,6 +30,9 @@ export async function resolveFinanceRequest(request, url, readJson) {
   }
   if (request.method === "GET" && url.pathname === "/finance/credit-cards") {
     return { status: 200, body: creditCardList(url.searchParams) };
+  }
+  if (request.method === "GET" && url.pathname === "/finance/referrals/stats") {
+    return { status: 200, body: referralStatsSnapshot() };
   }
 
   const housingSlug = pathSlug(url.pathname, "/finance/housing-loans/");
@@ -192,11 +196,17 @@ function referralDetail(path) {
 }
 
 function createReferral(body) {
+  const started = performance.now();
   const productType = typeof body.productType === "string" ? body.productType : "";
   const slug = typeof body.slug === "string" ? body.slug : "";
+  const anonymousSessionId = validAnonymousSessionId(body.anonymousSessionId)
+    ? body.anonymousSessionId
+    : null;
   const product = findProduct(productType, slug);
   if (!product) return { status: 400, body: { error: "unknown referral product" } };
   const referralId = `ref-${crypto.randomUUID()}`;
+  const gatewayProcessingMs = performance.now() - started;
+  recordReferralIssued(product, anonymousSessionId, gatewayProcessingMs);
   return {
     status: 201,
     body: {
@@ -204,14 +214,26 @@ function createReferral(body) {
       product: referralProduct(product),
       redirectUrl: `https://application.example-bank.test/start?ref=${encodeURIComponent(referralId)}`,
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      measurement: {
+        event: "redirect-issued",
+        issuedAt: new Date().toISOString(),
+        gatewayProcessingMs: Number(gatewayProcessingMs.toFixed(3)),
+      },
     },
   };
 }
 
 function findProduct(productType, slug) {
-  if (productType === "housing-loan") return housingLoans.find((item) => item.slug === slug);
-  if (productType === "credit-card") return creditCards.find((item) => item.slug === slug);
-  return undefined;
+  return referralProductResolvers.get(productType)?.(slug);
+}
+
+const referralProductResolvers = new Map([
+  ["housing-loan", (slug) => housingLoans.find((item) => item.slug === slug)],
+  ["credit-card", (slug) => creditCards.find((item) => item.slug === slug)],
+]);
+
+function validAnonymousSessionId(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(value);
 }
 
 function referralProduct(product) {
