@@ -123,6 +123,9 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     if (!env.GATEWAY_URL) throw new Error("Production GATEWAY_URL must be explicitly configured");
     if (!env.SITE_URL) throw new Error("Production SITE_URL must be explicitly configured");
     if (!config.cachePurgeSecret) throw new Error("CACHE_PURGE_SECRET is required in production");
+    if (!config.referralStatsSecret) {
+      throw new Error("REFERRAL_STATS_SECRET is required in production");
+    }
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
   }
 }

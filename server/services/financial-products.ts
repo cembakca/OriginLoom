@@ -81,7 +81,7 @@ export async function createReferral(
 }
 
 export async function getReferralStats(signal: AbortSignal): Promise<ReferralStats> {
-  const response = await gatewayFetch("/finance/referrals/stats", { signal });
+  const response = await gatewayFetch("/internal/referrals/stats", { signal });
   if (!response.ok) throw new Error(`Referral stats gateway returned ${response.status}`);
   const payload = await readGatewayJson(response, "finance_referral", INVALID_FINANCE);
   return requireGatewayPayload("finance_referral", payload, isReferralStats, INVALID_FINANCE);

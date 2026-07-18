@@ -939,6 +939,7 @@ loader: async (ctx) => {
 | `POST /api/internal/refresh`        | `refresh_token` → yeni access + session cookie'leri |
 | `GET /api/internal/auth/session`    | İsteğe bağlı authoritative oturum doğrulaması       |
 | `GET /api/internal/account/summary` | Auth + auto-refresh + hesap özeti                   |
+| `GET /api/internal/referrals/stats` | Operations token'ıyla referral ölçüm özeti          |
 
 ### Auth cookie modeli
 
@@ -960,6 +961,21 @@ loader: async (ctx) => {
 Local fixture'lar uygulama servislerine gömülmez. `mock-gw/` 4002 portunda ayrı process olarak
 çalışır ve gerçek gateway ile aynı HTTP sınırından çağrılır. Yeni geçici backend cevabı gerekiyorsa
 uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/server.js` içine ekle.
+
+### Banka yönlendirmesi
+
+- Banka CTA'sı doğrudan dış URL taşıyan `<a>` veya client analytics çağrısı değildir. Semantic form,
+  `/api/referrals` adresine `POST` eder; yalnız gerçek kullanıcı aktivasyonu ölçüm üretir.
+- UI yalnız public ürün tipi ve slug gönderir. Banka hedefi server-side gateway cevabından alınır,
+  merkezi URL policy ile doğrulanır ve `303 See Other` ile açılır.
+- Ürün tipi dallanmalarını route veya component içinde çoğaltma. `src/lib/referral-products.ts`
+  registry'sine kayıt ekle; taşıt/ihtiyaç kredisi gibi yeni domainler aynı akışı kullanır.
+- Benzersiz kullanıcı metriği değildir: `HttpOnly referral_session`, kişisel veri içermeyen yaklaşık
+  benzersiz browser/session ölçümüdür ve auth kararı vermez.
+- `redirect-issued`, banka sayfasının açıldığı veya başvurunun tamamlandığı anlamına gelmez. Bu iki
+  sonucu ölçmek için bankanın imzalı callback/postback kontratı gerekir.
+- Referral response'ları `private, no-store`; operations özeti ayrı `REFERRAL_STATS_SECRET` ile
+  korunur. Token'ı query string'e veya client bundle'a koyma.
 
 ---
 

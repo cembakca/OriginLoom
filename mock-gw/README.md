@@ -33,6 +33,7 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 | GET    | `/finance/credit-cards/:slug/campaigns` | Karta ait kampanya listesi                |
 | GET    | `/finance/referrals/:productType/:slug` | Başvuru öncesi ürün/yasal bilgilendirme   |
 | POST   | `/finance/referrals`                    | Kısa ömürlü başvuru yönlendirmesi         |
+| GET    | `/internal/referrals/stats`             | Server-side referral sayı/latency özeti   |
 | GET    | `/content/articles?...`                 | Bilgi Merkezi filtreli içerik listesi     |
 | GET    | `/content/articles/:slug`               | Finansal makale detayı ve ilişkili içerik |
 | GET    | `/markets/bist100?...`                  | BIST 100 tarzı hisse listesi              |
@@ -49,6 +50,12 @@ kredilerinde `amount`, `term`, `city`, `bank` ve `sortBy`; kredi kartlarında `c
 
 Bu servis gerçek bir IAM veya içerik gateway'i değildir; yalnızca uygulamanın HTTP
 sözleşmelerini uçtan uca çalıştırmak için deterministik cevaplar verir.
+
+Referral sayaçları client'tan kabul edilmez. `POST /finance/referrals` işlendiğinde mock gateway
+toplam yönlendirme, anonim session ve gateway işlem süresini process belleğinde kaydeder. Bu mock
+persist etmez ve horizontal scale için tasarlanmamıştır; gerçek gateway aynı kontratı kalıcı bir event
+store/metric backend ile uygulamalıdır. Ölçülen olay bankaya `redirect-issued` kararıdır; gerçek landing
+ve başvuru sonucu ancak banka callback'iyle doğrulanabilir.
 
 Kredi şehirleri ve başvuru sayfaları gibi iş-domain değerlerinin kaynağı deployment env'i
 değildir. Mock geliştirme ortamında `/routing/domains` bu sahipliği temsil eder; gerçek sistemde

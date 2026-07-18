@@ -31,7 +31,7 @@ export async function resolveFinanceRequest(request, url, readJson) {
   if (request.method === "GET" && url.pathname === "/finance/credit-cards") {
     return { status: 200, body: creditCardList(url.searchParams) };
   }
-  if (request.method === "GET" && url.pathname === "/finance/referrals/stats") {
+  if (request.method === "GET" && url.pathname === "/internal/referrals/stats") {
     return { status: 200, body: referralStatsSnapshot() };
   }
 

@@ -27,6 +27,7 @@ services:
       RELEASE_ID: docker-compose
       SITE_URL: http://localhost:3005
       CACHE_PURGE_SECRET: dev-purge-secret
+      REFERRAL_STATS_SECRET: dev-referral-stats-secret
       ALLOW_INSECURE_GATEWAY: "true"
     depends_on:
       mock-gw:

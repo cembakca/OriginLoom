@@ -76,6 +76,7 @@ export const config = {
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean),
   cachePurgeSecret: process.env.CACHE_PURGE_SECRET,
+  referralStatsSecret: process.env.REFERRAL_STATS_SECRET,
   releaseId: process.env.RELEASE_ID ?? "development",
   assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
   imageCdnUrl: publicHttpUrlEnv("IMAGE_CDN_URL"),
@@ -91,6 +92,15 @@ export type AppConfig = typeof config;
 /** Read at request time so rotated secrets can be injected without coupling API code to process.env. */
 export function purgeSecurityConfig(): { secret?: string; isProduction: boolean } {
   const secret = process.env.CACHE_PURGE_SECRET;
+  return {
+    ...(secret ? { secret } : {}),
+    isProduction: (process.env.NODE_ENV ?? config.nodeEnv) === "production",
+  };
+}
+
+/** Read at request time so the operations token can rotate without changing handler ownership. */
+export function referralStatsSecurityConfig(): { secret?: string; isProduction: boolean } {
+  const secret = process.env.REFERRAL_STATS_SECRET;
   return {
     ...(secret ? { secret } : {}),
     isProduction: (process.env.NODE_ENV ?? config.nodeEnv) === "production",

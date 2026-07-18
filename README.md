@@ -254,6 +254,7 @@ Temel değişkenler:
 - `REDIS_URL` — Redis seçildiğinde zorunlu
 - `CACHE_MAX_ENTRIES` — memory cache kapasitesi
 - `CACHE_PURGE_SECRET` — production purge endpoint yetkilendirmesi
+- `REFERRAL_STATS_SECRET` — internal referral sayı/latency endpoint'i için operations token'ı
 - `MENU_CACHE_TTL` / `MENU_CACHE_SWR` — menü cache süreleri
 - `SITE_URL` — canonical URL tabanı
 - `RELEASE_ID` — release/Git SHA; Redis HTML cache namespace'i

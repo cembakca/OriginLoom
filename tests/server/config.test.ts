@@ -82,9 +82,25 @@ describe("server config", () => {
         GATEWAY_URL: "https://gateway.example.com",
         SITE_URL: "https://www.example.com",
         CACHE_PURGE_SECRET: "secret",
+        REFERRAL_STATS_SECRET: "referral-secret",
         RELEASE_ID: "release-1",
       }),
     ).rejects.toThrow("CACHE_BACKEND=memory is not supported in production");
+  });
+
+  it("requires a dedicated production token for referral statistics", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        REFERRAL_STATS_SECRET: undefined,
+        RELEASE_ID: "release-1",
+      }),
+    ).rejects.toThrow("REFERRAL_STATS_SECRET is required in production");
   });
 
   it("rejects the Vite development runtime in production", async () => {
@@ -96,6 +112,7 @@ describe("server config", () => {
         GATEWAY_URL: "https://gateway.example.com",
         SITE_URL: "https://www.example.com",
         CACHE_PURGE_SECRET: "secret",
+        REFERRAL_STATS_SECRET: "referral-secret",
         RELEASE_ID: "release-1",
         VITE_DEV_SERVER_URL: "http://localhost:5174",
       }),
@@ -141,6 +158,7 @@ describe("server config", () => {
       GATEWAY_URL: "http://gateway.internal",
       SITE_URL: "https://www.example.com",
       CACHE_PURGE_SECRET: "secret",
+      REFERRAL_STATS_SECRET: "referral-secret",
       RELEASE_ID: "release-1",
     };
     await expect(validateWith(production)).rejects.toThrow("Production GATEWAY_URL must use https");
@@ -217,6 +235,7 @@ describe("server config", () => {
       GATEWAY_URL: "https://gateway.example.com",
       SITE_URL: "https://www.example.com",
       CACHE_PURGE_SECRET: "secret",
+      REFERRAL_STATS_SECRET: "referral-secret",
       RELEASE_ID: "release-1",
       IMAGE_CDN_URL: "localhost:3005/images/",
     };

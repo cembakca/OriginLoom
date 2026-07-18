@@ -443,13 +443,14 @@ lifecycle event'lerini sonsuza kadar tutmaz.
 
 Client-side TanStack Query hook'ları bu endpoint'leri çağırır:
 
-| Endpoint                            | Açıklama                                       |
-| ----------------------------------- | ---------------------------------------------- |
-| `GET /api/internal/auth/session`    | HttpOnly oturumu gateway profiliyle doğrular   |
-| `POST /api/internal/refresh`        | Client 401 sonrası token refresh               |
-| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats    |
-| `POST /api/internal/cache/purge`    | Cache purge, secret token ile korunur          |
-| `POST /api/referrals`               | Ürünü doğrular, güvenli HTTPS hedefe 303 verir |
+| Endpoint                            | Açıklama                                                 |
+| ----------------------------------- | -------------------------------------------------------- |
+| `GET /api/internal/auth/session`    | HttpOnly oturumu gateway profiliyle doğrular             |
+| `POST /api/internal/refresh`        | Client 401 sonrası token refresh                         |
+| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats              |
+| `POST /api/internal/cache/purge`    | Cache purge, secret token ile korunur                    |
+| `GET /api/internal/referrals/stats` | Referral sayı/latency özeti, ayrı operations token ister |
+| `POST /api/referrals`               | Ürünü doğrular, güvenli HTTPS hedefe 303 verir           |
 
 Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanılır — pipeline'daki auth mantığını tekrar çalıştırır, gerekiyorsa refresh eder, Authorization inject eder.
 
@@ -471,6 +472,26 @@ kredisi, kredi kartı, Bilgi Merkezi ve BIST 100 filtreleri semantic GET formudu
 linkleri JavaScript olmadan çalışır. Serbest metin aramaları sınırsız cache cardinality üretmemesi için
 shared HTML cache dışındadır. Başvuru formu ise gateway hedefini browser'a açmadan önce BFF üzerinden
 yeniden doğrular.
+
+### Referral ölçüm kontratı
+
+Banka yönlendirmesi bir client analytics olayı veya doğrudan dış hedefe giden `<a>` değildir. SSR
+sayfası `/api/referrals` adresine semantic bir `POST` formu üretir; BFF ürün tipini merkezi registry
+üzerinden doğrular, gateway'den kısa ömürlü hedef alır ve güvenli HTTPS adrese `303` döner. Banka URL'si
+HTML'e girmez; crawler, prefetch veya tekrar hydration referral sayısını artırmaz.
+
+Gateway'e gönderilen `referral_session` rastgele, kişisel veri içermeyen ve `HttpOnly` bir cookie'dir.
+Bu kimlik toplam yönlendirme ile yaklaşık benzersiz browser/session sayısını ayırır; yetkilendirme
+amacıyla kullanılmaz. Konut kredisi ve kredi kartı yalnız registry kayıtlarıdır; taşıt ve ihtiyaç
+kredisi aynı kontrata yeni kayıt eklenerek bağlanır.
+
+Prometheus tarafında `ssr_referral_redirects_total`, BFF toplam süresini ölçen
+`ssr_referral_redirect_duration_milliseconds` ve gateway ticket süresini ölçen
+`ssr_referral_gateway_processing_milliseconds` yayınlanır. Operasyon özeti
+`GET /api/internal/referrals/stats` üzerinden `REFERRAL_STATS_SECRET` ile korunur. Sayılar bilinçli
+olarak **redirect-issued** semantiğindedir: sistem bankaya yönlendirme kararını kesin ölçer; bankanın
+landing sayfasının açıldığını veya başvurunun tamamlandığını ancak banka callback/postback'i varsa
+ölçebilir.
 
 ---
 

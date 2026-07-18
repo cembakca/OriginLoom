@@ -207,11 +207,45 @@ describe("external mock gateway", () => {
     };
 
     expect(preview.status).toBe(200);
-    expect(previewBody).toMatchObject({ product: { slug: "maximum" }, consentRequired: true });
+    expect(previewBody).toMatchObject({ product: { slug: "maximum" }, consentRequired: false });
     expect(creation.status).toBe(201);
     expect(creationBody.referralId).toMatch(/^ref-/);
     expect(creationBody.redirectUrl).toContain(encodeURIComponent(creationBody.referralId));
     expect(Date.parse(creationBody.expiresAt)).toBeGreaterThan(Date.now());
+  });
+
+  it("keeps referral measurement on the gateway and reports bounded latency aggregates", async () => {
+    const sessionId = crypto.randomUUID();
+    const create = () =>
+      fetch(gatewayUrl("/finance/referrals"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          productType: "housing-loan",
+          slug: "teb-konut-kredisi",
+          anonymousSessionId: sessionId,
+        }),
+      });
+    await create();
+    await create();
+    const response = await fetch(gatewayUrl("/internal/referrals/stats"));
+    const body = (await response.json()) as {
+      measurement: string;
+      products: Array<{
+        slug: string;
+        redirectIssued: number;
+        uniqueSessions: number;
+        latency: { sampleCount: number; p95Ms: number };
+      }>;
+    };
+    const product = body.products.find((item) => item.slug === "teb-konut-kredisi");
+
+    expect(response.status).toBe(200);
+    expect(body.measurement).toBe("redirect-issued");
+    expect(product?.redirectIssued).toBeGreaterThanOrEqual(2);
+    expect(product?.uniqueSessions).toBeGreaterThanOrEqual(1);
+    expect(product?.latency.sampleCount).toBeGreaterThanOrEqual(2);
+    expect(product?.latency.p95Ms).toBeGreaterThanOrEqual(0);
   });
 
   it("keeps the technical blog and finance-oriented knowledge center as separate contracts", async () => {
