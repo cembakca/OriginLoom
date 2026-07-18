@@ -16,7 +16,7 @@ const browserRestrictedGlobals = {
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "eslint.config.js", "scripts/**"],
+    ignores: ["dist/**", "node_modules/**", "coverage/**", "eslint.config.js"],
   },
   eslint.configs.recommended,
   eslintConfigPrettier,
@@ -85,6 +85,21 @@ export default tseslint.config(
             },
             {
               target: "./server",
+              from: "./src/lib/client",
+              message: "Server must not import browser-only client utilities.",
+            },
+            {
+              target: "./server",
+              from: "./src/lib/query",
+              message: "Server must not import client query infrastructure.",
+            },
+            {
+              target: "./server",
+              from: "./src/lib/stores",
+              message: "Server must not import client stores.",
+            },
+            {
+              target: "./server",
               from: "./src/entry.client.tsx",
               message: "Server must not import client entry.",
             },
@@ -140,9 +155,18 @@ export default tseslint.config(
     },
   },
   {
-    files: ["mock-gw/**/*.js", "tests/**/*.mjs"],
+    files: ["mock-gw/**/*.js", "scripts/**/*.mjs", "tests/**/*.mjs"],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    files: ["server/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
+    ignores: ["src/components/icons/generated.tsx"],
+    rules: {
+      "max-lines": ["warn", { max: 350, skipBlankLines: true, skipComments: true }],
+      "max-lines-per-function": ["warn", { max: 150, skipBlankLines: true, skipComments: true }],
+      complexity: ["warn", 18],
     },
   },
   {

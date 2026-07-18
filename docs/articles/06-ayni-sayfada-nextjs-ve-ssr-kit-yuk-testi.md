@@ -39,7 +39,7 @@ görmek.
 
 ### Yük testi aracı
 
-Kök dizindeki `test.js`, [autocannon](https://github.com/mcollina/autocannon) kullanır:
+`npm run bench:compare` ile çalışan `scripts/bench/compare-next.mjs`, [autocannon](https://github.com/mcollina/autocannon) kullanır:
 
 ```javascript
 autocannon({

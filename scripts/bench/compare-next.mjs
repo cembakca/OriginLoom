@@ -46,4 +46,4 @@ async function main() {
   console.log("\n✅ Tüm testler tamamlandı.");
 }
 
-main();
+void main();

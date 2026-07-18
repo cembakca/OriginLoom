@@ -385,7 +385,7 @@ Router ile aynı mock gateway’e bağlı bir karşılaştırma projesi kurduk: 
 kopyalanmış header/footer, layout’ta User-Agent ile cihaz tespiti ve menü SSR, page’de `page` query
 parametresi ile blog listesi fetch’i.
 
-Kök dizindeki `test.js` (autocannon, 50 bağlantı, 15 saniye) yerel koşulda şu sonucu verdi:
+`npm run bench:compare` ile çalışan `scripts/bench/compare-next.mjs` (autocannon, 50 bağlantı, 15 saniye) yerel koşulda şu sonucu verdi:
 
 |                | ssr-kit `:3005` | Next.js POC `:3006` |
 | -------------- | --------------- | ------------------- |
