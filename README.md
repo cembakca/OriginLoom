@@ -23,11 +23,12 @@ server/
   middleware/     Request pipeline adımları
   routes/         Loader, cache ve metadata içeren SSR route tanımları
   services/       Server-only veri orkestrasyonu
-  handler.ts      Route çözümleme, cache ve render akışı
+  ssr/            Request çözümleme, cache/loader ve response orkestrasyonu
+  handler.ts      SSR pipeline'ın ince giriş noktası
   document.tsx    Tam HTML document render'ı
 
 src/
-  routes/         Route'ların SSR-safe sunum/shell bileşenleri
+  features/       Route'ların feature bazlı SSR-safe sunum/shell bileşenleri
   islands/        Client-side etkileşim giriş noktaları
   components/     SSR-safe UI bileşenleri
   lib/            Paylaşılan saf tip, kontrat ve yardımcılar
@@ -49,6 +50,8 @@ type Route<T> = {
 Cache key yalnızca normalize edilmiş, HTML çıktısını gerçekten değiştiren değerlerden oluşturulmalıdır. Auth token veya kullanıcıya özel veri ortak HTML cache'e girmez.
 
 ## Geliştirme
+
+Node.js 22.12 veya daha yeni bir sürüm gerekir.
 
 Ortam yapılandırması `.env.development`, `.env.staging` ve `.env.production` dosyalarıyla
 yönetilir. Kişisel override'lar için `.env.local` (veya `.env.<ortam>.local`) kullanın; shell

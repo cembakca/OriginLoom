@@ -7,28 +7,28 @@ function toBuffer(value: string | Buffer): Buffer {
 }
 
 vi.mock("ioredis", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    status: "ready",
-    get: vi.fn(async (key: string) => redisData.get(key)?.toString("utf8") ?? null),
-    getBuffer: vi.fn(async (key: string) => redisData.get(key) ?? null),
-    set: vi.fn(async (key: string, value: string | Buffer, ...args: unknown[]) => {
+  default: class RedisMock {
+    status = "ready";
+    get = vi.fn(async (key: string) => redisData.get(key)?.toString("utf8") ?? null);
+    getBuffer = vi.fn(async (key: string) => redisData.get(key) ?? null);
+    set = vi.fn(async (key: string, value: string | Buffer, ...args: unknown[]) => {
       if (args.includes("NX") && redisData.has(key)) return null;
       redisData.set(key, toBuffer(value));
       return "OK";
-    }),
-    del: vi.fn(async (key: string) => {
+    });
+    del = vi.fn(async (key: string) => {
       redisData.delete(key);
-    }),
-    ping: vi.fn(async () => "PONG"),
-    eval: vi.fn(async (_script: string, _keyCount: number, key: string, token: string) => {
+    });
+    ping = vi.fn(async () => "PONG");
+    eval = vi.fn(async (_script: string, _keyCount: number, key: string, token: string) => {
       if (redisData.get(key)?.toString("utf8") !== token) return 0;
       redisData.delete(key);
       return 1;
-    }),
-    connect: vi.fn(async () => {}),
-    quit: vi.fn(async () => {}),
-    on: vi.fn(),
-  })),
+    });
+    connect = vi.fn(async () => {});
+    quit = vi.fn(async () => {});
+    on = vi.fn();
+  },
 }));
 
 import { RedisStore } from "@server/cache/redis";
