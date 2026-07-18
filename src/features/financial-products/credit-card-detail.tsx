@@ -1,8 +1,8 @@
 import { Badge } from "~/components/ui/badge";
-import { buttonVariants } from "~/components/ui/button";
 import type { CreditCardDetail } from "~/lib/contracts/financial-products";
 
 import { formatDate, formatMoney } from "./format";
+import { ReferralCta } from "./referral-cta";
 
 export function CreditCardDetailPage({ data }: { data: CreditCardDetail }) {
   const { product } = data;
@@ -37,12 +37,12 @@ export function CreditCardDetailPage({ data }: { data: CreditCardDetail }) {
             <Stat label="Ödül programı" value={product.rewardProgram} />
             <Stat label="Kampanya" value={`${product.campaigns.length} aktif fırsat`} />
           </dl>
-          <a
-            className={buttonVariants({ size: "lg" })}
-            href={`/basvuru/kredi-karti/${product.slug}/yonlendirme`}
-          >
-            Hemen başvur
-          </a>
+          <ReferralCta
+            productType={product.productType}
+            slug={product.slug}
+            label="Bankada hemen başvur"
+            size="lg"
+          />
         </div>
       </header>
       <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">

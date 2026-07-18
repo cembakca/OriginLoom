@@ -1,8 +1,8 @@
 import { Badge } from "~/components/ui/badge";
-import { buttonVariants } from "~/components/ui/button";
 import type { HousingLoanDetail } from "~/lib/contracts/financial-products";
 
 import { formatMoney } from "./format";
+import { ReferralCta } from "./referral-cta";
 
 export function HousingLoanDetailPage({ data }: { data: HousingLoanDetail }) {
   const { product } = data;
@@ -53,12 +53,12 @@ export function HousingLoanDetailPage({ data }: { data: HousingLoanDetail }) {
               <dd className="font-semibold">%{product.annualCostRate.toFixed(2)}</dd>
             </div>
           </dl>
-          <a
-            className={`${buttonVariants()} mt-5 w-full`}
-            href={`/basvuru/konut-kredisi/${product.slug}/yonlendirme`}
-          >
-            Başvuruya geç
-          </a>
+          <ReferralCta
+            productType={product.productType}
+            slug={product.slug}
+            label="Bankada başvur"
+            className="mt-5 w-full"
+          />
         </div>
       </header>
       <div className="grid gap-6 lg:grid-cols-2">

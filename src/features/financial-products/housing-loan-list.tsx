@@ -4,6 +4,7 @@ import { buttonVariants } from "~/components/ui/button";
 import type { HousingLoanList } from "~/lib/contracts/financial-products";
 
 import { formatMoney } from "./format";
+import { ReferralCta } from "./referral-cta";
 
 export function HousingLoanListPage({ data }: { data: HousingLoanList }) {
   const search = loanSearch(data);
@@ -70,12 +71,20 @@ export function HousingLoanListPage({ data }: { data: HousingLoanList }) {
                 <Metric label="Aylık" value={formatMoney(loan.calculation.monthlyPayment)} />
                 <Metric label="Toplam" value={formatMoney(loan.calculation.totalPayment)} />
               </dl>
-              <a
-                className={buttonVariants()}
-                href={`/konut-kredisi/${loan.slug}?amount=${data.query.amount}&term=${data.query.term}`}
-              >
-                İncele
-              </a>
+              <div className="flex flex-col gap-2">
+                <a
+                  className={buttonVariants({ variant: "secondary", size: "sm" })}
+                  href={`/konut-kredisi/${loan.slug}?amount=${data.query.amount}&term=${data.query.term}`}
+                >
+                  Detayı incele
+                </a>
+                <ReferralCta
+                  productType={loan.productType}
+                  slug={loan.slug}
+                  label="Bankaya git"
+                  size="sm"
+                />
+              </div>
             </article>
           ))}
         </div>

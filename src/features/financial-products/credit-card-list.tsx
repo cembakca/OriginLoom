@@ -4,6 +4,7 @@ import { buttonVariants } from "~/components/ui/button";
 import type { CreditCardList } from "~/lib/contracts/financial-products";
 
 import { formatMoney } from "./format";
+import { ReferralCta } from "./referral-cta";
 
 export function CreditCardListPage({ data }: { data: CreditCardList }) {
   return (
@@ -62,12 +63,12 @@ export function CreditCardListPage({ data }: { data: CreditCardList }) {
                   >
                     Detay ve kampanyalar
                   </a>
-                  <a
-                    className={buttonVariants({ variant: "secondary", size: "sm" })}
-                    href={`/basvuru/kredi-karti/${card.slug}/yonlendirme`}
-                  >
-                    Başvur
-                  </a>
+                  <ReferralCta
+                    productType={card.productType}
+                    slug={card.slug}
+                    label="Bankaya git"
+                    size="sm"
+                  />
                 </div>
               </div>
             </article>

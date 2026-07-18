@@ -189,7 +189,7 @@ function referralDetail(path) {
         body: {
           product: referralProduct(product),
           disclosure: "Başvurunuz seçtiğiniz bankanın güvenli başvuru kanalında tamamlanacaktır.",
-          consentRequired: true,
+          consentRequired: false,
         },
       }
     : notFound("referral product");
