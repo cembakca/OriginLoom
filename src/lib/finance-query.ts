@@ -14,6 +14,7 @@ const CARD_SORT = new Set(["recommended", "annual-fee-asc", "campaign-count-desc
 const TERM = new Set([12, 24, 36, 48, 60, 84, 120]);
 
 const number = (raw: string | null, fallback: number, min: number, max: number) => {
+  if (raw === null || raw.trim() === "") return String(fallback);
   const value = Number(raw);
   return String(
     Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : fallback,

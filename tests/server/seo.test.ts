@@ -13,6 +13,10 @@ describe("central SEO endpoints", () => {
 
     expect(xml).toContain("<loc>https://www.example.com/</loc>");
     expect(xml).toContain("<loc>https://www.example.com/emekli-bankaciligi</loc>");
+    expect(xml).toContain("<loc>https://www.example.com/konut-kredisi</loc>");
+    expect(xml).toContain("<loc>https://www.example.com/kredi-kartlari</loc>");
+    expect(xml).toContain("<loc>https://www.example.com/bilgi-merkezi</loc>");
+    expect(xml).toContain("<loc>https://www.example.com/piyasalar/bist-100</loc>");
     expect(xml).toContain("<loc>https://www.example.com/ihtiyac-kredisi/istanbul</loc>");
     expect(xml).not.toContain("/retirement-banking");
     expect(xml).not.toContain("/hesabim");

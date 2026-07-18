@@ -22,6 +22,7 @@ Hono üzerinde çalışır, `@hono/node-server` ile Node.js HTTP server'a bağla
 | `/robots.txt`     | Merkezi crawler policy + sitemap discovery                |
 | `/sitemap.xml`    | Canonical public route envanteri                          |
 | `/api/*`          | Gateway'e proxy — pipeline çalışmaz                       |
+| `/api/referrals`  | Ürün başvurusunu doğrulayan public BFF + güvenli 303      |
 | `/api/internal/*` | BFF endpoint'leri — gereken auth handler içinde uygulanır |
 | `*`               | SSR pipeline → handler                                    |
 
@@ -442,12 +443,13 @@ lifecycle event'lerini sonsuza kadar tutmaz.
 
 Client-side TanStack Query hook'ları bu endpoint'leri çağırır:
 
-| Endpoint                            | Açıklama                                     |
-| ----------------------------------- | -------------------------------------------- |
-| `GET /api/internal/auth/session`    | HttpOnly oturumu gateway profiliyle doğrular |
-| `POST /api/internal/refresh`        | Client 401 sonrası token refresh             |
-| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats  |
-| `POST /api/internal/cache/purge`    | Cache purge, secret token ile korunur        |
+| Endpoint                            | Açıklama                                       |
+| ----------------------------------- | ---------------------------------------------- |
+| `GET /api/internal/auth/session`    | HttpOnly oturumu gateway profiliyle doğrular   |
+| `POST /api/internal/refresh`        | Client 401 sonrası token refresh               |
+| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats    |
+| `POST /api/internal/cache/purge`    | Cache purge, secret token ile korunur          |
+| `POST /api/referrals`               | Ürünü doğrular, güvenli HTTPS hedefe 303 verir |
 
 Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanılır — pipeline'daki auth mantığını tekrar çalıştırır, gerekiyorsa refresh eder, Authorization inject eder.
 
@@ -457,10 +459,18 @@ Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanı
 
 Uygulama process'i mock veri veya gateway fallback'i içermez. Local geliştirmede 4002 portunda
 çalışan dependency'siz Node.js `mock-gw` servisine normal HTTP üzerinden bağlanır. Menü, sayfa/SEO,
-redirect, teklifler, bloglar, profil, hesap özeti, token refresh ve bot analytics sözleşmeleri bu
-servistedir. Bot analytics endpoint'i tek request/tek event yerine üst sınırı doğrulanan batch kabul
-eder. Test suite de aynı server'ı rastgele bir portta başlatır. Gerçek gateway'e geçişte servis koduna
-dokunulmaz; yalnızca `GATEWAY_URL` değiştirilir.
+redirect, teklifler, bloglar, finansal ürünler, Bilgi Merkezi, piyasa verileri, başvuru yönlendirme,
+profil, hesap özeti, token refresh ve bot analytics sözleşmeleri bu servistedir. Bot analytics
+endpoint'i tek request/tek event yerine üst sınırı doğrulanan batch kabul eder. Test suite de aynı
+server'ı rastgele bir portta başlatır. Gerçek gateway'e geçişte UI bileşenlerine dokunulmaz; endpoint
+servisleri aynı kontratı korur ve yalnızca `GATEWAY_URL` değiştirilir.
+
+Yeni örnek sayfalar da aynı route kontratını izler: `server/routes` loader/cache/metadata kararlarını,
+`server/services` gateway ve runtime payload sınırını, `src/features` SSR-safe sunumu taşır. Konut
+kredisi, kredi kartı, Bilgi Merkezi ve BIST 100 filtreleri semantic GET formudur; liste ve pagination
+linkleri JavaScript olmadan çalışır. Serbest metin aramaları sınırsız cache cardinality üretmemesi için
+shared HTML cache dışındadır. Başvuru formu ise gateway hedefini browser'a açmadan önce BFF üzerinden
+yeniden doğrular.
 
 ---
 

@@ -114,11 +114,7 @@ function isBank(value: unknown): value is ProductBank {
 
 function isLoan(value: unknown): value is HousingLoan {
   if (!isRecord(value) || !isRecord(value.calculation)) return false;
-  return (
-    isLoanIdentity(value) &&
-    isLoanTerms(value) &&
-    isLoanCalculation(value.calculation)
-  );
+  return isLoanIdentity(value) && isLoanTerms(value) && isLoanCalculation(value.calculation);
 }
 
 function isLoanIdentity(value: Record<string, unknown>): boolean {

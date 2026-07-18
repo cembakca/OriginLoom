@@ -44,22 +44,34 @@ function isStock(value: unknown): value is Stock {
 function isStockList(value: unknown): value is StockList {
   if (!isRecord(value) || !isRecord(value.index)) return false;
   return (
-    isString(value.index.code, 20) &&
-    isString(value.index.name, 120) &&
-    value.index.currency === "TRY" &&
-    (value.index.marketStatus === "open" || value.index.marketStatus === "closed") &&
-    isIsoDate(value.index.asOf) &&
-    isInteger(value.index.delayedByMinutes, 0, 1_440) &&
+    isMarketIndex(value.index) &&
     Array.isArray(value.items) &&
     value.items.length <= MAX_COLLECTION &&
     value.items.every(isStock) &&
     isPagination(value.pagination) &&
-    isRecord(value.query) &&
-    isOptionalString(value.query.q, 120) &&
-    isOptionalString(value.query.sector, 120) &&
-    isString(value.query.sortBy, 80) &&
+    isMarketQuery(value.query) &&
     isRecord(value.facets) &&
     isStringArray(value.facets.sectors, 100, 120) &&
     isString(value.disclaimer, 4_000)
+  );
+}
+
+function isMarketIndex(value: Record<string, unknown>): boolean {
+  return (
+    isString(value.code, 20) &&
+    isString(value.name, 120) &&
+    value.currency === "TRY" &&
+    (value.marketStatus === "open" || value.marketStatus === "closed") &&
+    isIsoDate(value.asOf) &&
+    isInteger(value.delayedByMinutes, 0, 1_440)
+  );
+}
+
+function isMarketQuery(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isOptionalString(value.q, 120) &&
+    isOptionalString(value.sector, 120) &&
+    isString(value.sortBy, 80)
   );
 }

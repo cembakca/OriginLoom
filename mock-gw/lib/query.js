@@ -39,12 +39,15 @@ export function enumParam(searchParams, name, allowed, fallback) {
 }
 
 export function numberParam(searchParams, name, fallback, min, max) {
-  const value = Number(searchParams.get(name));
+  const raw = searchParams.get(name);
+  if (raw === null || raw.trim() === "") return fallback;
+  const value = Number(raw);
   if (!Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
 }
 
 function boundedInteger(value, fallback, min, max) {
+  if (value === null || value.trim() === "") return fallback;
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));

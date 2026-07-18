@@ -7,9 +7,13 @@ import type { Hono } from "hono";
 const STATIC_SITEMAP_PATHS = [
   "/",
   "/blogs/paginated",
+  "/bilgi-merkezi",
   "/emekli-bankaciligi",
   "/ihtiyac-kredisi",
+  "/konut-kredisi",
+  "/kredi-kartlari",
   "/medya-pipeline",
+  "/piyasalar/bist-100",
   "/uzaktan-musteri-edinimi",
 ] as const;
 

@@ -117,6 +117,28 @@ describe("external mock gateway", () => {
     expect(body.facets.banks).toHaveLength(8);
   });
 
+  it("uses endpoint pagination and calculation defaults when query params are absent", async () => {
+    const [loansResponse, cardsResponse, articlesResponse, stocksResponse] = await Promise.all([
+      fetch(gatewayUrl("/finance/housing-loans")),
+      fetch(gatewayUrl("/finance/credit-cards")),
+      fetch(gatewayUrl("/content/articles")),
+      fetch(gatewayUrl("/markets/bist100")),
+    ]);
+    const loans = (await loansResponse.json()) as {
+      items: Array<{ calculation: { amount: number } }>;
+      pagination: { pageSize: number; totalPages: number };
+    };
+    const cards = (await cardsResponse.json()) as { pagination: { pageSize: number } };
+    const articles = (await articlesResponse.json()) as { pagination: { pageSize: number } };
+    const stocks = (await stocksResponse.json()) as { pagination: { pageSize: number } };
+
+    expect(loans.items[0]?.calculation.amount).toBe(2_000_000);
+    expect(loans.pagination).toMatchObject({ pageSize: 6, totalPages: 2 });
+    expect(cards.pagination.pageSize).toBe(8);
+    expect(articles.pagination.pageSize).toBe(6);
+    expect(stocks.pagination.pageSize).toBe(10);
+  });
+
   it("serves housing loan details with an amount-specific payment example", async () => {
     const response = await fetch(
       gatewayUrl("/finance/housing-loans/ziraat-konut-kredisi?amount=2500000&term=84"),
