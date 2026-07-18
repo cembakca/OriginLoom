@@ -1028,6 +1028,27 @@ cache identity, hydration props ve component davranışı aynı kalır. Değişe
 wire representation'dır. Böylece purge, TTL veya canonical ile sonradan temizlemeye çalışmak yerine
 istenmeyen URL adayını document üretilirken ortadan kaldırırız.
 
+## Canlı fiyatı HTML cache'ine çevirmemek
+
+Bir piyasa ekranında “veri sürekli değişiyor” deyip route'u bütünüyle `no-store` yapmak kolaydır.
+Fakat bu karar her ziyaretçiye gateway listesi + React SSR maliyetini yeniden ödetir. Ters yöndeki hata
+ise her fiyat tick'ini Redis'e yazmak veya fiyatı cache key'e eklemektir; write amplification ve
+kontrolsüz cardinality üretir.
+
+BIST route'u bu iki uçtan da kaçınır:
+
+- İlk HTML snapshot'ı `ttl=30s`, `swr=300s` ile cache edilir.
+- `sortBy` ve `page` çıktıyı değiştirdiği için normalize edilerek key'e girer.
+- `q` ve `sector` gibi açık arama filtrelerinde route şimdilik `BYPASS` olur.
+- Hydration sonrasındaki quote batch'leri SSE üzerinden gelir; Redis HTML key'i veya body yazısı
+  üretmez.
+- Akış koparsa kullanıcı son SSR/client snapshot'ını görmeye devam eder.
+
+Burada iki ayrı freshness SLO'su vardır: “ilk document en fazla ne kadar eski olabilir?” ve “bağlı
+client son quote'u ne kadar gecikmeli görür?” Bu iki soruya tek TTL ile cevap vermeye çalışmak cache
+modelini yanlış katmana taşır. Detaylı güvenlik ve fan-out tasarımı
+[canlı piyasa yazısında](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md) ele alınıyor.
+
 ## Sonuç: Cache key, sayfanın veri sınıflandırmasıdır
 
 ## Güncel uygulama notu: HTML cache ile media cache aynı şey değildir

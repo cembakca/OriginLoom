@@ -953,6 +953,24 @@ birleştirilmelidir.
 Bu maliyetler, yalnız public içerik ağırlıklı ve kişisel yüzeyi küçük ürünlerde anlamlıdır. Uygulamanın
 çoğu kullanıcıya özelse shared HTML denizi küçülür ve islands yaklaşımının avantajı kaybolur.
 
+## Island yalnız auth sınırı değildir: freshness sınırı da olabilir
+
+`defer` island kişisel veriyi shared HTML'den ayırır. Fakat aynı fiziksel sınır public ve hızlı değişen
+veri için de işe yarar. BIST sayfasındaki `market-live` island'ı `hydrate` modundadır: server'ın verdiği
+public tabloyu birebir hydrate eder, ardından SSE quote batch'leriyle yalnız fiyat alanlarını yeniler.
+
+Bu örnekte island'ın amacı gizlilik değil, iki farklı yaşam süresini ayırmaktır:
+
+| Katman               | Veri                     | Yaşam süresi               | Arıza davranışı                     |
+| -------------------- | ------------------------ | -------------------------- | ----------------------------------- |
+| SSR document         | public piyasa snapshot'ı | 30 sn fresh + 300 sn stale | son snapshot görünür                |
+| `market-live` island | public quote akışı       | bağlantı süresi            | offline/reconnecting durumu görünür |
+| Auth island          | kişisel hesap verisi     | doğrulanmış session        | anonim fallback görünür             |
+
+Dolayısıyla “island = client-only widget” eksik bir tanımdır. Island, SSR ile client arasındaki veri
+otoritesi, güncellik ve hata davranışı sınırıdır. Canlı kanalın güvenlik kontratı
+[13. makalede](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md) detaylandırılıyor.
+
 ## Sonuç: Kişiselleştirme HTML’e girmek zorunda değil
 
 Bu mimariden çıkardığımız temel ders şu:

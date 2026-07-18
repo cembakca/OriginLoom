@@ -999,6 +999,29 @@ Google'ın crawl budget rehberi gereksiz URL inventory'sini azaltmayı öneriyor
 tek başına crawl budget stratejisi değildir; canonical, sitemap, doğru 404/410 ve gerçek anchor
 disipliniyle birlikte savunma katmanıdır.
 
+## Güncel contract örneği: yönlendirme ve canlı piyasa
+
+Mock artık yalnız menü, blog ve auth JSON'u döndürmüyor. Finans ürünlerinin gerçek taşıma semantiğini
+de görünür kılıyor:
+
+- Konut kredisi ve kredi kartı listeleri filtre, sıralama ve pagination kabul eder.
+- Detay endpoint'leri kampanya ve ürün alanlarını gerçekçi collection sınırlarıyla döndürür.
+- Referral endpoint'i browser'a banka URL'sini doğrudan emanet etmeden server-side click kaydı ve
+  redirect kararı üretir; internal stats endpoint'i ayrı operations token'ıyla korunur.
+- BIST snapshot endpoint'i ilk SSR tablosunu, `/internal/markets/stream` ise uzun yaşayan quote
+  batch'lerini sağlar.
+
+Canlı market endpoint'i özellikle değerlidir; mock'un yalnız JSON fixture olmadığını kanıtlar. Token
+olmadan `401`, geçersiz symbol ile `400`, doğru bearer ile `text/event-stream` döner; connection abort
+olduğunda timer ve response temizlenir. Browser bu token'ı hiçbir zaman görmez. UI server'ı tek upstream
+bağlantıyı process içindeki hub üzerinden abonelere dağıtır.
+
+Bu yine production piyasa sağlayıcısının kapasitesini, SLA'ini veya fiyat doğruluğunu kanıtlamaz.
+Kanıtladığı şey transport ve trust boundary'dir: handshake, content type, auth, parser limitleri,
+cancellation, reconnect ve graceful shutdown gerçek HTTP üzerinde çalışır. Ayrıntılar
+[SSR Snapshot ile Güvenli Canlı Piyasa Verisi](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md)
+yazısındadır.
+
 ## Sonuç: Gerçek sistem, gerçek veri gelmeden de inşa edilebilir
 
 Gerçek gateway olmadan gerçek bankacılık verisi üretemeyiz. Gerçek IAM güvenliğini, production

@@ -415,6 +415,28 @@ Framework’ten çıkmak bir olgunluk göstergesi değildir. Bazen tam tersine, 
 yaratır. Bizim için doğru olmasının nedeni, rendering ve cache kararlarının ürünün merkezinde yer
 almasıydı.
 
+## Güncel örnek: dynamic veri, dynamic document demek değildir
+
+BIST 100 ekranı bu ayrımın bugün projedeki en somut örneğidir. Fiyatların saniyeler içinde değişmesi,
+HTML document'in her tick'te yeniden render edilmesini gerektirmiyor. İlk request, kısa ömürlü Redis
+snapshot'ından crawlable bir tablo üretir; browser JavaScript çalıştırmasa bile son bilinen veri,
+başlıklar ve timestamp görünür kalır. Hydration sonrasında yalnız `market-live` island'ı aynı-origin
+SSE kanalına bağlanır ve satırları günceller.
+
+```text
+request → Redis/Gateway snapshot → SSR HTML
+                              browser → /api/markets/stream → fiyat güncellemeleri
+```
+
+Bu tasarım cache ile freshness'i iki ayrı düzleme böler. Route cache'i ilk açılış maliyetini ve
+paylaşılabilir document'i yönetir; canlı kanal yalnız değişen küçük veri setini taşır. UTM gibi içerik
+değiştirmeyen query'ler cache key'i bölmez, her quote da Redis'e yeni HTML veya yeni key yazdırmaz.
+
+Buradaki ders Next.js'in streaming veya Route Handler yapamaması değildir; bunları yapabilir. Bizim
+tercihimiz, “document ne zaman yeniden üretilir?” ve “hangi veri document'ten sonra akar?” kararlarını
+aynı route'un örtük dynamic sınıflandırmasına bırakmamak oldu. Canlı finans verisi tasarımını serinin
+[13. yazısında](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md) uçtan uca inceliyoruz.
+
 ## Sonuç: Dynamic rendering değil, örtük kararlar bizi uzaklaştırdı
 
 Next.js’ten ayrılma nedenimizi tek cümlede anlatmamız gerekirse şöyle söyleriz:

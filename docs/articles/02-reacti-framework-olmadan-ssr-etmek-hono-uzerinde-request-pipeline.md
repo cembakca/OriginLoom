@@ -770,8 +770,9 @@ geldiğinde uygulama:
 1. `shuttingDown` durumuna geçer ve yeni SSR isteklerine `503` verir.
 2. HTTP server’ın yeni bağlantı kabul etmesini durdurur.
 3. Devam eden stale revalidation işlerini belirli timeout içinde drain eder.
-4. Redis bağlantısını kapatır.
-5. Toplam shutdown timeout aşılırsa process’i hata koduyla sonlandırır.
+4. Browser SSE bağlantılarını ve process içindeki upstream market hub'ını kapatır.
+5. Redis bağlantısını ve telemetry provider'larını kapatır.
+6. Toplam shutdown timeout aşılırsa process’i hata koduyla sonlandırır.
 
 ```ts
 httpServer.close(async () => {
@@ -783,6 +784,22 @@ httpServer.close(async () => {
 
 Hono’nun Node rehberinde de `server.close()` ile güvenli kapanış örneği bulunuyor. Bizim eklediğimiz
 fark, HTTP bağlantılarının yanında uygulamaya ait background revalidation işlerini de beklemek.
+
+### Uzun yaşayan response, normal API request'i değildir
+
+`/api/markets/stream` genel HTML pipeline'ından ve kısa API deadline'ından bilinçli olarak ayrılır.
+Endpoint kendi admission limitini, heartbeat'ini, maksimum bağlantı süresini, client abort'unu ve
+shutdown sinyalini sahiplenir. Buna rağmen request ID, güvenlik middleware'i, route-templated metric ve
+structured log gibi process-wide sınırlar korunur.
+
+```text
+normal API: request → kısa deadline → response
+SSE:        handshake → admission lease → event loop → rotate/abort → lease release
+```
+
+Bu istisna “stream'lerde timeout yok” anlamına gelmez. Handshake gateway timeout'una, bağlantı beş
+dakikalık rotasyona, upstream parser byte limitine ve process/IP connection kotasına sahiptir. Yalnız
+tek bir kısa request deadline'ı sağlıklı bağlantıyı ilk heartbeat gelmeden öldürmez.
 
 Bu olmadan deploy anında başlayan bir revalidation yarıda kesilebilir, lock timeout’a kadar asılı
 kalabilir veya cache write tamamlanmadan process ölebilir. “Fire-and-forget” iş gerçekten sahipsiz
