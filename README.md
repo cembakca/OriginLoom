@@ -2,6 +2,9 @@
 
 Hono ve React 19 üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı.
 
+Mimari kararların gerekçesi ve Next.js’ten geçişin teknik hikâyesi için
+[makale serisi indeksine](docs/articles/README.md) bakın.
+
 ## Mimari
 
 Bir sayfa isteği sırasıyla şu katmanlardan geçer:
