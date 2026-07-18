@@ -9,38 +9,25 @@ import type { Route } from "~/lib/types";
 import { normalizePublicUrl } from "~/routing";
 
 import { mountApi } from "./api";
+import { type Capacity, createSsrDispatch } from "./app/ssr-dispatch";
 import type { Assets } from "./assets";
 import { pingCache } from "./cache";
 import { resolveTrustedClientIp } from "./client-ip";
 import { config } from "./config";
 import { errorResponse } from "./error";
-import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from "./handler";
+import { handle, handleHead } from "./handler";
 import { logError } from "./logger";
 import { observeRequest } from "./metrics";
-import {
-  finalizePipelineResponse,
-  finalizeSsrResponse,
-  runPipeline,
-  shouldUsePipeline,
-} from "./middleware/pipeline";
 import { publicBodyLimit } from "./middleware/public-body-limit";
 import { contextRequest, requestDeadline } from "./middleware/request-deadline";
 import { type AppVariables, requestId } from "./middleware/request-id";
 import { securityMiddleware } from "./middleware/security";
 import { staticAssetCacheHeaders } from "./middleware/static-assets";
-import { setActiveHttpRoute, SpanStatusCode, withRequestSpan } from "./observability";
+import { SpanStatusCode, withRequestSpan } from "./observability";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
 import { routes as defaultRoutes } from "./routes";
 import { mountSeoRoutes } from "./seo";
-import {
-  ssrCapacity as defaultSsrCapacity,
-  SsrCapacityError,
-  ssrCapacityResponse,
-} from "./ssr-capacity";
-
-type Capacity = {
-  run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T>;
-};
+import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity";
 
 const clientIpMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
   c.set("clientIp", resolveClientIp(c));
@@ -142,83 +129,12 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   mountSeoRoutes(app, config.siteUrl);
   mountApi(app);
 
-  app.all("*", async (c) => {
-    if (isShuttingDown()) return c.text("shutting down", 503);
-
-    const requestIdValue = c.get("requestId");
-    const cspNonce = c.get("cspNonce");
-    const request = contextRequest(c);
-    const pathname = new URL(request.url).pathname;
-    const clientIp = c.get("clientIp") ?? resolveClientIp(c);
-    const method = request.method.toUpperCase();
-    const ssrRoute = isSsrRouteRequest(request, routeTable);
-
-    if (ssrRoute && method !== "GET" && method !== "HEAD") {
-      setActiveHttpRoute(method, "<method-not-allowed>");
-      return methodNotAllowedResponse(requestIdValue);
-    }
-    if (!ssrRoute && c.get("requestClass") === "ssr" && !shouldUsePipeline(pathname)) {
-      return c.notFound();
-    }
-
-    const execute = async (): Promise<Response> => {
-      if (shouldUsePipeline(pathname)) {
-        const pipeline = await runPipeline(request, requestIdValue, clientIp);
-
-        if (pipeline.response) {
-          const pipelineResponse = finalizePipelineResponse(pipeline);
-          const response = method === "HEAD" ? withoutBody(pipelineResponse) : pipelineResponse;
-          if (requestIdValue) response.headers.set("x-request-id", requestIdValue);
-          return response;
-        }
-
-        const handleContext = {
-          requestId: requestIdValue,
-          clientIp,
-          ...stripUndefined({ trackingId: pipeline.trackingId, cspNonce }),
-        };
-        const ssr =
-          method === "HEAD"
-            ? await handleHead(pipeline.request, routeTable, handleContext)
-            : await handle(pipeline.request, routeTable, options.assets, handleContext);
-        const response = finalizeSsrResponse(ssr, pipeline);
-        if (requestIdValue) response.headers.set("x-request-id", requestIdValue);
-        return response;
-      }
-
-      return method === "HEAD"
-        ? handleHead(request, routeTable, {
-            requestId: requestIdValue,
-            clientIp,
-            ...stripUndefined({ cspNonce }),
-          })
-        : handle(request, routeTable, options.assets, {
-            requestId: requestIdValue,
-            clientIp,
-            ...stripUndefined({ cspNonce }),
-          });
-    };
-
-    if (c.get("requestClass") !== "ssr") return execute();
-    try {
-      return await capacity.run(request.signal, execute);
-    } catch (error) {
-      if (error instanceof SsrCapacityError) {
-        return ssrCapacityResponse(error, requestIdValue);
-      }
-      throw error;
-    }
-  });
+  app.all(
+    "*",
+    createSsrDispatch({ assets: options.assets, routes: routeTable, capacity, isShuttingDown }),
+  );
 
   return app;
-}
-
-function withoutBody(response: Response): Response {
-  return new Response(null, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
 }
 
 function resolveClientIp(c: Context<{ Variables: AppVariables }>): string {
