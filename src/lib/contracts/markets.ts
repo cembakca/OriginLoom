@@ -32,3 +32,16 @@ export type StockList = {
   facets: { sectors: string[] };
   disclaimer: string;
 };
+
+export type MarketQuote = Pick<
+  Stock,
+  "symbol" | "lastPrice" | "change" | "changePercent" | "dayLow" | "dayHigh"
+>;
+
+/** Ordered server event; sequence is monotonic within one upstream connection. */
+export type MarketQuoteBatch = {
+  type: "quotes";
+  sequence: number;
+  asOf: string;
+  quotes: MarketQuote[];
+};

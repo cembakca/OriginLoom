@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { menu } from "./data/menu.js";
 import { resolveFinanceRequest } from "./routes/finance.js";
 import { resolveKnowledgeCenterRequest } from "./routes/knowledge-center.js";
+import { resolveMarketStreamRequest } from "./routes/market-stream.js";
 import { resolveMarketsRequest } from "./routes/markets.js";
 
 const port = Number(process.env.PORT ?? 4002);
@@ -157,6 +158,7 @@ async function route(request, response) {
   if (request.method === "GET" && url.pathname === "/routing/domains") {
     return json(response, 200, routeDomains);
   }
+  if (resolveMarketStreamRequest(request, response, url)) return;
   const publicCatalogResponse =
     (await resolveFinanceRequest(request, url, readJson)) ??
     resolveKnowledgeCenterRequest(request, url) ??

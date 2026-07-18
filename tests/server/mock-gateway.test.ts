@@ -299,6 +299,31 @@ describe("external mock gateway", () => {
     expect(body.disclaimer).toContain("yatırım tavsiyesi değildir");
   });
 
+  it("protects the market stream and emits bounded quote batches", async () => {
+    const unauthorized = await fetch(gatewayUrl("/internal/markets/stream?symbols=THYAO"));
+    const controller = new AbortController();
+    const response = await fetch(gatewayUrl("/internal/markets/stream?symbols=THYAO,AKBNK"), {
+      headers: { authorization: "Bearer dev-market-stream-token" },
+      signal: controller.signal,
+    });
+    const chunk = await response.body?.getReader().read();
+    controller.abort();
+    const text = new TextDecoder().decode(chunk?.value);
+    const dataLine = text.split("\n").find((line) => line.startsWith("data: "));
+    const event = JSON.parse(dataLine?.slice(6) ?? "null") as {
+      type: string;
+      sequence: number;
+      quotes: Array<{ symbol: string; lastPrice: number }>;
+    };
+
+    expect(unauthorized.status).toBe(401);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(event).toMatchObject({ type: "quotes", sequence: 1 });
+    expect(event.quotes.map((quote) => quote.symbol)).toEqual(["THYAO", "AKBNK"]);
+    expect(event.quotes.every((quote) => Number.isFinite(quote.lastPrice))).toBe(true);
+  });
+
   it("adds the new finance domains to the menu without removing existing categories", async () => {
     const response = await fetch(gatewayUrl("/pages/menuitem/list"));
     const body = (await response.json()) as {
