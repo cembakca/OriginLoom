@@ -15,7 +15,7 @@
     "start:dev": "node scripts/run-with-env.mjs development node --import tsx/esm server/index.ts",
     "typecheck": "tsc --noEmit",
     "check:cycles": "node scripts/check-import-cycles.mjs",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 9",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
