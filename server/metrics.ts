@@ -1,48 +1,17 @@
-import { monitorEventLoopDelay } from "node:perf_hooks";
-
 import { isKnownPageCachePrefix, parseCacheKey } from "~/lib/cache-keys";
 
-type CounterMap = Map<string, number>;
+import {
+  counterLines,
+  type CounterMap,
+  escapeLabel,
+  gauge,
+  Histogram,
+  increment,
+} from "./metrics/primitives";
+import { runtimeMetricLines } from "./metrics/runtime";
+
 type GatewayOutcome = "success" | "client_error" | "server_error" | "timeout" | "network_error";
 type OperationOutcome = "success" | "error";
-
-class Histogram {
-  private readonly values = new Map<string, { count: number; sum: number; buckets: number[] }>();
-
-  constructor(private readonly boundaries: number[]) {}
-
-  observe(labels: string, value: number): void {
-    const safeValue = Number.isFinite(value) && value >= 0 ? value : 0;
-    const current = this.values.get(labels) ?? {
-      count: 0,
-      sum: 0,
-      buckets: this.boundaries.map(() => 0),
-    };
-    current.count++;
-    current.sum += safeValue;
-    for (let index = 0; index < this.boundaries.length; index++) {
-      if (safeValue <= this.boundaries[index]!) {
-        current.buckets[index] = (current.buckets[index] ?? 0) + 1;
-      }
-    }
-    this.values.set(labels, current);
-  }
-
-  lines(name: string, help: string): string[] {
-    const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} histogram`];
-    for (const [labels, value] of [...this.values.entries()].sort()) {
-      for (let index = 0; index < this.boundaries.length; index++) {
-        lines.push(
-          `${name}_bucket{${labels},le="${this.boundaries[index]}"} ${value.buckets[index]}`,
-        );
-      }
-      lines.push(`${name}_bucket{${labels},le="+Inf"} ${value.count}`);
-      lines.push(`${name}_sum{${labels}} ${finite(value.sum)}`);
-      lines.push(`${name}_count{${labels}} ${value.count}`);
-    }
-    return lines;
-  }
-}
 
 const DURATION_BUCKETS_MS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 15_000];
 const BODY_SIZE_BUCKETS_BYTES = [1_024, 10_240, 51_200, 102_400, 262_144, 524_288, 1_048_576];
@@ -82,39 +51,6 @@ let botAnalyticsQueueDepth = 0;
 let botAnalyticsInFlight = 0;
 let ssrRenderInFlight = 0;
 let ssrRenderQueueDepth = 0;
-const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
-eventLoopDelay.enable();
-
-let hasSnapshotted = false;
-let lastEventLoopP50 = 0;
-let lastEventLoopP95 = 0;
-let lastEventLoopP99 = 0;
-
-const eventLoopInterval = setInterval(() => {
-  const scale = 1e6;
-  lastEventLoopP50 = eventLoopDelay.percentile(50) / scale / 1_000;
-  lastEventLoopP95 = eventLoopDelay.percentile(95) / scale / 1_000;
-  lastEventLoopP99 = eventLoopDelay.percentile(99) / scale / 1_000;
-  eventLoopDelay.reset();
-  hasSnapshotted = true;
-}, 10_000);
-eventLoopInterval.unref();
-
-function getEventLoopP50(): number {
-  return hasSnapshotted ? lastEventLoopP50 : eventLoopDelay.percentile(50) / 1e9;
-}
-
-function getEventLoopP95(): number {
-  return hasSnapshotted ? lastEventLoopP95 : eventLoopDelay.percentile(95) / 1e9;
-}
-
-function getEventLoopP99(): number {
-  return hasSnapshotted ? lastEventLoopP99 : eventLoopDelay.percentile(99) / 1e9;
-}
-
-function increment(map: CounterMap, key: string): void {
-  map.set(key, (map.get(key) ?? 0) + 1);
-}
 
 function statusClass(status: number): string {
   return status === 0 ? "error" : `${Math.floor(status / 100)}xx`;
@@ -292,14 +228,6 @@ function gatewayOutcome(status: number): GatewayOutcome {
   return "success";
 }
 
-function counterLines(name: string, help: string, map: CounterMap): string[] {
-  const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} counter`];
-  for (const [labels, value] of [...map.entries()].sort()) {
-    lines.push(`${name}{${labels}} ${value}`);
-  }
-  return lines;
-}
-
 function cacheCardinalityLines(): string[] {
   const lines = [
     "# HELP ssr_cache_distinct_keys_observed Distinct cache keys observed by this process since startup",
@@ -311,28 +239,7 @@ function cacheCardinalityLines(): string[] {
   return lines;
 }
 
-function gauge(name: string, help: string, value: number, labels?: string): string[] {
-  return [
-    `# HELP ${name} ${help}`,
-    `# TYPE ${name} gauge`,
-    `${name}${labels ? `{${labels}}` : ""} ${finite(value)}`,
-  ];
-}
-
-function counter(name: string, help: string, value: number, labels?: string): string[] {
-  return [
-    `# HELP ${name} ${help}`,
-    `# TYPE ${name} counter`,
-    `${name}${labels ? `{${labels}}` : ""} ${finite(value)}`,
-  ];
-}
-
 export function renderMetrics(): string {
-  const memory = process.memoryUsage();
-  const cpu = process.cpuUsage();
-  const release = escapeLabel(process.env.RELEASE_ID ?? "development");
-  const service = escapeLabel(process.env.OTEL_SERVICE_NAME ?? "ssr-kit");
-
   const lines = [
     ...counterLines("ssr_http_requests_total", "HTTP requests", requests),
     ...requestDurations.lines("ssr_http_request_duration_milliseconds", "HTTP request duration"),
@@ -459,30 +366,9 @@ export function renderMetrics(): string {
       `Distinct cache keys exceeding the bounded ${MAX_DISTINCT_KEYS_PER_ROUTE}-key observation window`,
       cacheCardinalityOverflows,
     ),
-    ...gauge("ssr_event_loop_lag_p50_seconds", "Event loop delay p50", getEventLoopP50()),
-    ...gauge("ssr_event_loop_lag_p95_seconds", "Event loop delay p95", getEventLoopP95()),
-    ...gauge("ssr_event_loop_lag_p99_seconds", "Event loop delay p99", getEventLoopP99()),
-    ...gauge("process_resident_memory_bytes", "Resident memory size", memory.rss),
-    ...gauge("process_heap_used_bytes", "Process heap used", memory.heapUsed),
-    ...gauge("process_uptime_seconds", "Process uptime", process.uptime()),
-    ...counter("process_cpu_user_seconds_total", "Total user CPU time", cpu.user / 1e6),
-    ...counter("process_cpu_system_seconds_total", "Total system CPU time", cpu.system / 1e6),
-    ...gauge(
-      "ssr_release_info",
-      "Build and service identity",
-      1,
-      `service="${service}",release="${release}"`,
-    ),
+    ...runtimeMetricLines(),
   ];
   return `${lines.join("\n")}\n`;
-}
-
-function finite(value: number): string {
-  return Number.isFinite(value) ? String(value) : "0";
-}
-
-function escapeLabel(value: string): string {
-  return value.replaceAll("\\", "\\\\").replaceAll("\n", "\\n").replaceAll('"', '\\"');
 }
 
 function cacheRouteLabel(key: string): string {
