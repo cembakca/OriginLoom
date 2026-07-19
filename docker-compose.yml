@@ -32,6 +32,9 @@ services:
       REFERRAL_STATS_SECRET: dev-referral-stats-secret
       MARKET_STREAM_TOKEN: dev-market-stream-token
       ALLOW_INSECURE_GATEWAY: "true"
+      ALLOW_INSECURE_REDIS: "true"
+      TRUSTED_PROXY_HOPS: "1"
+      TRUSTED_PROXY_CIDRS: "172.16.0.0/12"
     depends_on:
       mock-gw:
         condition: service_healthy

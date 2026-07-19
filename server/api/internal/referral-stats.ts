@@ -1,6 +1,7 @@
 import { referralStatsSecurityConfig } from "@server/config";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
+import { secretMatches } from "@server/security/secrets";
 import { getReferralStats } from "@server/services/financial-products";
 import type { Hono } from "hono";
 
@@ -25,7 +26,7 @@ function assertReferralStatsAuthorized(request: Request): Response | null {
   }
   const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   const token = bearer ?? request.headers.get("x-referral-stats-token");
-  return token === secret ? null : json({ error: "Yetkisiz" }, 401);
+  return secretMatches(token, secret) ? null : json({ error: "Yetkisiz" }, 401);
 }
 
 function json(data: unknown, status = 200): Response {

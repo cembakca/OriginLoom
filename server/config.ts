@@ -65,7 +65,13 @@ export const config = {
   botAnalyticsDrainTimeoutMs: numberEnv("BOT_ANALYTICS_DRAIN_TIMEOUT_MS", 3_000),
   proxyBodyLimitBytes: numberEnv("PROXY_BODY_LIMIT_BYTES", 1_048_576),
   trustProxy: booleanEnv("TRUST_PROXY", false),
+  trustedProxyHops: numberEnv("TRUSTED_PROXY_HOPS", 1),
+  trustedProxyCidrs: (process.env.TRUSTED_PROXY_CIDRS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean),
   allowInsecureGateway: booleanEnv("ALLOW_INSECURE_GATEWAY", false),
+  allowInsecureRedis: booleanEnv("ALLOW_INSECURE_REDIS", false),
   gtmContainerId: process.env.GTM_CONTAINER_ID?.trim() ?? "",
   clientErrorRateLimit: numberEnv("CLIENT_ERROR_RATE_LIMIT", 120),
   clientErrorWindowMs: numberEnv("CLIENT_ERROR_WINDOW_MS", 60_000),

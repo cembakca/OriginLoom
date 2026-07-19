@@ -62,6 +62,9 @@ jobs:
             --env GATEWAY_URL=http://127.0.0.1:4002 \
             --env SITE_URL=http://127.0.0.1:3005 \
             --env CACHE_PURGE_SECRET=container-smoke-secret \
+            --env REFERRAL_STATS_SECRET=container-referral-stats-secret \
+            --env MARKET_STREAM_TOKEN=container-market-stream-secret \
+            --env AUTH_REFRESH_COORDINATION_SECRET=container-auth-refresh-coordination-secret \
             --env RELEASE_ID=${{ github.sha }} \
             ssr-kit-ci:${{ github.sha }}
           trap 'docker logs ssr-kit-ci || true; docker rm --force ssr-kit-ci || true' EXIT

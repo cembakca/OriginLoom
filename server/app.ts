@@ -144,5 +144,9 @@ function resolveClientIp(c: Context<{ Variables: AppVariables }>): string {
   } catch {
     // app.request() and non-Node adapters do not provide node-server connection info.
   }
-  return resolveTrustedClientIp(remote, c.req.raw.headers, config.trustProxy);
+  return resolveTrustedClientIp(remote, c.req.raw.headers, {
+    enabled: config.trustProxy,
+    hops: config.trustedProxyHops,
+    cidrs: config.trustedProxyCidrs,
+  });
 }

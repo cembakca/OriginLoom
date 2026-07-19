@@ -73,18 +73,18 @@ describe("request deadline middleware", () => {
     expect(await response.text()).toBe("stream-owned-timeout");
   });
 
-  it("classifies fallback external rewrites as proxy requests", async () => {
+  it("does not classify unmatched API paths as gateway proxies", async () => {
     const app = new Hono<{ Variables: AppVariables }>();
     app.use("*", requestId);
-    app.use("*", requestDeadline([], { proxy: 5 }));
+    app.use("*", requestDeadline([], { proxy: 100, ssr: 5 }));
     app.all("*", async (c) => {
       await new Promise((resolve) => setTimeout(resolve, 25));
-      return c.text("late proxy");
+      return c.text("late unmatched request");
     });
 
     const response = await app.request("/api/external-fallback");
     expect(response.status).toBe(504);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(renderMetrics()).toContain('request_timeout_total{class="proxy",route="<proxy>"}');
+    expect(renderMetrics()).toContain('request_timeout_total{class="ssr",route="<unmatched>"}');
   });
 });

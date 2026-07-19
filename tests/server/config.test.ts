@@ -194,6 +194,7 @@ describe("server config", () => {
       REFERRAL_STATS_SECRET: "referral-secret",
       MARKET_STREAM_TOKEN: "market-secret",
       AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
+      TRUSTED_PROXY_CIDRS: "10.0.0.0/8",
       RELEASE_ID: "release-1",
     };
     await expect(validateWith(production)).rejects.toThrow("Production GATEWAY_URL must use https");
@@ -279,6 +280,7 @@ describe("server config", () => {
       REFERRAL_STATS_SECRET: "referral-secret",
       MARKET_STREAM_TOKEN: "market-secret",
       AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
+      TRUSTED_PROXY_CIDRS: "10.0.0.0/8",
       RELEASE_ID: "release-1",
       IMAGE_CDN_URL: "localhost:3005/images/",
     };
@@ -304,5 +306,23 @@ describe("server config", () => {
         IMAGE_TRANSFORM_URL: "http://images.example.com/transform",
       }),
     ).rejects.toThrow("Production IMAGE_TRANSFORM_URL must use https");
+  });
+
+  it("requires TLS for non-loopback production Redis unless explicitly exempted", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://redis.internal:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+      }),
+    ).rejects.toThrow("Production REDIS_URL must use rediss");
+  });
+
+  it("rejects invalid trusted proxy networks", async () => {
+    await expect(validateWith({ TRUSTED_PROXY_CIDRS: "10.0.0.0/99" })).rejects.toThrow(
+      "Invalid TRUSTED_PROXY_CIDRS entry",
+    );
   });
 });

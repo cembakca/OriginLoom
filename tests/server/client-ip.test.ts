@@ -8,8 +8,26 @@ describe("trusted client IP resolution", () => {
       "x-real-ip": "203.0.113.11",
     });
 
-    expect(resolveTrustedClientIp("10.0.0.20", headers, false)).toBe("10.0.0.20");
-    expect(resolveTrustedClientIp("10.0.0.20", headers, true)).toBe("203.0.113.10");
+    expect(
+      resolveTrustedClientIp("10.0.0.20", headers, { enabled: false, hops: 1, cidrs: [] }),
+    ).toBe("10.0.0.20");
+    expect(
+      resolveTrustedClientIp("10.0.0.20", headers, {
+        enabled: true,
+        hops: 2,
+        cidrs: ["10.0.0.0/8"],
+      }),
+    ).toBe("203.0.113.10");
+  });
+
+  it("ignores forwarded headers when the socket peer is outside trusted proxy CIDRs", () => {
+    expect(
+      resolveTrustedClientIp("198.51.100.5", new Headers({ "x-forwarded-for": "203.0.113.10" }), {
+        enabled: true,
+        hops: 1,
+        cidrs: ["10.0.0.0/8"],
+      }),
+    ).toBe("198.51.100.5");
   });
 
   it("falls back to the socket address for invalid proxy input", () => {
@@ -17,7 +35,7 @@ describe("trusted client IP resolution", () => {
       resolveTrustedClientIp(
         "10.0.0.20",
         new Headers({ "x-forwarded-for": "attacker-controlled" }),
-        true,
+        { enabled: true, hops: 1, cidrs: ["10.0.0.0/8"] },
       ),
     ).toBe("10.0.0.20");
   });

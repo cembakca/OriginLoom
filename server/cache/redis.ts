@@ -4,7 +4,13 @@ import Redis from "ioredis";
 import type { CachePolicy } from "~/lib/types";
 
 import { decodeCacheEntry, encodeCacheEntry } from "./codec";
-import type { CacheEntry, CacheStore, ListKeysOptions, ListKeysResult } from "./types";
+import type {
+  CacheEntry,
+  CacheStore,
+  ListKeysOptions,
+  ListKeysResult,
+  RateLimitResult,
+} from "./types";
 
 export class RedisStore implements CacheStore {
   private redis: Redis;
@@ -124,6 +130,22 @@ export class RedisStore implements CacheStore {
 
   async writeEphemeral(key: string, value: string, ttlMs: number): Promise<void> {
     await this.redis.set(`${this.prefix}ephemeral:${key}`, value, "PX", ttlMs);
+  }
+
+  async takeRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+    const redisKey = `${this.prefix}rate-limit:${key}`;
+    const result = (await this.redis.eval(
+      "local count = redis.call('INCR', KEYS[1]); " +
+        "if count == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]); end; " +
+        "local ttl = redis.call('PTTL', KEYS[1]); return {count, ttl}",
+      1,
+      redisKey,
+      windowMs,
+    )) as [number, number];
+    return {
+      allowed: result[0] <= limit,
+      retryAfterMs: Math.max(1, result[1]),
+    };
   }
 
   async acquireLock(key: string, ttlMs: number): Promise<string | null> {

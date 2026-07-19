@@ -4,6 +4,7 @@ import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
 import { sanitizeUuid } from "@server/middleware/sanitize";
+import { guardPublicApi, type PublicApiPolicy } from "@server/security/public-api-guard";
 import { createReferral } from "@server/services/financial-products";
 import type { Hono } from "hono";
 
@@ -14,14 +15,23 @@ import { referralProductByPublicType } from "~/lib/referral-products";
 import { cookie } from "~/lib/request";
 
 const REFERRAL_SESSION_MAX_AGE = 86_400 * 30;
+const referralPolicy: PublicApiPolicy = {
+  name: "referral",
+  windowMs: 60_000,
+  globalLimit: 1_000,
+  ipLimit: 30,
+  requireSameOriginMutation: true,
+};
 
-export async function handleReferralApi(request: Request): Promise<Response> {
+export async function handleReferralApi(
+  request: Request,
+  clientIp = "unresolved",
+): Promise<Response> {
   const started = performance.now();
   let productType = "unknown";
   try {
-    if (!isTrustedOrigin(request)) {
-      return measuredError("Cross-origin başvuru isteği reddedildi", 403, productType, started);
-    }
+    const denied = await guardPublicApi(request, clientIp, referralPolicy);
+    if (denied) return denied;
 
     const form = await readForm(request);
     if (!form) return measuredError("Geçersiz başvuru isteği", 400, productType, started);
@@ -92,7 +102,7 @@ export async function handleReferralApi(request: Request): Promise<Response> {
 export function mountReferralApi(app: Hono<{ Variables: AppVariables }>): void {
   app.post("/api/referrals", (c) => {
     c.set("requestRoute", "<api referral>");
-    return handleReferralApi(contextRequest(c));
+    return handleReferralApi(contextRequest(c), c.get("clientIp") ?? "unresolved");
   });
 }
 
@@ -107,14 +117,4 @@ async function readForm(request: Request): Promise<FormData | null> {
 function measuredError(message: string, status: 400 | 403, productType: string, started: number) {
   observeReferralRedirect(productType, "invalid_request", performance.now() - started);
   return new Response(message, { status, headers: { "cache-control": "private, no-store" } });
-}
-
-function isTrustedOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return new URL(origin).origin === new URL(config.siteUrl).origin;
-  } catch {
-    return false;
-  }
 }

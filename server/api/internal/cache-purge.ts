@@ -7,12 +7,16 @@ import {
 import { config, purgeSecurityConfig } from "@server/config";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
+import { secretMatches } from "@server/security/secrets";
 import type { Context } from "hono";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "private, no-store",
+    },
   });
 }
 
@@ -31,7 +35,7 @@ export function assertPurgeAuthorized(request: Request): Response | null {
   const bearer = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
   const token = bearer ?? request.headers.get("x-cache-purge-token");
 
-  if (!token || token !== secret) {
+  if (!secretMatches(token, secret)) {
     return json({ error: "Yetkisiz" }, 401);
   }
 

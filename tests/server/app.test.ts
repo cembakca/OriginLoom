@@ -106,6 +106,12 @@ describe("Hono application integration", () => {
     expect(await response.text()).toBe("");
   });
 
+  it("does not mount operations endpoints on the public listener", async () => {
+    const app = appWith([]);
+    expect((await app.request("/api/internal/cache/keys")).status).toBe(404);
+    expect((await app.request("/api/internal/referrals/stats")).status).toBe(404);
+  });
+
   it("routes unmatched infrastructure requests through app.notFound()", async () => {
     const response = await appWith([]).request("/missing.ico");
     const body = await response.text();

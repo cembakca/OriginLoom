@@ -10,6 +10,7 @@ import type { CachePolicy } from "~/lib/types";
 import { MemoryStore } from "./memory";
 import { RedisStore } from "./redis";
 import type { CacheStore } from "./types";
+import type { RateLimitResult } from "./types";
 
 let store: CacheStore | null = null;
 
@@ -41,6 +42,10 @@ export async function initCache(): Promise<CacheStore> {
 export function getCache(): CacheStore {
   if (!store) throw new Error("Cache not initialized — call initCache() first");
   return store;
+}
+
+export function isCacheInitialized(): boolean {
+  return store !== null;
 }
 
 export async function closeCache(): Promise<void> {
@@ -210,6 +215,23 @@ export async function writeCoordinationValue(
     );
   } catch (error) {
     logError(error, { msg: "coordination value write failed", key });
+  }
+}
+
+export async function takeDistributedRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult | null> {
+  try {
+    const cache = getCache();
+    if (!cache.takeRateLimit) return null;
+    return await runCacheOperation("rate_limit.take", () =>
+      cache.takeRateLimit!(key, limit, windowMs),
+    );
+  } catch (error) {
+    logError(error, { msg: "distributed rate limit failed", key });
+    return null;
   }
 }
 

@@ -8,15 +8,27 @@ import {
 } from "@server/api/internal/auth-bff";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
+import { guardPublicApi, type PublicApiPolicy } from "@server/security/public-api-guard";
 import { fetchUserProfileResult } from "@server/services/user";
 import type { Hono } from "hono";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "private, no-store",
+    },
   });
 }
+
+const refreshPolicy: PublicApiPolicy = {
+  name: "auth-refresh",
+  windowMs: 60_000,
+  globalLimit: 5_000,
+  ipLimit: 120,
+  requireSameOriginMutation: true,
+};
 
 /** Authoritative UI session: HttpOnly credentials + gateway profile decide the result. */
 export async function handleAuthSessionApi(request: Request): Promise<Response> {
@@ -54,7 +66,9 @@ export function mountAuthSessionApi(app: Hono<{ Variables: AppVariables }>): voi
 }
 
 /** BFF token refresh — client TanStack / api-fetch 401 retry burayı çağırır. */
-export async function handleRefresh(request: Request): Promise<Response> {
+export async function handleRefresh(request: Request, clientIp = "unresolved"): Promise<Response> {
+  const denied = await guardPublicApi(request, clientIp, refreshPolicy);
+  if (denied) return denied;
   const auth = await forceTokenRefresh(request);
   if (auth.kind === "unavailable") {
     return withBffAuthCookies(json({ error: "Oturum servisi kullanılamıyor" }, 503), auth.cookies);

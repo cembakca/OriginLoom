@@ -1,11 +1,18 @@
 import type { CachePolicy } from "~/lib/types";
 
-import type { CacheEntry, CacheStore, ListKeysOptions, ListKeysResult } from "./types";
+import type {
+  CacheEntry,
+  CacheStore,
+  ListKeysOptions,
+  ListKeysResult,
+  RateLimitResult,
+} from "./types";
 
 export class MemoryStore implements CacheStore {
   private store = new Map<string, CacheEntry>();
   private locks = new Map<string, { token: string; expiresAt: number }>();
   private ephemeral = new Map<string, { value: string; expiresAt: number }>();
+  private rateLimits = new Map<string, { used: number; resetAt: number }>();
 
   constructor(private maxEntries: number) {}
 
@@ -97,6 +104,20 @@ export class MemoryStore implements CacheStore {
 
   async writeEphemeral(key: string, value: string, ttlMs: number): Promise<void> {
     this.ephemeral.set(key, { value, expiresAt: Date.now() + ttlMs });
+  }
+
+  async takeRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+    const now = Date.now();
+    let entry = this.rateLimits.get(key);
+    if (!entry || entry.resetAt <= now) {
+      entry = { used: 0, resetAt: now + windowMs };
+      this.rateLimits.set(key, entry);
+    }
+    entry.used++;
+    return {
+      allowed: entry.used <= limit,
+      retryAfterMs: Math.max(1, entry.resetAt - now),
+    };
   }
 
   async acquireLock(key: string, ttlMs: number): Promise<string | null> {

@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 import type { AppConfig } from "./config";
 
 function assertPositiveInteger(name: string, value: number): void {
@@ -23,6 +25,7 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   if (config.cacheBackend === "redis" && !config.redisUrl) {
     throw new Error("REDIS_URL is required when CACHE_BACKEND=redis");
   }
+  if (config.redisUrl) validateRedisUrl(config);
   assertPositiveInteger("PORT", config.port);
   if (config.port > 65_535) throw new Error(`Invalid PORT: ${config.port}`);
   assertPositiveInteger("METRICS_PORT", config.metricsPort);
@@ -92,6 +95,11 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     throw new Error("BOT_ANALYTICS_DRAIN_TIMEOUT_MS must be lower than SHUTDOWN_TIMEOUT_MS");
   }
   assertPositiveInteger("PROXY_BODY_LIMIT_BYTES", config.proxyBodyLimitBytes);
+  assertPositiveInteger("TRUSTED_PROXY_HOPS", config.trustedProxyHops);
+  if (config.trustProxy && config.isProduction && config.trustedProxyCidrs.length === 0) {
+    throw new Error("TRUSTED_PROXY_CIDRS is required when TRUST_PROXY=true in production");
+  }
+  for (const cidr of config.trustedProxyCidrs) validateCidr(cidr);
   assertPositiveInteger("REDIRECT_CACHE_TTL_MS", config.redirectCacheTtlMs);
   assertPositiveInteger("REDIRECT_CACHE_MAX_ENTRIES", config.redirectCacheMaxEntries);
   assertPositiveInteger("CLIENT_ERROR_RATE_LIMIT", config.clientErrorRateLimit);
@@ -159,6 +167,39 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
       );
     }
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
+  }
+}
+
+function validateCidr(cidr: string): void {
+  const [address, prefixValue, extra] = cidr.split("/");
+  const family = address ? isIP(address) : 0;
+  const prefix = prefixValue === undefined ? (family === 4 ? 32 : 128) : Number(prefixValue);
+  const maximum = family === 4 ? 32 : 128;
+  if (
+    extra !== undefined ||
+    family === 0 ||
+    !Number.isInteger(prefix) ||
+    prefix < 0 ||
+    prefix > maximum
+  ) {
+    throw new Error(`Invalid TRUSTED_PROXY_CIDRS entry: ${cidr}`);
+  }
+}
+
+function validateRedisUrl(config: AppConfig): void {
+  const redisUrl = assertUrl("REDIS_URL", config.redisUrl!);
+  if (redisUrl.protocol !== "redis:" && redisUrl.protocol !== "rediss:") {
+    throw new Error("REDIS_URL must use redis: or rediss:");
+  }
+  if (
+    config.isProduction &&
+    redisUrl.protocol !== "rediss:" &&
+    !isLoopbackUrl(redisUrl) &&
+    !config.allowInsecureRedis
+  ) {
+    throw new Error(
+      "Production REDIS_URL must use rediss unless ALLOW_INSECURE_REDIS is explicitly enabled",
+    );
   }
 }
 

@@ -5,7 +5,12 @@ import { describe, expect, it } from "vitest";
 function request(body: URLSearchParams, headers: Record<string, string> = {}) {
   return new Request("http://localhost/api/referrals", {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      origin: "http://localhost:3005",
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
     body,
   });
 }
@@ -60,6 +65,18 @@ describe("referral BFF", () => {
 
     expect(response.status).toBe(403);
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("fails closed when browser origin metadata is absent", async () => {
+    const response = await handleReferralApi(
+      new Request("http://localhost/api/referrals", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ productType: "kredi-karti", slug: "maximum" }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
   });
 
   it("counts repeat clicks while keeping unique users in the HttpOnly server session", async () => {

@@ -97,18 +97,13 @@ describe("auth session API", () => {
 
 describe("auth refresh API", () => {
   it("returns 401 without refresh token", async () => {
-    const res = await handleRefresh(
-      new Request("http://localhost/api/internal/refresh", { method: "POST" }),
-    );
+    const res = await handleRefresh(refreshRequest());
     expect(res.status).toBe(401);
   });
 
   it("issues new tokens and session cookies from refresh_token", async () => {
     const res = await handleRefresh(
-      new Request("http://localhost/api/internal/refresh", {
-        method: "POST",
-        headers: { cookie: "refresh_token=rt-abc123456789012345678" },
-      }),
+      refreshRequest({ cookie: "refresh_token=rt-abc123456789012345678" }),
     );
     expect(res.status).toBe(200);
     const setCookie = res.headers.get("set-cookie") ?? "";
@@ -119,15 +114,30 @@ describe("auth refresh API", () => {
   it("returns 503 and preserves cookies when refresh is temporarily unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
     const res = await handleRefresh(
-      new Request("http://localhost/api/internal/refresh", {
-        method: "POST",
-        headers: {
-          cookie: `${Cookie.refreshToken}=temporary-api-refresh; ${Cookie.signedIn}=1`,
-        },
+      refreshRequest({
+        cookie: `${Cookie.refreshToken}=temporary-api-refresh; ${Cookie.signedIn}=1`,
       }),
     );
 
     expect(res.status).toBe(503);
     expect(res.headers.get("set-cookie")).toBeNull();
   });
+
+  it("rejects refresh requests without same-origin browser metadata", async () => {
+    const response = await handleRefresh(
+      new Request("http://localhost/api/internal/refresh", { method: "POST" }),
+    );
+    expect(response.status).toBe(403);
+  });
 });
+
+function refreshRequest(headers: Record<string, string> = {}): Request {
+  return new Request("http://localhost/api/internal/refresh", {
+    method: "POST",
+    headers: {
+      origin: "http://localhost:3005",
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
+  });
+}
