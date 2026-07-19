@@ -22,6 +22,7 @@ describe("finance content SSR pages", () => {
     ["/konut-kredisi/ziraat-konut-kredisi?amount=2500000&term=84", "Ziraat Bankası Konut Kredisi"],
     ["/kredi-kartlari", "Harcamalarınıza uygun kredi kartını bulun"],
     ["/kredi-kartlari/maximum", "Maximum Kart"],
+    ["/araclar/kredi-hesaplama?amount=1500000&term=60&rate=2.75", "Örnek ödeme planı"],
     ["/bilgi-merkezi", "Finansal kararlar için açıklayıcı rehberler"],
     ["/bilgi-merkezi/bist-100-endeksi-nedir", "BIST 100 Endeksi Nedir"],
     ["/piyasalar/bist-100", "BIST 100 hisseleri"],
@@ -53,6 +54,21 @@ describe("finance content SSR pages", () => {
 
     expect(knowledge.headers.get("x-cache")).toBe("BYPASS");
     expect(market.headers.get("x-cache")).toBe("BYPASS");
+  });
+
+  it("keeps calculator variants out of Redis and rejects invalid finance input", async () => {
+    const [calculation, invalid] = await Promise.all([
+      app.request("/araclar/kredi-hesaplama?amount=1750000&term=84&rate=2.49"),
+      app.request("/araclar/kredi-hesaplama?amount=999999999"),
+    ]);
+    const html = await calculation.text();
+
+    expect(calculation.status).toBe(200);
+    expect(calculation.headers.get("x-cache")).toBe("BYPASS");
+    expect(html).toContain('data-island="loan-calculator"');
+    expect(html).toContain("housing-annuity-v1");
+    expect(html).toContain('name="amount"');
+    expect(invalid.status).toBe(404);
   });
 
   it("streams credit-card campaigns without putting the response in document cache", async () => {

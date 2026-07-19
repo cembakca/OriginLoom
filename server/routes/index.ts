@@ -10,6 +10,7 @@ import housingLoanDetail from "./housing-loan-detail";
 import housingLoans from "./housing-loans";
 import knowledgeArticle from "./knowledge-article";
 import knowledgeCenter from "./knowledge-center";
+import loanCalculator from "./loan-calculator";
 import mediaPipeline from "./media-pipeline";
 import recourseRedirect from "./recourse-redirect";
 import remoteCustomerObtain from "./remote-customer-obtain";
@@ -21,6 +22,7 @@ export const routes: Route[] = [
   housingLoanDetail,
   creditCards,
   creditCardDetail,
+  loanCalculator,
   knowledgeCenter,
   knowledgeArticle,
   bist100,
