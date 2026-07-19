@@ -5,6 +5,7 @@ import type { CacheEntry, CacheStore, ListKeysOptions, ListKeysResult } from "./
 export class MemoryStore implements CacheStore {
   private store = new Map<string, CacheEntry>();
   private locks = new Map<string, { token: string; expiresAt: number }>();
+  private ephemeral = new Map<string, { value: string; expiresAt: number }>();
 
   constructor(private maxEntries: number) {}
 
@@ -82,6 +83,20 @@ export class MemoryStore implements CacheStore {
 
   async ping(): Promise<boolean> {
     return true;
+  }
+
+  async readEphemeral(key: string): Promise<string | null> {
+    const entry = this.ephemeral.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt <= Date.now()) {
+      this.ephemeral.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
+  async writeEphemeral(key: string, value: string, ttlMs: number): Promise<void> {
+    this.ephemeral.set(key, { value, expiresAt: Date.now() + ttlMs });
   }
 
   async acquireLock(key: string, ttlMs: number): Promise<string | null> {

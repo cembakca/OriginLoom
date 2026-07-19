@@ -115,4 +115,19 @@ describe("auth refresh API", () => {
     expect(setCookie).toContain("access_token=");
     expect(setCookie).toContain("signed_in=1");
   });
+
+  it("returns 503 and preserves cookies when refresh is temporarily unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+    const res = await handleRefresh(
+      new Request("http://localhost/api/internal/refresh", {
+        method: "POST",
+        headers: {
+          cookie: `${Cookie.refreshToken}=temporary-api-refresh; ${Cookie.signedIn}=1`,
+        },
+      }),
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
 });

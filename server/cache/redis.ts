@@ -118,6 +118,14 @@ export class RedisStore implements CacheStore {
     return (await this.redis.ping()) === "PONG";
   }
 
+  async readEphemeral(key: string): Promise<string | null> {
+    return this.redis.get(`${this.prefix}ephemeral:${key}`);
+  }
+
+  async writeEphemeral(key: string, value: string, ttlMs: number): Promise<void> {
+    await this.redis.set(`${this.prefix}ephemeral:${key}`, value, "PX", ttlMs);
+  }
+
   async acquireLock(key: string, ttlMs: number): Promise<string | null> {
     const token = crypto.randomUUID();
     const result = await this.redis.set(`${this.prefix}lock:${key}`, token, "PX", ttlMs, "NX");

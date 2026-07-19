@@ -21,7 +21,10 @@ function json(data: unknown, status = 200): Response {
 /** Authoritative UI session: HttpOnly credentials + gateway profile decide the result. */
 export async function handleAuthSessionApi(request: Request): Promise<Response> {
   const auth = await authenticateBffRequest(request);
-  if (!auth.authorized) {
+  if (auth.kind === "unavailable") {
+    return withBffAuthCookies(json({ error: "Oturum servisi kullanılamıyor" }, 503), auth.cookies);
+  }
+  if (auth.kind === "unauthorized") {
     rejectBffSession(auth.cookies);
     return withBffAuthCookies(json({ signedIn: false }, 401), auth.cookies);
   }
@@ -53,7 +56,10 @@ export function mountAuthSessionApi(app: Hono<{ Variables: AppVariables }>): voi
 /** BFF token refresh — client TanStack / api-fetch 401 retry burayı çağırır. */
 export async function handleRefresh(request: Request): Promise<Response> {
   const auth = await forceTokenRefresh(request);
-  if (!auth.authorized) {
+  if (auth.kind === "unavailable") {
+    return withBffAuthCookies(json({ error: "Oturum servisi kullanılamıyor" }, 503), auth.cookies);
+  }
+  if (auth.kind === "unauthorized") {
     return withBffAuthCookies(new Response(null, { status: 401 }), auth.cookies);
   }
 

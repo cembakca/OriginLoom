@@ -154,6 +154,65 @@ export async function releaseColdMissLock(key: string, token: string): Promise<v
   }
 }
 
+export type CoordinationLockAttempt =
+  { kind: "acquired"; token: string } | { kind: "held" } | { kind: "unavailable" };
+
+export async function acquireCoordinationLock(
+  key: string,
+  ttlMs: number,
+): Promise<CoordinationLockAttempt> {
+  try {
+    const cache = getCache();
+    if (!cache.acquireLock) return { kind: "unavailable" };
+    const token = await runCacheOperation("coordination_lock.acquire", () =>
+      cache.acquireLock!(`coordination:${key}`, ttlMs),
+    );
+    return token ? { kind: "acquired", token } : { kind: "held" };
+  } catch (error) {
+    logError(error, { msg: "coordination lock failed", key });
+    return { kind: "unavailable" };
+  }
+}
+
+export async function releaseCoordinationLock(key: string, token: string): Promise<void> {
+  try {
+    const cache = getCache();
+    if (!cache.releaseLock) return;
+    await runCacheOperation("coordination_lock.release", () =>
+      cache.releaseLock!(`coordination:${key}`, token),
+    );
+  } catch (error) {
+    logError(error, { msg: "coordination unlock failed", key });
+  }
+}
+
+export async function readCoordinationValue(key: string): Promise<string | null> {
+  try {
+    const cache = getCache();
+    if (!cache.readEphemeral) return null;
+    return await runCacheOperation("coordination_value.read", () => cache.readEphemeral!(key));
+  } catch (error) {
+    logError(error, { msg: "coordination value read failed", key });
+    return null;
+  }
+}
+
+export async function writeCoordinationValue(
+  key: string,
+  value: string,
+  ttlMs: number,
+): Promise<void> {
+  try {
+    const cache = getCache();
+    if (!cache.writeEphemeral) return;
+    await runCacheOperation("coordination_value.write", () =>
+      cache.writeEphemeral!(key, value, ttlMs),
+    );
+  } catch (error) {
+    logError(error, { msg: "coordination value write failed", key });
+  }
+}
+
 async function runCacheOperation<T>(
   operation: string,
   work: (span: Span) => Promise<T>,

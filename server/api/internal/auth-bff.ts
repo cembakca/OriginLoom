@@ -11,28 +11,26 @@ import {
 
 import { Cookie } from "~/lib/cookies";
 
-export type BffAuthResult = {
-  request: Request;
-  cookies: CookieJar;
-  authorized: boolean;
-};
+export type BffAuthResult =
+  | { kind: "authorized"; request: Request; cookies: CookieJar }
+  | { kind: "unauthorized"; request: Request; cookies: CookieJar }
+  | { kind: "unavailable"; request: Request; cookies: CookieJar };
 
 /** Internal BFF handler'ları için — access expire ise refresh dener, Authorization inject eder. */
 export async function authenticateBffRequest(request: Request): Promise<BffAuthResult> {
   const jar = new CookieJar();
   const outcome = await runAuthCore(request, jar);
 
-  if (!outcome.authorization) {
-    return { request, cookies: jar, authorized: false };
-  }
+  if (outcome.kind === "unavailable") return { kind: "unavailable", request, cookies: jar };
+  if (!outcome.authorization) return { kind: "unauthorized", request, cookies: jar };
 
   const headers = new Headers(request.headers);
   headers.set("Authorization", outcome.authorization);
 
   return {
+    kind: "authorized",
     request: new Request(request, { headers }),
     cookies: outcome.cookies,
-    authorized: true,
   };
 }
 
@@ -63,14 +61,15 @@ export async function forceTokenRefresh(request: Request): Promise<BffAuthResult
   const tokens = readTokens(request);
   if (!tokens.refresh) {
     rejectBffSession(jar);
-    return { request, cookies: jar, authorized: false };
+    return { kind: "unauthorized", request, cookies: jar };
   }
 
   const refreshed = await refreshTokens(tokens.refresh, request.signal);
-  if (!refreshed) {
+  if (refreshed.kind === "unauthorized") {
     rejectBffSession(jar);
-    return { request, cookies: jar, authorized: false };
+    return { kind: "unauthorized", request, cookies: jar };
   }
+  if (refreshed.kind === "unavailable") return { kind: "unavailable", request, cookies: jar };
 
   setTokenCookies(jar, refreshed.access, refreshed.refresh);
   setSessionCookies(jar, { displayName: displayNameFromAccess(refreshed.access) });
@@ -82,8 +81,8 @@ export async function forceTokenRefresh(request: Request): Promise<BffAuthResult
   headers.set("Authorization", bearer);
 
   return {
+    kind: "authorized",
     request: new Request(request, { headers }),
     cookies: jar,
-    authorized: true,
   };
 }

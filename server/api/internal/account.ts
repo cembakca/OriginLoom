@@ -19,7 +19,10 @@ function json(data: unknown, status = 200): Response {
 /** Auth pipeline mantığı + cookie refresh — access expire ise otomatik yeniler. */
 export async function handleAccountSummaryApi(request: Request): Promise<Response> {
   const auth = await authenticateBffRequest(request);
-  if (!auth.authorized) {
+  if (auth.kind === "unavailable") {
+    return withBffAuthCookies(json({ error: "Hesap servisi kullanılamıyor" }, 503), auth.cookies);
+  }
+  if (auth.kind === "unauthorized") {
     return withBffAuthCookies(json({ error: "Yetkisiz" }, 401), auth.cookies);
   }
 

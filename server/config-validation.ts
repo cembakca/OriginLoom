@@ -41,6 +41,10 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     throw new Error(`Invalid MENU_CACHE_SWR: ${config.menuCacheSwr}`);
   }
   assertPositiveInteger("GATEWAY_TIMEOUT_MS", config.gatewayTimeoutMs);
+  assertPositiveInteger("AUTH_REFRESH_COORDINATION_TTL_MS", config.authRefreshCoordinationTtlMs);
+  if (config.authRefreshCoordinationTtlMs <= config.gatewayTimeoutMs) {
+    throw new Error("AUTH_REFRESH_COORDINATION_TTL_MS must exceed GATEWAY_TIMEOUT_MS");
+  }
   assertPositiveInteger("CACHE_FILL_TIMEOUT_MS", config.cacheFillTimeoutMs);
   assertPositiveInteger("CACHE_FILL_WAIT_MS", config.cacheFillWaitMs);
   assertPositiveInteger("CACHE_FILL_POLL_MS", config.cacheFillPollMs);
@@ -149,6 +153,11 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
       throw new Error("REFERRAL_STATS_SECRET is required in production");
     }
     if (!config.marketStreamToken) throw new Error("MARKET_STREAM_TOKEN is required in production");
+    if (config.authRefreshCoordinationSecret.length < 32) {
+      throw new Error(
+        "AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters in production",
+      );
+    }
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
   }
 }

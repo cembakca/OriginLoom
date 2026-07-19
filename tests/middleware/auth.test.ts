@@ -1,13 +1,19 @@
+import { closeCache, initCache } from "@server/cache";
 import { CookieJar } from "@server/middleware/cookie-jar";
 import { runAuthCore } from "@server/middleware/steps/auth/core";
 import { isAccessTokenExpired, refreshTokens } from "@server/middleware/steps/auth/helpers";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const originalNodeEnv = process.env.NODE_ENV;
 
-afterEach(() => {
+beforeEach(async () => {
+  await initCache();
+});
+
+afterEach(async () => {
   process.env.NODE_ENV = originalNodeEnv;
   vi.unstubAllGlobals();
+  await closeCache();
 });
 
 describe("auth helpers", () => {
@@ -33,7 +39,7 @@ describe("auth helpers", () => {
     expect(jar.toHeaderStrings().some((c) => c.startsWith("account_text="))).toBe(true);
   });
 
-  it("fails closed when refresh fails in production", async () => {
+  it("clears credentials when the gateway authoritatively rejects refresh", async () => {
     process.env.NODE_ENV = "production";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
 
@@ -43,9 +49,25 @@ describe("auth helpers", () => {
     });
 
     const outcome = await runAuthCore(request, jar);
+    expect(outcome.kind).toBe("anonymous");
     expect(outcome.authorization).toBeUndefined();
     expect(jar.toHeaderStrings()).toContain("refresh_token=; Max-Age=0; Path=/");
     expect(jar.toHeaderStrings()).not.toContainEqual(expect.stringMatching(/^signed_in=1/));
+  });
+
+  it("preserves credentials when refresh is temporarily unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+    const jar = new CookieJar();
+    const outcome = await runAuthCore(
+      new Request("http://localhost/", {
+        headers: { cookie: "refresh_token=temporary-refresh-failure" },
+      }),
+      jar,
+    );
+
+    expect(outcome.kind).toBe("unavailable");
+    expect(outcome.authorization).toBeUndefined();
+    expect(jar.toHeaderStrings()).toEqual([]);
   });
 
   it("does not share an in-flight refresh across different tokens", async () => {
@@ -65,8 +87,16 @@ describe("auth helpers", () => {
     resolvers[0]?.(Response.json({ accessToken: "access-a", refreshToken: "rotated-a" }));
     resolvers[1]?.(Response.json({ accessToken: "access-b", refreshToken: "rotated-b" }));
 
-    await expect(first).resolves.toEqual({ access: "access-a", refresh: "rotated-a" });
-    await expect(second).resolves.toEqual({ access: "access-b", refresh: "rotated-b" });
+    await expect(first).resolves.toEqual({
+      kind: "success",
+      access: "access-a",
+      refresh: "rotated-a",
+    });
+    await expect(second).resolves.toEqual({
+      kind: "success",
+      access: "access-b",
+      refresh: "rotated-b",
+    });
   });
 
   it("keeps a shared refresh alive while another request still waits", async () => {
@@ -90,8 +120,29 @@ describe("auth helpers", () => {
 
     resolveFetch?.(Response.json({ accessToken: "shared-access", refreshToken: "shared-rotated" }));
     await expect(second).resolves.toEqual({
+      kind: "success",
       access: "shared-access",
       refresh: "shared-rotated",
     });
+  });
+
+  it("shares a short encrypted refresh result through the cache coordination layer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        accessToken: "coordinated-access",
+        refreshToken: "coordinated-rotated",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(refreshTokens("cross-replica-refresh-token")).resolves.toMatchObject({
+      kind: "success",
+      access: "coordinated-access",
+    });
+    await expect(refreshTokens("cross-replica-refresh-token")).resolves.toMatchObject({
+      kind: "success",
+      refresh: "coordinated-rotated",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

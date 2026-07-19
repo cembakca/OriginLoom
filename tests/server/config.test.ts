@@ -119,6 +119,23 @@ describe("server config", () => {
     ).rejects.toThrow("MARKET_STREAM_TOKEN is required in production");
   });
 
+  it("requires a dedicated encryption secret for cross-replica auth refresh coordination", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        REFERRAL_STATS_SECRET: "referral-secret",
+        MARKET_STREAM_TOKEN: "market-secret",
+        AUTH_REFRESH_COORDINATION_SECRET: "too-short",
+        RELEASE_ID: "release-1",
+      }),
+    ).rejects.toThrow("AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters");
+  });
+
   it("rejects the Vite development runtime in production", async () => {
     await expect(
       validateWith({
@@ -176,6 +193,7 @@ describe("server config", () => {
       CACHE_PURGE_SECRET: "secret",
       REFERRAL_STATS_SECRET: "referral-secret",
       MARKET_STREAM_TOKEN: "market-secret",
+      AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
       RELEASE_ID: "release-1",
     };
     await expect(validateWith(production)).rejects.toThrow("Production GATEWAY_URL must use https");
@@ -260,6 +278,7 @@ describe("server config", () => {
       CACHE_PURGE_SECRET: "secret",
       REFERRAL_STATS_SECRET: "referral-secret",
       MARKET_STREAM_TOKEN: "market-secret",
+      AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
       RELEASE_ID: "release-1",
       IMAGE_CDN_URL: "localhost:3005/images/",
     };

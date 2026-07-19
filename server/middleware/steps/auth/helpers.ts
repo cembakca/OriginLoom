@@ -1,4 +1,13 @@
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+
 import { gatewayFetch } from "@server/adapters/gateway";
+import {
+  acquireCoordinationLock,
+  readCoordinationValue,
+  releaseCoordinationLock,
+  writeCoordinationValue,
+} from "@server/cache";
+import { config } from "@server/config";
 import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
 import type { CookieJar } from "@server/middleware/cookie-jar";
 import { Cookie } from "@server/middleware/types";
@@ -7,7 +16,10 @@ import { cookie } from "~/lib/request";
 import { isBoundedString, isRecord } from "~/lib/runtime-schema";
 import { stripUndefined } from "~/lib/strip-undefined";
 
-type RefreshResult = { access: string; refresh: string } | null;
+export type RefreshResult =
+  | { kind: "success"; access: string; refresh: string }
+  | { kind: "unauthorized" }
+  | { kind: "unavailable" };
 type RefreshEntry = {
   promise: Promise<RefreshResult>;
   controller: AbortController;
@@ -17,6 +29,9 @@ type RefreshEntry = {
 
 const refreshesInFlight = new Map<string, RefreshEntry>();
 const INVALID_REFRESH = "Auth refresh gateway returned an invalid payload";
+const coordinationEncryptionKey = createHash("sha256")
+  .update(config.authRefreshCoordinationSecret)
+  .digest();
 
 function useSecureCookies(): boolean {
   return (process.env.NODE_ENV ?? "development") === "production";
@@ -116,24 +131,7 @@ function createRefreshEntry(refreshToken: string): RefreshEntry {
 
   entry.promise = (async () => {
     try {
-      const res = await gatewayFetch("/auth/refresh", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-        signal: controller.signal,
-      });
-      if (!res.ok) return null;
-
-      const payload = await readGatewayJson(res, "auth_refresh", INVALID_REFRESH);
-      const data = requireGatewayPayload(
-        "auth_refresh",
-        payload,
-        isRefreshPayload,
-        INVALID_REFRESH,
-      );
-      return { access: data.accessToken, refresh: data.refreshToken };
-    } catch {
-      return null;
+      return await coordinatedRefresh(refreshToken, controller.signal);
     } finally {
       entry.settled = true;
       if (refreshesInFlight.get(refreshToken) === entry) refreshesInFlight.delete(refreshToken);
@@ -141,6 +139,133 @@ function createRefreshEntry(refreshToken: string): RefreshEntry {
   })();
   refreshesInFlight.set(refreshToken, entry);
   return entry;
+}
+
+async function coordinatedRefresh(
+  refreshToken: string,
+  signal: AbortSignal,
+): Promise<RefreshResult> {
+  const key = `auth-refresh:${createHash("sha256").update(refreshToken).digest("base64url")}`;
+  const existing = openCoordinatedResult(await readCoordinationValue(key));
+  if (existing) return existing;
+
+  const lock = await acquireCoordinationLock(key, config.authRefreshCoordinationTtlMs);
+  if (lock.kind === "unavailable") return fetchRefreshResult(refreshToken, signal);
+  if (lock.kind === "held") return waitForCoordinatedResult(key, refreshToken, signal);
+
+  try {
+    const afterLock = openCoordinatedResult(await readCoordinationValue(key));
+    if (afterLock) return afterLock;
+    const result = await fetchRefreshResult(refreshToken, signal);
+    if (result.kind !== "unavailable") {
+      await writeCoordinationValue(
+        key,
+        sealCoordinatedResult(result),
+        config.authRefreshCoordinationTtlMs,
+      );
+    }
+    return result;
+  } finally {
+    await releaseCoordinationLock(key, lock.token);
+  }
+}
+
+async function waitForCoordinatedResult(
+  key: string,
+  refreshToken: string,
+  signal: AbortSignal,
+): Promise<RefreshResult> {
+  const deadline = Date.now() + config.authRefreshCoordinationTtlMs;
+  while (Date.now() < deadline) {
+    if (signal.aborted) throw abortReason(signal);
+    const result = openCoordinatedResult(await readCoordinationValue(key));
+    if (result) return result;
+    await abortableDelay(50, signal);
+  }
+  // Redis coordination is an availability optimization. If the owner died without publishing a
+  // result, let the gateway make the authoritative decision after the bounded wait.
+  return fetchRefreshResult(refreshToken, signal);
+}
+
+async function fetchRefreshResult(
+  refreshToken: string,
+  signal: AbortSignal,
+): Promise<RefreshResult> {
+  try {
+    const res = await gatewayFetch("/auth/refresh", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+      signal,
+    });
+    if (res.status === 400 || res.status === 401) return { kind: "unauthorized" };
+    if (!res.ok) return { kind: "unavailable" };
+
+    const payload = await readGatewayJson(res, "auth_refresh", INVALID_REFRESH);
+    const data = requireGatewayPayload("auth_refresh", payload, isRefreshPayload, INVALID_REFRESH);
+    return { kind: "success", access: data.accessToken, refresh: data.refreshToken };
+  } catch {
+    return { kind: "unavailable" };
+  }
+}
+
+function sealCoordinatedResult(result: RefreshResult): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", coordinationEncryptionKey, iv);
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(result), "utf8"), cipher.final()]);
+  return [iv, cipher.getAuthTag(), encrypted].map((part) => part.toString("base64url")).join(".");
+}
+
+function openCoordinatedResult(value: string | null): RefreshResult | null {
+  if (!value) return null;
+  try {
+    const [ivValue, tagValue, encryptedValue] = value.split(".");
+    if (!ivValue || !tagValue || !encryptedValue) return null;
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      coordinationEncryptionKey,
+      Buffer.from(ivValue, "base64url"),
+    );
+    decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(encryptedValue, "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
+    const parsed: unknown = JSON.parse(plaintext);
+    if (!isRecord(parsed) || typeof parsed.kind !== "string") return null;
+    if (parsed.kind === "unauthorized") return { kind: "unauthorized" };
+    if (
+      parsed.kind === "success" &&
+      isBoundedString(parsed.access, 16_384, 8) &&
+      isBoundedString(parsed.refresh, 16_384, 8)
+    ) {
+      return { kind: "success", access: parsed.access, refresh: parsed.refresh };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function abortableDelay(milliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(abortReason(signal));
+      return;
+    }
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, milliseconds);
+    timer.unref?.();
+    const onAbort = () => {
+      clearTimeout(timer);
+      cleanup();
+      reject(abortReason(signal));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function waitForRefresh<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {

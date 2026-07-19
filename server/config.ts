@@ -46,6 +46,13 @@ export const config = {
   revalidationBackoffMs: numberEnv("SWR_REVALIDATION_BACKOFF_MS", 250),
   revalidationDrainTimeoutMs: numberEnv("SWR_DRAIN_TIMEOUT_MS", 5_000),
   gatewayTimeoutMs,
+  authRefreshCoordinationTtlMs: numberEnv(
+    "AUTH_REFRESH_COORDINATION_TTL_MS",
+    gatewayTimeoutMs + 1_000,
+  ),
+  authRefreshCoordinationSecret:
+    process.env.AUTH_REFRESH_COORDINATION_SECRET ??
+    (nodeEnv === "production" ? "" : "development-auth-refresh-coordination-secret"),
   cacheFillTimeoutMs,
   cacheFillWaitMs: numberEnv("CACHE_FILL_WAIT_MS", cacheFillTimeoutMs + 500),
   cacheFillPollMs: numberEnv("CACHE_FILL_POLL_MS", 100),
