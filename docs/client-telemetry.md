@@ -28,8 +28,11 @@ rate limit garantisi vermez.
 ## Client IP güven sınırı
 
 `TRUST_PROXY=false` iken `X-Forwarded-For` ve `X-Real-IP` tamamen yok sayılır; socket remote address
-kullanılır. `TRUST_PROXY=true` yalnız uygulama doğrudan güvenilir ingress/load balancer arkasındaysa
-açılmalıdır. Bu durumda ilk geçerli forwarded IP kullanılır, malformed değer socket adresine düşer.
+kullanılır. `TRUST_PROXY=true` tek başına yeterli değildir: socket peer
+`TRUSTED_PROXY_CIDRS` içinde olmalı ve client adresi `TRUSTED_PROXY_HOPS` kadar sağdan çözülmelidir.
+Bu seçenekler yalnız uygulama doğrudan güvenilir ingress/load balancer arkasındaysa açılmalıdır.
+Forwarded chain sağdan, tanımlı hop sayısıyla çözülür; malformed zincir veya güvenilmeyen socket peer
+doğrudan socket adresine düşer.
 
 Uygulama limiter'ları DDoS savunması değildir. `/api/internal/client-errors` için asıl kaba request
 rate/body limiti ingress, API gateway veya WAF üzerinde; uygulamaya ulaşmadan önce uygulanmalıdır.

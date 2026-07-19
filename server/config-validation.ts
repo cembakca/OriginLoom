@@ -44,10 +44,7 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     throw new Error(`Invalid MENU_CACHE_SWR: ${config.menuCacheSwr}`);
   }
   assertPositiveInteger("GATEWAY_TIMEOUT_MS", config.gatewayTimeoutMs);
-  assertPositiveInteger("AUTH_REFRESH_COORDINATION_TTL_MS", config.authRefreshCoordinationTtlMs);
-  if (config.authRefreshCoordinationTtlMs <= config.gatewayTimeoutMs) {
-    throw new Error("AUTH_REFRESH_COORDINATION_TTL_MS must exceed GATEWAY_TIMEOUT_MS");
-  }
+  validateAuthRefreshBudget(config);
   assertPositiveInteger("CACHE_FILL_TIMEOUT_MS", config.cacheFillTimeoutMs);
   assertPositiveInteger("CACHE_FILL_WAIT_MS", config.cacheFillWaitMs);
   assertPositiveInteger("CACHE_FILL_POLL_MS", config.cacheFillPollMs);
@@ -95,11 +92,7 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     throw new Error("BOT_ANALYTICS_DRAIN_TIMEOUT_MS must be lower than SHUTDOWN_TIMEOUT_MS");
   }
   assertPositiveInteger("PROXY_BODY_LIMIT_BYTES", config.proxyBodyLimitBytes);
-  assertPositiveInteger("TRUSTED_PROXY_HOPS", config.trustedProxyHops);
-  if (config.trustProxy && config.isProduction && config.trustedProxyCidrs.length === 0) {
-    throw new Error("TRUSTED_PROXY_CIDRS is required when TRUST_PROXY=true in production");
-  }
-  for (const cidr of config.trustedProxyCidrs) validateCidr(cidr);
+  validateTrustedProxyConfig(config);
   assertPositiveInteger("REDIRECT_CACHE_TTL_MS", config.redirectCacheTtlMs);
   assertPositiveInteger("REDIRECT_CACHE_MAX_ENTRIES", config.redirectCacheMaxEntries);
   assertPositiveInteger("CLIENT_ERROR_RATE_LIMIT", config.clientErrorRateLimit);
@@ -161,13 +154,40 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
       throw new Error("REFERRAL_STATS_SECRET is required in production");
     }
     if (!config.marketStreamToken) throw new Error("MARKET_STREAM_TOKEN is required in production");
-    if (config.authRefreshCoordinationSecret.length < 32) {
-      throw new Error(
-        "AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters in production",
-      );
-    }
+    validateAuthRefreshSecrets(config);
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
   }
+}
+
+function validateAuthRefreshBudget(config: AppConfig): void {
+  assertPositiveInteger("AUTH_REFRESH_COORDINATION_TTL_MS", config.authRefreshCoordinationTtlMs);
+  if (config.authRefreshCoordinationTtlMs <= config.gatewayTimeoutMs) {
+    throw new Error("AUTH_REFRESH_COORDINATION_TTL_MS must exceed GATEWAY_TIMEOUT_MS");
+  }
+}
+
+function validateAuthRefreshSecrets(config: AppConfig): void {
+  if (config.authRefreshCoordinationSecret.length < 32) {
+    throw new Error(
+      "AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters in production",
+    );
+  }
+  if (
+    config.authRefreshCoordinationPreviousSecret &&
+    config.authRefreshCoordinationPreviousSecret.length < 32
+  ) {
+    throw new Error(
+      "AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET must be at least 32 characters when configured",
+    );
+  }
+}
+
+function validateTrustedProxyConfig(config: AppConfig): void {
+  assertPositiveInteger("TRUSTED_PROXY_HOPS", config.trustedProxyHops);
+  if (config.trustProxy && config.isProduction && config.trustedProxyCidrs.length === 0) {
+    throw new Error("TRUSTED_PROXY_CIDRS is required when TRUST_PROXY=true in production");
+  }
+  for (const cidr of config.trustedProxyCidrs) validateCidr(cidr);
 }
 
 function validateCidr(cidr: string): void {

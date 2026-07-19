@@ -229,9 +229,10 @@ Staging / production (`.env.staging`, `.env.production`):
 ```bash
 NODE_ENV=production
 CACHE_BACKEND=redis
-REDIS_URL=redis://...
+REDIS_URL=rediss://...
 CACHE_REQUIRED=false
 CACHE_PURGE_SECRET=...
+AUTH_REFRESH_COORDINATION_SECRET=...
 RELEASE_ID=...
 ```
 
@@ -542,7 +543,7 @@ Dahili HTTP endpoint'ler ile cache yönetimi:
 curl -X POST -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"prefix": "menu:"}' \
-  http://localhost:3005/api/internal/cache/purge
+  http://localhost:9090/api/internal/cache/purge
 ```
 
 Detaylı kullanım, örnekler ve operasyon senaryoları: **[`docs/cache-purge.md`](./cache-purge.md)**
@@ -551,7 +552,7 @@ Detaylı kullanım, örnekler ve operasyon senaryoları: **[`docs/cache-purge.md
 
 1. CMS / deploy webhook → purge API çağır (menü prefix veya ilgili HTML key'leri)
 2. Anonim istek ile doğrula → `x-cache: MISS`
-3. Ağ seviyesinde `/api/internal/*` erişimini kısıtla + `CACHE_PURGE_SECRET` kullan
+3. Operations listener/Service (`:9090`) erişimini NetworkPolicy ile kısıtla + ayrı secret kullan
 
 ### x-cache header özeti
 
@@ -865,7 +866,7 @@ builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder
 ### SSR method ve error-action kontratı
 
 - Eşleşen SSR route'ta GET/HEAD dışı method `405` + `Allow: GET, HEAD` döner.
-- `/api/*` gateway proxy methodları SSR method guard'ına girmez.
+- Hono'ya explicit mount edilen BFF methodları SSR method guard'ına girmez; wildcard gateway proxy yoktur.
 - HEAD, GET ile aynı auth/session/redirect pipeline'ını ve route/param doğrulamasını kullanır.
 - Shared cache hit'inde loader çalışmaz. Miss'te terminal status/header kararları için loader çalışır;
   React render, response body, cache fill ve SWR işi üretilmez.
@@ -953,12 +954,12 @@ loader: async (ctx) => {
 
 ### Internal BFF
 
-| Endpoint                            | Açıklama                                            |
-| ----------------------------------- | --------------------------------------------------- |
-| `POST /api/internal/refresh`        | `refresh_token` → yeni access + session cookie'leri |
-| `GET /api/internal/auth/session`    | İsteğe bağlı authoritative oturum doğrulaması       |
-| `GET /api/internal/account/summary` | Auth + auto-refresh + hesap özeti                   |
-| `GET /api/internal/referrals/stats` | Operations token'ıyla referral ölçüm özeti          |
+| Endpoint                                 | Açıklama                                            |
+| ---------------------------------------- | --------------------------------------------------- |
+| `POST /api/internal/refresh`             | `refresh_token` → yeni access + session cookie'leri |
+| `GET /api/internal/auth/session`         | İsteğe bağlı authoritative oturum doğrulaması       |
+| `GET /api/internal/account/summary`      | Auth + auto-refresh + hesap özeti                   |
+| `GET :9090/api/internal/referrals/stats` | Operations token'ıyla referral ölçüm özeti          |
 
 ### Auth cookie modeli
 
@@ -976,6 +977,13 @@ loader: async (ctx) => {
 1. **Sayfa isteği** → middleware `runAuthCore`: access expire + refresh varsa yeniler, `Set-Cookie` döner
 2. **Client BFF (TanStack)** → `clientApiFetch` 401 alırsa `POST /api/internal/refresh` çağırır, isteği tekrarlar
 3. **BFF handler** → `authenticateBffRequest` aynı refresh mantığını uygular
+
+Refresh sonucu `success | unauthorized | unavailable` olarak ayrılır. Yalnız gateway `400/401`
+credential'ı temizler; `5xx`, network, timeout ve invalid upstream payload session cookie'lerini
+korur. Process içi Promise dedup'a ek olarak Redis lock + AES-GCM şifreli kısa sonuç paylaşımı vardır.
+`POST /api/internal/refresh` ve `/api/referrals`, Fetch Metadata ile Origin/Referer fallback kullanan
+same-origin guard ve Redis-backed rate limit'ten geçer. Yeni browser mutation'ı bu guard olmadan
+mount edilmez.
 
 Local fixture'lar uygulama servislerine gömülmez. `mock-gw/` 4002 portunda ayrı process olarak
 çalışır ve gerçek gateway ile aynı HTTP sınırından çağrılır. Yeni geçici backend cevabı gerekiyorsa
@@ -1152,7 +1160,9 @@ Tracing için local collector zorunlu değildir. `OTEL_EXPORTER_OTLP_ENDPOINT` y
 `/api/internal/client-errors` telemetry güven sınırıdır: payload en fazla 16 KiB, source kapalı enum,
 stringler bounded'dır. Sıra `validation → deterministic sampling → trusted-IP limiter → process-global
 limiter → redaction → log` olarak korunur; sampled event limiter bütçesi tüketmez. IP yalnız
-`TRUST_PROXY` kontratı üzerinden çözülür, bounded TTL/LRU registry'de tutulur ve log/metric'e yazılmaz.
+`TRUST_PROXY`, `TRUSTED_PROXY_HOPS` ve `TRUSTED_PROXY_CIDRS` kontratı üzerinden çözülür. Socket peer
+izinli CIDR dışında ise forwarded header tamamen yok sayılır. IP bounded TTL/LRU registry'de tutulur
+ve log/metric'e yazılmaz.
 Path query'si atılır; bearer/JWT, e-posta ve URL query değerleri server'da redact edilir. Rate-limited
 cevap `429 + Retry-After`, sampled cevap `204` olur. Uygulama limitleri ingress/WAF kaba trafik
 limitinin yerine geçmez. Stack için 14 günlük retention ve production on-call/SRE RBAC politikası

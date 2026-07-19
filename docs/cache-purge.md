@@ -2,7 +2,10 @@
 
 Uygulama cache'ini (HTML + menü) HTTP API ile yönetmek için internal endpoint'ler.
 
-> **Erişim:** Endpoint'ler `/api/internal/*` altındadır. Production'da ağ seviyesinde (VPC, ingress allowlist, API gateway) kısıtlaman önerilir. Ek olarak `CACHE_PURGE_SECRET` ile token doğrulaması vardır.
+> **Erişim:** Endpoint'ler public `3005` listener'ında mount edilmez. Ayrı operations listener'ında
+> (`METRICS_PORT`, varsayılan `9090`) çalışır; `ssr-kit-operations` ClusterIP Service ve NetworkPolicy
+> yalnız monitoring/operations namespace'lerine erişim verir. Buna ek olarak
+> `CACHE_PURGE_SECRET` sabit zamanlı karşılaştırmayla doğrulanır.
 
 ---
 
@@ -100,7 +103,7 @@ Cache'teki key'leri listeler (sayfalı).
 ```bash
 curl -s \
   -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
-  "http://localhost:3005/api/internal/cache/keys?prefix=menu:&limit=10"
+  "http://localhost:9090/api/internal/cache/keys?prefix=menu:&limit=10"
 ```
 
 **Yanıt:**
@@ -150,7 +153,7 @@ Sonraki sayfa:
 ```bash
 curl -s \
   -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
-  "http://localhost:3005/api/internal/cache/keys?prefix=menu:&cursor=42"
+  "http://localhost:9090/api/internal/cache/keys?prefix=menu:&cursor=42"
 ```
 
 ---
@@ -196,7 +199,7 @@ curl -s -X POST \
   -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"pageIds": ["blogs-paginated", "loan"]}' \
-  http://localhost:3005/api/internal/cache/purge
+  http://localhost:9090/api/internal/cache/purge
 ```
 
 **Yanıt:**
@@ -220,7 +223,7 @@ curl -s -X POST \
   -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"prefix": "menu:"}' \
-  http://localhost:3005/api/internal/cache/purge
+  http://localhost:9090/api/internal/cache/purge
 ```
 
 **Yanıt:**
@@ -258,7 +261,7 @@ curl -s -X POST \
   -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"all": true}' \
-  http://localhost:3005/api/internal/cache/purge
+  http://localhost:9090/api/internal/cache/purge
 ```
 
 **Yanıt:**
@@ -294,6 +297,13 @@ curl -s -X POST \
 ---
 
 ## Operasyon senaryoları
+
+Örneklerde `HOST` public site değil operations origin'idir:
+
+```bash
+HOST="${SSR_OPERATIONS_HOST:-http://localhost:9090}"
+SECRET="${CACHE_PURGE_SECRET:?}"
+```
 
 ### Menü güncellendi (CMS)
 
@@ -363,7 +373,7 @@ CMS veya deploy pipeline'dan örnek:
 #!/usr/bin/env bash
 set -euo pipefail
 
-HOST="${SSR_HOST:-https://www.hangikredi.com}"
+HOST="${SSR_OPERATIONS_HOST:-http://ssr-kit-operations:9090}"
 SECRET="${CACHE_PURGE_SECRET:?}"
 
 # Menü + ana sayfa prefix purge

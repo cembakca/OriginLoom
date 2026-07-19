@@ -14,22 +14,23 @@ Ana karar: **İsland Architecture** + **Shared HTML Cache** kombinasyonu. Vite, 
 
 Hono üzerinde çalışır, `@hono/node-server` ile Node.js HTTP server'a bağlanır. Şu endpoint'leri doğrudan yakalar:
 
-| Path                            | Açıklama                                                  |
-| ------------------------------- | --------------------------------------------------------- |
-| `/assets/*`                     | Statik dosyalar, `dist/client` klasöründen sunulur        |
-| `/healthz`                      | Liveness check                                            |
-| `/readyz`                       | Readiness check (cache backend ping'i içerir)             |
-| `/robots.txt`                   | Merkezi crawler policy + sitemap discovery                |
-| `/sitemap.xml`                  | Canonical public route envanteri                          |
-| `/api/*`                        | Gateway'e proxy — pipeline çalışmaz                       |
-| `/api/referrals`                | Ürün başvurusunu doğrulayan public BFF + güvenli 303      |
-| `/api/finance/loan-calculation` | Public, bounded ve `no-store` hesaplama BFF'i             |
-| `/api/internal/*`               | BFF endpoint'leri — gereken auth handler içinde uygulanır |
-| `*`                             | SSR pipeline → handler                                    |
+| Path                            | Açıklama                                                 |
+| ------------------------------- | -------------------------------------------------------- |
+| `/assets/*`                     | Statik dosyalar, `dist/client` klasöründen sunulur       |
+| `/healthz`                      | Liveness check                                           |
+| `/readyz`                       | Readiness check (cache backend ping'i içerir)            |
+| `/robots.txt`                   | Merkezi crawler policy + sitemap discovery               |
+| `/sitemap.xml`                  | Canonical public route envanteri                         |
+| `/api/referrals`                | Ürün başvurusunu doğrulayan public BFF + güvenli 303     |
+| `/api/finance/loan-calculation` | Public, bounded ve `no-store` hesaplama BFF'i            |
+| `/api/markets/stream`           | Bounded, same-origin SSE BFF                             |
+| `/api/internal/*`               | Browser BFF'leri — gereken auth handler içinde uygulanır |
+| `*`                             | SSR pipeline → handler                                   |
 
-Prometheus `/metrics` endpoint'i public HTTP portunda bulunmaz. Ayrı `METRICS_PORT` listener'ı
-(varsayılan `9090`) yalnız pod scrape annotation'ıyla erişilir; Kubernetes public `Service` bu portu
-yayınlamaz. Public porttaki `/metrics` bilinçli `404` döner.
+Prometheus `/metrics`, cache purge ve referral operations endpoint'leri public HTTP portunda
+bulunmaz. Ayrı `METRICS_PORT` listener'ı (varsayılan `9090`) `ssr-kit-operations` ClusterIP servisi ve
+NetworkPolicy arkasındadır; public ingress yalnız `3005` portunu yayınlar. Public porttaki `/metrics`
+ve operations path'leri bilinçli `404` döner.
 
 Graceful shutdown uygulanmış: SIGTERM/SIGINT alınca önce HTTP server kapatılır; SWR işleri ve bot
 analytics kuyruğu bounded süreyle paralel drain edilir, ardından cache bağlantısı temizlenir.
@@ -80,7 +81,8 @@ Klasik **cookie-based JWT + server-side refresh** (BFF pattern).
 1. `access_token` cookie'sini oku
 2. Expire olmak üzere mi? (`exp * 1000 < now + 30s`) → `refresh_token` ile gateway'e POST
 3. Refresh başarılıysa: yeni token'ları `httpOnly` cookie'lere yaz, `Authorization: Bearer ...` header'ı request'e inject et
-4. Refresh başarısızsa tüm auth cookie'leri sil (`Max-Age=0`), anonim devam et
+4. Gateway `400/401` ile refresh token'ı reddederse auth cookie'lerini sil, anonim devam et
+5. Gateway `5xx`, timeout, network veya payload hatası verirse cookie'leri koru ve `unavailable` üret
 
 `signed_in` ve `account_text` yetkilendirme kaynağı değildir; kullanıcı bunları değiştirebilir.
 Client ilk render'da yalnızca bu ipuçlarını kullanır; public sayfalarda ek bir session isteği atmaz.
@@ -91,7 +93,10 @@ başarısızsa tüm auth cookie'leri ve UI state'i temizlenir. Geçici gateway/n
 kullanıcıyı yanlışlıkla çıkış yaptırmaz. `/api/internal/auth/session` endpoint'i gerektiğinde açıkça
 oturum doğrulamak isteyen akışlar içindir; global layout tarafından çağrılmaz.
 
-**Kritik detay — in-flight deduplication:** Aynı `refresh_token` için eş zamanlı birden fazla refresh isteği gelse (`refreshesInFlight` Map'i) ikinci çağrı aynı Promise'i bekler, gateway'e iki istek gitmez. Aynı pattern handler'daki SWR revalidation için de geçerlidir.
+**Kritik detay — iki seviyeli deduplication:** Aynı process'teki refresh'ler `refreshesInFlight`
+Promise'ini paylaşır. Replica'lar Redis lock ve kısa ömürlü AES-GCM şifreli sonuç üzerinden aynı token
+rotation sonucunu paylaşır; ham refresh token Redis key'ine yazılmaz. `AUTH_REFRESH_COORDINATION_SECRET`
+production'da ayrı ve en az 32 karakterli olmak zorundadır.
 
 ---
 
@@ -323,7 +328,7 @@ kendisinin veya shell'in hata vermesi ayrı global hata sayfasına düşer. Vars
 `href=""` üretmez; semantic button, client bootstrap'taki `location.reload()` listener'ını tetikler.
 
 SSR route method kontratı `GET, HEAD` ile kapalıdır. Diğer methodlar loader/pipeline çalışmadan `405`
-ve `Allow: GET, HEAD` alır; `/api/*` external proxy methodları bu kontrolden etkilenmez. `HEAD`, route
+ve `Allow: GET, HEAD` alır; açık Hono BFF handler'ları kendi method kontratına sahiptir. `HEAD`, route
 ile aynı auth/session/redirect pipeline'ından geçer. Shared cache hit'inde loader çalışmadan cached GET
 metadata'sını döner; miss'te `notFound`, `redirect`, `error`, custom status ve header kararlarını almak
 için loader'ı çalıştırır. React render, body üretimi, cache fill ve SWR başlatmaz.
@@ -334,12 +339,16 @@ Next.js `rewrites()` / `redirects()` ekvivalenti, statik dizi olarak tanımlanm�
 
 ```typescript
 rewrites: [
-  { source: "/api/:path*", destination: "${gatewayUrl}/:path*" }, // proxy
   { source: "/konut-kredisi", destination: "/housing-loans" }, // internal rewrite
   { source: "/konut-kredisi/:slug", destination: "/housing-loans/:slug" },
   { source: "/basvuru/:page/yonlendirme", destination: "/recourse/:page/redirect" },
 ];
 ```
+
+External rewrite çekirdeği desteklenir fakat uygulama kural tablosunda `/api/:path*` gateway
+pass-through'u yoktur. Browser'ın gateway yüzeyi explicit Hono BFF handler'larıyla açılır. Yeni bir
+external rewrite gerekiyorsa route, method ve taşınacak header'lar ayrıca incelenir; proxy cookie,
+authorization, `Set-Cookie` veya upstream debug header'larını varsayılan olarak taşımaz.
 
 Redirect'ler rewrite'lardan önce çalışır. Dış URL (`http://...`) varsa proxy, iç URL varsa rewrite.
 Bu tablodan da önce `normalizePublicUrl()` çalışır. Ardışık slash tek slash'a iner, root dışındaki
@@ -466,14 +475,12 @@ lifecycle event'lerini sonsuza kadar tutmaz.
 
 Client-side TanStack Query hook'ları bu endpoint'leri çağırır:
 
-| Endpoint                            | Açıklama                                                 |
-| ----------------------------------- | -------------------------------------------------------- |
-| `GET /api/internal/auth/session`    | HttpOnly oturumu gateway profiliyle doğrular             |
-| `POST /api/internal/refresh`        | Client 401 sonrası token refresh                         |
-| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats              |
-| `POST /api/internal/cache/purge`    | Cache purge, secret token ile korunur                    |
-| `GET /api/internal/referrals/stats` | Referral sayı/latency özeti, ayrı operations token ister |
-| `POST /api/referrals`               | Ürünü doğrular, güvenli HTTPS hedefe 303 verir           |
+| Endpoint                            | Açıklama                                       |
+| ----------------------------------- | ---------------------------------------------- |
+| `GET /api/internal/auth/session`    | HttpOnly oturumu gateway profiliyle doğrular   |
+| `POST /api/internal/refresh`        | Client 401 sonrası token refresh               |
+| `GET /api/internal/account/summary` | Auth gerektirir, gateway'den profil + stats    |
+| `POST /api/referrals`               | Ürünü doğrular, güvenli HTTPS hedefe 303 verir |
 
 Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanılır — pipeline'daki auth mantığını tekrar çalıştırır, gerekiyorsa refresh eder, Authorization inject eder.
 
@@ -511,7 +518,8 @@ kredisi aynı kontrata yeni kayıt eklenerek bağlanır.
 Prometheus tarafında `ssr_referral_redirects_total`, BFF toplam süresini ölçen
 `ssr_referral_redirect_duration_milliseconds` ve gateway ticket süresini ölçen
 `ssr_referral_gateway_processing_milliseconds` yayınlanır. Operasyon özeti
-`GET /api/internal/referrals/stats` üzerinden `REFERRAL_STATS_SECRET` ile korunur. Sayılar bilinçli
+operations listener'daki `GET /api/internal/referrals/stats` üzerinden `REFERRAL_STATS_SECRET` ve
+NetworkPolicy ile korunur. Sayılar bilinçli
 olarak **redirect-issued** semantiğindedir: sistem bankaya yönlendirme kararını kesin ölçer; bankanın
 landing sayfasının açıldığını veya başvurunun tamamlandığını ancak banka callback/postback'i varsa
 ölçebilir.
@@ -675,9 +683,13 @@ subset davranışlarını aynı SSR document içinde görünür kılan executabl
 
 **Mimari bütünlük yüksek.** Her parçanın tek bir sorumluluğu var ve sınırlar net çizilmiş. Accumulator pattern, Island'ların cache-safe tasarımı, bypass check registry gibi extension point'ler düşünülmüş.
 
-**Test kapsamı kritik path'leri kaplıyor.** Handler'da SWR davranışı, stale cache korunması, concurrent revalidation deduplication, auth'da in-flight deduplication, production'da fail-closed davranışı — bunların hepsi test edilmiş.
+**Test kapsamı kritik path'leri kaplıyor.** Handler'da SWR davranışı, stale cache korunması,
+concurrent revalidation, auth refresh sonuç sınıfları, public API guard ve operations/public listener
+ayrımı test edilmiştir.
 
-**Auth güvenli tasarlanmış.** httpOnly token cookie'leri, 30 saniye önceden refresh ve gateway hatasında fail-closed davranış uygulanır. Local auth cevapları ayrı `mock-gw` process'inden gelir.
+**Auth güvenli tasarlanmış.** HttpOnly token cookie'leri, 30 saniye önceden refresh, authoritative
+`400/401` ile transient `5xx/network` ayrımı ve replica-safe refresh coordination uygulanır. Local auth
+cevapları ayrı `mock-gw` process'inden gelir.
 
 ---
 
@@ -727,21 +739,24 @@ payload metriği için provider drift alarmı içerir.
 
 ### Açık Riskler ve Eksikler
 
-**1. Repository teslim durumu**
+**1. `@ts-expect-error` — streaming Request `duplex` tipi**
 
-Servis ve route taşımaları çalışma ağacında henüz stage/commit edilmemiş olabilir. Release veya PR öncesinde eski `src/services/*` ve `src/features/*` silmeleriyle yeni `server/services/*` ve `server/routes/*` dosyalarının aynı commit'e girdiği doğrulanmalıdır. Bu runtime mimari riski değil, eksik commit oluşturabilecek bir teslim riskidir.
+Node.js fetch streaming body için runtime'da `duplex: "half"` ister; mevcut DOM `RequestInit` tipi bu
+alanı taşımadığı için external rewrite proxy kodunda suppression kullanılır. Gövdeler limitlidir ve
+stream buffer edilmeden aktarılır. Bu düşük seviyeli bir tip uyumluluğu borcudur.
 
-**2. `@ts-expect-error` — streaming Request `duplex` tipi**
-
-Node.js fetch streaming body için runtime'da `duplex: "half"` ister; mevcut DOM `RequestInit` tipi bu alanı taşımadığı için request clone ve proxy kodunda suppression kullanılır. `/api/*` gövdeleri limitlidir ve stream buffer edilmeden aktarılır. Bu düşük seviyeli bir tip uyumluluğu borcudur; body kaybı veya sınırsız upload davranışı değildir.
-
-**3. Token expiry sadece heuristic**
+**2. Token expiry sadece heuristic**
 
 `isAccessTokenExpired()` JWT payload'unu decode eder ama imzayı doğrulamaz. Manipüle edilmiş `exp` veya display name yalnızca lokal refresh/UI kararını etkileyebilir; korunan veri için nihai otorite gateway'dir ve geçersiz token'ı reddeder. Yine de UI oturum göstergeleri güvenlik kararı için kullanılmamalıdır.
 
-**4. Deployment girdileri dış sistemlere bağlıdır**
+**3. Deployment ve güvenlik kabulü dış sistemlere bağlıdır**
 
-Kubernetes image digest'i, gateway/site adresleri, Redis URL'i ve secret değerleri CI/CD veya secret manager tarafından gerçek değerlerle doldurulmalıdır. Dependency audit de release pipeline'ında `npm run audit:prod` ile çalıştırılmalıdır.
+Kubernetes image digest'i, TLS secret'ı, gerçek ingress/monitoring/operations namespace adları,
+gateway/site adresleri, `rediss` credential'ı ve secret değerleri CI/CD veya secret manager tarafından
+doldurulmalıdır. CI dependency audit, Trivy ve CodeQL çalıştırır; gerçek gateway bağlandıktan sonra
+staging DAST, bağımsız pentest, secret rotation tatbikatı ve incident rollback testi release gate'idir.
+Ayrıntılı kabul listesi ve olay kararları [`docs/production-security.md`](docs/production-security.md)
+belgesindedir.
 
 ---
 
@@ -749,4 +764,6 @@ Kubernetes image digest'i, gateway/site adresleri, Redis URL'i ve secret değerl
 
 Mimari olarak iyi düşünülmüş, tutarlı bir sistem. Next.js gibi bir framework'ün getirdiği overhead ve kısıtlamalar olmadan SSR + caching + auth'un nasıl el ile inşa edildiğini gösteren nadir örneklerden biri. Tasarım kararları savunulabilir ve birbiriyle çelişmiyor.
 
-**Şu an stabil mi?** Temel işlevsellik (SSR, shared cache, SWR retry/drain, auth ve production bundle) test edilmiş ve çalışıyor. Production'a çıkış için kalan koşullar kod mimarisinden çok release operasyonlarıdır: değişikliklerin eksiksiz commit edilmesi, gerçek deployment değerlerinin sağlanması ve dependency audit'in CI'da başarılı olması.
+**Şu an stabil mi?** SSR, shared cache, SWR retry/drain, auth, public API guard ve production bundle
+test edilmiştir. Production'a çıkış için kalan koşullar gerçek deployment değerleri, WAF/ingress
+uyarlaması, gerçek gateway contract testleri ve bağımsız güvenlik kabulüdür.

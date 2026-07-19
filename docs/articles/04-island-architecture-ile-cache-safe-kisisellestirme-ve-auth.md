@@ -480,9 +480,11 @@ transport ve cross-site davranışını sınırladığını açıklar. Productio
 
 `HttpOnly` tek başına tam XSS savunması değildir. Zararlı script token değerini okuyamasa da kullanıcının
 browser’ından same-origin request başlatabilir. CSP, output escaping ve dependency güvenliği hâlâ
-gereklidir. Benzer biçimde `SameSite=Lax` CSRF riskini azaltır ama bütün state-changing endpoint’ler
-için genel CSRF tasarımının yerine geçmez. Yeni mutation BFF’leri method, Origin/Referer kontrolü veya
-CSRF token ihtiyacı açısından ayrıca değerlendirilmelidir.
+gereklidir. Bu nedenle mevcut browser mutation'ları (`/api/referrals` ve auth refresh) merkezi public
+API guard'ından geçer: `Sec-Fetch-Site` birincil sinyal, Origin/Referer fallback; metadata yoksa
+fail-closed davranış uygulanır. Aynı guard Redis-backed global/IP rate limit üretir. Yeni mutation BFF
+bu kontrata dahil edilmeden mount edilmez; para/hesap işlemlerinde ayrıca CSRF token veya işlem-imzası
+değerlendirilir.
 
 Bir başka sınır shared cache'tir. Token refresh veya UI session senkronizasyonu `Set-Cookie`
 ürettiğinde response, body anonim ve Redis-cacheable olsa bile CDN-cacheable kabul edilmez. Finalizer
@@ -613,10 +615,11 @@ if (!response.ok) {
 }
 ```
 
-Server aynı refresh token için eşzamanlı refresh Promise’lerini process içinde deduplicate ediyor.
-Bu, aynı browser’da paralel island request’lerinin token rotasyon yarışını azaltır. Çoklu replica’da
-strong global dedup sağlamaz; gerçek gateway refresh token rotation semantiği gerektiriyorsa shared
-lock veya idempotent refresh kontratı ayrıca gerekir.
+Server aynı refresh token için eşzamanlı refresh Promise’lerini process içinde deduplicate eder.
+Replica'lar ayrıca refresh token'ın SHA-256 anahtarı üzerinde Redis lock alır ve kısa ömürlü sonucu
+AES-256-GCM ile şifrelenmiş biçimde paylaşır. Şifre anahtarı ayrı
+`AUTH_REFRESH_COORDINATION_SECRET` değerinden türetilir; raw token Redis key'ine yazılmaz. Böylece
+gateway rotation idempotent olmasa bile paralel pod istekleri aynı rotated token çiftini alır.
 
 ## `401` ile `5xx` aynı auth sonucu değildir
 

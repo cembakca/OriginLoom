@@ -685,9 +685,10 @@ politikasıdır.
 
 Docker image healthcheck’i `/healthz` kullanıyor. Kubernetes manifest’inde liveness için `/healthz`,
 readiness için `/readyz` ayrı tanımlanmalıdır; yavaş startup varsa startup probe eklenmelidir.
-Prometheus pod'u annotation üzerinden `9090` portunu scrape eder; application Service yalnız `3005`
-yayınlar. Prometheus'un güvenlik modeli metrics endpoint'lerini de korunması gereken HTTP yüzeyi kabul
-ettiği için public ingress'e path bazlı istisna bırakılmaz.
+Prometheus pod'u annotation üzerinden `9090` operations listener'ını scrape eder; cache purge ve
+referral stats da aynı cluster-only listener'dadır. Public application Service yalnız `3005`
+yayınlar. Ayrı `ssr-kit-operations` Service ve NetworkPolicy yalnız monitoring/operations
+namespace'lerine izin verir; public ingress'e path bazlı istisna bırakılmaz.
 
 ## Structured log olmadan ayrı gateway yalnız gürültü üretir
 

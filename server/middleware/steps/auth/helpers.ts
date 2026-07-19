@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 
 import { gatewayFetch } from "@server/adapters/gateway";
 import {
@@ -16,10 +16,10 @@ import { cookie } from "~/lib/request";
 import { isBoundedString, isRecord } from "~/lib/runtime-schema";
 import { stripUndefined } from "~/lib/strip-undefined";
 
-export type RefreshResult =
-  | { kind: "success"; access: string; refresh: string }
-  | { kind: "unauthorized" }
-  | { kind: "unavailable" };
+import { createRefreshCoordinationCodec } from "./refresh-coordination-crypto";
+import type { RefreshResult } from "./refresh-result";
+
+export type { RefreshResult } from "./refresh-result";
 type RefreshEntry = {
   promise: Promise<RefreshResult>;
   controller: AbortController;
@@ -29,9 +29,10 @@ type RefreshEntry = {
 
 const refreshesInFlight = new Map<string, RefreshEntry>();
 const INVALID_REFRESH = "Auth refresh gateway returned an invalid payload";
-const coordinationEncryptionKey = createHash("sha256")
-  .update(config.authRefreshCoordinationSecret)
-  .digest();
+const coordinationCodec = createRefreshCoordinationCodec(
+  config.authRefreshCoordinationSecret,
+  config.authRefreshCoordinationPreviousSecret,
+);
 
 function useSecureCookies(): boolean {
   return (process.env.NODE_ENV ?? "development") === "production";
@@ -146,7 +147,7 @@ async function coordinatedRefresh(
   signal: AbortSignal,
 ): Promise<RefreshResult> {
   const key = `auth-refresh:${createHash("sha256").update(refreshToken).digest("base64url")}`;
-  const existing = openCoordinatedResult(await readCoordinationValue(key));
+  const existing = coordinationCodec.open(await readCoordinationValue(key));
   if (existing) return existing;
 
   const lock = await acquireCoordinationLock(key, config.authRefreshCoordinationTtlMs);
@@ -154,13 +155,13 @@ async function coordinatedRefresh(
   if (lock.kind === "held") return waitForCoordinatedResult(key, refreshToken, signal);
 
   try {
-    const afterLock = openCoordinatedResult(await readCoordinationValue(key));
+    const afterLock = coordinationCodec.open(await readCoordinationValue(key));
     if (afterLock) return afterLock;
     const result = await fetchRefreshResult(refreshToken, signal);
     if (result.kind !== "unavailable") {
       await writeCoordinationValue(
         key,
-        sealCoordinatedResult(result),
+        coordinationCodec.seal(result),
         config.authRefreshCoordinationTtlMs,
       );
     }
@@ -178,7 +179,7 @@ async function waitForCoordinatedResult(
   const deadline = Date.now() + config.authRefreshCoordinationTtlMs;
   while (Date.now() < deadline) {
     if (signal.aborted) throw abortReason(signal);
-    const result = openCoordinatedResult(await readCoordinationValue(key));
+    const result = coordinationCodec.open(await readCoordinationValue(key));
     if (result) return result;
     await abortableDelay(50, signal);
   }
@@ -206,44 +207,6 @@ async function fetchRefreshResult(
     return { kind: "success", access: data.accessToken, refresh: data.refreshToken };
   } catch {
     return { kind: "unavailable" };
-  }
-}
-
-function sealCoordinatedResult(result: RefreshResult): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", coordinationEncryptionKey, iv);
-  const encrypted = Buffer.concat([cipher.update(JSON.stringify(result), "utf8"), cipher.final()]);
-  return [iv, cipher.getAuthTag(), encrypted].map((part) => part.toString("base64url")).join(".");
-}
-
-function openCoordinatedResult(value: string | null): RefreshResult | null {
-  if (!value) return null;
-  try {
-    const [ivValue, tagValue, encryptedValue] = value.split(".");
-    if (!ivValue || !tagValue || !encryptedValue) return null;
-    const decipher = createDecipheriv(
-      "aes-256-gcm",
-      coordinationEncryptionKey,
-      Buffer.from(ivValue, "base64url"),
-    );
-    decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
-    const plaintext = Buffer.concat([
-      decipher.update(Buffer.from(encryptedValue, "base64url")),
-      decipher.final(),
-    ]).toString("utf8");
-    const parsed: unknown = JSON.parse(plaintext);
-    if (!isRecord(parsed) || typeof parsed.kind !== "string") return null;
-    if (parsed.kind === "unauthorized") return { kind: "unauthorized" };
-    if (
-      parsed.kind === "success" &&
-      isBoundedString(parsed.access, 16_384, 8) &&
-      isBoundedString(parsed.refresh, 16_384, 8)
-    ) {
-      return { kind: "success", access: parsed.access, refresh: parsed.refresh };
-    }
-    return null;
-  } catch {
-    return null;
   }
 }
 

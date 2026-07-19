@@ -136,6 +136,24 @@ describe("server config", () => {
     ).rejects.toThrow("AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters");
   });
 
+  it("rejects a weak previous auth coordination key during rotation", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        CACHE_BACKEND: "redis",
+        REDIS_URL: "redis://localhost:6379",
+        GATEWAY_URL: "https://gateway.example.com",
+        SITE_URL: "https://www.example.com",
+        CACHE_PURGE_SECRET: "secret",
+        REFERRAL_STATS_SECRET: "referral-secret",
+        MARKET_STREAM_TOKEN: "market-secret",
+        AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
+        AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET: "weak",
+        RELEASE_ID: "release-1",
+      }),
+    ).rejects.toThrow("AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET must be at least 32 characters");
+  });
+
   it("rejects the Vite development runtime in production", async () => {
     await expect(
       validateWith({

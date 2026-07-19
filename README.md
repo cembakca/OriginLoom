@@ -3,7 +3,8 @@
 Hono ve React 19 üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı.
 
 Mimari kararların gerekçesi ve Next.js’ten geçişin teknik hikâyesi için
-[makale serisi indeksine](docs/articles/README.md) bakın.
+[makale serisi indeksine](docs/articles/README.md) bakın. Production güvenlik kabulü, secret rotation
+ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur.
 
 ## Mimari
 
@@ -11,7 +12,8 @@ Bir sayfa isteği sırasıyla şu katmanlardan geçer:
 
 1. Hono request-id ve güvenlik middleware'lerini çalıştırır.
 2. Auth, session ve CMS redirection pipeline'ı request'i zenginleştirir.
-3. Routing katmanı redirect, internal rewrite veya gateway proxy kararı verir.
+3. Routing katmanı redirect, internal rewrite veya explicit external rewrite kararı verir; gateway
+   browser yüzeyi wildcard proxy yerine BFF handler'larıyla açılır.
 4. Route cache policy hesaplanır; uygun GET isteğinde HTML cache okunur.
 5. MISS durumunda loader çalışır ve React document render edilir.
 6. Etkileşimli alanlar bağımsız island chunk'ları olarak hydrate/mount edilir.
@@ -216,8 +218,10 @@ latency histogramları, gateway timeout/error outcome'ları, bot analytics queue
 metrikleri, event-loop lag, CPU, heap/RSS, uptime ve release bilgisi. Cache write'ları ayrıca route
 bazında body/key byte histogramı ile bounded distinct key observation gauge'i üretir; örnek alarmlar
 `k8s/prometheus-rules.yaml` içindedir. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı
-yapılmaz. Varsayılan metrics listener `9090` portundadır. Kubernetes pod annotation bu portu scrape
-eder; public application `Service` yalnız `3005` portunu yayınlar ve public `/metrics` `404` döner.
+yapılmaz. Varsayılan operations listener `9090` portundadır; `/metrics`, cache purge ve referral stats
+bu listener'dadır. `ssr-kit-operations` ClusterIP servisi yalnız monitoring/operations namespace'lerine
+NetworkPolicy ile açılır. Public application `Service` yalnız `3005` portunu yayınlar; public
+`/metrics` ve operations endpoint'leri `404` döner.
 
 Client runtime error ingestion'ı validation sonrası sampling, güvenilir client IP başına bounded
 TTL/LRU limiter ve process-global son güvenlik freni uygular. Query değerleri atılır; bearer/JWT,
@@ -265,16 +269,20 @@ Ortam dosyaları:
 Temel değişkenler:
 
 - `PORT` — HTTP portu, varsayılan `3005`
-- `METRICS_PORT` — cluster-only Prometheus listener'ı; varsayılan `9090`
+- `METRICS_PORT` — cluster-only metrics + operations listener'ı; varsayılan `9090`
 - `GATEWAY_URL` — path/credential/query içermeyen backend origin'i; production varsayılan HTTPS
 - `ALLOW_INSECURE_GATEWAY` — yalnız güvenilir internal HTTP gateway için açık production istisnası
 - `CACHE_BACKEND` — `memory` veya `redis`; production yalnızca `redis` kabul eder
 - `CACHE_REQUIRED` — `true` ise Redis problemi readiness'i başarısız yapar; varsayılan fail-open
-- `REDIS_URL` — Redis seçildiğinde zorunlu
+- `REDIS_URL` — Redis seçildiğinde zorunlu; non-loopback production adresi varsayılan `rediss://`
+- `ALLOW_INSECURE_REDIS` — yalnız kontrollü internal ağ için açık production TLS istisnası
 - `CACHE_MAX_ENTRIES` — memory cache kapasitesi
 - `CACHE_PURGE_SECRET` — production purge endpoint yetkilendirmesi
 - `REFERRAL_STATS_SECRET` — internal referral sayı/latency endpoint'i için operations token'ı
 - `MARKET_STREAM_TOKEN` — BFF ile gateway canlı piyasa stream'i arasındaki server-only token
+- `AUTH_REFRESH_COORDINATION_SECRET` — replica'lar arası şifreli refresh sonucu için ayrı 32+ karakter secret
+- `AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET` — kesintisiz key rotation sırasında geçici eski anahtar
+- `AUTH_REFRESH_COORDINATION_TTL_MS` — refresh lock/sonuç paylaşım penceresi; gateway timeout'tan büyük olmalı
 - `MARKET_STREAM_MAX_CONNECTIONS` / `MARKET_STREAM_MAX_CONNECTIONS_PER_IP` — process/IP aktif SSE kotası
 - `MARKET_STREAM_MAX_SYMBOLS` — browser bağlantısı başına sembol üst sınırı
 - `MENU_CACHE_TTL` / `MENU_CACHE_SWR` — menü cache süreleri
@@ -290,8 +298,11 @@ Temel değişkenler:
 - `CACHE_FILL_TIMEOUT_MS` — cold miss loader + render toplam timeout bütçesi
 - `CACHE_FILL_WAIT_MS` — başka pod'un cold fill sonucunu bekleme bütçesi
 - `CACHE_FILL_POLL_MS` — distributed cold fill sırasında cache/lock polling aralığı
-- `PROXY_BODY_LIMIT_BYTES` — `/api/*` istek gövdesi üst sınırı
-- `TRUST_PROXY` — yalnızca güvenilir ingress arkasında forwarded IP header'larını etkinleştirir
+- `PROXY_BODY_LIMIT_BYTES` — public request/external rewrite gövdesi üst sınırı
+- `TRUST_PROXY` — yalnızca güvenilir ingress arkasında forwarded IP çözümünü etkinleştirir
+- `TRUSTED_PROXY_HOPS` — sağdan güvenilecek proxy hop sayısı
+- `TRUSTED_PROXY_CIDRS` — forwarded header kabul edilebilecek socket peer ağları
+- `CSP_ENFORCE` — production varsayılanı `true`; kontrollü rollout dışında report-only bırakılmaz
 - `REDIRECT_ALLOWED_HOSTS` — virgülle ayrılmış harici redirect host allowlist'i
 - `REDIRECT_CACHE_MAX_ENTRIES` — redirect lookup cache üst sınırı
 - `SWR_REVALIDATION_ATTEMPTS` — background revalidation toplam deneme sayısı

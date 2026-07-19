@@ -58,9 +58,12 @@ veya nonce varken browser’ın `'unsafe-inline'` davranışı beklendiği gibi 
 Bu bir production gevşetmesi değildir. `VITE_DEV_SERVER_URL` production config’inde kabul edilmez;
 production protocol/origin validasyonu startup’ta fail-fast çalışır.
 
-`CSP_ENFORCE=false` ise aynı direktifler `Content-Security-Policy-Report-Only` olarak gönderilir.
-Rollout sırasında raporları izlemek faydalıdır, fakat report-only güvenlik kontrolü değildir; nihai
-hedef enforce modudur.
+Production'da `CSP_ENFORCE` varsayılanı `true` ve ortam/Kubernetes şablonlarında açıkça enforce
+edilir. `false` yalnız kontrollü incident rollback veya yeni policy rollout'u için report-only üretir;
+kalıcı güvenlik modu değildir. `ASSET_CDN_URL`, `IMAGE_CDN_URL` ve `IMAGE_TRANSFORM_URL` origin'leri
+startup'ta normalize edilip yalnız tüketildikleri script/style/font/image direktiflerine eklenir.
+Böylece CSP'yi enforce etmek CDN asset'lerini yanlışlıkla kesmez; `form-action 'self'` ve
+`frame-ancestors 'none'` de policy'nin parçasıdır.
 
 ## `connect-src` artık yalnız analytics değildir
 
