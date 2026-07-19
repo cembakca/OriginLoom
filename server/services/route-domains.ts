@@ -9,7 +9,6 @@ const MAX_DOMAIN_VALUES = 500;
 const INVALID_ROUTE_DOMAINS = "Route domains gateway returned an invalid payload";
 
 export type RouteDomains = {
-  loanCities: string[];
   recoursePages: string[];
 };
 
@@ -53,11 +52,6 @@ export async function fetchRouteDomains(signal?: AbortSignal): Promise<RouteDoma
   return domains;
 }
 
-export async function isKnownLoanCity(city: string, signal?: AbortSignal): Promise<boolean> {
-  if (!isBoundedRouteSlug(city)) return false;
-  return (await fetchRouteDomains(signal)).loanCities.includes(city);
-}
-
 export async function isKnownRecoursePage(
   page: string | undefined,
   signal?: AbortSignal,
@@ -69,7 +63,7 @@ export async function isKnownRecoursePage(
 function isRouteDomains(value: unknown): value is RouteDomains {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const domains = value as Record<string, unknown>;
-  return isSlugList(domains.loanCities) && isSlugList(domains.recoursePages);
+  return isSlugList(domains.recoursePages);
 }
 
 function isSlugList(value: unknown): value is string[] {
@@ -83,7 +77,6 @@ function isSlugList(value: unknown): value is string[] {
 
 function normalizeRouteDomains(domains: RouteDomains): RouteDomains {
   return {
-    loanCities: [...new Set(domains.loanCities)].sort(),
     recoursePages: [...new Set(domains.recoursePages)].sort(),
   };
 }

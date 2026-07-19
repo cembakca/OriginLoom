@@ -24,7 +24,6 @@ describe("external mock gateway", () => {
       redirect.status,
     ]).toEqual([200, 200, 200, 200, 200]);
     expect(await routeDomains.json()).toEqual({
-      loanCities: ["istanbul", "ankara", "izmir"],
       recoursePages: ["kredi"],
     });
     const sitemapBody = (await sitemap.json()) as { entries: Array<{ path: string }> };

@@ -1,9 +1,5 @@
 import { closeCache, initCache } from "@server/cache";
-import {
-  fetchRouteDomains,
-  isKnownLoanCity,
-  isKnownRecoursePage,
-} from "@server/services/route-domains";
+import { fetchRouteDomains, isKnownRecoursePage } from "@server/services/route-domains";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("route domains service", () => {
@@ -20,9 +16,7 @@ describe("route domains service", () => {
   it("loads business route values from the gateway registry", async () => {
     const domains = await fetchRouteDomains();
 
-    expect(domains.loanCities).toContain("istanbul");
     expect(domains.recoursePages).toContain("kredi");
-    await expect(isKnownLoanCity("random-unique-city")).resolves.toBe(false);
     await expect(isKnownRecoursePage("random-unique-page")).resolves.toBe(false);
   });
 
@@ -31,18 +25,12 @@ describe("route domains service", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(isKnownLoanCity("istanbul")).resolves.toBe(true);
     await expect(isKnownRecoursePage("kredi")).resolves.toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid registry payloads instead of treating them as domain data", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(Response.json({ loanCities: ["İstanbul"], recoursePages: ["kredi"] })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ recoursePages: ["Kredi"] })));
 
     await expect(fetchRouteDomains()).rejects.toThrow(
       "Route domains gateway returned an invalid payload",

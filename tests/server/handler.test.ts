@@ -18,8 +18,8 @@ import { renderMetrics } from "@server/metrics";
 import { RequestDeadlineError } from "@server/middleware/request-deadline";
 import account from "@server/routes/account";
 import creditCards from "@server/routes/credit-cards";
-import housingLoanDetail from "@server/routes/housing-loan-detail";
 import home from "@server/routes/home";
+import housingLoanDetail from "@server/routes/housing-loan-detail";
 import mediaPipeline from "@server/routes/media-pipeline";
 import recourseRedirect from "@server/routes/recourse-redirect";
 import { createElement, Suspense, use } from "react";
@@ -69,7 +69,7 @@ describe("handler", () => {
     expect(response.headers.get("x-request-id")).toBe("method-request");
 
     expect(
-      isSsrRouteRequest(new Request("http://localhost/api/offers", { method: "POST" }), [
+      isSsrRouteRequest(new Request("http://localhost/api/catalog", { method: "POST" }), [
         homeRoute,
       ]),
     ).toBe(false);

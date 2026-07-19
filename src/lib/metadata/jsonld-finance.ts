@@ -1,5 +1,4 @@
 import type { CreditCard, HousingLoan } from "~/lib/contracts/financial-products";
-import type { Offer } from "~/lib/contracts/offers";
 
 import type { JsonLdObject } from "./jsonld";
 
@@ -40,25 +39,6 @@ export function creditCardJsonLd(product: CreditCard, canonical: string): JsonLd
         ? "Yıllık kart ücreti yoktur."
         : `Yıllık kart ücreti ${product.annualFee} TRY.`,
     category: product.cardType,
-  };
-}
-
-export function loanOfferItemListJsonLd(offers: Offer[]): JsonLdObject | null {
-  if (offers.length === 0) return null;
-  return {
-    "@type": "ItemList",
-    name: "İhtiyaç kredisi teklifleri",
-    numberOfItems: offers.length,
-    itemListElement: offers.map((offer, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      item: {
-        "@type": "LoanOrCredit",
-        name: `${offer.bank} ihtiyaç kredisi`,
-        provider: bank(offer.bank),
-        interestRate: offer.rate,
-      },
-    })),
   };
 }
 

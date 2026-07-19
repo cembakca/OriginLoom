@@ -14,7 +14,6 @@ const host = process.env.HOST ?? "0.0.0.0";
 const quiet = process.env.MOCK_GW_QUIET === "1";
 
 const routeDomains = {
-  loanCities: ["istanbul", "ankara", "izmir"],
   recoursePages: ["kredi"],
 };
 
