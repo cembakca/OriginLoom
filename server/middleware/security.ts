@@ -1,6 +1,7 @@
 import crypto, { randomBytes } from "node:crypto";
 
 import { config } from "@server/config";
+import { resolveCspSourceOrigins } from "@server/csp-origins";
 import type { MiddlewareHandler } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 
@@ -60,6 +61,8 @@ if (config.viteDevServerUrl) {
   );
 }
 
+const cspOrigins = resolveCspSourceOrigins(config);
+
 // Build standard CSP directives object at startup for O(1) request-time execution
 const baseCspDirectives = {
   defaultSrc: ["'self'"],
@@ -80,10 +83,13 @@ const baseCspDirectives = {
     "https://*.google-analytics.com",
     "https://*.analytics.google.com",
     "https://*.googlesyndication.com",
+    ...cspOrigins.image,
   ],
   frameSrc: ["'self'", "https://www.googletagmanager.com"],
-  styleSrc: ["'self'", "'unsafe-inline'", ...devViteUrls],
-  fontSrc: ["'self'", "data:"],
+  frameAncestors: ["'none'"],
+  formAction: ["'self'"],
+  styleSrc: ["'self'", "'unsafe-inline'", ...cspOrigins.asset, ...devViteUrls],
+  fontSrc: ["'self'", "data:", ...cspOrigins.asset],
   objectSrc: ["'none'"],
   baseUri: ["'self'"],
   ...(config.cspReportUri ? { reportUri: [config.cspReportUri] } : {}),
@@ -102,6 +108,7 @@ export const securityMiddleware: MiddlewareHandler<{ Variables: AppVariables }> 
     scriptSrc: [
       "'self'",
       "https://www.googletagmanager.com",
+      ...cspOrigins.asset,
       ...hashes,
       ...(nonce ? [`'nonce-${nonce}'`] : []),
       ...devScripts,

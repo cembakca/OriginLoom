@@ -24,6 +24,7 @@ data:
   SITE_URL: https://www.example.com
   RELEASE_ID: "replace-with-release-or-git-sha"
   TRUST_PROXY: "true"
+  CSP_ENFORCE: "true"
   GATEWAY_TIMEOUT_MS: "5000"
   AUTH_REFRESH_COORDINATION_TTL_MS: "6000"
   SSR_REQUEST_TIMEOUT_MS: "15000"

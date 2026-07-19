@@ -287,6 +287,7 @@ describe("server config", () => {
     const { config, validateConfig } = await import("@server/config");
 
     expect(config.imageCdnUrl).toBe("http://localhost:3005/images");
+    expect(config.cspEnforce).toBe(true);
     expect(() => validateConfig()).not.toThrow();
   });
 
