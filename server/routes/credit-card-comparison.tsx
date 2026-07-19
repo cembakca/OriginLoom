@@ -5,7 +5,6 @@ import { neverCache } from "~/lib/cache-policy";
 import type { CreditCardComparison } from "~/lib/contracts/financial-products";
 import { comparisonSearch, parseComparedCreditCards } from "~/lib/credit-card-comparison-query";
 import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "~/lib/types";
 
@@ -32,16 +31,7 @@ export default defineRoute<CreditCardComparison>({
       ...metadata,
       robots: { index: false, follow: true },
       canonical: publicAbsoluteUrl(ctx, "/karsilastir/kredi-kartlari"),
-      structuredData: compactJsonLd([
-        breadcrumbJsonLd(
-          [
-            { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
-            { name: "Kredi Kartları", url: publicAbsoluteUrl(ctx, "/kredi-kartlari") },
-            { name: "Karşılaştırma", url: publicAbsoluteUrl(ctx, "/karsilastir/kredi-kartlari") },
-          ],
-          ctx.siteUrl ?? ctx.url.origin,
-        ),
-      ]),
+      structuredData: [],
     };
   },
   pageMeta: (_, ctx) =>

@@ -158,13 +158,12 @@ ayrı model.
 
 ### `hydrate`: Aynı public HTML’i uyandır
 
-Mevcut finans route'larında `hydrate` kullanan bir island yoktur; URL tabanlı filtreler server-rendered
-form olarak kalır. İleride etkileşimli bir hesaplayıcı aynı public HTML'i uyandıracaksa kontrat şöyle
-olur:
+`/araclar/kredi-hesaplama` route'u, public HTML'i uyandıran gerçek `hydrate` örneğidir. Gateway sonucu
+hem server child'ı hem island prop'u olarak aynı component'e verilir:
 
 ```tsx
-<Island name="loan-calculator" mode="hydrate" props={{ amount: data.amount, term: data.term }}>
-  <LoanCalculator amount={data.amount} term={data.term} />
+<Island name="loan-calculator" mode="hydrate" props={data} eager>
+  <LoanCalculatorIsland {...data} />
 </Island>
 ```
 
@@ -1010,6 +1009,23 @@ gelir:
 Island architecture bize sihirli biçimde auth sağlamadı. Yaptığı daha değerliydi: public content,
 interactive behavior, optimistic UI state ve authoritative personal data arasına fiziksel sınırlar
 koydu.
+
+## Yeni referans: kişisel olmayan ama server-otoriteli hydrate island
+
+`/araclar/kredi-hesaplama`, island ayrımının yalnız auth için olmadığını gösteriyor. İlk ödeme planı
+gateway'den loader ile alınır ve semantic form/tablo olarak SSR edilir. Aynı component `hydrate`
+modunda DOM'u devralır. Kullanıcı tutar, vade veya faizi gönderdiğinde client finans formülünü kendi
+başına çalıştırmaz; same-origin `/api/finance/loan-calculation` BFF'i yeniden gateway'e gider.
+
+Bu model üç sorunu birlikte çözer:
+
+- JavaScript kapalıyken standart GET formu çalışır.
+- Hydration öncesi ve sonrası kullanılan iş kuralı aynıdır.
+- Hesaplama başarısız olursa son doğrulanmış SSR sonucu ekrandan silinmez.
+
+Bu public veri `defer` değil `hydrate` için uygundur; gizli değildir ve ilk HTML'de kullanıcıya değer
+katar. Yine de route `neverCache()` kullanır, çünkü milyonlarca tutar/faiz kombinasyonunu Redis
+cardinality'sine çevirmek cache-safe değildir. Ayrıntılı kontrat [14. yazıda](./14-ssrdan-hydrationa-server-otoriteli-finans-araclari.md) ele alınıyor.
 
 Bu sınırlar doğru kurulduğunda header’daki küçük bir hesap düğmesi bütün sayfanın cache politikasını
 ele geçirmek zorunda kalmıyor.

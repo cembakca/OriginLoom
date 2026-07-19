@@ -336,19 +336,33 @@ uyarıdır; Redis'teki kesin mevcut key sayısı değildir. Prometheus Operator 
 `k8s/prometheus-rules.yaml` uygulanır. Gateway domain registry büyüdüğünde cardinality bütçesi ve
 alarm eşiği birlikte review edilmelidir.
 
+İçeriği değiştiren her query otomatik olarak cache key'i değildir. Kullanıcı tarafından yüksek
+çeşitlilikte üretilebilen hesaplama ve karşılaştırma girdileri domain olarak bounded değilse route
+`neverCache()` olmalıdır. Faiz/taksit gibi authoritative formüller SSR component'i ile island içinde
+ayrı ayrı uygulanmaz; server loader ve client etkileşimi aynı gateway/BFF kontratını kullanır.
+
+Hydrate edilen finans formu JavaScript'siz semantic GET formu olarak çalışmalı, client request
+sırasında son doğrulanmış sonucu korumalı ve hatayı `aria-live` ile bildirmelidir. Query gateway'e
+gitmeden önce karakter, aralık, precision ve kapalı seçenek kümesiyle doğrulanır. Karşılaştırma seçimi
+bounded ve benzersizdir; varyantlar base canonical + `noindex,follow` kullanır. Dış banka URL'leri
+yalnız HTTPS, credentials'sız ve bounded uzunlukta kabul edilir.
+
 #### Sayfa HTML cache tablosu
 
-| `PageCacheId`            | Path                       | Strateji  | Key parçaları (sırayla)                      | TTL   |
-| ------------------------ | -------------------------- | --------- | -------------------------------------------- | ----- |
-| `home`                   | `/`                        | shared    | `home`, locale, layout                       | 3600s |
-| `housing-loans`          | `/housing-loans`           | shared    | content query allowlist, locale, layout      | 300s  |
-| `housing-loan-detail`    | `/housing-loans/:slug`     | shared    | slug, amount/term, locale, layout            | 300s  |
-| `credit-cards`           | `/kredi-kartlari`          | shared    | content query allowlist, locale, layout      | 300s  |
-| —                        | `/kredi-kartlari/:slug`    | **never** | Kampanyalar progressive stream edilir        | —     |
-| `knowledge-center`       | `/bilgi-merkezi`           | shared    | category/order/page, locale, layout          | 300s  |
-| `remote-customer-obtain` | `/remote-customer-obtain`  | shared    | `remote-customer-obtain`, publicPath, layout | 300s  |
-| `recourse-redirect`      | `/recourse/:page/redirect` | shared    | `recourse-redirect`, page, publicPath        | 300s  |
-| `account`                | `/hesabim`                 | **never** | — (cache'e yazılmaz)                         | —     |
+| `PageCacheId`            | Path                          | Strateji  | Key parçaları (sırayla)                      | TTL   |
+| ------------------------ | ----------------------------- | --------- | -------------------------------------------- | ----- |
+| `home`                   | `/`                           | shared    | `home`, locale, layout                       | 3600s |
+| `housing-loans`          | `/housing-loans`              | shared    | content query allowlist, locale, layout      | 300s  |
+| `housing-loan-detail`    | `/housing-loans/:slug`        | shared    | slug, amount/term, locale, layout            | 300s  |
+| `credit-cards`           | `/kredi-kartlari`             | shared    | content query allowlist, locale, layout      | 300s  |
+| —                        | `/kredi-kartlari/:slug`       | **never** | Kampanyalar progressive stream edilir        | —     |
+| —                        | `/araclar/kredi-hesaplama`    | **never** | Yüksek cardinality hesaplama query'leri      | —     |
+| —                        | `/karsilastir/kredi-kartlari` | **never** | Seçime özel, noindex karşılaştırma           | —     |
+| `bank-detail`            | `/bankalar/:slug`             | shared    | slug, locale, layout                         | 900s  |
+| `knowledge-center`       | `/bilgi-merkezi`              | shared    | category/order/page, locale, layout          | 300s  |
+| `remote-customer-obtain` | `/remote-customer-obtain`     | shared    | `remote-customer-obtain`, publicPath, layout | 300s  |
+| `recourse-redirect`      | `/recourse/:page/redirect`    | shared    | `recourse-redirect`, page, publicPath        | 300s  |
+| `account`                | `/hesabim`                    | **never** | — (cache'e yazılmaz)                         | —     |
 
 Mantıksal key = escape edilmiş parçaların `\0` (null) ile birleşimi. Örnek ana sayfa: `home\0tr\0desktop`. Redis fiziksel key: `ssr:<release-id>:home\0tr\0desktop`.
 

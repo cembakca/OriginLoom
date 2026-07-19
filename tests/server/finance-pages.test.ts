@@ -91,6 +91,22 @@ describe("finance content SSR pages", () => {
     expect(second.headers.get("x-cache")).toBe("HIT");
   });
 
+  it("keeps calculator variants and comparison combinations out of the search index", async () => {
+    const [calculation, comparison] = await Promise.all([
+      app.request("/araclar/kredi-hesaplama?amount=1750000&term=84&rate=2.49"),
+      app.request("/karsilastir/kredi-kartlari?products=maximum,bonus"),
+    ]);
+    const [calculationHtml, comparisonHtml] = await Promise.all([
+      calculation.text(),
+      comparison.text(),
+    ]);
+
+    expect(calculationHtml).toContain('content="noindex, follow"');
+    expect(calculationHtml).toContain('href="http://localhost:3005/araclar/kredi-hesaplama"');
+    expect(comparisonHtml).toContain('content="noindex, follow"');
+    expect(comparisonHtml).not.toContain('"@type":"BreadcrumbList"');
+  });
+
   it("streams credit-card campaigns without putting the response in document cache", async () => {
     const response = await app.request("/kredi-kartlari/maximum");
     const body = await response.text();
@@ -139,10 +155,13 @@ describe("finance content SSR pages", () => {
     expect(response.headers.get("content-type")).toContain("application/xml");
     expect(xml).toContain("/konut-kredisi/ziraat-konut-kredisi</loc>");
     expect(xml).toContain("/kredi-kartlari/maximum</loc>");
+    expect(xml).toContain("/araclar/kredi-hesaplama</loc>");
+    expect(xml).toContain("/bankalar/is-bankasi</loc>");
     expect(xml).toContain("/bilgi-merkezi/bist-100-endeksi-nedir</loc>");
     expect(xml).toContain("<lastmod>");
     expect(xml).not.toContain("/housing-loans");
     expect(xml).not.toContain("/medya-pipeline");
     expect(xml).not.toContain("?page=");
+    expect(xml).not.toContain("/karsilastir/kredi-kartlari</loc>");
   });
 });

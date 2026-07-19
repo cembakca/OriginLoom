@@ -31,6 +31,8 @@ describe("external mock gateway", () => {
       expect.arrayContaining([
         expect.objectContaining({ path: "/konut-kredisi/ziraat-konut-kredisi" }),
         expect.objectContaining({ path: "/kredi-kartlari/maximum" }),
+        expect.objectContaining({ path: "/araclar/kredi-hesaplama" }),
+        expect.objectContaining({ path: "/bankalar/is-bankasi" }),
         expect.objectContaining({ path: "/bilgi-merkezi/bist-100-endeksi-nedir" }),
       ]),
     );
@@ -196,7 +198,12 @@ describe("external mock gateway", () => {
     const calculator = (await calculatorResponse.json()) as {
       calculationVersion: string;
       input: { amount: number; term: number; monthlyInterestRate: number };
-      result: { monthlyPayment: number; paymentPlan: unknown[] };
+      result: {
+        monthlyPayment: number;
+        totalPayment: number;
+        totalInterest: number;
+        paymentPlan: Array<{ principal: number; interest: number; payment: number }>;
+      };
     };
     const comparison = (await comparisonResponse.json()) as {
       products: Array<{ slug: string }>;
@@ -214,6 +221,15 @@ describe("external mock gateway", () => {
     });
     expect(calculator.result.monthlyPayment).toBeGreaterThan(0);
     expect(calculator.result.paymentPlan).toHaveLength(60);
+    expect(calculator.result.paymentPlan.reduce((sum, row) => sum + row.principal, 0)).toBe(
+      calculator.input.amount,
+    );
+    expect(calculator.result.paymentPlan.reduce((sum, row) => sum + row.interest, 0)).toBe(
+      calculator.result.totalInterest,
+    );
+    expect(calculator.result.paymentPlan.reduce((sum, row) => sum + row.payment, 0)).toBe(
+      calculator.result.totalPayment,
+    );
     expect(comparisonResponse.status).toBe(200);
     expect(comparison.products.map((card) => card.slug)).toEqual(["maximum", "bonus", "axess"]);
     expect(comparison.availableProducts.length).toBeGreaterThan(3);

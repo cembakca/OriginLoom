@@ -23,11 +23,12 @@ olarak sahiplenmenin kazanç ve maliyetlerini inceler.
 11. [React 19 Progressive HTML Streaming](./11-react-19-progressive-html-streaming-ve-cozumleri.md) — status, cache-fill, bot, CSP ve proxy sınırları.
 12. [Dinamik Fragment Cache ve Buffered HTML Stitching](./12-dynamic-fragment-caching-ve-html-stitching-mimarisi.md) — page body içindeki bağımsız public HTML kontratları.
 13. [SSR Snapshot’tan Canlı Fiyata](./13-ssr-snapshot-ile-guvenli-canli-piyasa-verisi.md) — güvenli SSE BFF, fan-out, backpressure ve degrade davranışı.
+14. [SSR’dan Hydration’a Server-Otoriteli Finans Araçları](./14-ssrdan-hydrationa-server-otoriteli-finans-araclari.md) — kredi hesaplama, no-JS form, BFF iş kuralı ve bounded karşılaştırma URL'leri.
 
 ## Konuya göre kısa yollar
 
 - Cache ve Redis kapasitesi: 3, 8 ve 12.
-- Auth ve kişiselleştirme: 4 ve 5.
+- Auth, hydration ve BFF: 4, 5 ve 14.
 - Client JavaScript performansı: 7 ve 10.
 - React streaming: 2, 9 ve 11.
 - Canlı finans verisi: 3, 4, 9 ve 13.

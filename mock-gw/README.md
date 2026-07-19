@@ -28,6 +28,9 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 | GET    | `/finance/credit-cards?...`             | Kredi kartı filtreleme ve pagination      |
 | GET    | `/finance/credit-cards/:slug`           | Stream öncesi kritik kart detayı          |
 | GET    | `/finance/credit-cards/:slug/campaigns` | Suspense ile stream edilen kampanyalar    |
+| GET    | `/finance/calculators/loans?...`        | Sürümlü taksit ve ödeme planı hesabı      |
+| GET    | `/finance/credit-cards/compare?...`     | Bounded 2–3 kart karşılaştırması          |
+| GET    | `/finance/banks/:slug`                  | Banka profili ve ürün koleksiyonları      |
 | GET    | `/finance/referrals/:productType/:slug` | Başvuru öncesi ürün/yasal bilgilendirme   |
 | POST   | `/finance/referrals`                    | Kısa ömürlü başvuru yönlendirmesi         |
 | GET    | `/internal/referrals/stats`             | Server-side referral sayı/latency özeti   |
@@ -48,6 +51,12 @@ kredilerinde `amount`, `term`, `city`, `bank` ve `sortBy`; kredi kartlarında `c
 
 Bu servis gerçek bir IAM veya içerik gateway'i değildir; yalnızca uygulamanın HTTP
 sözleşmelerini uçtan uca çalıştırmak için deterministik cevaplar verir.
+
+Hesaplama endpoint'i `calculationVersion` taşır ve tam ödeme planını gateway tarafında üretir. UI
+formülü client bundle'ına kopyalamaz; SSR loader ve `/api/finance/loan-calculation` BFF'i aynı endpoint'i
+kullanır. Bu mock sonuçların finansal doğruluğunu garanti etmez. Gerçek gateway geçişinde sürümlü
+hesaplama kuralı, yuvarlama, vergi/masraf kapsamı ve golden fixture'lar domain sahibi ekip tarafından
+onaylanmalıdır.
 
 Referral sayaçları client'tan kabul edilmez. `POST /finance/referrals` işlendiğinde mock gateway
 toplam yönlendirme, anonim session ve gateway işlem süresini process belleğinde kaydeder. Bu mock

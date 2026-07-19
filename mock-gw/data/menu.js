@@ -2,9 +2,12 @@ const headerItems = [
   menuCategory(3, "Finansal Ürünler", "/konut-kredisi", [
     menuItem(31, 3, "Konut Kredileri", "/konut-kredisi", 1),
     menuItem(32, 3, "Kredi Kartları", "/kredi-kartlari", 2),
+    menuItem(34, 3, "Kredi Hesaplama", "/araclar/kredi-hesaplama", 3),
+    menuItem(35, 3, "Kredi Kartı Karşılaştırma", "/karsilastir/kredi-kartlari", 4),
+    menuItem(36, 3, "Banka Profilleri", "/bankalar/is-bankasi", 5),
     menuItem(
       33,
-      3,
+      6,
       "Kart Başvuru Yönlendirmesi",
       "/basvuru/kredi-karti/maximum/yonlendirme",
       3,

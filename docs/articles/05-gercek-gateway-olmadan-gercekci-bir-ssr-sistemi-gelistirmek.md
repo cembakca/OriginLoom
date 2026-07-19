@@ -1024,6 +1024,10 @@ de görünür kılıyor:
   redirect kararı üretir; internal stats endpoint'i ayrı operations token'ıyla korunur.
 - BIST snapshot endpoint'i ilk SSR tablosunu, `/internal/markets/stream` ise uzun yaşayan quote
   batch'lerini sağlar.
+- Sürümlü kredi hesaplama endpoint'i tutar/vade/faiz sınırlarını ve tam ödeme planını server'da
+  üretir; SSR ile hydrated BFF aynı kontratı tüketir.
+- Kart karşılaştırma endpoint'i yalnız 2–3 benzersiz ürünü, banka profili endpoint'i ise bounded ürün
+  koleksiyonlarını ve güvenli HTTPS alanlarını kabul eder.
 
 Canlı market endpoint'i özellikle değerlidir; mock'un yalnız JSON fixture olmadığını kanıtlar. Token
 olmadan `401`, geçersiz symbol ile `400`, doğru bearer ile `text/event-stream` döner; connection abort

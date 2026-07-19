@@ -52,6 +52,22 @@ type Route<T> = {
 
 Cache key yalnızca normalize edilmiş, HTML çıktısını gerçekten değiştiren değerlerden oluşturulmalıdır. Auth token veya kullanıcıya özel veri ortak HTML cache'e girmez.
 
+## Finans referans route'ları
+
+| Public path                   | Mimari örnek                                             | HTML cache                       |
+| ----------------------------- | -------------------------------------------------------- | -------------------------------- |
+| `/konut-kredisi`              | Filtreli/paginated ürün kataloğu ve internal rewrite     | Shared, içerik query'leri key'de |
+| `/kredi-kartlari/:slug`       | React 19 streaming kampanya sınırı                       | Yok                              |
+| `/araclar/kredi-hesaplama`    | SSR + `hydrate` island + same-origin hesaplama BFF'i     | Yok; yüksek query cardinality    |
+| `/karsilastir/kredi-kartlari` | 2–3 ürünlü, noindex ve canonical query karşılaştırması   | Yok; seçime özel HTML            |
+| `/bankalar/:slug`             | Düşük cardinality'li banka/ürün profili ve banka JSON-LD | Shared, 15 dakika                |
+| `/piyasalar/bist-100`         | Cache'li SSR snapshot + güvenli SSE güncellemesi         | Shared, kısa TTL                 |
+
+Mock gateway içerik doğruluğunu değil HTTP, payload, güven ve yaşam döngüsü kontratlarını temsil eder.
+Hesaplama formülü client bundle'ına kopyalanmaz: ilk sonuç SSR loader'ında, hydrate sonrası sonuç
+`/api/finance/loan-calculation` BFF'i üzerinden gateway'de hesaplanır. JavaScript kapalı form da aynı
+public GET route'u üzerinden çalışır.
+
 ## Geliştirme
 
 Node.js 22.12 veya daha yeni bir sürüm gerekir.
@@ -121,7 +137,7 @@ npm run mock-gw
 Çalışan CMS redirect/query merge örneği:
 
 ```text
-http://127.0.0.1:3005/eski-emeklilik?q=kredi&source=incoming
+http://127.0.0.1:3005/eski-konut-kredisi?q=kredi&source=incoming
   → 301
 http://127.0.0.1:3005/konut-kredisi?q=kredi&source=legacy
 ```

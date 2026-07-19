@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 
 import { menu } from "./data/menu.js";
-import { creditCards, housingLoans } from "./data/financial-products.js";
+import { bankProfiles, creditCards, housingLoans } from "./data/financial-products.js";
 import { knowledgeArticles } from "./data/knowledge-center.js";
 import { resolveFinanceRequest } from "./routes/finance.js";
 import { resolveKnowledgeCenterRequest } from "./routes/knowledge-center.js";
@@ -24,6 +24,8 @@ const sitemapEntries = [
   ...housingLoans.map((loan) => `/konut-kredisi/${loan.slug}`),
   "/kredi-kartlari",
   ...creditCards.map((card) => `/kredi-kartlari/${card.slug}`),
+  "/araclar/kredi-hesaplama",
+  ...bankProfiles.map((bank) => `/bankalar/${bank.slug}`),
   "/piyasalar/bist-100",
   "/uzaktan-musteri-edinimi",
 ].map((path) => ({ path }));

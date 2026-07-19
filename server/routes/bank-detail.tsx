@@ -39,7 +39,6 @@ export default defineRoute<BankDetail>({
         breadcrumbJsonLd(
           [
             { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
-            { name: "Bankalar", url: publicAbsoluteUrl(ctx, "/bankalar") },
             { name: data.bank.name, url: canonical },
           ],
           base,

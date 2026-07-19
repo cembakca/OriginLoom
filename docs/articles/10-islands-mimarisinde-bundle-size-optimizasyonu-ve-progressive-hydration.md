@@ -120,15 +120,16 @@ Genel kural:
 
 Vite 8.1.5 production build’i aşağıdaki seçili chunk’ları raporladı:
 
-| Chunk            |       Raw |     Gzip | Yorum                                  |
-| ---------------- | --------: | -------: | -------------------------------------- |
-| `entry.client`   |   5.08 kB |  2.29 kB | Hafif bootstrap                        |
-| `hydrate.client` | 181.68 kB | 57.68 kB | React hydration graph’ının ana parçası |
-| `market-live`    |   5.92 kB |  2.32 kB | Yalnız canlı piyasa island’ı           |
-| `user-chrome`    |  49.87 kB | 16.90 kB | Auth/query ağırlıklı kişisel island    |
+| Chunk             |       Raw |     Gzip | Yorum                                  |
+| ----------------- | --------: | -------: | -------------------------------------- |
+| `entry.client`    |   5.08 kB |  2.29 kB | Hafif bootstrap                        |
+| `hydrate.client`  | 181.94 kB | 57.79 kB | React hydration graph’ının ana parçası |
+| `market-live`     |   5.92 kB |  2.32 kB | Yalnız canlı piyasa island’ı           |
+| `loan-calculator` |   5.90 kB |  2.06 kB | Server-otoriteli hydrate form          |
+| `user-chrome`     |  49.93 kB | 16.91 kB | Auth/query ağırlıklı kişisel island    |
 
 Bu tablo route toplamı değildir. Örneğin `market-live` çalışırken hydration runtime ve manifestteki
-ortak React chunk’ları da gerekebilir. Rakamlar build çıktısının 18 Temmuz 2026 snapshot’ıdır; her build
+ortak React chunk’ları da gerekebilir. Rakamlar build çıktısının 19 Temmuz 2026 snapshot’ıdır; her build
 hash ve boyutu değiştirebilir. CI’da budget koyacaksak raw tekil chunk yerine route bazlı transfer ve
 parse/execute maliyetini ölçmeliyiz.
 

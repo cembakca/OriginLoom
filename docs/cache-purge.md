@@ -67,13 +67,13 @@ HTML key'leri parçaları **görünmez null karakter** (`\0`) ile birleştirir. 
 
 Cache key'leri **lazy** oluşur — önceden tanımlı bir “key havuzu” yoktur.
 
-| Durum                             | Listede görünür mü?            |
-| --------------------------------- | ------------------------------ |
-| Sayfa hiç anonim ziyaret edilmedi | Hayır                          |
-| Oturumlu istek (BYPASS)           | Hayır — write yapılmaz         |
-| `neverCache()` route (`/hesabim`) | Hayır                          |
-| İlk anonim MISS sonrası           | Evet                           |
-| Menü (`menu:*`)                   | Layout render edildikten sonra |
+| Durum                                                       | Listede görünür mü?            |
+| ----------------------------------------------------------- | ------------------------------ |
+| Sayfa hiç anonim ziyaret edilmedi                           | Hayır                          |
+| Oturumlu istek (BYPASS)                                     | Hayır — write yapılmaz         |
+| `neverCache()` route (`/hesabim`, hesaplama, karşılaştırma) | Hayır                          |
+| İlk anonim MISS sonrası                                     | Evet                           |
+| Menü (`menu:*`)                                             | Layout render edildikten sonra |
 
 `CACHE_BACKEND=memory` iken key'ler process belleğindedir; restart sonrası liste boşalır. Production'da `CACHE_BACKEND=redis` ile tüm instance'lar aynı key setini paylaşır — yine de yalnızca gerçekten yazılmış entry'ler listelenir.
 

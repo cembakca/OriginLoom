@@ -14,17 +14,18 @@ Ana karar: **İsland Architecture** + **Shared HTML Cache** kombinasyonu. Vite, 
 
 Hono üzerinde çalışır, `@hono/node-server` ile Node.js HTTP server'a bağlanır. Şu endpoint'leri doğrudan yakalar:
 
-| Path              | Açıklama                                                  |
-| ----------------- | --------------------------------------------------------- |
-| `/assets/*`       | Statik dosyalar, `dist/client` klasöründen sunulur        |
-| `/healthz`        | Liveness check                                            |
-| `/readyz`         | Readiness check (cache backend ping'i içerir)             |
-| `/robots.txt`     | Merkezi crawler policy + sitemap discovery                |
-| `/sitemap.xml`    | Canonical public route envanteri                          |
-| `/api/*`          | Gateway'e proxy — pipeline çalışmaz                       |
-| `/api/referrals`  | Ürün başvurusunu doğrulayan public BFF + güvenli 303      |
-| `/api/internal/*` | BFF endpoint'leri — gereken auth handler içinde uygulanır |
-| `*`               | SSR pipeline → handler                                    |
+| Path                            | Açıklama                                                  |
+| ------------------------------- | --------------------------------------------------------- |
+| `/assets/*`                     | Statik dosyalar, `dist/client` klasöründen sunulur        |
+| `/healthz`                      | Liveness check                                            |
+| `/readyz`                       | Readiness check (cache backend ping'i içerir)             |
+| `/robots.txt`                   | Merkezi crawler policy + sitemap discovery                |
+| `/sitemap.xml`                  | Canonical public route envanteri                          |
+| `/api/*`                        | Gateway'e proxy — pipeline çalışmaz                       |
+| `/api/referrals`                | Ürün başvurusunu doğrulayan public BFF + güvenli 303      |
+| `/api/finance/loan-calculation` | Public, bounded ve `no-store` hesaplama BFF'i             |
+| `/api/internal/*`               | BFF endpoint'leri — gereken auth handler içinde uygulanır |
+| `*`                             | SSR pipeline → handler                                    |
 
 Prometheus `/metrics` endpoint'i public HTTP portunda bulunmaz. Ayrı `METRICS_PORT` listener'ı
 (varsayılan `9090`) yalnız pod scrape annotation'ıyla erişilir; Kubernetes public `Service` bu portu
@@ -217,13 +218,20 @@ limit dışı değerler 404 üretir. Redirect/404 kararı cache lookup'tan önce
 için bu URL'ler Redis entry oluşturmaz. `city` ve recourse `page` iş-domain değerleri deployment
 env'inden gelmez; gateway/CMS'in `/routing/domains` snapshot'ı otoritedir. Snapshot runtime shape ve
 64 karakterlik lowercase slug sınırından geçip Redis'te beş dakika tutulur. Route'un async
-`validateParams` kontratı bu registry'yi page cache lookup'tan önce kontrol eder. Gateway blog
+`validateParams` kontratı bu registry'yi page cache lookup'tan önce kontrol eder. Gateway katalog
 response'u page, pageSize, totalPages, array ve string üst sınırlarıyla doğrulanır; pagination en
 fazla dokuz görünür öğe üretir. Pagination SSR çıktısı gerçek `<a href>` linklerinden oluşur; aktif
 sayfa link olmayan `aria-current="page"` span'idir. Page 1 query'siz canonical kullanır, page 2+
 normalize `?page=N` ile self-canonical'dır. Sitemap query pagination URL'lerini içermez;
 indexable katalog pagination'ı `index,follow`, document-level `rel=prev/next` ve semantic page linkleriyle
-keşfedilir. Detay route'u bulunmayan teknik blog demosu crawl tuzağı üretmemek için `noindex,follow`'dur.
+keşfedilir. Teknik demo route'ları production yüzeyine ve sitemap'e alınmaz.
+
+Finans araçlarının cache politikası iş yüküne göre ayrılır. `/araclar/kredi-hesaplama` tutar, vade ve
+faiz kombinasyonları nedeniyle `neverCache()` kullanır; her kullanıcı girdisini Redis key'ine çevirmek
+yasaktır. `/karsilastir/kredi-kartlari` en fazla üç ürünü kabul eder, seçim URL'lerini `noindex,follow`
+ve sabit base canonical ile yayınlar, HTML cache'e yazmaz. `/bankalar/:slug` ise gateway tarafından
+tanınan küçük banka domain'ine sahiptir ve locale/layout boyutlarıyla 15 dakika shared cache kullanır.
+UTM/gclid gibi içeriği değiştirmeyen query'ler bu key'lere girmez.
 
 Her başarılı cache write route label'ı kontrollü olacak şekilde body byte, key byte ve process başına
 bounded distinct-key observation metriği üretir. `k8s/prometheus-rules.yaml`, 2000 key'lik gözlem
@@ -247,6 +255,12 @@ sınırı uygular. CMS `seoInfo` için `src/lib/metadata/schema.ts` aynı görev
 `og:url` yalnız `SITE_URL` origin'ine resolve edilebilir; dış HTTPS yalnız OG/Twitter image gibi medya
 alanlarında kabul edilir. Final metadata merge policy'yi yeniden uyguladığı için eski cache girdisi
 veya route-level metadata da bu sınırı aşamaz.
+
+Finans kontratları ayrıca iş alanına özgü limit taşır: hesaplama tutarı `100.000..10.000.000`, vade
+kapalı seçenek kümesi ve faiz iki ondalıklı `0,01..20` aralığındadır; ödeme planı satır sayısı vadeyle
+aynı olmalıdır. Kart karşılaştırması 2–3 benzersiz bounded slug kabul eder. Banka profilinde HTTPS ve
+credentials içermeyen dış URL, bounded müşteri kanalı ve bounded ürün koleksiyonları zorunludur.
+Geçersiz payload `finance_tools` metriğinde `json|schema|size` nedeni ile görünür.
 
 Failure politikası kritikliğe göre açıktır: route'un ana içeriği olan offer/blog/page/domain
 payload'ı geçersizse route hata yoluna gider. Menü cache'i fresh veya stale doğrulanmış son snapshot'ı
@@ -414,6 +428,13 @@ Referanslar: [RFC 8259 JSON string grammar](https://www.rfc-editor.org/rfc/rfc82
 | --------- | ---------------------- | ------------------------------------------------------ |
 | `hydrate` | Full render (SEO-safe) | `hydrateRoot` — DOM'u yakalar                          |
 | `defer`   | Sadece fallback render | `createRoot` — fresh mount, kendi data'sını fetch eder |
+
+`/araclar/kredi-hesaplama`, gerçek `hydrate` kontratının referansıdır. Gateway'in döndürdüğü ilk
+hesaplama hem server'da island child'ı olarak render edilir hem `data-props` ile aynı component'e
+aktarılır; client `hydrateRoot` ile aynı DOM'u devralır. Form submit sonrasında formül client'ta tekrar
+yazılmaz, same-origin BFF gateway'e gider. Fetch başarısız olursa son doğrulanmış SSR sonucu görünür
+kalır ve hata `aria-live` alanında gösterilir. JavaScript yoksa standart GET formu aynı sonucu full
+document olarak üretir.
 
 `defer` mode'u cache güvenliğini sağlar: account dashboard veya kişiselleştirilmiş içerik cache'deki HTML'e dokunmaz, client mount olunca `/api/internal/account/summary` çağırır.
 
