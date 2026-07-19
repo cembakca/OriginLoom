@@ -1,4 +1,6 @@
 import {
+  bankProfiles,
+  calculateLoanPaymentPlan,
   calculateHousingLoanOffer,
   creditCardCampaigns,
   creditCards,
@@ -24,6 +26,7 @@ const housingSorts = new Set([
 ]);
 const cardSorts = new Set(["recommended", "annual-fee-asc", "campaign-count-desc"]);
 const cardTypes = new Set(["classic", "premium", "student", "no-fee", "digital"]);
+const calculatorTerms = [12, 24, 36, 48, 60, 84, 120];
 
 export async function resolveFinanceRequest(request, url, readJson) {
   if (request.method === "GET" && url.pathname === "/finance/housing-loans") {
@@ -31,6 +34,12 @@ export async function resolveFinanceRequest(request, url, readJson) {
   }
   if (request.method === "GET" && url.pathname === "/finance/credit-cards") {
     return { status: 200, body: creditCardList(url.searchParams) };
+  }
+  if (request.method === "GET" && url.pathname === "/finance/calculators/loans") {
+    return { status: 200, body: loanCalculation(url.searchParams) };
+  }
+  if (request.method === "GET" && url.pathname === "/finance/credit-cards/compare") {
+    return creditCardComparison(url.searchParams);
   }
   if (request.method === "GET" && url.pathname === "/internal/referrals/stats") {
     return { status: 200, body: referralStatsSnapshot() };
@@ -60,6 +69,9 @@ export async function resolveFinanceRequest(request, url, readJson) {
       },
     };
   }
+
+  const bankSlug = pathSlug(url.pathname, "/finance/banks/");
+  if (request.method === "GET" && bankSlug) return bankDetail(bankSlug);
 
   const campaignSlug = pathSlug(url.pathname, "/finance/credit-cards/", "/campaigns");
   if (request.method === "GET" && campaignSlug) {
@@ -107,6 +119,99 @@ export async function resolveFinanceRequest(request, url, readJson) {
     return createReferral(await readJson(request));
   }
   return null;
+}
+
+function loanCalculation(searchParams) {
+  const amount = numberParam(searchParams, "amount", 2_000_000, 100_000, 10_000_000);
+  const requestedTerm = numberParam(searchParams, "term", 120, 12, 120);
+  const term = calculatorTerms.includes(requestedTerm) ? requestedTerm : 120;
+  const monthlyInterestRate = numberParam(searchParams, "rate", 2.99, 0.01, 20);
+  const hasCustomInput = amount !== 2_000_000 || term !== 120 || monthlyInterestRate !== 2.99;
+  return {
+    seoInfo: seoInfo({
+      title: "Kredi Hesaplama Aracı",
+      description:
+        "Kredi tutarı, vade ve aylık faiz oranına göre taksit ve örnek ödeme planını hesaplayın.",
+      path: "/araclar/kredi-hesaplama",
+      noindex: hasCustomInput,
+    }),
+    calculationVersion: "housing-annuity-v1",
+    input: { productType: "housing-loan", amount, term, monthlyInterestRate },
+    constraints: {
+      amount: { min: 100_000, max: 10_000_000, step: 50_000 },
+      term: { options: calculatorTerms },
+      monthlyInterestRate: { min: 0.01, max: 20, step: 0.01 },
+    },
+    result: calculateLoanPaymentPlan(amount, term, monthlyInterestRate),
+    disclosure:
+      "Bu hesaplama bilgilendirme amaçlıdır; banka tahsis, sigorta ve ekspertiz ücretleri dahil değildir.",
+  };
+}
+
+function creditCardComparison(searchParams) {
+  const requestedSlugs = (searchParams.get("products") ?? "maximum,bonus,axess")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const uniqueSlugs = [...new Set(requestedSlugs)];
+  if (uniqueSlugs.length < 2 || uniqueSlugs.length > 3) {
+    return { status: 400, body: { error: "select between two and three products" } };
+  }
+  const products = uniqueSlugs
+    .map((slug) => creditCards.find((card) => card.slug === slug))
+    .filter(Boolean)
+    .map(summaryCard);
+  if (products.length !== uniqueSlugs.length) return notFound("credit card comparison");
+  return {
+    status: 200,
+    body: {
+      seoInfo: seoInfo({
+        title: "Kredi Kartı Karşılaştırma",
+        description:
+          "Seçtiğiniz kredi kartlarının ücret, avantaj ve kampanya sayılarını yan yana görün.",
+        path: "/karsilastir/kredi-kartlari",
+        noindex: true,
+      }),
+      products,
+      requestedSlugs: uniqueSlugs,
+      availableProducts: creditCards.map((card) => ({
+        slug: card.slug,
+        name: card.name,
+        bank: card.bank,
+      })),
+    },
+  };
+}
+
+function bankDetail(slug) {
+  const bank = bankProfiles.find((item) => item.slug === slug);
+  if (!bank) return notFound("bank");
+  return {
+    status: 200,
+    body: {
+      seoInfo: seoInfo({
+        title: `${bank.name} Ürünleri ve Kampanyaları`,
+        description: `${bank.name} konut kredisi ve kredi kartı ürünlerini tek sayfada inceleyin.`,
+        path: `/bankalar/${bank.slug}`,
+      }),
+      bank,
+      products: {
+        housingLoans: housingLoans
+          .filter((loan) => loan.bank.slug === slug)
+          .map((loan) => calculateHousingLoanOffer(loan, 2_000_000, 120)),
+        creditCards: creditCards.filter((card) => card.bank.slug === slug).map(summaryCard),
+      },
+      highlights: [
+        "Dijital kanallardan ön başvuru",
+        "Ürün bazında ölçümlenen güvenli banka yönlendirmesi",
+        "Güncel ürün koşullarını karşılaştırma imkânı",
+      ],
+      disclosures: [
+        "Ürün oranları, ücretleri ve kampanyaları banka tarafından değiştirilebilir.",
+        "Kesin koşullar başvuru anında banka tarafından belirlenir.",
+      ],
+    },
+  };
 }
 
 function housingLoanList(searchParams) {

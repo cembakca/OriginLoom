@@ -1,4 +1,4 @@
-const banks = [
+const bankDefinitions = [
   ["ziraat", "Ziraat Bankası"],
   ["is-bankasi", "İş Bankası"],
   ["garanti-bbva", "Garanti BBVA"],
@@ -9,7 +9,18 @@ const banks = [
   ["teb", "TEB"],
 ];
 
-export const housingLoans = banks.map(([bankSlug, bankName], index) => {
+export const bankProfiles = bankDefinitions.map(([slug, name], index) => ({
+  slug,
+  name,
+  logoUrl: `/media/banks/${slug}.svg`,
+  description: `${name}, bireysel bankacılık, kart ve konut finansmanı ürünleri sunan örnek banka profilidir.`,
+  foundedYear: 1863 + index * 11,
+  headquarters: index % 2 === 0 ? "İstanbul" : "Ankara",
+  websiteUrl: `https://www.example.com/bankalar/${slug}`,
+  customerChannels: ["Mobil bankacılık", "İnternet şubesi", "Şube ve çağrı merkezi"],
+}));
+
+export const housingLoans = bankDefinitions.map(([bankSlug, bankName], index) => {
   const interestRate = Number((2.69 + index * 0.11).toFixed(2));
   return {
     id: `housing-${bankSlug}`,
@@ -140,5 +151,32 @@ export function calculateHousingLoanOffer(product, amount, term) {
       allocationFee,
       appraisalFee: product.appraisalFee,
     },
+  };
+}
+
+export function calculateLoanPaymentPlan(amount, term, monthlyInterestRate) {
+  const monthlyRate = monthlyInterestRate / 100;
+  const compound = (1 + monthlyRate) ** term;
+  const monthlyPayment = Math.round((amount * monthlyRate * compound) / (compound - 1));
+  let remainingPrincipal = amount;
+  const paymentPlan = [];
+  for (let installment = 1; installment <= term; installment += 1) {
+    const interest = Math.round(remainingPrincipal * monthlyRate);
+    const principal = installment === term ? remainingPrincipal : monthlyPayment - interest;
+    remainingPrincipal = Math.max(0, remainingPrincipal - principal);
+    paymentPlan.push({
+      installment,
+      principal,
+      interest,
+      payment: installment === term ? principal + interest : monthlyPayment,
+      remainingPrincipal,
+    });
+  }
+  const totalPayment = paymentPlan.reduce((sum, row) => sum + row.payment, 0);
+  return {
+    monthlyPayment,
+    totalPayment,
+    totalInterest: totalPayment - amount,
+    paymentPlan,
   };
 }

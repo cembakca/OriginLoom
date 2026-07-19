@@ -185,6 +185,46 @@ describe("external mock gateway", () => {
     expect(campaigns.campaigns).toHaveLength(detail.product.campaignCount);
   });
 
+  it("serves bounded calculator, comparison and bank profile contracts", async () => {
+    const [calculatorResponse, comparisonResponse, bankResponse, invalidComparison] =
+      await Promise.all([
+        fetch(gatewayUrl("/finance/calculators/loans?amount=1500000&term=60&rate=2.75")),
+        fetch(gatewayUrl("/finance/credit-cards/compare?products=maximum,bonus,axess")),
+        fetch(gatewayUrl("/finance/banks/is-bankasi")),
+        fetch(gatewayUrl("/finance/credit-cards/compare?products=maximum")),
+      ]);
+    const calculator = (await calculatorResponse.json()) as {
+      calculationVersion: string;
+      input: { amount: number; term: number; monthlyInterestRate: number };
+      result: { monthlyPayment: number; paymentPlan: unknown[] };
+    };
+    const comparison = (await comparisonResponse.json()) as {
+      products: Array<{ slug: string }>;
+      availableProducts: unknown[];
+    };
+    const bank = (await bankResponse.json()) as {
+      bank: { slug: string; customerChannels: string[] };
+      products: { housingLoans: unknown[]; creditCards: unknown[] };
+    };
+
+    expect(calculatorResponse.status).toBe(200);
+    expect(calculator).toMatchObject({
+      calculationVersion: "housing-annuity-v1",
+      input: { amount: 1_500_000, term: 60, monthlyInterestRate: 2.75 },
+    });
+    expect(calculator.result.monthlyPayment).toBeGreaterThan(0);
+    expect(calculator.result.paymentPlan).toHaveLength(60);
+    expect(comparisonResponse.status).toBe(200);
+    expect(comparison.products.map((card) => card.slug)).toEqual(["maximum", "bonus", "axess"]);
+    expect(comparison.availableProducts.length).toBeGreaterThan(3);
+    expect(bankResponse.status).toBe(200);
+    expect(bank.bank.slug).toBe("is-bankasi");
+    expect(bank.bank.customerChannels).toHaveLength(3);
+    expect(bank.products.housingLoans).toHaveLength(1);
+    expect(bank.products.creditCards.length).toBeGreaterThanOrEqual(1);
+    expect(invalidComparison.status).toBe(400);
+  });
+
   it("provides referral disclosure before creating a short-lived application redirect", async () => {
     const preview = await fetch(gatewayUrl("/finance/referrals/credit-card/maximum"));
     const creation = await fetch(gatewayUrl("/finance/referrals"), {

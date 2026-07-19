@@ -6,6 +6,7 @@ export type GatewayPayloadContract =
   | "blogs"
   | "credit_cards"
   | "finance_referral"
+  | "finance_tools"
   | "housing_loans"
   | "knowledge_center"
   | "markets"
@@ -26,6 +27,7 @@ const MAX_PAYLOAD_BYTES: Record<GatewayPayloadContract, number> = {
   blogs: 524_288,
   credit_cards: 524_288,
   finance_referral: 65_536,
+  finance_tools: 1_048_576,
   housing_loans: 524_288,
   knowledge_center: 1_048_576,
   markets: 524_288,

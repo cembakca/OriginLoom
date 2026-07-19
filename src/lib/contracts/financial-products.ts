@@ -4,6 +4,14 @@ import type { FacetOption, Pagination } from "./pagination";
 
 export type ProductBank = { slug: string; name: string; logoUrl: string };
 
+export type BankProfile = ProductBank & {
+  description: string;
+  foundedYear: number;
+  headquarters: string;
+  websiteUrl: string;
+  customerChannels: string[];
+};
+
 export type LoanCalculation = {
   amount: number;
   term: number;
@@ -11,6 +19,39 @@ export type LoanCalculation = {
   totalPayment: number;
   allocationFee: number;
   appraisalFee: number;
+};
+
+export type LoanCalculatorInput = {
+  productType: "housing-loan";
+  amount: number;
+  term: number;
+  monthlyInterestRate: number;
+};
+
+export type LoanPaymentRow = {
+  installment: number;
+  principal: number;
+  interest: number;
+  payment: number;
+  remainingPrincipal: number;
+};
+
+export type LoanCalculatorData = {
+  seoInfo: SeoInfo;
+  calculationVersion: string;
+  input: LoanCalculatorInput;
+  constraints: {
+    amount: { min: number; max: number; step: number };
+    term: { options: number[] };
+    monthlyInterestRate: { min: number; max: number; step: number };
+  };
+  result: {
+    monthlyPayment: number;
+    totalPayment: number;
+    totalInterest: number;
+    paymentPlan: LoanPaymentRow[];
+  };
+  disclosure: string;
 };
 
 export type HousingLoan = {
@@ -105,6 +146,24 @@ export type CreditCardDetail = {
 export type CreditCardCampaignList = {
   card: CreditCard;
   campaigns: CreditCardCampaign[];
+};
+
+export type CreditCardComparison = {
+  seoInfo: SeoInfo;
+  products: CreditCard[];
+  requestedSlugs: string[];
+  availableProducts: Array<Pick<CreditCard, "slug" | "name" | "bank">>;
+};
+
+export type BankDetail = {
+  seoInfo: SeoInfo;
+  bank: BankProfile;
+  products: {
+    housingLoans: HousingLoan[];
+    creditCards: CreditCard[];
+  };
+  highlights: string[];
+  disclosures: string[];
 };
 
 export type ReferralProduct = {
