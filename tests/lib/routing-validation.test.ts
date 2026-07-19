@@ -13,6 +13,12 @@ describe("routing rule validation", () => {
     ).not.toThrow();
   });
 
+  it("does not expose the gateway through a catch-all application rewrite", () => {
+    expect(createRewrites("http://gateway.internal")).not.toContainEqual(
+      expect.objectContaining({ source: "/api/:path*" }),
+    );
+  });
+
   it("accepts the supported routing subset", () => {
     expect(() =>
       validateRoutingRules({

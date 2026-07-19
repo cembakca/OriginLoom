@@ -7,11 +7,12 @@ import type { RedirectRule, RewriteRule } from "./types";
  * - External destination (http…) → proxy (forward request to backend/CDN)
  */
 export function createRewrites(gatewayUrl: string): RewriteRule[] {
+  // Keep the gateway argument in the public factory so deployments can build an explicit
+  // external rewrite list without changing the routing bootstrap. Browser-facing gateway
+  // endpoints must be added one-by-one; a `/api/:path*` pass-through would expose every
+  // current and future upstream route.
+  void gatewayUrl;
   return [
-    {
-      source: "/api/:path*",
-      destination: `${gatewayUrl.replace(/\/$/, "")}/:path*`,
-    },
     {
       source: "/dob/assets/:path*",
       destination: "/assets/:path*",
