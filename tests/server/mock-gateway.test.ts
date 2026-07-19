@@ -266,10 +266,11 @@ describe("external mock gateway", () => {
   });
 
   it("keeps the technical blog and finance-oriented knowledge center as separate contracts", async () => {
-    const [blogResponse, listResponse, detailResponse] = await Promise.all([
+    const [blogResponse, listResponse, detailResponse, popularResponse] = await Promise.all([
       fetch(gatewayUrl("/blogs?page=1&pageSize=2")),
       fetch(gatewayUrl("/content/articles?category=yatirim&page=1&pageSize=6&orderBy=date-desc")),
       fetch(gatewayUrl("/content/articles/bist-100-endeksi-nedir")),
+      fetch(gatewayUrl("/content/articles/popular")),
     ]);
     const blog = (await blogResponse.json()) as { posts: Array<{ title: string }> };
     const list = (await listResponse.json()) as {
@@ -284,6 +285,7 @@ describe("external mock gateway", () => {
       };
       related: unknown[];
     };
+    const popular = (await popularResponse.json()) as { items: Array<{ slug: string }> };
 
     expect(blog.posts[0]?.title).toContain("SSR Kit");
     expect(list.items.length).toBeGreaterThanOrEqual(2);
@@ -291,6 +293,8 @@ describe("external mock gateway", () => {
     expect(list.items[0]?.sections).toBeUndefined();
     expect(detail.article.sections.length).toBeGreaterThanOrEqual(3);
     expect(detail.article.faq.length).toBeGreaterThanOrEqual(1);
+    expect(popular.items).toHaveLength(3);
+    expect(popular.items.every((item) => item.slug.length > 0)).toBe(true);
   });
 
   it("serves a searchable and sortable BIST 100-style stock list", async () => {

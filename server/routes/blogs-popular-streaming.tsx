@@ -129,7 +129,7 @@ export default defineRoute<Record<string, never>>({
            *
            * TTL dolana kadar sonraki isteklerde (sayfa BYPASS olsa bile) HIT gelir.
            */}
-          <ssr-fragment name="popular-blogs" style={{ display: "contents" }}>
+          <ssr-fragment name="popular-knowledge-articles" style={{ display: "contents" }}>
             <div className="animate-pulse bg-slate-100 border border-slate-200 h-64 rounded-xl" />
           </ssr-fragment>
         </div>

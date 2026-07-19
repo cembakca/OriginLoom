@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 
 import { config } from "@server/config";
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
-import { getPopularBlogs } from "@server/services/blogs";
+import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
 import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 
 import { Footer } from "~/components/layout/footer";
 import { Header } from "~/components/layout/header";
-import { PopularBlogsWidget } from "~/components/layout/popular-blogs";
+import { PopularKnowledgeArticles } from "~/features/knowledge-center/popular-articles";
 import type { DeviceType } from "~/lib/device";
 import type { ShellData } from "~/lib/shell-data";
 import type { CachePolicy, Ctx } from "~/lib/types";
@@ -58,14 +58,14 @@ const fragmentRegistry: Record<string, FragmentDefinition> = {
       return <Footer menu={resolved.menu!} deviceType={resolved.deviceType} />;
     },
   },
-  "popular-blogs": {
+  "popular-knowledge-articles": {
     requiresShell: false,
     resolveOnFreshDocument: true,
     ttl: 300,
-    key: () => "fragment:popular-blogs:v1",
+    key: () => "fragment:popular-knowledge-articles:v1",
     resolve: async (_shell, ctx) => {
-      const data = await getPopularBlogs({ signal: ctx.request.signal });
-      return <PopularBlogsWidget posts={data.posts} />;
+      const data = await getPopularKnowledgeArticles(ctx.request.signal);
+      return <PopularKnowledgeArticles items={data.items} />;
     },
   },
 };

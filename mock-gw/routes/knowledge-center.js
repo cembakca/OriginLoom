@@ -13,6 +13,17 @@ const categories = new Set(["all", "konut-kredisi", "kredi-kartlari", "krediler"
 const sortOrders = new Set(["date-desc", "date-asc", "read-time-asc"]);
 
 export function resolveKnowledgeCenterRequest(request, url) {
+  if (request.method === "GET" && url.pathname === "/content/articles/popular") {
+    return {
+      status: 200,
+      body: {
+        items: [...knowledgeArticles]
+          .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+          .slice(0, 3)
+          .map(articleSummary),
+      },
+    };
+  }
   if (request.method === "GET" && url.pathname === "/content/articles") {
     return { status: 200, body: articleList(url.searchParams) };
   }

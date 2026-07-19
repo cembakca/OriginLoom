@@ -116,6 +116,13 @@ export function KnowledgeCenterPage({ data }: { data: KnowledgeArticleList }) {
           </article>
         ))}
       </section>
+      <ssr-fragment name="popular-knowledge-articles" style={{ display: "contents" }}>
+        <div
+          aria-label="Popüler finans rehberleri yükleniyor"
+          aria-busy="true"
+          className="h-56 animate-pulse rounded-2xl bg-slate-200"
+        />
+      </ssr-fragment>
       <CatalogPagination
         pathname="/bilgi-merkezi"
         search={articleSearch(data)}

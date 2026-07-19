@@ -32,6 +32,11 @@ export async function getKnowledgeArticle(slug: string, signal: AbortSignal) {
   return parseResponse(response, isArticleDetail);
 }
 
+export async function getPopularKnowledgeArticles(signal: AbortSignal) {
+  const response = await gatewayFetch("/content/articles/popular", { signal });
+  return parseResponse(response, isPopularArticleList);
+}
+
 async function parseResponse<T>(
   response: Response,
   guard: (value: unknown) => value is T,
@@ -109,5 +114,14 @@ function isArticleDetail(value: unknown): value is KnowledgeArticleDetail {
     Array.isArray(value.related) &&
     value.related.length <= 20 &&
     value.related.every(isArticleSummary)
+  );
+}
+
+function isPopularArticleList(value: unknown): value is { items: KnowledgeArticleSummary[] } {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.items) &&
+    value.items.length <= 6 &&
+    value.items.every(isArticleSummary)
   );
 }

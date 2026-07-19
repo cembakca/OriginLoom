@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const getPopularBlogs = vi.hoisted(() => vi.fn());
-vi.mock("@server/services/blogs", () => ({ getPopularBlogs }));
+const getPopularKnowledgeArticles = vi.hoisted(() => vi.fn());
+vi.mock("@server/services/knowledge-center", () => ({ getPopularKnowledgeArticles }));
 
 import { closeCache, initCache, read, write } from "@server/cache";
 import {
@@ -22,8 +22,8 @@ describe("fragment cache", () => {
     process.env.CACHE_BACKEND = "memory";
     await closeCache();
     await initCache();
-    getPopularBlogs.mockReset();
-    getPopularBlogs.mockResolvedValue({ posts: [] });
+    getPopularKnowledgeArticles.mockReset();
+    getPopularKnowledgeArticles.mockResolvedValue({ items: [] });
   });
 
   afterEach(async () => {
@@ -135,32 +135,32 @@ describe("fragment cache", () => {
 
   it("coalesces concurrent cold misses for the same fragment key", async () => {
     let release: (() => void) | undefined;
-    getPopularBlogs.mockImplementation(
+    getPopularKnowledgeArticles.mockImplementation(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ posts: [] });
+          release = () => resolve({ items: [] });
         }),
     );
 
     const requests = Array.from({ length: 5 }, () =>
-      getOrSetFragmentByName("popular-blogs", null, ctx),
+      getOrSetFragmentByName("popular-knowledge-articles", null, ctx),
     );
-    for (let turn = 0; turn < 20 && getPopularBlogs.mock.calls.length === 0; turn++) {
+    for (let turn = 0; turn < 20 && getPopularKnowledgeArticles.mock.calls.length === 0; turn++) {
       await Promise.resolve();
     }
-    expect(getPopularBlogs).toHaveBeenCalledTimes(1);
+    expect(getPopularKnowledgeArticles).toHaveBeenCalledTimes(1);
     release?.();
 
     const results = await Promise.all(requests);
     expect(new Set(results).size).toBe(1);
-    expect(results[0]).toContain("En Çok Okunan Bloglar");
+    expect(results[0]).toContain("Popüler finans rehberleri");
   });
 
   it("passes the request abort signal to asynchronous fragment resolvers", async () => {
     const controller = new AbortController();
     const abortedCtx = fragmentContext(controller.signal);
-    getPopularBlogs.mockImplementation(
-      ({ signal }: { signal: AbortSignal }) =>
+    getPopularKnowledgeArticles.mockImplementation(
+      (signal: AbortSignal) =>
         new Promise((_resolve, reject) => {
           if (signal.aborted) {
             reject(abortReason(signal));
@@ -169,11 +169,11 @@ describe("fragment cache", () => {
           signal.addEventListener("abort", () => reject(abortReason(signal)), { once: true });
         }),
     );
-    const pending = getOrSetFragmentByName("popular-blogs", null, abortedCtx);
-    for (let turn = 0; turn < 20 && getPopularBlogs.mock.calls.length === 0; turn++) {
+    const pending = getOrSetFragmentByName("popular-knowledge-articles", null, abortedCtx);
+    for (let turn = 0; turn < 20 && getPopularKnowledgeArticles.mock.calls.length === 0; turn++) {
       await Promise.resolve();
     }
-    expect(getPopularBlogs).toHaveBeenCalledWith({ signal: abortedCtx.request.signal });
+    expect(getPopularKnowledgeArticles).toHaveBeenCalledWith(abortedCtx.request.signal);
     controller.abort(new DOMException("Aborted", "AbortError"));
 
     await expect(pending).rejects.toMatchObject({
