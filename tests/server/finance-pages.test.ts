@@ -22,6 +22,8 @@ describe("finance content SSR pages", () => {
     ["/konut-kredisi/ziraat-konut-kredisi?amount=2500000&term=84", "Ziraat Bankası Konut Kredisi"],
     ["/kredi-kartlari", "Harcamalarınıza uygun kredi kartını bulun"],
     ["/kredi-kartlari/maximum", "Maximum Kart"],
+    ["/karsilastir/kredi-kartlari?products=maximum,bonus,axess", "Kartların gerçek farkını"],
+    ["/bankalar/is-bankasi", "İş Bankası ürünleri"],
     ["/araclar/kredi-hesaplama?amount=1500000&term=60&rate=2.75", "Örnek ödeme planı"],
     ["/bilgi-merkezi", "Finansal kararlar için açıklayıcı rehberler"],
     ["/bilgi-merkezi/bist-100-endeksi-nedir", "BIST 100 Endeksi Nedir"],
@@ -37,13 +39,17 @@ describe("finance content SSR pages", () => {
   });
 
   it("returns route-level 404 outcomes for invalid page and unknown products", async () => {
-    const [page, product, article] = await Promise.all([
+    const [page, product, article, comparison, bank] = await Promise.all([
       app.request("/konut-kredisi?page=abc"),
       app.request("/kredi-kartlari/unknown-card"),
       app.request("/bilgi-merkezi/unknown-article"),
+      app.request("/karsilastir/kredi-kartlari?products=maximum,maximum"),
+      app.request("/bankalar/unknown-bank"),
     ]);
 
-    expect([page.status, product.status, article.status]).toEqual([404, 404, 404]);
+    expect([page.status, product.status, article.status, comparison.status, bank.status]).toEqual([
+      404, 404, 404, 404, 404,
+    ]);
   });
 
   it("keeps free-text discovery pages outside the shared HTML cache", async () => {
@@ -71,6 +77,20 @@ describe("finance content SSR pages", () => {
     expect(invalid.status).toBe(404);
   });
 
+  it("normalizes multi-select comparisons and caches bounded bank profiles", async () => {
+    const redirect = await app.request(
+      "/karsilastir/kredi-kartlari?products=maximum&products=bonus&products=axess",
+    );
+    const first = await app.request("/bankalar/is-bankasi");
+    await first.text();
+    const second = await app.request("/bankalar/is-bankasi");
+
+    expect(redirect.status).toBe(308);
+    expect(redirect.headers.get("location")).toContain("products=maximum%2Cbonus%2Caxess");
+    expect(["MISS", "HIT"]).toContain(first.headers.get("x-cache"));
+    expect(second.headers.get("x-cache")).toBe("HIT");
+  });
+
   it("streams credit-card campaigns without putting the response in document cache", async () => {
     const response = await app.request("/kredi-kartlari/maximum");
     const body = await response.text();
@@ -86,17 +106,19 @@ describe("finance content SSR pages", () => {
   });
 
   it("emits content-specific JSON-LD only on matching visible pages", async () => {
-    const [loan, card, article, list] = await Promise.all([
+    const [loan, card, article, list, bank] = await Promise.all([
       app.request("/konut-kredisi/ziraat-konut-kredisi"),
       app.request("/kredi-kartlari/maximum"),
       app.request("/bilgi-merkezi/bist-100-endeksi-nedir"),
       app.request("/konut-kredisi"),
+      app.request("/bankalar/is-bankasi"),
     ]);
-    const [loanHtml, cardHtml, articleHtml, listHtml] = await Promise.all([
+    const [loanHtml, cardHtml, articleHtml, listHtml, bankHtml] = await Promise.all([
       loan.text(),
       card.text(),
       article.text(),
       list.text(),
+      bank.text(),
     ]);
 
     expect(loanHtml).toContain('"@type":"LoanOrCredit"');
@@ -106,6 +128,7 @@ describe("finance content SSR pages", () => {
     expect(articleHtml).toContain('"@type":"FAQPage"');
     expect(listHtml).toContain('"@type":"ItemList"');
     expect(listHtml).not.toContain('"@type":"Article"');
+    expect(bankHtml).toContain('"@type":"BankOrCreditUnion"');
   });
 
   it("publishes the gateway catalog in sitemap without technical or faceted URLs", async () => {

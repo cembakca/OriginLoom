@@ -1,7 +1,9 @@
 import type { Route } from "~/lib/types";
 
 import account from "./account";
+import bankDetail from "./bank-detail";
 import bist100 from "./bist100";
+import creditCardComparison from "./credit-card-comparison";
 import creditCardDetail from "./credit-card-detail";
 import creditCards from "./credit-cards";
 import financeReferral from "./finance-referral";
@@ -22,7 +24,9 @@ export const routes: Route[] = [
   housingLoanDetail,
   creditCards,
   creditCardDetail,
+  creditCardComparison,
   loanCalculator,
+  bankDetail,
   knowledgeCenter,
   knowledgeArticle,
   bist100,

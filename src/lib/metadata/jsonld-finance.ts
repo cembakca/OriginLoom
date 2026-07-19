@@ -1,4 +1,4 @@
-import type { CreditCard, HousingLoan } from "~/lib/contracts/financial-products";
+import type { BankProfile, CreditCard, HousingLoan } from "~/lib/contracts/financial-products";
 
 import type { JsonLdObject } from "./jsonld";
 
@@ -39,6 +39,23 @@ export function creditCardJsonLd(product: CreditCard, canonical: string): JsonLd
         ? "Yıllık kart ücreti yoktur."
         : `Yıllık kart ücreti ${product.annualFee} TRY.`,
     category: product.cardType,
+  };
+}
+
+export function bankProfileJsonLd(profile: BankProfile, canonical: string): JsonLdObject {
+  return {
+    "@type": "BankOrCreditUnion",
+    "@id": `${canonical}#bank`,
+    mainEntityOfPage: { "@id": `${canonical}#webpage` },
+    url: canonical,
+    name: profile.name,
+    description: profile.description,
+    foundingDate: String(profile.foundedYear),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: profile.headquarters,
+      addressCountry: "TR",
+    },
   };
 }
 

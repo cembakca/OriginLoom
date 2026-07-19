@@ -30,6 +30,7 @@ export const PageCacheId = {
   housingLoans: "housing-loans",
   housingLoanDetail: "housing-loan-detail",
   creditCards: "credit-cards",
+  bankDetail: "bank-detail",
   knowledgeCenter: "knowledge-center",
   knowledgeArticle: "knowledge-article",
   bist100: "bist100",
@@ -169,6 +170,19 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
       const entry = pageCacheRegistry[PageCacheId.creditCards];
       return ["credit-cards", queryPart(entry, ctx), locale(ctx.request), layoutCacheFragment(ctx)];
     },
+  },
+  [PageCacheId.bankDetail]: {
+    id: PageCacheId.bankDetail,
+    description: "Banka ürün profili",
+    path: "/bankalar/:slug",
+    strategy: "shared",
+    ttl: 900,
+    buildKey: (ctx) => [
+      "bank-detail",
+      ctx.params.slug ?? "-",
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
+    ],
   },
   [PageCacheId.knowledgeCenter]: {
     id: PageCacheId.knowledgeCenter,
