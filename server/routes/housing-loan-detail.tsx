@@ -12,7 +12,7 @@ import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound } from "~/lib/types";
 
 export default defineRoute<HousingLoanDetail>({
-  path: "/konut-kredisi/:slug",
+  path: "/housing-loans/:slug",
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
   cache: (ctx) => pageCachePolicy(PageCacheId.housingLoanDetail, ctx),
   loader: async (ctx) => {

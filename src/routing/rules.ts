@@ -17,6 +17,14 @@ export function createRewrites(gatewayUrl: string): RewriteRule[] {
       destination: "/assets/:path*",
     },
     {
+      source: "/konut-kredisi",
+      destination: "/housing-loans",
+    },
+    {
+      source: "/konut-kredisi/:slug",
+      destination: "/housing-loans/:slug",
+    },
+    {
       source: "/emekli-bankaciligi",
       destination: "/retirement-banking",
     },

@@ -14,7 +14,7 @@ import { defineRoute, notFound, redirect } from "~/lib/types";
 const QUERY = ["amount", "term", "city", "bank", "sortBy", "page"] as const;
 
 export default defineRoute<HousingLoanList>({
-  path: "/konut-kredisi",
+  path: "/housing-loans",
   cache: (ctx) =>
     resolvePageParam(ctx.url.searchParams.get("page")).kind === "valid"
       ? pageCachePolicy(PageCacheId.housingLoans, ctx)

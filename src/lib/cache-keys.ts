@@ -196,7 +196,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
   [PageCacheId.housingLoans]: {
     id: PageCacheId.housingLoans,
     description: "Konut kredisi ürün listesi",
-    path: "/konut-kredisi",
+    path: "/housing-loans",
     strategy: "shared",
     contentQueryParams: ["amount", "term", "city", "bank", "sortBy", "page"],
     contentQueryDefaults: {
@@ -221,7 +221,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
   [PageCacheId.housingLoanDetail]: {
     id: PageCacheId.housingLoanDetail,
     description: "Konut kredisi ürün detayı",
-    path: "/konut-kredisi/:slug",
+    path: "/housing-loans/:slug",
     strategy: "shared",
     contentQueryParams: ["amount", "term"],
     contentQueryDefaults: { amount: "2000000", term: "120" },

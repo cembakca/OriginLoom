@@ -23,6 +23,18 @@ describe("CMS + static routing order", () => {
     }
   });
 
+  it("keeps the housing-loan public URL while matching the internal product route", () => {
+    const res = resolveRoute(
+      new URL("http://localhost/konut-kredisi/ziraat-konut-kredisi?amount=2500000"),
+    );
+    expect(res.kind).toBe("rewrite");
+    if (res.kind === "rewrite") {
+      expect(res.pathname).toBe("/housing-loans/ziraat-konut-kredisi");
+      expect(res.search).toBe("?amount=2500000");
+      expect(res.publicPath).toBe("/konut-kredisi/ziraat-konut-kredisi");
+    }
+  });
+
   it("returns null when the gateway has no redirect rule", async () => {
     await expect(lookupRedirect("/mock-gateway-no-rule")).resolves.toBeNull();
   });
