@@ -7,14 +7,14 @@ import { Island } from "~/lib/island";
 describe("embedded JSON", () => {
   it("escapes crawler-visible solidus values and round-trips without manual replacement", () => {
     const value = {
-      publicPath: "/blogs/paginated?page=2",
+      publicPath: "/bilgi-merkezi?page=2",
       absoluteUrl: "https://www.example.com/account",
       nested: ["/one", { path: "/two" }],
     };
 
     const serialized = serializeEmbeddedJson(value);
 
-    expect(serialized).toContain('"publicPath":"\\/blogs\\/paginated?page=2"');
+    expect(serialized).toContain('"publicPath":"\\/bilgi-merkezi?page=2"');
     expect(serialized).toContain('"absoluteUrl":"https:\\/\\/www.example.com\\/account"');
     expect(serialized).not.toMatch(/(^|[^\\])\//);
     expect(parseEmbeddedJson(serialized)).toEqual(value);

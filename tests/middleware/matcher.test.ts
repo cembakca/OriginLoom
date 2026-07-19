@@ -18,7 +18,7 @@ describe("shouldRunPipeline", () => {
   });
 
   it("runs for SSR pages", () => {
-    expect(shouldRunPipeline("/emekli-bankaciligi")).toBe(true);
-    expect(shouldRunPipeline("/blogs/paginated")).toBe(true);
+    expect(shouldRunPipeline("/konut-kredisi")).toBe(true);
+    expect(shouldRunPipeline("/bilgi-merkezi")).toBe(true);
   });
 });

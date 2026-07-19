@@ -16,23 +16,6 @@ const dummySeoByPath: Record<string, Partial<SeoInfo>> = {
     title: "Hangikredi",
     metaDescription: "Kredi ve bankacılık ürünlerini karşılaştır.",
   },
-  "/retirement-banking": {
-    title: "Emekli Bankacılığı",
-    badge: "Emekli",
-    metaDescription: "Emekliler için özel bankacılık ürünleri ve kampanyalar.",
-  },
-  "/emekli-bankaciligi": {
-    title: "Emekli Bankacılığı",
-    metaDescription: "Emekliler için özel bankacılık ürünleri ve kampanyalar.",
-  },
-  "/ihtiyac-kredisi": {
-    title: "İhtiyaç Kredisi",
-    metaDescription: "İhtiyaç kredisi faiz oranlarını karşılaştır.",
-  },
-  "/blogs/paginated": {
-    title: "Blog",
-    metaDescription: "Finans ve bankacılık içerikleri.",
-  },
   "/hesabim": {
     title: "Hesabım",
     noindex: true,

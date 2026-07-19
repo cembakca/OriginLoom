@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { blogPaginationHref, buildPaginationItems } from "~/lib/pagination";
+import { buildPaginationItems } from "~/lib/pagination";
 
 describe("pagination window", () => {
-  it("builds queryless page 1 and normalized page 2+ URLs", () => {
-    expect(blogPaginationHref(1)).toBe("/blogs/paginated");
-    expect(blogPaginationHref(2)).toBe("/blogs/paginated?page=2");
-  });
-
   it("renders every page for a small result set", () => {
     expect(buildPaginationItems(2, 4)).toEqual([
       { kind: "page", page: 1 },

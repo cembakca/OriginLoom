@@ -8,14 +8,12 @@ function gatewayUrl(path: string): string {
 
 describe("external mock gateway", () => {
   it("serves public content contracts", async () => {
-    const [health, menu, routeDomains, sitemap, offers, blogs, redirect] = await Promise.all([
+    const [health, menu, routeDomains, sitemap, redirect] = await Promise.all([
       fetch(gatewayUrl("/healthz")),
       fetch(gatewayUrl("/pages/menuitem/list")),
       fetch(gatewayUrl("/routing/domains")),
       fetch(gatewayUrl("/seo/sitemap")),
-      fetch(gatewayUrl("/offers?amount=50000&city=istanbul&device=Desktop")),
-      fetch(gatewayUrl("/blogs?page=1&pageSize=6&orderBy=date-desc")),
-      fetch(gatewayUrl("/cms/redirects?path=%2Feski-emeklilik")),
+      fetch(gatewayUrl("/cms/redirects?path=%2Feski-konut-kredisi")),
     ]);
 
     expect([
@@ -23,15 +21,12 @@ describe("external mock gateway", () => {
       menu.status,
       routeDomains.status,
       sitemap.status,
-      offers.status,
-      blogs.status,
       redirect.status,
-    ]).toEqual([200, 200, 200, 200, 200, 200, 200]);
+    ]).toEqual([200, 200, 200, 200, 200]);
     expect(await routeDomains.json()).toEqual({
       loanCities: ["istanbul", "ankara", "izmir"],
       recoursePages: ["kredi"],
     });
-    expect((await offers.json()) as unknown[]).toHaveLength(6);
     const sitemapBody = (await sitemap.json()) as { entries: Array<{ path: string }> };
     expect(sitemapBody.entries).toEqual(
       expect.arrayContaining([
@@ -40,21 +35,6 @@ describe("external mock gateway", () => {
         expect.objectContaining({ path: "/bilgi-merkezi/bist-100-endeksi-nedir" }),
       ]),
     );
-    const blogsBody = (await blogs.json()) as {
-      posts: unknown[];
-      seoInfo: { noindex: boolean; nofollow: boolean };
-    };
-    expect(blogsBody.posts).toHaveLength(6);
-    expect(blogsBody.seoInfo.noindex).toBe(true);
-    expect(blogsBody.seoInfo.nofollow).toBe(false);
-  });
-
-  it("rejects offer requests outside the gateway-owned city domain", async () => {
-    const response = await fetch(
-      gatewayUrl("/offers?amount=50000&city=random-unique-city&device=Desktop"),
-    );
-
-    expect(response.status).toBe(404);
   });
 
   it("supports login, profile, account and refresh contracts", async () => {
@@ -265,14 +245,12 @@ describe("external mock gateway", () => {
     expect(product?.latency.p95Ms).toBeGreaterThanOrEqual(0);
   });
 
-  it("keeps the technical blog and finance-oriented knowledge center as separate contracts", async () => {
-    const [blogResponse, listResponse, detailResponse, popularResponse] = await Promise.all([
-      fetch(gatewayUrl("/blogs?page=1&pageSize=2")),
+  it("serves finance-oriented knowledge center list, detail and popular contracts", async () => {
+    const [listResponse, detailResponse, popularResponse] = await Promise.all([
       fetch(gatewayUrl("/content/articles?category=yatirim&page=1&pageSize=6&orderBy=date-desc")),
       fetch(gatewayUrl("/content/articles/bist-100-endeksi-nedir")),
       fetch(gatewayUrl("/content/articles/popular")),
     ]);
-    const blog = (await blogResponse.json()) as { posts: Array<{ title: string }> };
     const list = (await listResponse.json()) as {
       items: Array<{ category: string; excerpt: string; sections?: unknown }>;
       pagination: { total: number };
@@ -287,7 +265,6 @@ describe("external mock gateway", () => {
     };
     const popular = (await popularResponse.json()) as { items: Array<{ slug: string }> };
 
-    expect(blog.posts[0]?.title).toContain("SSR Kit");
     expect(list.items.length).toBeGreaterThanOrEqual(2);
     expect(list.items.every((item) => item.category === "yatirim")).toBe(true);
     expect(list.items[0]?.sections).toBeUndefined();
@@ -345,14 +322,14 @@ describe("external mock gateway", () => {
     expect(event.quotes.every((quote) => Number.isFinite(quote.lastPrice))).toBe(true);
   });
 
-  it("adds the new finance domains to the menu without removing existing categories", async () => {
+  it("publishes only real finance and knowledge-center categories in the menu", async () => {
     const response = await fetch(gatewayUrl("/pages/menuitem/list"));
     const body = (await response.json()) as {
       headerItems: Array<{ name: string; subMenuItemList?: Array<{ name: string }> }>;
     };
     const names = body.headerItems.map((item) => item.name);
 
-    expect(names).toEqual(["Kredi", "Blog", "Finansal Ürünler", "Bilgi Merkezi", "Piyasalar"]);
+    expect(names).toEqual(["Finansal Ürünler", "Bilgi Merkezi", "Piyasalar"]);
     expect(
       body.headerItems.find((item) => item.name === "Finansal Ürünler")?.subMenuItemList,
     ).toEqual(

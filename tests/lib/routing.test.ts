@@ -5,8 +5,8 @@ import { resolveRouteWith } from "~/routing/resolve";
 
 describe("routing pattern", () => {
   it("matches static paths", () => {
-    expect(matchPattern("/emekli-bankaciligi", "/emekli-bankaciligi")).toEqual({});
-    expect(matchPattern("/emekli-bankaciligi", "/other")).toBeNull();
+    expect(matchPattern("/konut-kredisi", "/konut-kredisi")).toEqual({});
+    expect(matchPattern("/konut-kredisi", "/other")).toBeNull();
   });
 
   it("matches named params", () => {
@@ -43,16 +43,16 @@ describe("routing pattern", () => {
 
 describe("resolveRoute", () => {
   it("rewrites Turkish public URL to internal route", () => {
-    const url = new URL("http://localhost/emekli-bankaciligi");
+    const url = new URL("http://localhost/konut-kredisi/ziraat-konut-kredisi");
     const result = resolveRouteWith(url, {
       redirects: [],
-      rewrites: [{ source: "/emekli-bankaciligi", destination: "/retirement-banking" }],
+      rewrites: [{ source: "/konut-kredisi/:slug", destination: "/housing-loans/:slug" }],
     });
     expect(result).toEqual({
       kind: "rewrite",
-      pathname: "/retirement-banking",
+      pathname: "/housing-loans/ziraat-konut-kredisi",
       search: "",
-      publicPath: "/emekli-bankaciligi",
+      publicPath: "/konut-kredisi/ziraat-konut-kredisi",
     });
   });
 
@@ -82,10 +82,10 @@ describe("resolveRoute", () => {
   });
 
   it("returns redirect before rewrite", () => {
-    const url = new URL("http://localhost/emekli-bankaciligi");
+    const url = new URL("http://localhost/konut-kredisi");
     const result = resolveRouteWith(url, {
-      redirects: [{ source: "/emekli-bankaciligi", destination: "/yeni-url", status: 301 }],
-      rewrites: [{ source: "/emekli-bankaciligi", destination: "/retirement-banking" }],
+      redirects: [{ source: "/konut-kredisi", destination: "/yeni-url", status: 301 }],
+      rewrites: [{ source: "/konut-kredisi", destination: "/housing-loans" }],
     });
     expect(result.kind).toBe("redirect");
     if (result.kind === "redirect") {
@@ -155,12 +155,12 @@ describe("resolveRoute", () => {
   });
 
   it("passes through when no rule matches", () => {
-    const url = new URL("http://localhost/blogs/paginated?page=2");
+    const url = new URL("http://localhost/bilgi-merkezi?page=2");
     const result = resolveRouteWith(url, { redirects: [], rewrites: [] });
     expect(result).toEqual({
       kind: "none",
-      pathname: "/blogs/paginated",
-      publicPath: "/blogs/paginated",
+      pathname: "/bilgi-merkezi",
+      publicPath: "/bilgi-merkezi",
     });
   });
 });

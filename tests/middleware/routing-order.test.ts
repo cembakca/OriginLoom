@@ -5,21 +5,20 @@ import { resolveRoute } from "~/routing/resolve";
 
 describe("CMS + static routing order", () => {
   it("CMS redirect resolves before static rewrite would apply", async () => {
-    const cms = await lookupRedirect("/eski-emeklilik");
+    const cms = await lookupRedirect("/eski-konut-kredisi");
     expect(cms?.kind).toBe("redirect");
 
-    // Static rules.ts has rewrite for /emekli-bankaciligi, not /eski-emeklilik
-    const staticRes = resolveRoute(new URL("http://localhost/eski-emeklilik"));
+    const staticRes = resolveRoute(new URL("http://localhost/eski-konut-kredisi"));
     expect(staticRes.kind).toBe("none");
   });
 
   it("static rewrite applies when CMS has no rule", () => {
-    const res = resolveRoute(new URL("http://localhost/emekli-bankaciligi"));
+    const res = resolveRoute(new URL("http://localhost/konut-kredisi"));
     expect(res.kind).toBe("rewrite");
     if (res.kind === "rewrite") {
-      expect(res.pathname).toBe("/retirement-banking");
+      expect(res.pathname).toBe("/housing-loans");
       expect(res.search).toBe("");
-      expect(res.publicPath).toBe("/emekli-bankaciligi");
+      expect(res.publicPath).toBe("/konut-kredisi");
     }
   });
 

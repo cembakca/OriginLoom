@@ -88,7 +88,7 @@ describe("finance content SSR pages", () => {
     expect(xml).toContain("/kredi-kartlari/maximum</loc>");
     expect(xml).toContain("/bilgi-merkezi/bist-100-endeksi-nedir</loc>");
     expect(xml).toContain("<lastmod>");
-    expect(xml).not.toContain("/blogs/paginated");
+    expect(xml).not.toContain("/housing-loans");
     expect(xml).not.toContain("/medya-pipeline");
     expect(xml).not.toContain("?page=");
   });

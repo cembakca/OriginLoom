@@ -1,10 +1,8 @@
-import { isAuthenticated, neverCache, sharedUnlessBypass } from "~/lib/cache-policy";
+import { neverCache, sharedUnlessBypass } from "~/lib/cache-policy";
 import { contentQueryCacheFragment, type ContentQueryConfig } from "~/lib/cache-query-params";
-import { parseLoanAmount, parsePage, parseTheme } from "~/lib/content-values";
-import { Cookie } from "~/lib/cookies";
+import { parsePage } from "~/lib/content-values";
 import type { DeviceType } from "~/lib/device";
-import { deviceCacheFragment } from "~/lib/device";
-import { cookie, locale } from "~/lib/request";
+import { locale } from "~/lib/request";
 import { layoutCacheFragment } from "~/lib/shell-data";
 import type { CachePolicy, Ctx } from "~/lib/types";
 
@@ -26,10 +24,6 @@ export {
 /** HTML sayfa cache kimlikleri — purge API ve dokümantasyonda referans. */
 export const PageCacheId = {
   home: "home",
-  loanCompare: "loan",
-  blogsPaginated: "blogs-paginated",
-  blogsPaginatedStreaming: "blogs-paginated-streaming",
-  retirementBanking: "retirement-banking",
   remoteCustomerObtain: "remote-customer-obtain",
   recourseRedirect: "recourse-redirect",
   account: "account",
@@ -55,8 +49,6 @@ export type PageCacheDefinition = {
   strategy: PageCacheStrategy;
   ttl?: number;
   swr?: number;
-  /** True only when authenticated SSR output differs from anonymous HTML. */
-  bypassAuth?: boolean;
   /** SSR HTML'i değiştiren query param allowlist — utm/gclid vb. asla ekleme. */
   contentQueryParams?: readonly string[];
   contentQueryDefaults?: Record<string, string>;
@@ -83,83 +75,6 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     ttl: 3600,
     buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
-  },
-
-  [PageCacheId.loanCompare]: {
-    id: PageCacheId.loanCompare,
-    description: "İhtiyaç kredisi karşılaştırma",
-    path: "/ihtiyac-kredisi/:city?",
-    strategy: "shared",
-    contentQueryParams: ["amount"],
-    contentQueryDefaults: { amount: "50000" },
-    contentQueryNormalize: { amount: (raw) => String(parseLoanAmount(raw)) },
-    buildKey: (ctx) => {
-      const entry = pageCacheRegistry[PageCacheId.loanCompare];
-      return [
-        "loan",
-        ctx.params.city ?? "-",
-        queryPart(entry, ctx),
-        deviceCacheFragment(ctx.request),
-        locale(ctx.request),
-        parseTheme(cookie(ctx.request, Cookie.theme)),
-        layoutCacheFragment(ctx),
-      ];
-    },
-  },
-
-  [PageCacheId.blogsPaginated]: {
-    id: PageCacheId.blogsPaginated,
-    description: "Blog listesi (sayfalı)",
-    path: "/blogs/paginated",
-    strategy: "shared",
-    contentQueryParams: ["page"],
-    contentQueryDefaults: { page: "1" },
-    contentQueryNormalize: { page: (raw) => String(parsePage(raw)) },
-    buildKey: (ctx) => {
-      const entry = pageCacheRegistry[PageCacheId.blogsPaginated];
-      return [
-        "blogs-paginated",
-        ctx.publicPath,
-        queryPart(entry, ctx),
-        locale(ctx.request),
-        layoutCacheFragment(ctx),
-      ];
-    },
-  },
-
-  [PageCacheId.blogsPaginatedStreaming]: {
-    id: PageCacheId.blogsPaginatedStreaming,
-    description: "Blog listesi (akışlı / streaming)",
-    path: "/blogs/paginated/streaming",
-    strategy: "shared",
-    contentQueryParams: ["page"],
-    contentQueryDefaults: { page: "1" },
-    contentQueryNormalize: { page: (raw) => String(parsePage(raw)) },
-    buildKey: (ctx) => {
-      const entry = pageCacheRegistry[PageCacheId.blogsPaginatedStreaming];
-      return [
-        "blogs-paginated-streaming",
-        ctx.publicPath,
-        queryPart(entry, ctx),
-        locale(ctx.request),
-        layoutCacheFragment(ctx),
-      ];
-    },
-  },
-
-  [PageCacheId.retirementBanking]: {
-    id: PageCacheId.retirementBanking,
-    description: "Emekli bankacılığı",
-    path: "/retirement-banking",
-    strategy: "shared",
-    bypassAuth: true,
-    ttl: 3600,
-    buildKey: (ctx) => [
-      "retirement-banking",
-      ctx.publicPath,
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
-    ],
   },
 
   [PageCacheId.remoteCustomerObtain]: {
@@ -337,7 +252,6 @@ export function pageCachePolicy(id: PageCacheId, ctx: Ctx): CachePolicy {
   return sharedUnlessBypass(ctx, entry.buildKey(ctx), {
     ttl: entry.ttl ?? DEFAULT_TTL,
     swr: entry.swr ?? DEFAULT_SWR,
-    ...(entry.bypassAuth ? { bypass: isAuthenticated } : {}),
   });
 }
 

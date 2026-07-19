@@ -1,13 +1,4 @@
 const headerItems = [
-  menuCategory(1, "Kredi", "/ihtiyac-kredisi", [
-    menuItem(11, 1, "İhtiyaç Kredisi", "/ihtiyac-kredisi", 1),
-    menuItem(12, 1, "Emekli Bankacılığı", "/emekli-bankaciligi", 2, "Emekli"),
-  ]),
-  menuCategory(2, "Blog", "/blogs/paginated", [
-    menuItem(21, 2, "Blog Listesi", "/blogs/paginated", 1),
-    menuItem(22, 2, "Blog Listesi Streaming", "/blogs/paginated/streaming", 2, "Blog Streaming"),
-    menuItem(23, 2, "Popüler Bloglar (Fragment)", "/blogs/popular-fragments", 3, "Popüler Bloglar"),
-  ]),
   menuCategory(3, "Finansal Ürünler", "/konut-kredisi", [
     menuItem(31, 3, "Konut Kredileri", "/konut-kredisi", 1),
     menuItem(32, 3, "Kredi Kartları", "/kredi-kartlari", 2),

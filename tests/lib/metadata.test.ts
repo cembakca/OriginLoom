@@ -9,10 +9,10 @@ import { mergeMetadata } from "~/lib/metadata/merge";
 import { parseSeoInfo } from "~/lib/metadata/schema";
 import type { Ctx } from "~/lib/types";
 
-const ctx = (publicPath = "/emekli-bankaciligi"): Ctx => ({
+const ctx = (publicPath = "/konut-kredisi"): Ctx => ({
   request: new Request(`http://localhost:3005${publicPath}`),
   params: {},
-  url: new URL(`http://localhost:3005/retirement-banking`),
+  url: new URL(`http://localhost:3005/housing-loans`),
   publicPath,
 });
 
@@ -20,25 +20,24 @@ describe("metadata generate", () => {
   it("maps seoInfo to page metadata fields", () => {
     const meta = generateMetaDataForPageWithSeoInfo(
       {
-        title: "Emekli Bankacılığı",
-        metaDescription: "Emekli ürünleri",
-        canonicalUrl: "https://www.hangikredi.com/emekli-bankaciligi",
+        title: "Konut Kredileri",
+        metaDescription: "Konut kredisi ürünleri",
+        canonicalUrl: "https://www.hangikredi.com/konut-kredisi",
         image: "https://cdn.hangikredi.com/og.png",
       },
       { ...ctx(), siteUrl: "https://www.hangikredi.com" },
     );
 
-    expect(meta.title).toBe("Emekli Bankacılığı");
-    expect(meta.description).toBe("Emekli ürünleri");
-    expect(meta.canonical).toBe("https://www.hangikredi.com/emekli-bankaciligi");
+    expect(meta.title).toBe("Konut Kredileri");
+    expect(meta.description).toBe("Konut kredisi ürünleri");
+    expect(meta.canonical).toBe("https://www.hangikredi.com/konut-kredisi");
     expect(meta.openGraph?.image).toBe("https://cdn.hangikredi.com/og.png");
     expect(meta.openGraph?.imageType).toBe("image/png");
   });
 
   it("dummy fallback uses public path", () => {
-    const meta = generateMetaDataForPageWithDummySeoInfo("/retirement-banking", ctx());
-    expect(meta.title).toBe("Emekli Bankacılığı");
-    expect(meta.canonical).toContain("/emekli-bankaciligi");
+    const meta = generateMetaDataForPageWithDummySeoInfo("/housing-loans", ctx());
+    expect(meta.canonical).toContain("/konut-kredisi");
   });
 
   it("gives indexable pagination a self canonical and prev/next links", () => {
@@ -81,7 +80,7 @@ describe("metadata merge", () => {
   it("page description overrides site default", () => {
     const resolved = mergeMetadata(
       { title: "Blog", description: "Sayfa 2 blog listesi" },
-      ctx("/blogs/paginated"),
+      ctx("/bilgi-merkezi"),
     );
     expect(resolved.description).toBe("Sayfa 2 blog listesi");
   });

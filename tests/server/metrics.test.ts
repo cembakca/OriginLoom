@@ -31,7 +31,7 @@ import { describe, expect, it } from "vitest";
 
 describe("production metrics", () => {
   it("exports bounded latency histograms and gateway outcomes", () => {
-    observeRequest(200, "HIT", 7, "/blogs/paginated");
+    observeRequest(200, "HIT", 7, "/bilgi-merkezi");
     observeGatewayRequest(0, 25, "timeout");
     observeCacheOperation("redis", "read", "success", 3);
     observeRevalidation("success", 42);
@@ -46,7 +46,7 @@ describe("production metrics", () => {
     observeBotAnalyticsDrain("success");
     setBotAnalyticsQueueState(4, 2);
     observeClientErrorTelemetry("rate_limited");
-    observeRequestTimeout("ssr", "/blogs/paginated");
+    observeRequestTimeout("ssr", "/bilgi-merkezi");
     observeReferralRedirect("credit-card", "issued", 18, 2.5);
     observeSsrCapacityRejection("queue_full");
     observeSsrQueueWait("accepted", 4);
@@ -58,10 +58,10 @@ describe("production metrics", () => {
     const metrics = renderMetrics();
 
     expect(metrics).toContain(
-      'ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/blogs/paginated"}',
+      'ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/bilgi-merkezi"}',
     );
     expect(metrics).toContain(
-      'ssr_cache_response_duration_milliseconds_count{state="HIT",route="/blogs/paginated"}',
+      'ssr_cache_response_duration_milliseconds_count{state="HIT",route="/bilgi-merkezi"}',
     );
     expect(metrics).toContain('ssr_gateway_requests_total{status_class="error",outcome="timeout"}');
     expect(metrics).toContain(
@@ -85,7 +85,7 @@ describe("production metrics", () => {
     expect(metrics).toContain("ssr_bot_analytics_queue_depth 4");
     expect(metrics).toContain("ssr_bot_analytics_in_flight 2");
     expect(metrics).toContain('ssr_client_error_telemetry_total{outcome="rate_limited"}');
-    expect(metrics).toContain('request_timeout_total{class="ssr",route="/blogs/paginated"}');
+    expect(metrics).toContain('request_timeout_total{class="ssr",route="/bilgi-merkezi"}');
     expect(metrics).toContain(
       'ssr_referral_redirects_total{product_type="credit-card",outcome="issued"}',
     );
@@ -116,13 +116,13 @@ describe("production metrics", () => {
   });
 
   it("exports bounded cache cardinality and entry size metrics", () => {
-    observeCacheEntryWrite("loan\0istanbul\0amount=50000", "<html>bounded</html>");
-    observeCacheEntryWrite("loan\0istanbul\0amount=50000", "<html>updated</html>");
+    observeCacheEntryWrite("housing-loans\0amount=2500000", "<html>bounded</html>");
+    observeCacheEntryWrite("housing-loans\0amount=2500000", "<html>updated</html>");
 
     const metrics = renderMetrics();
-    expect(metrics).toContain('ssr_cache_entry_body_bytes_count{route="loan"} 2');
-    expect(metrics).toContain('ssr_cache_key_bytes_count{route="loan"} 2');
-    expect(metrics).toContain('ssr_cache_distinct_keys_observed{route="loan"} 1');
+    expect(metrics).toContain('ssr_cache_entry_body_bytes_count{route="housing-loans"} 2');
+    expect(metrics).toContain('ssr_cache_key_bytes_count{route="housing-loans"} 2');
+    expect(metrics).toContain('ssr_cache_distinct_keys_observed{route="housing-loans"} 1');
     expect(metrics).toContain("ssr_cache_cardinality_overflow_total");
   });
 });

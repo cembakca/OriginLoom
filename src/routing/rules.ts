@@ -25,10 +25,6 @@ export function createRewrites(gatewayUrl: string): RewriteRule[] {
       destination: "/housing-loans/:slug",
     },
     {
-      source: "/emekli-bankaciligi",
-      destination: "/retirement-banking",
-    },
-    {
       source: "/uzaktan-musteri-edinimi",
       destination: "/remote-customer-obtain",
     },
@@ -45,6 +41,4 @@ export const rewrites: RewriteRule[] = createRewrites("http://localhost:4002");
  * Next.js `redirects()` equivalent. First match wins.
  * Runs BEFORE rewrites.
  */
-export const redirects: RedirectRule[] = [
-  // { source: "/eski-blog", destination: "/blogs/paginated", status: 301 },
-];
+export const redirects: RedirectRule[] = [];

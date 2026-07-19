@@ -4,7 +4,6 @@ import { pathToFileURL } from "node:url";
 import { menu } from "./data/menu.js";
 import { creditCards, housingLoans } from "./data/financial-products.js";
 import { knowledgeArticles } from "./data/knowledge-center.js";
-import { seoInfo } from "./lib/seo.js";
 import { resolveFinanceRequest } from "./routes/finance.js";
 import { resolveKnowledgeCenterRequest } from "./routes/knowledge-center.js";
 import { resolveMarketStreamRequest } from "./routes/market-stream.js";
@@ -14,9 +13,6 @@ const port = Number(process.env.PORT ?? 4002);
 const host = process.env.HOST ?? "0.0.0.0";
 const quiet = process.env.MOCK_GW_QUIET === "1";
 
-const AUTHORS = ["Ayşe Kaya", "Mehmet Demir", "Zeynep Arslan", "Can Yıldız"];
-const TAGS = ["react", "ssr", "web", "performance", "typescript", "cache"];
-const BANKS = ["Ziraat", "İş Bankası", "Garanti BBVA", "Akbank", "Yapı Kredi", "QNB"];
 const routeDomains = {
   loanCities: ["istanbul", "ankara", "izmir"],
   recoursePages: ["kredi"],
@@ -25,8 +21,6 @@ const routeDomains = {
 const sitemapEntries = [
   "/",
   "/bilgi-merkezi",
-  "/emekli-bankaciligi",
-  "/ihtiyac-kredisi",
   "/konut-kredisi",
   ...housingLoans.map((loan) => `/konut-kredisi/${loan.slug}`),
   "/kredi-kartlari",
@@ -39,46 +33,17 @@ for (const article of knowledgeArticles) {
   sitemapEntries.push({ path: `/bilgi-merkezi/${article.slug}`, lastModified: article.updatedAt });
 }
 
-const blogs = Array.from({ length: 24 }, (_, index) => {
-  const number = index + 1;
-  return {
-    id: `blog-${number}`,
-    slug: `blog-yazisi-${number}`,
-    title: `SSR Kit ile Modern Web #${number}`,
-    excerpt: `Sayfa ${Math.ceil(number / 6)} örneği — explicit cache key ve island mimarisiyle paginated blog listesi.`,
-    author: AUTHORS[index % AUTHORS.length] ?? "Unknown",
-    publishedAt: new Date(Date.UTC(2026, 0, number)).toISOString(),
-    readTimeMin: 3 + (index % 5),
-    tags: [TAGS[index % TAGS.length] ?? "web", TAGS[(index + 2) % TAGS.length] ?? "ssr"],
-  };
-});
-
-const retirementBankingPage = {
-  headline: "Emekli Bankacılığı",
-  seoInfo: {
-    title: "Emekli Bankacılığı",
-    metaDescription:
-      "Emekli maaşınıza özel bankacılık ürünleri, promosyonlar ve avantajlı faiz oranları.",
-    headingTitle: "Emekli Bankacılığı",
-    heroDescription: "Emekliler için özel bankacılık çözümleri.",
-    image: "https://cdn.hangikredi.com/og/retirement-banking.png",
-    friendlyUrl: "/emekli-bankaciligi",
-  },
-};
-
 const redirects = new Map([
   [
-    "/eski-emeklilik",
+    "/eski-konut-kredisi",
     {
       type: "redirect",
-      destination: "/emekli-bankaciligi?source=legacy#cms-fragment",
+      destination: "/konut-kredisi?source=legacy#cms-fragment",
       status: 301,
     },
   ],
   ["/kaldirildi", { type: "gone" }],
 ]);
-
-const validOrders = new Set(["date-desc", "date-asc", "title-asc", "title-desc", "read-time-desc"]);
 
 function json(response, status, data) {
   response.writeHead(status, {
@@ -149,22 +114,6 @@ function profileFromPayload(payload) {
   };
 }
 
-function sortBlogs(orderBy) {
-  const result = [...blogs];
-  switch (orderBy) {
-    case "date-asc":
-      return result.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
-    case "title-asc":
-      return result.sort((a, b) => a.title.localeCompare(b.title, "tr"));
-    case "title-desc":
-      return result.sort((a, b) => b.title.localeCompare(a.title, "tr"));
-    case "read-time-desc":
-      return result.sort((a, b) => b.readTimeMin - a.readTimeMin);
-    default:
-      return result.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
-  }
-}
-
 async function route(request, response) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
@@ -188,9 +137,6 @@ async function route(request, response) {
     resolveMarketsRequest(request, url);
   if (publicCatalogResponse) {
     return json(response, publicCatalogResponse.status, publicCatalogResponse.body);
-  }
-  if (request.method === "GET" && url.pathname === "/pages/retirement-banking") {
-    return json(response, 200, retirementBankingPage);
   }
   if (request.method === "GET" && url.pathname === "/cms/redirects") {
     const rule = redirects.get(url.searchParams.get("path") ?? "");
@@ -230,71 +176,23 @@ async function route(request, response) {
       recentActivity: [
         {
           id: "act-1",
-          label: "İhtiyaç kredisi karşılaştırma görüntülendi",
+          label: "Konut kredisi karşılaştırması görüntülendi",
           at: new Date(Date.now() - 3_600_000).toISOString(),
         },
         {
           id: "act-2",
-          label: "Blog yazısı okundu",
+          label: "Bilgi Merkezi rehberi okundu",
           at: new Date(Date.now() - 86_400_000).toISOString(),
         },
         {
           id: "act-3",
-          label: "Emekli bankacılığı sayfası ziyaret edildi",
+          label: "Kredi kartı detay sayfası ziyaret edildi",
           at: new Date(Date.now() - 172_800_000).toISOString(),
         },
       ],
       stats: { comparisonsThisMonth: 4, savedOffers: 2 },
     });
   }
-  if (request.method === "GET" && url.pathname === "/offers") {
-    const city = url.searchParams.get("city") ?? "";
-    if (!routeDomains.loanCities.includes(city)) {
-      return json(response, 404, { error: "unknown city" });
-    }
-    const amount = Math.max(1, Number(url.searchParams.get("amount") ?? 50_000));
-    const offers = BANKS.map((bank, index) => {
-      const rate = 3.29 + index * 0.17;
-      return {
-        id: `${bank}-${amount}`,
-        bank,
-        rate,
-        monthly: Math.round((amount * (1 + (rate / 100) * 36)) / 36),
-      };
-    });
-    return json(response, 200, offers);
-  }
-  if (request.method === "GET" && url.pathname === "/blogs/popular") {
-    const ordered = sortBlogs("date-desc");
-    return json(response, 200, {
-      posts: ordered.slice(0, 5),
-    });
-  }
-  if (request.method === "GET" && url.pathname === "/blogs") {
-    const requestedPage = Math.max(1, Number(url.searchParams.get("page") ?? 1));
-    const requestedSize = Math.min(50, Math.max(1, Number(url.searchParams.get("pageSize") ?? 6)));
-    const rawOrder = url.searchParams.get("orderBy") ?? "date-desc";
-    const orderBy = validOrders.has(rawOrder) ? rawOrder : "date-desc";
-    const ordered = sortBlogs(orderBy);
-    const totalPages = Math.max(1, Math.ceil(ordered.length / requestedSize));
-    const page = Math.min(requestedPage, totalPages);
-    const start = (page - 1) * requestedSize;
-    return json(response, 200, {
-      seoInfo: seoInfo({
-        title: "Finans ve Teknoloji Blog Yazıları",
-        description: "Finans, bankacılık ve web teknolojileri hakkında güncel blog yazıları.",
-        path: "/blogs/paginated",
-        noindex: true,
-      }),
-      posts: ordered.slice(start, start + requestedSize),
-      page,
-      pageSize: requestedSize,
-      total: ordered.length,
-      totalPages,
-      orderBy,
-    });
-  }
-
   return json(response, 404, { error: "mock gateway route not found", path: url.pathname });
 }
 

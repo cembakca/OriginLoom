@@ -29,7 +29,7 @@ describe("cache-query-params", () => {
   });
 
   it("builds stable cache fragment from allowlist only", () => {
-    const base = ctx("http://localhost/blogs/paginated?page=2&utm_source=google&foo=bar");
+    const base = ctx("http://localhost/konut-kredisi?page=2&utm_source=google&foo=bar");
     const fragment = contentQueryCacheFragment(base, {
       include: ["page"],
       defaults: { page: "1" },
@@ -38,7 +38,7 @@ describe("cache-query-params", () => {
   });
 
   it("uses defaults when param missing", () => {
-    const base = ctx("http://localhost/blogs/paginated?utm_campaign=x");
+    const base = ctx("http://localhost/konut-kredisi?utm_campaign=x");
     const fragment = contentQueryCacheFragment(base, {
       include: ["page"],
       defaults: { page: "1" },
@@ -60,11 +60,11 @@ describe("cache-query-params", () => {
   });
 
   it("ignores utm for same page cache key", () => {
-    const a = contentQueryCacheFragment(ctx("http://localhost/blogs/paginated?page=1&utm=a"), {
+    const a = contentQueryCacheFragment(ctx("http://localhost/konut-kredisi?page=1&utm=a"), {
       include: ["page"],
       defaults: { page: "1" },
     });
-    const b = contentQueryCacheFragment(ctx("http://localhost/blogs/paginated?page=1&utm=b"), {
+    const b = contentQueryCacheFragment(ctx("http://localhost/konut-kredisi?page=1&utm=b"), {
       include: ["page"],
       defaults: { page: "1" },
     });
@@ -72,11 +72,11 @@ describe("cache-query-params", () => {
   });
 
   it("different content params produce different fragments", () => {
-    const p1 = contentQueryCacheFragment(ctx("http://localhost/blogs/paginated?page=1"), {
+    const p1 = contentQueryCacheFragment(ctx("http://localhost/konut-kredisi?page=1"), {
       include: ["page"],
       defaults: { page: "1" },
     });
-    const p2 = contentQueryCacheFragment(ctx("http://localhost/blogs/paginated?page=2"), {
+    const p2 = contentQueryCacheFragment(ctx("http://localhost/konut-kredisi?page=2"), {
       include: ["page"],
       defaults: { page: "1" },
     });
@@ -85,7 +85,7 @@ describe("cache-query-params", () => {
 
   it("builds content-only search string for SSR props", () => {
     expect(
-      contentSearchString(new URL("http://localhost/blogs/paginated?page=2&utm=x"), ["page"]),
+      contentSearchString(new URL("http://localhost/konut-kredisi?page=2&utm=x"), ["page"]),
     ).toBe("?page=2");
   });
 

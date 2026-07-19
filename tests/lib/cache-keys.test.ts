@@ -50,16 +50,10 @@ describe("cache-keys", () => {
   });
 
   it("round-trips encoded keys for purge API", () => {
-    const key = formatCacheKey(["blogs-paginated", "/blogs/paginated", "2", "en", "Desktop"]);
+    const key = formatCacheKey(["knowledge-center", "page=2", "tr", "Desktop"]);
     const encoded = encodeCacheKeyForApi(key);
     expect(decodeCacheKeyFromApi(encoded)).toBe(key);
-    expect(toCacheKeyApiEntry(key).parts).toEqual([
-      "blogs-paginated",
-      "/blogs/paginated",
-      "2",
-      "en",
-      "Desktop",
-    ]);
+    expect(toCacheKeyApiEntry(key).parts).toEqual(["knowledge-center", "page=2", "tr", "Desktop"]);
   });
 
   it("escapes separators inside key parts without collisions", () => {
@@ -93,19 +87,6 @@ describe("cache-keys", () => {
     expect(policy.kind).toBe("shared");
   });
 
-  it("bypasses authenticated SSR on routes that render personalized data", () => {
-    const policy = pageCachePolicy(
-      PageCacheId.retirementBanking,
-      ctx(
-        new Request("http://localhost/emekli-bankaciligi", {
-          headers: { cookie: `${Cookie.accessToken}=active` },
-        }),
-        { publicPath: "/emekli-bankaciligi" },
-      ),
-    );
-    expect(policy.kind).toBe("none");
-  });
-
   it("returns none for account (never cache)", () => {
     const policy = pageCachePolicy(
       PageCacheId.account,
@@ -117,45 +98,42 @@ describe("cache-keys", () => {
   it("listPageCachePrefixes includes all registry entries", () => {
     const prefixes = listPageCachePrefixes();
     expect(prefixes).toHaveLength(Object.keys(pageCacheRegistry).length);
-    expect(prefixes.find((p) => p.id === PageCacheId.loanCompare)?.path).toBe(
-      "/ihtiyac-kredisi/:city?",
-    );
+    expect(prefixes.find((p) => p.id === PageCacheId.housingLoans)?.path).toBe("/housing-loans");
   });
 
-  it("loan compare key includes city, amount and device fragments", () => {
+  it("housing-loan key includes only content-changing finance query values", () => {
     const policy = pageCachePolicy(
-      PageCacheId.loanCompare,
-      ctx(new Request("http://localhost/ihtiyac-kredisi/istanbul?amount=100000"), {
-        publicPath: "/ihtiyac-kredisi/istanbul",
-        params: { city: "istanbul" },
+      PageCacheId.housingLoans,
+      ctx(new Request("http://localhost/housing-loans?amount=2500000&city=istanbul"), {
+        publicPath: "/konut-kredisi",
       }),
     );
     expect(policy.kind).toBe("shared");
     if (policy.kind === "shared") {
-      expect(policy.key).toContain("loan");
-      expect(policy.key).toContain("istanbul");
-      expect(policy.key).toContain("amount=100000");
+      expect(policy.key).toContain("housing-loans");
+      expect(policy.key.some((part) => part.includes("amount=2500000"))).toBe(true);
+      expect(policy.key.some((part) => part.includes("city=istanbul"))).toBe(true);
     }
   });
 
-  it("blogs key ignores utm params", () => {
+  it("finance list keys ignore tracking params", () => {
     const a = pageCachePolicy(
-      PageCacheId.blogsPaginated,
-      ctx(new Request("http://localhost/blogs/paginated?page=1&utm_source=google"), {
-        publicPath: "/blogs/paginated",
+      PageCacheId.housingLoans,
+      ctx(new Request("http://localhost/housing-loans?amount=2500000&utm_source=google"), {
+        publicPath: "/konut-kredisi",
       }),
     );
     const b = pageCachePolicy(
-      PageCacheId.blogsPaginated,
-      ctx(new Request("http://localhost/blogs/paginated?page=1&utm_campaign=summer"), {
-        publicPath: "/blogs/paginated",
+      PageCacheId.housingLoans,
+      ctx(new Request("http://localhost/housing-loans?amount=2500000&utm_campaign=summer"), {
+        publicPath: "/konut-kredisi",
       }),
     );
     expect(a.kind).toBe("shared");
     expect(b.kind).toBe("shared");
     if (a.kind === "shared" && b.kind === "shared") {
       expect(a.key).toEqual(b.key);
-      expect(a.key).toContain("page=1");
+      expect(a.key.some((part) => part.includes("amount=2500000"))).toBe(true);
     }
   });
 });

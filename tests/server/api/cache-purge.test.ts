@@ -138,11 +138,11 @@ describe("cache purge API", () => {
   });
 
   it("purges query-param HTML keys via keysEncoded", async () => {
-    const blogsKey = formatCacheKey(["blogs-paginated", "/blogs/paginated", "1", "en", "Desktop"]);
-    await write(blogsKey, "<html>", {
+    const contentKey = formatCacheKey(["knowledge-center", "page=1", "tr", "Desktop"]);
+    await write(contentKey, "<html>", {
       kind: "shared",
       ttl: 60,
-      key: ["blogs-paginated", "/blogs/paginated", "1", "en", "Desktop"],
+      key: ["knowledge-center", "page=1", "tr", "Desktop"],
     });
 
     const res = await handleCachePurge(
@@ -152,31 +152,23 @@ describe("cache purge API", () => {
           authorization: "Bearer test-secret",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ keysEncoded: [encodeCacheKeyForApi(blogsKey)] }),
+        body: JSON.stringify({ keysEncoded: [encodeCacheKeyForApi(contentKey)] }),
       }),
     );
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { deleted: number };
     expect(body.deleted).toBe(1);
-    expect(await read(blogsKey)).toBeNull();
+    expect(await read(contentKey)).toBeNull();
   });
 
   it("purges all variants of a page via pageIds", async () => {
-    const loanKey = formatCacheKey([
-      "loan",
-      "istanbul",
-      "50000",
-      "Desktop",
-      "en",
-      "light",
-      "Desktop",
-    ]);
+    const loanKey = formatCacheKey(["housing-loans", "amount=2500000", "tr", "Desktop"]);
     const homeKey = formatCacheKey(["home", "en", "Desktop"]);
     await write(loanKey, "<html>", {
       kind: "shared",
       ttl: 60,
-      key: ["loan", "istanbul", "50000", "Desktop", "en", "light", "Desktop"],
+      key: ["housing-loans", "amount=2500000", "tr", "Desktop"],
     });
     await write(homeKey, "<html>", {
       kind: "shared",
@@ -191,7 +183,7 @@ describe("cache purge API", () => {
           authorization: "Bearer test-secret",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ pageIds: ["loan"] }),
+        body: JSON.stringify({ pageIds: ["housing-loans"] }),
       }),
     );
 

@@ -11,12 +11,7 @@ const stub = (path: string): Route => ({
 });
 
 describe("match", () => {
-  const routes = [
-    stub("/"),
-    stub("/hesabim"),
-    stub("/ihtiyac-kredisi/:city?"),
-    stub("/blog/:slug"),
-  ];
+  const routes = [stub("/"), stub("/hesabim"), stub("/catalog/:city?"), stub("/blog/:slug")];
 
   it("matches static paths", () => {
     expect(match(routes, "/")?.route.path).toBe("/");
@@ -24,8 +19,8 @@ describe("match", () => {
   });
 
   it("matches optional params", () => {
-    expect(match(routes, "/ihtiyac-kredisi")?.params.city).toBeUndefined();
-    expect(match(routes, "/ihtiyac-kredisi/ankara")?.params.city).toBe("ankara");
+    expect(match(routes, "/catalog")?.params.city).toBeUndefined();
+    expect(match(routes, "/catalog/ankara")?.params.city).toBe("ankara");
   });
 
   it("returns null when no route matches", () => {

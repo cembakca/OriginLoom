@@ -12,28 +12,28 @@ import { defineRoute } from "~/lib/types";
 
 const links = [
   {
-    href: "/ihtiyac-kredisi/istanbul?amount=75000",
-    label: "İhtiyaç kredisi",
-    desc: "Cache + island filter örneği",
+    href: "/konut-kredisi?amount=2500000&term=120",
+    label: "Konut kredileri",
+    desc: "Filtrelenebilir ve cache-safe ürün karşılaştırma",
   },
   { href: "/hesabim", label: "Hesabım", desc: "neverCache + auth" },
   {
-    href: "/blogs/paginated?page=2",
-    label: "Blog paginated",
-    desc: "Crawler-safe semantic SSR pagination",
+    href: "/kredi-kartlari/maximum",
+    label: "Maximum Kart",
+    desc: "Streaming kampanyalı ürün detayı",
   },
+  { href: "/bilgi-merkezi", label: "Bilgi Merkezi", desc: "Fragment cache ve semantik pagination" },
   {
     href: "/medya-pipeline",
     label: "Image & font pipeline",
     desc: "Responsive, CDN unoptimized ve font subset demosu",
   },
-  { href: "/emekli-bankaciligi", label: "Emekli bankacılığı", desc: "Rewrite + seoInfo metadata" },
   {
     href: "/basvuru/kredi/yonlendirme",
     label: "Başvuru yönlendirme",
     desc: "Minimal chrome route",
   },
-  { href: "/eski-emeklilik", label: "CMS redirect", desc: "301 redirect test" },
+  { href: "/eski-konut-kredisi", label: "CMS redirect", desc: "301 redirect örneği" },
   { href: "/kaldirildi", label: "410 Gone", desc: "Terminal CMS response" },
 ];
 

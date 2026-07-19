@@ -17,9 +17,9 @@ import {
 import { renderMetrics } from "@server/metrics";
 import { RequestDeadlineError } from "@server/middleware/request-deadline";
 import account from "@server/routes/account";
-import blogsPaginated from "@server/routes/blogs-paginated";
+import creditCards from "@server/routes/credit-cards";
+import housingLoanDetail from "@server/routes/housing-loan-detail";
 import home from "@server/routes/home";
-import loanCompare from "@server/routes/loan-compare";
 import mediaPipeline from "@server/routes/media-pipeline";
 import recourseRedirect from "@server/routes/recourse-redirect";
 import { createElement, Suspense, use } from "react";
@@ -32,8 +32,8 @@ const assets = { js: "/assets/entry.client.js", css: [], fonts: [] };
 const homeRoute = home as Route;
 const accountRoute = account as Route;
 const mediaPipelineRoute = mediaPipeline as Route;
-const blogsPaginatedRoute = blogsPaginated as Route;
-const loanCompareRoute = loanCompare as Route;
+const creditCardsRoute = creditCards as Route;
+const housingLoanDetailRoute = housingLoanDetail as Route;
 const recourseRedirectRoute = recourseRedirect as Route;
 
 describe("handler", () => {
@@ -209,16 +209,16 @@ describe("handler", () => {
     expect(component).not.toHaveBeenCalled();
   });
 
-  it("keeps paginated blog HEAD status aligned with GET loader decisions", async () => {
+  it("keeps paginated catalog HEAD status aligned with GET loader decisions", async () => {
     for (const query of ["page=abc", "page=5"]) {
       const get = await handle(
-        new Request(`http://localhost/blogs/paginated?${query}`),
-        [blogsPaginatedRoute],
+        new Request(`http://localhost/kredi-kartlari?${query}`),
+        [creditCardsRoute],
         assets,
       );
       const head = await handleHead(
-        new Request(`http://localhost/blogs/paginated?${query}`, { method: "HEAD" }),
-        [blogsPaginatedRoute],
+        new Request(`http://localhost/kredi-kartlari?${query}`, { method: "HEAD" }),
+        [creditCardsRoute],
       );
 
       expect(head.status).toBe(get.status);
@@ -568,36 +568,36 @@ describe("handler", () => {
   });
 
   it("rejects out-of-range page values before they can populate shared cache", async () => {
-    const request = new Request("http://localhost/blogs/paginated?page=1001");
-    const first = await handle(request, [blogsPaginatedRoute], assets);
-    const second = await handle(request, [blogsPaginatedRoute], assets);
+    const request = new Request("http://localhost/kredi-kartlari?page=1001");
+    const first = await handle(request, [creditCardsRoute], assets);
+    const second = await handle(request, [creditCardsRoute], assets);
 
     expect(first.status).toBe(404);
     expect(first.headers.get("x-cache")).toBe("BYPASS");
     expect(second.headers.get("x-cache")).toBe("BYPASS");
   });
 
-  it("keeps technical blog pagination noindex while preserving semantic navigation", async () => {
+  it("keeps catalog pagination canonical and crawler-visible", async () => {
     const response = await handle(
-      new Request("http://localhost/blogs/paginated?page=2&utm_source=crawler"),
-      [blogsPaginatedRoute],
+      new Request("http://localhost/kredi-kartlari?page=2&utm_source=crawler"),
+      [creditCardsRoute],
       assets,
     );
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body).toContain('<link rel="canonical" href="http://localhost:3005/blogs/paginated"');
-    expect(body).toContain('<meta name="robots" content="noindex, follow"');
-    expect(body).toContain('<a href="/blogs/paginated" rel="prev"');
-    expect(body).toContain('<a href="/blogs/paginated?page=3" rel="next"');
+    expect(body).toContain(
+      '<link rel="canonical" href="http://localhost:3005/kredi-kartlari?page=2"',
+    );
+    expect(body).toContain('<a href="/kredi-kartlari" rel="prev"');
     expect(body).toContain('<span aria-current="page"');
-    expect(body).not.toContain('data-island="blog-pagination"');
+    expect(body).not.toContain('rel="next"');
   });
 
   it("returns 404 when page is within the technical limit but exceeds gateway totalPages", async () => {
     const response = await handle(
-      new Request("http://localhost/blogs/paginated?page=5"),
-      [blogsPaginatedRoute],
+      new Request("http://localhost/kredi-kartlari?page=5"),
+      [creditCardsRoute],
       assets,
     );
 
@@ -637,22 +637,22 @@ describe("handler", () => {
 
   it("redirects non-canonical page values without a cache lookup", async () => {
     const response = await handle(
-      new Request("http://localhost/blogs/paginated?page=001&utm_source=test"),
-      [blogsPaginatedRoute],
+      new Request("http://localhost/kredi-kartlari?page=001&utm_source=test"),
+      [creditCardsRoute],
       assets,
     );
 
     expect(response.status).toBe(308);
     expect(response.headers.get("x-cache")).toBe("BYPASS");
     expect(response.headers.get("location")).toBe(
-      "http://localhost/blogs/paginated?utm_source=test",
+      "http://localhost/kredi-kartlari?utm_source=test",
     );
   });
 
   it("rejects unbounded cache-key route params", async () => {
-    const invalidCity = await handle(
-      new Request("http://localhost/ihtiyac-kredisi/random-unique-city"),
-      [loanCompareRoute],
+    const invalidProduct = await handle(
+      new Request(`http://localhost/housing-loans/${"x".repeat(200)}`),
+      [housingLoanDetailRoute],
       assets,
     );
     const invalidRecourse = await handle(
@@ -661,8 +661,8 @@ describe("handler", () => {
       assets,
     );
 
-    expect(invalidCity.status).toBe(404);
-    expect(invalidCity.headers.get("x-cache")).toBe("BYPASS");
+    expect(invalidProduct.status).toBe(404);
+    expect(invalidProduct.headers.get("x-cache")).toBe("BYPASS");
     expect(invalidRecourse.status).toBe(404);
     expect(invalidRecourse.headers.get("x-cache")).toBe("BYPASS");
   });
@@ -739,7 +739,7 @@ describe("handler", () => {
       path: "/island-preloads",
       loader: async () => ({ data: {} }),
       Component: () => createElement("main", null, "preloaded"),
-      preloadIslands: ["filter-panel"],
+      preloadIslands: ["market-live"],
       minimalChrome: true,
     };
     const preloadAssets = {
@@ -751,7 +751,7 @@ describe("handler", () => {
         "/assets/shared.js",
       ],
       islandModulePreloads: {
-        "filter-panel": ["/assets/filter-panel.js", "/assets/entry.client.js", "/assets/shared.js"],
+        "market-live": ["/assets/market-live.js", "/assets/entry.client.js", "/assets/shared.js"],
         "mobile-menu": ["/assets/mobile-menu.js"],
       },
     };
@@ -768,7 +768,7 @@ describe("handler", () => {
       "/assets/layout-client.js",
       "/assets/page-analytics.js",
       "/assets/shared.js",
-      "/assets/filter-panel.js",
+      "/assets/market-live.js",
     ]) {
       expect(body).toContain(`rel="modulepreload" href="${href}"`);
     }
@@ -991,7 +991,7 @@ describe("handler", () => {
     const key = formatCacheKey(["stitch-deadline"]);
     await write(
       key,
-      '<html><body><ssr-fragment name="popular-blogs" style="display: contents">fallback</ssr-fragment></body></html>',
+      '<html><body><ssr-fragment name="popular-knowledge-articles" style="display: contents">fallback</ssr-fragment></body></html>',
       { kind: "shared", ttl: 60, key: [key] },
     );
     const controller = new AbortController();

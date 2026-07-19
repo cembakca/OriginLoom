@@ -142,13 +142,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 function cardSearch(data: CreditCardList) {
-  const search = new URLSearchParams({
-    cardType: data.query.cardType,
-    annualFee: data.query.annualFee,
-    network: data.query.network,
-    sortBy: data.query.sortBy,
-  });
+  const search = new URLSearchParams();
   if (data.query.bank) search.set("bank", data.query.bank);
+  if (data.query.cardType !== "all") search.set("cardType", data.query.cardType);
+  if (data.query.annualFee !== "all") search.set("annualFee", data.query.annualFee);
+  if (data.query.network !== "all") search.set("network", data.query.network);
+  if (data.query.sortBy !== "recommended") search.set("sortBy", data.query.sortBy);
   return search;
 }
 const control =

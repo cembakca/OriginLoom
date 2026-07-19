@@ -7,8 +7,6 @@ import type { Hono } from "hono";
 const FALLBACK_SITEMAP_PATHS = [
   "/",
   "/bilgi-merkezi",
-  "/emekli-bankaciligi",
-  "/ihtiyac-kredisi",
   "/konut-kredisi",
   "/kredi-kartlari",
   "/piyasalar/bist-100",
