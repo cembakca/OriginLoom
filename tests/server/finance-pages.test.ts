@@ -55,6 +55,20 @@ describe("finance content SSR pages", () => {
     expect(market.headers.get("x-cache")).toBe("BYPASS");
   });
 
+  it("streams credit-card campaigns without putting the response in document cache", async () => {
+    const response = await app.request("/kredi-kartlari/maximum");
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-cache")).toBe("BYPASS");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(body).toContain("Market alışverişine 500 TL puan");
+
+    const head = await app.request("/kredi-kartlari/maximum", { method: "HEAD" });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
+  });
+
   it("emits content-specific JSON-LD only on matching visible pages", async () => {
     const [loan, card, article, list] = await Promise.all([
       app.request("/konut-kredisi/ziraat-konut-kredisi"),

@@ -31,7 +31,6 @@ export const PageCacheId = {
   housingLoans: "housing-loans",
   housingLoanDetail: "housing-loan-detail",
   creditCards: "credit-cards",
-  creditCardDetail: "credit-card-detail",
   knowledgeCenter: "knowledge-center",
   knowledgeArticle: "knowledge-article",
   bist100: "bist100",
@@ -171,18 +170,6 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
       const entry = pageCacheRegistry[PageCacheId.creditCards];
       return ["credit-cards", queryPart(entry, ctx), locale(ctx.request), layoutCacheFragment(ctx)];
     },
-  },
-  [PageCacheId.creditCardDetail]: {
-    id: PageCacheId.creditCardDetail,
-    description: "Kredi kartı ürün detayı ve kampanyaları",
-    path: "/kredi-kartlari/:slug",
-    strategy: "shared",
-    buildKey: (ctx) => [
-      "credit-card-detail",
-      ctx.params.slug ?? "-",
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
-    ],
   },
   [PageCacheId.knowledgeCenter]: {
     id: PageCacheId.knowledgeCenter,

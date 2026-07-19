@@ -1,7 +1,7 @@
 import { getCreditCard, getCreditCardCampaigns } from "@server/services/financial-products";
 
 import { CreditCardDetailPage } from "~/features/financial-products/credit-card-detail";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { neverCache } from "~/lib/cache-policy";
 import { isBoundedRouteSlug } from "~/lib/content-values";
 import type { CreditCardCampaign, CreditCardDetail } from "~/lib/contracts/financial-products";
 import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
@@ -19,16 +19,19 @@ export default defineRoute<Data>({
   path: "/kredi-kartlari/:slug",
   streaming: true,
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
-  cache: (ctx) => pageCachePolicy(PageCacheId.creditCardDetail, ctx),
+  cache: () => neverCache(),
   loader: async (ctx) => {
     const slug = ctx.params.slug ?? "";
     const detail = await getCreditCard(slug, ctx.request.signal);
     if (!detail) return notFound();
 
-    const campaignsPromise = getCreditCardCampaigns(slug, ctx.request.signal).then((result) => {
-      if (!result) throw new Error("Credit card campaigns disappeared after detail lookup");
-      return result.campaigns;
-    });
+    const campaignsPromise =
+      ctx.request.method === "HEAD"
+        ? Promise.resolve([])
+        : getCreditCardCampaigns(slug, ctx.request.signal).then((result) => {
+            if (!result) throw new Error("Credit card campaigns disappeared after detail lookup");
+            return result.campaigns;
+          });
     return { data: { detail, campaignsPromise } };
   },
   generateMetadata: (data, ctx) => {
