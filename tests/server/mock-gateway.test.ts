@@ -190,7 +190,7 @@ describe("external mock gateway", () => {
       pagination: { total: number };
     };
     const detail = (await detailResponse.json()) as {
-      product: { slug: string; campaigns: Array<{ title: string; endsAt: string }> };
+      product: { slug: string; campaignCount: number; campaigns?: unknown };
       disclosures: string[];
     };
     const campaigns = (await campaignsResponse.json()) as { campaigns: unknown[] };
@@ -201,8 +201,9 @@ describe("external mock gateway", () => {
     expect(list.items.length).toBeGreaterThanOrEqual(3);
     expect(list.items.every((item) => item.annualFee === 0)).toBe(true);
     expect(detail.product.slug).toBe("maximum");
-    expect(detail.product.campaigns.length).toBeGreaterThanOrEqual(2);
-    expect(campaigns.campaigns).toEqual(detail.product.campaigns);
+    expect(detail.product.campaigns).toBeUndefined();
+    expect(detail.product.campaignCount).toBeGreaterThanOrEqual(2);
+    expect(campaigns.campaigns).toHaveLength(detail.product.campaignCount);
   });
 
   it("provides referral disclosure before creating a short-lived application redirect", async () => {

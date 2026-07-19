@@ -84,7 +84,7 @@ export async function resolveFinanceRequest(request, url, readJson) {
               imageAlt: `${card.bank.name} ${card.name} kredi kartı`,
               openGraphType: "product",
             }),
-            product: { ...card, campaigns: campaignsFor(card.slug) },
+            product: summaryCard(card),
             applicationRequirements: [
               "18 yaşını doldurmuş olmak",
               "Gelirin banka tarafından doğrulanabilmesi",

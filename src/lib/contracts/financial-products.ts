@@ -97,9 +97,14 @@ export type CreditCardList = {
 
 export type CreditCardDetail = {
   seoInfo: SeoInfo;
-  product: CreditCard & { campaigns: CreditCardCampaign[] };
+  product: CreditCard;
   applicationRequirements: string[];
   disclosures: string[];
+};
+
+export type CreditCardCampaignList = {
+  card: CreditCard;
+  campaigns: CreditCardCampaign[];
 };
 
 export type ReferralProduct = {

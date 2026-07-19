@@ -1,11 +1,21 @@
+import { Suspense, use } from "react";
+
 import { Badge } from "~/components/ui/badge";
-import type { CreditCardDetail } from "~/lib/contracts/financial-products";
+import type { CreditCardCampaign, CreditCardDetail } from "~/lib/contracts/financial-products";
 
 import { formatDate, formatMoney } from "./format";
 import { ReferralCta } from "./referral-cta";
 
-export function CreditCardDetailPage({ data }: { data: CreditCardDetail }) {
-  const { product } = data;
+type CreditCardDetailPageProps = {
+  data: {
+    detail: CreditCardDetail;
+    campaignsPromise: Promise<CreditCardCampaign[]>;
+  };
+};
+
+export function CreditCardDetailPage({ data }: CreditCardDetailPageProps) {
+  const { detail, campaignsPromise } = data;
+  const { product } = detail;
   return (
     <div className="space-y-8">
       <nav aria-label="İçerik yolu" className="text-sm text-slate-500">
@@ -35,7 +45,7 @@ export function CreditCardDetailPage({ data }: { data: CreditCardDetail }) {
               value={product.annualFee === 0 ? "Ücretsiz" : formatMoney(product.annualFee)}
             />
             <Stat label="Ödül programı" value={product.rewardProgram} />
-            <Stat label="Kampanya" value={`${product.campaigns.length} aktif fırsat`} />
+            <Stat label="Kampanya" value={`${product.campaignCount ?? 0} aktif fırsat`} />
           </dl>
           <ReferralCta
             productType={product.productType}
@@ -55,32 +65,49 @@ export function CreditCardDetailPage({ data }: { data: CreditCardDetail }) {
               Kampanyalar
             </h2>
           </div>
-          {product.campaigns.map((campaign) => (
-            <article key={campaign.id} className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <Badge>{campaign.category}</Badge>
-                  <h3 className="mt-3 text-lg font-semibold">{campaign.title}</h3>
-                </div>
-                <span className="text-xs text-slate-500">
-                  {formatDate(campaign.endsAt)} tarihine kadar
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{campaign.description}</p>
-              <p className="mt-3 text-xs font-medium text-slate-500">
-                Katılım: {campaign.participation}
-              </p>
-            </article>
-          ))}
+          <Suspense fallback={<CampaignListSkeleton />}>
+            <CampaignList campaignsPromise={campaignsPromise} />
+          </Suspense>
         </section>
         <aside className="space-y-5">
           <Info title="Kart avantajları" items={product.benefits} />
-          <Info title="Başvuru koşulları" items={data.applicationRequirements} />
+          <Info title="Başvuru koşulları" items={detail.applicationRequirements} />
         </aside>
       </div>
       <aside className="rounded-lg bg-slate-100 p-5 text-xs leading-5 text-slate-600">
-        <strong>Önemli bilgiler:</strong> {data.disclosures.join(" ")}
+        <strong>Önemli bilgiler:</strong> {detail.disclosures.join(" ")}
       </aside>
+    </div>
+  );
+}
+
+function CampaignList({ campaignsPromise }: { campaignsPromise: Promise<CreditCardCampaign[]> }) {
+  const campaigns = use(campaignsPromise);
+  return campaigns.map((campaign) => (
+    <article key={campaign.id} className="rounded-xl border border-slate-200 bg-white p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Badge>{campaign.category}</Badge>
+          <h3 className="mt-3 text-lg font-semibold">{campaign.title}</h3>
+        </div>
+        <span className="text-xs text-slate-500">{formatDate(campaign.endsAt)} tarihine kadar</span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{campaign.description}</p>
+      <p className="mt-3 text-xs font-medium text-slate-500">Katılım: {campaign.participation}</p>
+    </article>
+  ));
+}
+
+function CampaignListSkeleton() {
+  return (
+    <div aria-label="Kampanyalar yükleniyor" aria-busy="true" className="space-y-4">
+      {[1, 2].map((item) => (
+        <div key={item} className="animate-pulse rounded-xl border border-slate-200 bg-white p-5">
+          <div className="h-5 w-24 rounded bg-slate-200" />
+          <div className="mt-4 h-6 w-2/3 rounded bg-slate-200" />
+          <div className="mt-3 h-4 w-full rounded bg-slate-100" />
+        </div>
+      ))}
     </div>
   );
 }

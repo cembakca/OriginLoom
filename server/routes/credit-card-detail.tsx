@@ -1,27 +1,40 @@
-import { getCreditCard } from "@server/services/financial-products";
+import { getCreditCard, getCreditCardCampaigns } from "@server/services/financial-products";
 
 import { CreditCardDetailPage } from "~/features/financial-products/credit-card-detail";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { isBoundedRouteSlug } from "~/lib/content-values";
-import type { CreditCardDetail } from "~/lib/contracts/financial-products";
+import type { CreditCardCampaign, CreditCardDetail } from "~/lib/contracts/financial-products";
 import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
 import { creditCardJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound } from "~/lib/types";
 
-export default defineRoute<CreditCardDetail>({
+type Data = {
+  detail: CreditCardDetail;
+  campaignsPromise: Promise<CreditCardCampaign[]>;
+};
+
+export default defineRoute<Data>({
   path: "/kredi-kartlari/:slug",
+  streaming: true,
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
   cache: (ctx) => pageCachePolicy(PageCacheId.creditCardDetail, ctx),
   loader: async (ctx) => {
-    const data = await getCreditCard(ctx.params.slug ?? "", ctx.request.signal);
-    return data ? { data } : notFound();
+    const slug = ctx.params.slug ?? "";
+    const detail = await getCreditCard(slug, ctx.request.signal);
+    if (!detail) return notFound();
+
+    const campaignsPromise = getCreditCardCampaigns(slug, ctx.request.signal).then((result) => {
+      if (!result) throw new Error("Credit card campaigns disappeared after detail lookup");
+      return result.campaigns;
+    });
+    return { data: { detail, campaignsPromise } };
   },
   generateMetadata: (data, ctx) => {
     const base = ctx.siteUrl ?? ctx.url.origin;
-    const url = publicAbsoluteUrl(ctx, `/kredi-kartlari/${data.product.slug}`);
-    const metadata = generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx);
+    const url = publicAbsoluteUrl(ctx, `/kredi-kartlari/${data.detail.product.slug}`);
+    const metadata = generateMetaDataForPageWithSeoInfo(data.detail.seoInfo, ctx);
     return {
       ...metadata,
       canonical: url,
@@ -31,11 +44,11 @@ export default defineRoute<CreditCardDetail>({
           [
             { name: "Ana Sayfa", url: publicAbsoluteUrl(ctx, "/") },
             { name: "Kredi Kartları", url: publicAbsoluteUrl(ctx, "/kredi-kartlari") },
-            { name: data.product.name, url },
+            { name: data.detail.product.name, url },
           ],
           base,
         ),
-        creditCardJsonLd(data.product, url),
+        creditCardJsonLd(data.detail.product, url),
       ]),
     };
   },
@@ -43,7 +56,7 @@ export default defineRoute<CreditCardDetail>({
     defaultPageMeta(ctx, "credit-card-detail", {
       category: "card",
       mid: "kredi-kartlari",
-      sub: data.product.slug,
+      sub: data.detail.product.slug,
     }),
   Component: CreditCardDetailPage,
 });

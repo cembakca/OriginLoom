@@ -15,6 +15,7 @@ import { isSeoInfo } from "@server/services/seo-info";
 import type {
   CreditCard,
   CreditCardCampaign,
+  CreditCardCampaignList,
   CreditCardDetail,
   CreditCardList,
   HousingLoan,
@@ -50,6 +51,15 @@ export async function getCreditCard(slug: string, signal: AbortSignal) {
     `/finance/credit-cards/${encodeURIComponent(slug)}`,
     "credit_cards",
     isCreditCardDetail,
+    signal,
+  );
+}
+
+export async function getCreditCardCampaigns(slug: string, signal: AbortSignal) {
+  return getOptionalJson(
+    `/finance/credit-cards/${encodeURIComponent(slug)}/campaigns`,
+    "credit_cards",
+    isCreditCardCampaignList,
     signal,
   );
 }
@@ -276,10 +286,18 @@ function isCreditCardDetail(value: unknown): value is CreditCardDetail {
     isRecord(value) &&
     isSeoInfo(value.seoInfo) &&
     isCard(value.product) &&
-    Array.isArray(value.product.campaigns) &&
-    value.product.campaigns.every(isCampaign) &&
     isStringArray(value.applicationRequirements, 20) &&
     isStringArray(value.disclosures, 20, 2_000)
+  );
+}
+
+function isCreditCardCampaignList(value: unknown): value is CreditCardCampaignList {
+  return (
+    isRecord(value) &&
+    isCard(value.card) &&
+    Array.isArray(value.campaigns) &&
+    value.campaigns.length <= 100 &&
+    value.campaigns.every(isCampaign)
   );
 }
 
