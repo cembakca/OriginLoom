@@ -30,7 +30,7 @@ describe("client error telemetry API", () => {
         errorId: "client-123",
         source: "island-chunk-load",
         message: "dynamic import failed",
-        path: "/blogs?page=2",
+        path: "/bilgi-merkezi?page=2",
         island: "blog-pagination",
         releaseId: "attacker-controlled",
       }),
@@ -40,7 +40,7 @@ describe("client error telemetry API", () => {
     expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"errorId":"client-123"'));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"requestId":"telemetry-request"'));
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"path":"/blogs"'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"path":"/bilgi-merkezi"'));
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("attacker-controlled"));
   });
 
@@ -171,7 +171,7 @@ function telemetryRequest(errorId: string, clientIp?: string): RequestInit {
       errorId,
       source: "island-chunk-load",
       message: "dynamic import failed",
-      path: "/blogs",
+      path: "/bilgi-merkezi",
     }),
   };
 }

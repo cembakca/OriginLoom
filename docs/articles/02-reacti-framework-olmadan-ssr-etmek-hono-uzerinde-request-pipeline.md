@@ -411,12 +411,12 @@ durum olmadığı ve server-side routing kontratına dahil edilmediği için `Lo
 taşınmaz.
 
 ```text
-mock CMS destination: /emekli-bankaciligi?source=legacy#cms-fragment
+mock CMS destination: /konut-kredisi?source=legacy#cms-fragment
 request:              /eski-emeklilik?q=kredi&source=incoming
-result:               /emekli-bankaciligi?q=kredi&source=legacy
+result:               /konut-kredisi?q=kredi&source=legacy
 ```
 
-Örneğin `/emekli-bankaciligi`, internal olarak `/retirement-banking` route’una rewrite edilebilir.
+Örneğin `/konut-kredisi/:slug`, internal olarak `/housing-loans/:slug` route’una rewrite edilir.
 React component internal path üzerinden bulunur fakat canonical URL ve cache key tarayıcının gördüğü
 `publicPath` üzerinden kurulabilir.
 
@@ -558,31 +558,37 @@ kalır.
 
 Biz bu ayarı **rota bazında (route-level)** yönetiyoruz. Varsayılan olarak her rota geleneksel `renderToString` ile senkron ve kararlı biçimde çalışır.
 
-Projemizde bunun canlı bir örneğini görmek için `blogs-paginated.tsx` rotasının akışlı (streaming) bir klonu olan **`blogs-paginated-streaming.tsx`** rotasını hazırladık. İki rota arasındaki tek fark, streaming sürümünün route tanımında `streaming: true` parametresini almasıdır:
+Canlı örnek kredi kartı detayındadır. Kartın kritik bilgileri ve banka CTA'sı ilk shell'de hazırdır;
+ayrı gateway endpoint'indeki kampanyalar Suspense sınırından akar:
 
 ```tsx
 import { defineRoute } from "~/lib/types";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 
-export default defineRoute<PaginatedBlogs>({
-  // 1. Path ve caching anahtarını streaming sayfasına özel tanımlıyoruz:
-  path: "/blogs/paginated/streaming",
-
-  // 2. Rota seviyesinde streaming özelliğini aktif ediyoruz:
+export default defineRoute<CreditCardStreamingData>({
+  path: "/kredi-kartlari/:slug",
   streaming: true,
-
   cache: () => neverCache(),
 
-  loader: async (ctx) => ({
-    data: { deferredBlogsPromise: getSlowBlogs(ctx.request.signal) },
-  }),
+  loader: async (ctx) => {
+    const detail = await getCreditCard(ctx.params.slug, ctx.request.signal);
+    if (!detail) return notFound();
+    return {
+      data: {
+        detail,
+        campaignsPromise: getCreditCardCampaigns(ctx.params.slug, ctx.request.signal).then(
+          (result) => result?.campaigns ?? [],
+        ),
+      },
+    };
+  },
 
   Component: ({ data }) => (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-slate-900">Blog Yazıları (Akışlı SSR)</h1>
-
-      <Suspense fallback={<BlogListSkeleton />}>
-        <StreamingBlogList postsPromise={data.deferredBlogsPromise} />
+      <CreditCardSummary detail={data.detail} />
+      <ApplicationCallToAction product={data.detail.product} />
+      <Suspense fallback={<CampaignListSkeleton />}>
+        <CampaignList campaignsPromise={data.campaignsPromise} />
       </Suspense>
     </div>
   ),
@@ -719,7 +725,7 @@ Başarılı SSR log’u en az şu alanları içeriyor:
 
 ```json
 {
-  "path": "/ihtiyac-kredisi/istanbul",
+  "path": "/konut-kredisi",
   "status": 200,
   "cache": "HIT",
   "durationMs": 8,

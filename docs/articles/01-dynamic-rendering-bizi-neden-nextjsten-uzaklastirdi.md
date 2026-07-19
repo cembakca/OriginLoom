@@ -96,7 +96,7 @@ hangi girdilerden oluştuğu bizim için bir implementasyon ayrıntısı değil,
 Bir ihtiyaç kredisi sayfasını düşünelim:
 
 ```text
-/ihtiyac-kredisi/istanbul?amount=100000&utm_source=google
+/konut-kredisi?amount=2500000&term=120&utm_source=google
 ```
 
 Bu URL’de:
@@ -381,11 +381,14 @@ olarak ayırmak.
 ## Ölçüm: aynı sayfada Next.js App Router ile ssr-kit
 
 Karar sürecini yalnızca mimari argümanlarla bırakmadık. `nextjs-overhead-poc/` altında Next.js 16 App
-Router ile aynı mock gateway’e bağlı bir karşılaştırma projesi kurduk: `/blogs/paginated` sayfası,
-kopyalanmış header/footer, layout’ta User-Agent ile cihaz tespiti ve menü SSR, page’de `page` query
-parametresi ile blog listesi fetch’i.
+Router ile aynı mock gateway’e bağlı bir karşılaştırma projesi kurduk. İlk ölçümde kullanılan teknik
+`/blogs/paginated` sayfası daha sonra production yüzeyinden kaldırıldı; aynı cache/pagination kontratı
+bugün `/kredi-kartlari?page=2` ve `/konut-kredisi?page=2` sayfalarında gerçek ürün verisiyle çalışıyor.
+Tarihsel POC; kopyalanmış header/footer, layout’ta User-Agent ile cihaz tespiti, menü SSR ve page’de
+`page` query parametresiyle teknik blog fixture fetch’i kullanıyordu.
 
-`npm run bench:compare` ile çalışan `scripts/bench/compare-next.mjs` (autocannon, 50 bağlantı, 15 saniye) yerel koşulda şu sonucu verdi:
+Artık kaldırılmış benchmark script’i (autocannon, 50 bağlantı, 15 saniye) yerel koşulda şu sonucu
+vermişti:
 
 |                | ssr-kit `:3005` | Next.js POC `:3006` |
 | -------------- | --------------- | ------------------- |

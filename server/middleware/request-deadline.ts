@@ -14,7 +14,7 @@ export type { RequestClass } from "./context";
 type DeadlineOptions = Partial<Record<RequestClass, number>>;
 
 const KNOWN_API_ROUTES = new Set([
-  "/api/blogs",
+  "/api/referrals",
   "/api/internal/account/summary",
   "/api/internal/auth/session",
   "/api/internal/cache/keys",

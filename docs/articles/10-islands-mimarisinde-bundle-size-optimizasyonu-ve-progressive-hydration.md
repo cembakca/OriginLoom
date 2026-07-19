@@ -64,7 +64,6 @@ gördüğünde yalnız ilgili modülü ister:
 ```text
 data-island="market-live"   → src/islands/market-live.tsx
 data-island="user-chrome"   → src/islands/user-chrome.tsx
-data-island="blog-explorer" → src/islands/blog-explorer.tsx
 ```
 
 Bu isim aynı zamanda runtime contract’tır. Server bilinmeyen bir island üretirse production manifest
@@ -117,17 +116,16 @@ Genel kural:
 - Aynı dependency’yi farklı island’larda kopyalamak yerine Vite’ın shared chunk üretimini kontrol et.
 - Yalnız byte azaltmak için maintainability’yi bozan private path import’larına girme.
 
-## Temmuz 2026 build snapshot'ı nasıl okunmalı?
+## 19 Temmuz 2026 build snapshot'ı nasıl okunmalı?
 
 Vite 8.1.5 production build’i aşağıdaki seçili chunk’ları raporladı:
 
 | Chunk            |       Raw |     Gzip | Yorum                                  |
 | ---------------- | --------: | -------: | -------------------------------------- |
 | `entry.client`   |   5.08 kB |  2.29 kB | Hafif bootstrap                        |
-| `hydrate.client` | 182.21 kB | 57.86 kB | React hydration graph’ının ana parçası |
+| `hydrate.client` | 181.68 kB | 57.68 kB | React hydration graph’ının ana parçası |
 | `market-live`    |   5.92 kB |  2.32 kB | Yalnız canlı piyasa island’ı           |
-| `blog-explorer`  |  13.11 kB |  4.25 kB | Blog etkileşimi; shared imports hariç  |
-| `user-chrome`    |  49.93 kB | 16.94 kB | Auth/query ağırlıklı kişisel island    |
+| `user-chrome`    |  49.87 kB | 16.90 kB | Auth/query ağırlıklı kişisel island    |
 
 Bu tablo route toplamı değildir. Örneğin `market-live` çalışırken hydration runtime ve manifestteki
 ortak React chunk’ları da gerekebilir. Rakamlar build çıktısının 18 Temmuz 2026 snapshot’ıdır; her build

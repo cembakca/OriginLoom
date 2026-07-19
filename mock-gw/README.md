@@ -22,28 +22,25 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 | GET    | `/account/summary`                      | Korumalı hesap özeti                      |
 | GET    | `/pages/menuitem/list`                  | Header/footer menüsü                      |
 | GET    | `/routing/domains`                      | Route iş-domain snapshot'ı                |
-| GET    | `/pages/retirement-banking`             | Sayfa + SEO içeriği                       |
 | GET    | `/cms/redirects?path=...`               | Redirect/gone kuralı                      |
-| GET    | `/offers?...`                           | Eski ihtiyaç kredisi teklif kontratı      |
-| GET    | `/blogs?...`                            | Eski teknik blog örnekleri                |
 | GET    | `/finance/housing-loans?...`            | Konut kredisi filtreleme ve pagination    |
 | GET    | `/finance/housing-loans/:slug?...`      | Konut kredisi detay ve ödeme örneği       |
 | GET    | `/finance/credit-cards?...`             | Kredi kartı filtreleme ve pagination      |
-| GET    | `/finance/credit-cards/:slug`           | Kart detayı ve kampanyalar                |
-| GET    | `/finance/credit-cards/:slug/campaigns` | Karta ait kampanya listesi                |
+| GET    | `/finance/credit-cards/:slug`           | Stream öncesi kritik kart detayı          |
+| GET    | `/finance/credit-cards/:slug/campaigns` | Suspense ile stream edilen kampanyalar    |
 | GET    | `/finance/referrals/:productType/:slug` | Başvuru öncesi ürün/yasal bilgilendirme   |
 | POST   | `/finance/referrals`                    | Kısa ömürlü başvuru yönlendirmesi         |
 | GET    | `/internal/referrals/stats`             | Server-side referral sayı/latency özeti   |
 | GET    | `/content/articles?...`                 | Bilgi Merkezi filtreli içerik listesi     |
 | GET    | `/content/articles/:slug`               | Finansal makale detayı ve ilişkili içerik |
+| GET    | `/content/articles/popular`             | Fragment-cache popüler rehberleri         |
 | GET    | `/markets/bist100?...`                  | BIST 100 tarzı hisse listesi              |
 | GET    | `/internal/markets/stream`              | Token korumalı SSE quote batch akışı      |
 | POST   | `/analytics/bot`                        | Bounded bot event batch sink              |
 
-`/blogs` SSR-kit'in teknik blog örneklerini korur. `/content/articles` ise tüketici finansmanı,
-kredi kartları, konut kredileri ve yatırım okuryazarlığı için ayrı bir **Bilgi Merkezi**
-kontratıdır. Böylece UI aşamasında iki içerik ürününün bilgi mimarisi ve görsel dili bağımsız
-tasarlanabilir.
+`/content/articles` tüketici finansmanı, kredi kartları, konut kredileri ve yatırım okuryazarlığı
+için **Bilgi Merkezi** kontratıdır. Teknik blog endpoint'leri kaldırılmış; streaming, fragment cache,
+pagination ve document cache davranışları gerçek finans endpoint'lerine taşınmıştır.
 
 Liste endpointleri `page` ve `pageSize` yanında kendi domain filtrelerini kabul eder. Örneğin konut
 kredilerinde `amount`, `term`, `city`, `bank` ve `sortBy`; kredi kartlarında `cardType`, `annualFee`,

@@ -125,14 +125,14 @@ Query param'lı HTML key örneği:
 
 ```json
 {
-  "key": "blogs-paginated\u0000/blogs/paginated\u00001\u0000en\u0000Desktop",
-  "encoded": "YmxvZ3MtcGFnaW5hdGVk...",
-  "parts": ["blogs-paginated", "/blogs/paginated", "1", "en", "Desktop"],
-  "display": "blogs-paginated::/blogs/paginated::1::en::Desktop"
+  "key": "knowledge-center\u0000category=all&orderBy=date-desc&page=1\u0000tr\u0000Desktop",
+  "encoded": "a25vd2xlZGdlLWNlbnRlcg...",
+  "parts": ["knowledge-center", "category=all&orderBy=date-desc&page=1", "tr", "Desktop"],
+  "display": "knowledge-center::category=all&orderBy=date-desc&page=1::tr::Desktop"
 }
 ```
 
-Silme için `encoded` alanını `keysEncoded` modunda kullan veya `pageIds: ["blogs-paginated"]` gönder.
+Silme için `encoded` alanını `keysEncoded` modunda kullan veya `pageIds: ["knowledge-center"]` gönder.
 
 Redis'te daha fazla key varsa:
 
@@ -237,15 +237,15 @@ curl -s -X POST \
 
 Yaygın prefix'ler (`pageCacheRegistry` ilk segment):
 
-| Prefix                   | Etki                          |
-| ------------------------ | ----------------------------- |
-| `menu:`                  | Tüm cihaz menü cache'leri     |
-| `home`                   | Ana sayfa HTML varyantları    |
-| `loan`                   | İhtiyaç kredisi karşılaştırma |
-| `blogs-paginated`        | Blog listesi                  |
-| `retirement-banking`     | Emekli bankacılığı            |
-| `remote-customer-obtain` | Uzaktan müşteri edinimi       |
-| `recourse-redirect`      | Başvuru yönlendirme           |
+| Prefix                   | Etki                       |
+| ------------------------ | -------------------------- |
+| `menu:`                  | Tüm cihaz menü cache'leri  |
+| `home`                   | Ana sayfa HTML varyantları |
+| `housing-loans`          | Konut kredisi listesi      |
+| `credit-cards`           | Kredi kartı listesi        |
+| `knowledge-center`       | Bilgi Merkezi listesi      |
+| `remote-customer-obtain` | Uzaktan müşteri edinimi    |
+| `recourse-redirect`      | Başvuru yönlendirme        |
 
 Tam liste: `listPageCachePrefixes()` — [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts).
 

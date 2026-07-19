@@ -34,21 +34,23 @@ Menü payload’ı değiştiğinde fingerprint de değişir. Eski fragment Redis
 artık okunmaz; yeni menü yeni key’den render edilir. Purge endpoint’i eski header/footer prefix’lerini
 temizleyerek belleği erken boşaltabilir fakat correctness yalnız purge webhook’una bağlı değildir.
 
-### BYPASS sayfada public widget cache
+### Katalog sayfasında bağımsız public widget cache
 
-`/blogs/popular-fragments` page cache kullanmaz:
+`/bilgi-merkezi` document cache kullanırken popüler rehberler daha kısa bir freshness bütçesine
+sahiptir:
 
 ```text
-GET /blogs/popular-fragments
-  → loader + buffered SSR render
-  → <ssr-fragment name="popular-blogs"> bulunur
-  → fragment:popular-blogs:v1
+GET /bilgi-merkezi
+  → Bilgi Merkezi loader + buffered SSR render/cache lookup
+  → <ssr-fragment name="popular-knowledge-articles"> bulunur
+  → fragment:popular-knowledge-articles:v1
       HIT  → Redis HTML
-      MISS → gateway + React fragment render + Redis write
+      MISS → GET /content/articles/popular + React fragment render + Redis write
   → tamamlanmış HTML response
 ```
 
-Sayfa her request’te yeniden render edilir; popular widget beş dakika boyunca gateway’e tekrar gitmez.
+Document TTL'i ile popüler widget TTL'i birbirinden bağımsızdır. Page HIT olsa bile stitching response
+kopyasında çalışır ve widget beş dakika boyunca gateway'e tekrar gitmez.
 “HIT 0 ms” garantisi yoktur: Redis network ve decode süresi devam eder. Garanti, fragment HIT’inde
 widget gateway çağrısının ve React fragment render’ının atlanmasıdır.
 
@@ -89,10 +91,10 @@ fragment:header:Desktop:{menuFingerprint}
 fragment:footer:Mobile:{menuFingerprint}
 ```
 
-Popular blogs:
+Popüler Bilgi Merkezi rehberleri:
 
 ```text
-fragment:popular-blogs:v1
+fragment:popular-knowledge-articles:v1
 ```
 
 Popular widget mevcut kontratta device, route, query veya auth’a göre değişmediği için bunlar key’e
@@ -107,11 +109,11 @@ render etmek ikinci menu cache lookup’ı ve gereksiz React işi oluşturur. Bu
 ```text
 Fresh MISS/BYPASS:
   header/footer → mevcut SSR çıktısı korunur
-  popular widget → fragment cache ile çözülür
+  popüler rehberler → fragment cache ile çözülür
 
 Page HIT/STALE:
   header/footer → güncel fingerprint key’iyle çözülür
-  popular widget → fragment cache ile çözülür
+  popüler rehberler → fragment cache ile çözülür
 ```
 
 Page cache’e yazılan body placeholder’ları korur; stitching response kopyasında yapılır. Böylece
@@ -175,11 +177,11 @@ tag’ları nonce taşır. Static analytics script’leri mevcut sabit hash kont
 
 ## Purge ve freshness
 
-| Fragment      | Key varyasyonu            |      TTL | Purge                     |
-| ------------- | ------------------------- | -------: | ------------------------- |
-| Header        | device + menu fingerprint | menu TTL | `fragment:header:`        |
-| Footer        | device + menu fingerprint | menu TTL | `fragment:footer:`        |
-| Popular blogs | sabit public `v1`         | 5 dakika | `fragment:popular-blogs:` |
+| Fragment          | Key varyasyonu            |      TTL | Purge                                  |
+| ----------------- | ------------------------- | -------: | -------------------------------------- |
+| Header            | device + menu fingerprint | menu TTL | `fragment:header:`                     |
+| Footer            | device + menu fingerprint | menu TTL | `fragment:footer:`                     |
+| Popüler rehberler | sabit public `v1`         | 5 dakika | `fragment:popular-knowledge-articles:` |
 
 Menu purge header/footer’ı da temizler. Ancak menu fingerprint correctness’i purge çağrısından bağımsız
 hale getirir. Widget verisi TTL sonunda doğal MISS ile yenilenir; acil içerik kaldırma için prefix purge

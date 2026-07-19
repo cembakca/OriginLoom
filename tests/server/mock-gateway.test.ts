@@ -73,13 +73,13 @@ describe("external mock gateway", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        events: [{ pathname: "/blogs", userAgent: "ExampleBot/1.0" }],
+        events: [{ pathname: "/bilgi-merkezi", userAgent: "ExampleBot/1.0" }],
       }),
     });
     const invalid = await fetch(gatewayUrl("/analytics/bot"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ pathname: "/blogs", userAgent: "ExampleBot/1.0" }),
+      body: JSON.stringify({ pathname: "/bilgi-merkezi", userAgent: "ExampleBot/1.0" }),
     });
 
     expect(batch.status).toBe(202);

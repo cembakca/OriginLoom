@@ -26,34 +26,46 @@ Suspense sınırlarının yeri ve gerçek proxy davranışına bağlıdır.
 Bir route `streaming: true` diyerek bu davranışı açıkça seçer:
 
 ```tsx
-export default defineRoute<StreamingData>({
-  path: "/blogs/paginated/streaming",
+export default defineRoute<CreditCardStreamingData>({
+  path: "/kredi-kartlari/:slug",
   streaming: true,
   cache: () => neverCache(),
-  loader: async (ctx) => ({
-    data: {
-      deferredBlogsPromise: getSlowBlogs(ctx.request.signal),
-    },
-  }),
-  Component: StreamingBlogPage,
+  loader: async (ctx) => {
+    const detail = await getCreditCard(ctx.params.slug, ctx.request.signal);
+    if (!detail) return notFound();
+    return {
+      data: {
+        detail,
+        campaignsPromise: getCreditCardCampaigns(ctx.params.slug, ctx.request.signal).then(
+          (result) => result?.campaigns ?? [],
+        ),
+      },
+    };
+  },
+  Component: CreditCardDetailPage,
 });
 ```
 
 Component React 19 `use()` ile promise’i Suspense sınırında çözer:
 
 ```tsx
-function StreamingBlogList({ postsPromise }: Props) {
-  const posts = use(postsPromise);
-  return <BlogList posts={posts} />;
+function CampaignList({ campaignsPromise }: Props) {
+  const campaigns = use(campaignsPromise);
+  return campaigns.map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />);
 }
 
-<Suspense fallback={<BlogListSkeleton />}>
-  <StreamingBlogList postsPromise={deferredBlogsPromise} />
+<CreditCardSummary detail={detail} />
+<ApplicationCallToAction product={detail.product} />
+<Suspense fallback={<CampaignListSkeleton />}>
+  <CampaignList campaignsPromise={campaignsPromise} />
 </Suspense>;
 ```
 
-`neverCache()` teknik zorunluluk değildir; bu demo canlı akışı her request’te göstermek için kullanır.
-Cacheable streaming route’ta mevcut uygulama cold fill sırasında kullanıcıya yarım stream vermez:
+Burada ilk HTML kart özeti ve banka başvuru CTA'sını taşır; kampanya servisi bu kritik alanları
+geciktirmez. Route bilinçli olarak `neverCache()` kullanır; böylece insan GET isteği gerçekten
+progressive response alır. Ürün listeleri ve Bilgi Merkezi document cache kullanmaya devam eder.
+
+Cacheable streaming route’ta uygulama cold fill sırasında kullanıcıya yarım stream vermez:
 render `cache_fill` fazında `allReady` sonuna kadar buffer edilir, sonra atomik body olarak Redis’e
 yazılır. Dolayısıyla cache MISS yolu ile gerçek progressive BYPASS yolu aynı latency davranışına sahip
 değildir.

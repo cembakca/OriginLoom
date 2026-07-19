@@ -152,8 +152,8 @@ account gibi never route → CachePolicy { kind: "none" }
 ```
 
 `signed_in` cache kararında kullanılmaz; kullanıcı tarafından değiştirilebilen bir UI ipucudur.
-Örneğin `retirementBanking` registry kaydı `bypassAuth: true` kullanır. Header ve kişisel dashboard
-defer island olduğu için diğer public HTML route'larında token varlığı tek başına cache'i bypass etmez.
+Header ve kişisel dashboard defer island olduğu için public HTML route'larında token varlığı tek
+başına cache'i bypass etmez. Kişisel `/hesabim` route'u registry'de `never` stratejisi kullanır.
 
 Gerçekten bütün route'ları etkileyen yeni bir bypass kuralı eklemek için:
 
@@ -321,7 +321,8 @@ Next.js `rewrites()` / `redirects()` ekvivalenti, statik dizi olarak tanımlanm�
 ```typescript
 rewrites: [
   { source: "/api/:path*", destination: "${gatewayUrl}/:path*" }, // proxy
-  { source: "/emekli-bankaciligi", destination: "/retirement-banking" }, // internal rewrite
+  { source: "/konut-kredisi", destination: "/housing-loans" }, // internal rewrite
+  { source: "/konut-kredisi/:slug", destination: "/housing-loans/:slug" },
   { source: "/basvuru/:page/yonlendirme", destination: "/recourse/:page/redirect" },
 ];
 ```
@@ -381,18 +382,18 @@ olarak çıkar.
 #### Embedded JSON ve crawl inventory kontratı
 
 Island prop'ları gerçek link değildir; hydration/mount sırasında client'a taşınan public veridir.
-Buna rağmen `/blogs?...` veya `https://...` gibi ham URL-benzeri string'lerin crawler-visible HTML
+Buna rağmen `/bilgi-merkezi?...` veya `https://...` gibi ham URL-benzeri string'lerin crawler-visible HTML
 içinde tekrar görünmesi istenmeyen URL keşfi ve gereksiz crawl denemeleri üretebilir. Gerçek navigasyon
 otoritesi yalnız semantik `<a href>`, canonical ve sitemap'tir.
 
 Bu nedenle HTML'e gömülen bütün island JSON'u `serializeEmbeddedJson()` üzerinden geçer:
 
 ```text
-publicPath: /blogs/paginated?page=2
+publicPath: /bilgi-merkezi?page=2
         ↓ serializeEmbeddedJson
-HTML:       \/blogs\/paginated?page=2
+HTML:       \/bilgi-merkezi?page=2
         ↓ dataset.props + JSON.parse
-Client:     /blogs/paginated?page=2
+Client:     /bilgi-merkezi?page=2
 ```
 
 `\/` RFC 8259'a göre geçerli solidus escape'idir; client manuel string replacement yapmaz,

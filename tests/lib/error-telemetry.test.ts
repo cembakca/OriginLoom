@@ -11,7 +11,7 @@ afterEach(() => {
 
 describe("client error telemetry", () => {
   it("reports a sanitized same-origin payload without throwing", async () => {
-    window.history.replaceState({}, "", "/blogs?page=2");
+    window.history.replaceState({}, "", "/bilgi-merkezi?page=2");
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -33,7 +33,7 @@ describe("client error telemetry", () => {
       message: "hydration mismatch",
       island: "blog-pagination",
       componentStack: "at BlogPagination",
-      path: "/blogs",
+      path: "/bilgi-merkezi",
     });
   });
 

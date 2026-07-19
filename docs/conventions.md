@@ -25,7 +25,7 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 - Route klasörü: kebab-case (`loan-compare`)
 - Island dosyası: kebab-case, `<Island name="..." />` ile aynı olmalı
 - Bileşen export: PascalCase, dosya adı kebab-case
-- Servis fonksiyonları: camelCase (`getOffers`, `getMe`)
+- Servis fonksiyonları: camelCase (`getHousingLoans`, `getAccountSummary`)
 
 ## Yeni sayfa (route) ekleme
 
@@ -60,15 +60,15 @@ return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor
 
 `entry.client.tsx` island chunk'larını varsayılan olarak **lazy** yükler: `IntersectionObserver` viewport'a 200px kala tetiklenir. `eager` prop'u bu gecikmeyi kaldırır — sayfa açılır açılmaz chunk indirilir.
 
-| Island              | `eager` | Neden                                              |
-| ------------------- | ------- | -------------------------------------------------- |
-| `layout-client`     | Evet    | Store seed + chrome state erken gerekli            |
-| `page-analytics`    | Evet    | Pageview EventQueue sırası                         |
-| `user-chrome`       | Hayır   | Dropdown viewport'ta; ilk paint JS'siz fallback OK |
-| `mobile-menu`       | Hayır   | Hamburger tıklanana kadar Sheet JS gereksiz        |
-| `footer-accordion`  | Hayır   | Footer fold altında                                |
-| `blog-explorer`     | Hayır   | Sıralama etkileşimi; SSR liste yeterli             |
-| `account-dashboard` | Hayır   | Kişisel panel; defer + TanStack zaten lazy mount   |
+| Island              | `eager` | Neden                                               |
+| ------------------- | ------- | --------------------------------------------------- |
+| `layout-client`     | Evet    | Store seed + chrome state erken gerekli             |
+| `page-analytics`    | Evet    | Pageview EventQueue sırası                          |
+| `user-chrome`       | Hayır   | Dropdown viewport'ta; ilk paint JS'siz fallback OK  |
+| `mobile-menu`       | Hayır   | Hamburger tıklanana kadar Sheet JS gereksiz         |
+| `footer-accordion`  | Hayır   | Footer fold altında                                 |
+| `market-live`       | Hayır   | SSR snapshot yeterli; SSE yalnız viewport'ta açılır |
+| `account-dashboard` | Hayır   | Kişisel panel; defer + TanStack zaten lazy mount    |
 
 **Kural:** Yeni island'larda `eager` ekleme — yalnızca analytics veya global store seed gibi erken client state gerekiyorsa kullan.
 
@@ -272,8 +272,8 @@ Route dosyaları key parçalarını **tekrar tanımlamaz**; registry'den türeti
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 
 export default defineRoute({
-  path: "/retirement-banking",
-  cache: (ctx) => pageCachePolicy(PageCacheId.retirementBanking, ctx),
+  path: "/housing-loans",
+  cache: (ctx) => pageCachePolicy(PageCacheId.housingLoans, ctx),
   // ...
 });
 ```
@@ -314,7 +314,8 @@ Pagination kontratı:
 Sitemap politikası: yalnız gerçek, canonical kategori ve detay route'ları sitemap'e alınır. Query
 pagination sayfaları sitemap'e eklenmez; indexable kataloglarda self-canonical `index,follow`,
 document-level `rel=prev/next` ve SSR semantic page linkleriyle keşfedilir. Detay route'u olmayan
-`/blogs/paginated` gibi teknik demolar `noindex,follow` olur ve sitemap'e girmez.
+Teknik demo route'ları production yüzeyine eklenmez; yalnız gerçek katalog ve içerik route'ları
+sitemap/canonical kontratına katılır.
 
 Merkezi crawler endpoint'lerinin tek otoritesi `server/seo.ts` dosyasıdır. Yeni indexable public route
 eklenince gateway `/seo/sitemap` envanterine canonical public path eklenir; internal rewrite
@@ -337,15 +338,17 @@ alarm eşiği birlikte review edilmelidir.
 
 #### Sayfa HTML cache tablosu
 
-| `PageCacheId`            | Path                       | Strateji  | Key parçaları (sırayla)                                               | TTL   |
-| ------------------------ | -------------------------- | --------- | --------------------------------------------------------------------- | ----- |
-| `home`                   | `/`                        | shared    | `home`, locale, layout                                                | 3600s |
-| `loan`                   | `/ihtiyac-kredisi/:city?`  | shared    | `loan`, city, **`amount=…` allowlist**, device, locale, theme, layout | 300s  |
-| `blogs-paginated`        | `/blogs/paginated`         | shared    | `blogs-paginated`, publicPath, **`page=…`**, locale, layout           | 300s  |
-| `retirement-banking`     | `/retirement-banking`      | shared    | `retirement-banking`, publicPath, locale, layout                      | 3600s |
-| `remote-customer-obtain` | `/remote-customer-obtain`  | shared    | `remote-customer-obtain`, publicPath, layout                          | 300s  |
-| `recourse-redirect`      | `/recourse/:page/redirect` | shared    | `recourse-redirect`, page, publicPath                                 | 300s  |
-| `account`                | `/hesabim`                 | **never** | — (cache'e yazılmaz)                                                  | —     |
+| `PageCacheId`            | Path                       | Strateji  | Key parçaları (sırayla)                      | TTL   |
+| ------------------------ | -------------------------- | --------- | -------------------------------------------- | ----- |
+| `home`                   | `/`                        | shared    | `home`, locale, layout                       | 3600s |
+| `housing-loans`          | `/housing-loans`           | shared    | content query allowlist, locale, layout      | 300s  |
+| `housing-loan-detail`    | `/housing-loans/:slug`     | shared    | slug, amount/term, locale, layout            | 300s  |
+| `credit-cards`           | `/kredi-kartlari`          | shared    | content query allowlist, locale, layout      | 300s  |
+| —                        | `/kredi-kartlari/:slug`    | **never** | Kampanyalar progressive stream edilir        | —     |
+| `knowledge-center`       | `/bilgi-merkezi`           | shared    | category/order/page, locale, layout          | 300s  |
+| `remote-customer-obtain` | `/remote-customer-obtain`  | shared    | `remote-customer-obtain`, publicPath, layout | 300s  |
+| `recourse-redirect`      | `/recourse/:page/redirect` | shared    | `recourse-redirect`, page, publicPath        | 300s  |
+| `account`                | `/hesabim`                 | **never** | — (cache'e yazılmaz)                         | —     |
 
 Mantıksal key = escape edilmiş parçaların `\0` (null) ile birleşimi. Örnek ana sayfa: `home\0tr\0desktop`. Redis fiziksel key: `ssr:<release-id>:home\0tr\0desktop`.
 
@@ -556,18 +559,18 @@ Detay: [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) (registry) + [`src/li
 ```ts
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 
-// Kişiselleştirilmiş SSR — registry'de bypassAuth: true
-cache: (ctx) => pageCachePolicy(PageCacheId.retirementBanking, ctx),
-
 // Kişisel sayfa — registry'de strategy: "never"
 cache: (ctx) => pageCachePolicy(PageCacheId.account, ctx),
+
+// Public katalog — auth cookie olsa da shared document kimliği değişmez
+cache: (ctx) => pageCachePolicy(PageCacheId.housingLoans, ctx),
 ```
 
 **Kurallar:**
 
 - Key parçalarını route dosyasında **inline yazma** — registry'ye ekle
 - Bypass check'ler cache **key'e girmez** — yalnızca cache'e girip girmeme kararı verir
-- Kişisel veri cached HTML'de olmamalı; SSR kişiselleşiyorsa `bypassAuth: true`, değilse defer island kullan
+- Kişisel veri cached HTML'de olmamalı; kişisel route'u `never` yap veya veriyi defer island'a taşı
 - Cookie isimleri: [`src/lib/cookies.ts`](../src/lib/cookies.ts)
 
 ---
@@ -720,14 +723,18 @@ Next.js'teki **Metadata API** + **manuel `<head>`** ayrımının karşılığı.
 
 ```ts
 loader: async (ctx) => {
-  const page = await fetchRetirementBankingPage(ctx.request);
-  return { data: { ...page } };
+  const page = await getHousingLoans(normalizedSearch(ctx.url, QUERY), ctx.request.signal);
+  return { data: page };
 },
 
 generateMetadata: (data, ctx) =>
-  data.seoInfo
-    ? generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx)
-    : generateMetaDataForPageWithDummySeoInfo("/retirement-banking", ctx),
+  generatePaginatedMetadata(
+    data.seoInfo,
+    ctx,
+    data.pagination.page,
+    data.pagination.totalPages,
+    "/konut-kredisi",
+  ),
 ```
 
 ### Kanal 2 — Manuel head (teknik bootstrap)
@@ -855,7 +862,8 @@ builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder
 
 ## Client data fetching — TanStack Query
 
-Sunucu verisi **loader + `gatewayFetch`** ile kalır. Client-side dinamik veri (sıralama, kişisel panel) için **TanStack Query v5** kullanılır.
+Sunucu verisi **loader + `gatewayFetch`** ile kalır. URL'ye ait filtre/sıralama server'da çözülür;
+kişisel panel gibi client verileri için **TanStack Query v5** kullanılır.
 
 ### Katmanlar
 
@@ -864,9 +872,8 @@ Sunucu verisi **loader + `gatewayFetch`** ile kalır. Client-side dinamik veri (
 | Query client | `src/lib/query/client.ts`        | Singleton `QueryClient` (island'lar arası paylaşımlı)      |
 | Provider     | `src/lib/query/provider.tsx`     | `AppQueryProvider` — `entry.client.tsx` her island'ı sarar |
 | Query keys   | `src/lib/query/keys.ts`          | Merkezi key factory                                        |
-| Hooks        | `src/lib/query/hooks/*`          | `useBlogs`, `useAccountSummary`                            |
+| Hooks        | `src/lib/query/hooks/*`          | `useAccountSummary`                                        |
 | Client fetch | `src/lib/client/api-fetch.ts`    | `credentials: "include"` ile BFF çağrısı                   |
-| BFF (public) | `server/api/blogs.ts`            | `GET /api/blogs` — anonim, pipeline dışı                   |
 | BFF (auth)   | `server/api/internal/account.ts` | `GET /api/internal/account/summary` — cookie auth          |
 
 ### Ne zaman hangi mod?
@@ -875,16 +882,10 @@ Sunucu verisi **loader + `gatewayFetch`** ile kalır. Client-side dinamik veri (
 | ------------------------------- | --------------------------------------------- |
 | SEO + cache'lenen ilk içerik    | Route `loader` (SSR)                          |
 | URL ile değişen içerik (`page`) | SSR + `contentQueryParams` cache key          |
-| Client-only filtre (`orderBy`)  | `defer` island + TanStack Query + BFF         |
+| Canlı piyasa fiyatı             | SSR snapshot + `market-live` island + SSE     |
 | Kişisel / oturumlu veri         | `defer` island + TanStack + `/api/internal/*` |
 
 ### Örnekler
-
-**Blog sıralama** — `src/islands/blog-explorer.tsx`
-
-- SSR: varsayılan sıralama (`date-desc`) loader'da, HTML cache'te
-- Client: `orderBy` değişince `useBlogs` → `GET /api/blogs?page=&orderBy=`
-- `orderBy` cache key'de **yok** (doğru)
 
 **Hesabım paneli** — `src/islands/account-dashboard.tsx`
 
@@ -1047,9 +1048,9 @@ statik redirect, internal/external rewrite ve CMS redirect'in ortak utility'sidi
 - Destination'ın kendi duplicate değerleri ve sırası korunur.
 - Destination fragment'i taşınmaz; server `Location` ve proxy hedefinden silinir.
 
-Çalışan mock örneği: destination `/emekli-bankaciligi?source=legacy#cms-fragment`, request
-`/eski-emeklilik?q=kredi&source=incoming` ise sonuç
-`/emekli-bankaciligi?q=kredi&source=legacy` olur. CMS redirect kodunda
+Çalışan mock örneği: destination `/konut-kredisi?source=legacy#cms-fragment`, request
+`/eski-konut-kredisi?q=kredi&source=incoming` ise sonuç
+`/konut-kredisi?q=kredi&source=legacy` olur. CMS redirect kodunda
 `dest.search = ctx.url.search` kullanma.
 
 Uygulama bootstrap sırasında rule tablosunu doğrular. Duplicate veya gölgelenmiş rule, bilinmeyen
@@ -1059,8 +1060,9 @@ alt küme `:param`, final `:param?` ve final `:path*` biçimleridir; koşullu ve
 
 ### Public URL vs internal path
 
-- Route dosyasında **internal path**: `path: "/retirement-banking"`
-- Türkçe public URL için **rewrite**: `{ source: "/emekli-bankaciligi", destination: "/retirement-banking" }`
+- Route dosyasında **internal path**: `path: "/housing-loans"`
+- Türkçe public URL için **rewrite**: `{ source: "/konut-kredisi", destination: "/housing-loans" }`
+- Detaylar aynı kontratı parametreli `{ source: "/konut-kredisi/:slug", destination: "/housing-loans/:slug" }` kuralıyla kullanır.
 - Cache key ve canonical için `ctx.publicPath` kullan (tarayıcıdaki path)
 
 Pattern syntax: `:param` (tek segment), `:path*` (kalan path).

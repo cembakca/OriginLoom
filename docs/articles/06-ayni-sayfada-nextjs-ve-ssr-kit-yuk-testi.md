@@ -1,5 +1,11 @@
 # Aynı Sayfada Next.js ve ssr-kit: Blog Paginated Yük Testi
 
+> Arşiv notu — Bu ölçüm ilk mimari karşılaştırmada kullanılan teknik blog fixture'ına aittir.
+> `/blogs/paginated` UI route'u ve `/blogs` mock endpoint'i gerçek finans sayfaları tamamlanınca
+> production yüzeyinden kaldırıldı. Güncel document-cache örnekleri `/konut-kredisi`,
+> `/kredi-kartlari` ve `/bilgi-merkezi`; bu yazı yalnız tarihsel benchmark metodolojisini korur ve
+> doğrudan çalıştırılabilir güncel bir senaryo olarak okunmamalıdır.
+
 > `nextjs-overhead-poc` ile aynı gateway, aynı UI ve aynı URL üzerinde autocannon ölçümünün yorumu
 
 Bu yazı “Next.js yavaştır” iddiası taşımaz. Yerel makinede, kontrollü ama **asimetrik** bir
@@ -45,7 +51,8 @@ görmek.
 
 ### Yük testi aracı
 
-`npm run bench:compare` ile çalışan `scripts/bench/compare-next.mjs`, [autocannon](https://github.com/mcollina/autocannon) kullanır:
+O tarihte kullanılan ve teknik fixture ile birlikte kaldırılan benchmark script'i,
+[autocannon](https://github.com/mcollina/autocannon) aracını şu parametrelerle çağırıyordu:
 
 ```javascript
 autocannon({
@@ -79,8 +86,8 @@ geçerli istekler üzerinden yapılmış.
 
 Bu farkın büyük bölümü “React vs Next” değil, **route cache varlığı / yokluğu**.
 
-ssr-kit’te `/blogs/paginated?page=2` geçerli bir `page` parametresiyle **shared HTML cache** kullanır
-(`PageCacheId.blogsPaginated`). Autocannon 15 saniye boyunca aynı URL’ye vurduğunda:
+Ölçüm tarihinde ssr-kit’te `/blogs/paginated?page=2` geçerli bir `page` parametresiyle **shared HTML
+cache** kullanıyordu. Autocannon 15 saniye boyunca aynı URL’ye vurduğunda:
 
 1. İlk istek(ler) MISS — loader çalışır, gateway’den blog çekilir, React render, memory’e yazılır.
 2. Sonraki isteklerin büyük çoğunluğu **HIT** — gateway ve loader atlanır; yanıt cache’ten gelir.

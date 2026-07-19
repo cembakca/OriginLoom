@@ -94,11 +94,11 @@ IP, request ID, raw URL ve user ID metric label’ı değildir.
 
 ## Cardinality kontrolü route template ile başlar
 
-`/blogs/paginated?page=2` veya benzersiz ürün slug’ını doğrudan Prometheus label’ına yazmak sonsuz seri
+`/bilgi-merkezi?page=2` veya benzersiz ürün slug’ını doğrudan Prometheus label’ına yazmak sonsuz seri
 üretir. Hono context’teki `requestRoute` normalize şablonu kullanılır:
 
 ```text
-/blogs/paginated
+/bilgi-merkezi
 /konut-kredisi/:slug
 /api/markets/stream
 ```

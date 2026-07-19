@@ -1,6 +1,5 @@
 import { neverCache, sharedUnlessBypass } from "~/lib/cache-policy";
 import { contentQueryCacheFragment, type ContentQueryConfig } from "~/lib/cache-query-params";
-import { parsePage } from "~/lib/content-values";
 import type { DeviceType } from "~/lib/device";
 import { locale } from "~/lib/request";
 import { layoutCacheFragment } from "~/lib/shell-data";

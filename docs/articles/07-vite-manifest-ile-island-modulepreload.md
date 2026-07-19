@@ -155,14 +155,14 @@ bunu açıkça ilan edebilir:
 
 ```tsx
 export default defineRoute({
-  path: "/kredi-hesaplama",
-  preloadIslands: ["filter-panel"],
+  path: "/piyasalar/bist-100",
+  preloadIslands: ["market-live"],
   loader,
-  Component: CreditCalculatorPage,
+  Component: Bist100Page,
 });
 ```
 
-Server `filter-panel` chunk’ını ve recursive static import’larını global listeyle birleştirir. Ortak
+Server `market-live` chunk’ını ve recursive static import’larını global listeyle birleştirir. Ortak
 dosyalar yine tekilleştirilir.
 
 Bu alan DOM’u analiz ederek otomatik doldurulmaz. Route sahibi, island’ın gerçekten ilk yük için

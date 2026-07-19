@@ -163,18 +163,20 @@ provider’ın bütün davranışını kopyalamak değil, tüketicinin ihtiyaç 
 
 Mock gateway’deki endpoint’ler UI’ın hangi upstream yeteneklerine gerçekten bağımlı olduğunu gösterir:
 
-| Method | Endpoint                    | SSR sistemindeki rolü         |
-| ------ | --------------------------- | ----------------------------- |
-| `GET`  | `/pages/menuitem/list`      | Header/footer shell verisi    |
-| `GET`  | `/pages/retirement-banking` | Sayfa içeriği ve SEO          |
-| `GET`  | `/offers`                   | Kredi karşılaştırma verisi    |
-| `GET`  | `/blogs`                    | Pagination ve sıralama        |
-| `GET`  | `/cms/redirects`            | `3xx` ve `410` kararı         |
-| `POST` | `/analytics/bot`            | Bounded bot event batch sink  |
-| `POST` | `/auth/login`               | Access/refresh üretimi        |
-| `POST` | `/auth/refresh`             | Token yenileme                |
-| `GET`  | `/user/profile`             | Authoritative session/profile |
-| `GET`  | `/account/summary`          | Korumalı kişisel data         |
+| Method | Endpoint                                | SSR sistemindeki rolü             |
+| ------ | --------------------------------------- | --------------------------------- |
+| `GET`  | `/pages/menuitem/list`                  | Header/footer shell verisi        |
+| `GET`  | `/finance/housing-loans`                | Filtreli/paginated kredi kataloğu |
+| `GET`  | `/finance/credit-cards/:slug`           | Kritik kart detay verisi          |
+| `GET`  | `/finance/credit-cards/:slug/campaigns` | Suspense ile deferred kampanyalar |
+| `GET`  | `/content/articles`                     | Bilgi Merkezi listesi             |
+| `GET`  | `/content/articles/popular`             | Fragment-cache widget verisi      |
+| `GET`  | `/cms/redirects`                        | `3xx` ve `410` kararı             |
+| `POST` | `/analytics/bot`                        | Bounded bot event batch sink      |
+| `POST` | `/auth/login`                           | Access/refresh üretimi            |
+| `POST` | `/auth/refresh`                         | Token yenileme                    |
+| `GET`  | `/user/profile`                         | Authoritative session/profile     |
+| `GET`  | `/account/summary`                      | Korumalı kişisel data             |
 
 Bu tablo provider’ın bütün API kataloğu değildir. Consumer-driven bir kesittir: SSR uygulamasının
 bugün kullandığı operation ve alanlar.
@@ -394,7 +396,7 @@ Her gateway kullanımı aynı kritiklikte olmadığı için failure davranışı
 | CMS redirect lookup                | Warning + redirect yokmuş gibi devam        | Yardımcı karar; sayfayı tamamen düşürmemeli        |
 | Bot analytics write                | Warning, response beklenmez                 | Kullanıcı yolunu bloklamayan telemetry             |
 | Menu/shell fetch                   | Cache yoksa render hatası                   | Temel document bağımlılığı; sahte menü gösterilmez |
-| Page/offers/blogs                  | Handler error veya ilgili API hatası        | İçerik üretilemiyorsa görünür olmalı               |
+| Ürün/içerik katalogları            | Handler error veya ilgili API hatası        | İçerik üretilemiyorsa görünür olmalı               |
 | User profile/account `401`         | Unauthorized state                          | Credential reddedildi                              |
 | User profile/account `5xx`/network | `503`, session korunur                      | Provider unavailable, kullanıcı logout edilmez     |
 | Redis cache                        | Fail-open cache miss veya readiness failure | `CACHE_REQUIRED` operasyon politikasına bağlı      |
@@ -695,7 +697,7 @@ Uygulama ve mock gateway tek satırlık JSON log üretiyor:
 {
   "level": "info",
   "msg": "request",
-  "path": "/ihtiyac-kredisi/istanbul",
+  "path": "/konut-kredisi",
   "status": 200,
   "cache": "HIT",
   "durationMs": 8,
@@ -767,7 +769,7 @@ tek event yerine üst sınırı doğrulanan bir batch alır:
 {
   "events": [
     {
-      "pathname": "/blogs",
+      "pathname": "/bilgi-merkezi",
       "userAgent": "ExampleBot/1.0",
       "trackingId": "..."
     }

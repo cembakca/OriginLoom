@@ -76,10 +76,10 @@ flowchart TB
     D --> C["Public page content"]
     D --> F["Public footer HTML"]
     D --> I1["user-chrome · defer"]
-    D --> I2["filter-panel · hydrate"]
+    D --> I2["market-live · defer"]
     D --> I3["account-dashboard · defer"]
     I1 --> B1["Browser state / UI hint"]
-    I2 --> B2["Server HTML'i reuse et"]
+    I2 --> B2["SSR snapshot + güvenli SSE"]
     I3 --> B3["Same-origin BFF + HttpOnly cookie"]
 ```
 
@@ -133,11 +133,11 @@ görünmesini istemiyoruz.
 Merkezi serializer şu dönüşümü uygular:
 
 ```ts
-serializeEmbeddedJson({ publicPath: "/blogs/paginated?page=2" });
-// {"publicPath":"\/blogs\/paginated?page=2"}
+serializeEmbeddedJson({ publicPath: "/bilgi-merkezi?page=2" });
+// {"publicPath":"\/bilgi-merkezi?page=2"}
 
 parseEmbeddedJson(serialized);
-// { publicPath: "/blogs/paginated?page=2" }
+// { publicPath: "/bilgi-merkezi?page=2" }
 ```
 
 Bu double encoding değildir. `\/`, JSON standardında `/` karakterinin eşdeğer escape temsilidir.
@@ -146,7 +146,7 @@ DOM `dataset.props` değeri backslash'ı korur; `JSON.parse` bunu slash'a çevir
 zaten verdiği garantiyi tekrarlar.
 
 Serializer bütün island'ların geçtiği `Island` component'inde olduğu için `layout-client`,
-`page-analytics`, menu/footer, blog ve gelecekteki island'lar aynı kontratı kullanır. Gerçek fallback
+`page-analytics`, menu/footer, piyasa ve gelecekteki island'lar aynı kontratı kullanır. Gerçek fallback
 `<a href>` linkleri escape edilmez; crawler'a göstermek istediğimiz linkler onlar olduğu için ham
 kalır. `<`, `>`, `&`, U+2028 ve U+2029 escape'leri de aynı boundary'de uygulanır. Escape bir security
 sınırı değildir: secret veya kişisel veri island prop'una yine konamaz.
@@ -158,11 +158,13 @@ ayrı model.
 
 ### `hydrate`: Aynı public HTML’i uyandır
 
-Kredi filtre paneli server’da gerçek kontrol ve değerleriyle render edilir:
+Mevcut finans route'larında `hydrate` kullanan bir island yoktur; URL tabanlı filtreler server-rendered
+form olarak kalır. İleride etkileşimli bir hesaplayıcı aynı public HTML'i uyandıracaksa kontrat şöyle
+olur:
 
 ```tsx
-<Island name="filter-panel" mode="hydrate" props={{ amount: data.amount, city: data.city }}>
-  <FilterPanel amount={data.amount} city={data.city} />
+<Island name="loan-calculator" mode="hydrate" props={{ amount: data.amount, term: data.term }}>
+  <LoanCalculator amount={data.amount} term={data.term} />
 </Island>
 ```
 

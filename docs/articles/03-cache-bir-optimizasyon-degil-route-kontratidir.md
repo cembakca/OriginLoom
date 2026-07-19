@@ -67,8 +67,8 @@ ihlalidir.
 entry’yi paylaşmalıdır:
 
 ```text
-/blogs/paginated?page=1&utm_source=google
-/blogs/paginated?page=1&utm_source=newsletter
+/konut-kredisi?amount=2500000&page=1&utm_source=google
+/konut-kredisi?amount=2500000&page=1&utm_source=newsletter
 ```
 
 UTM değerini key’e eklersek correctness bozulmaz; fakat her kampanya, reklam seti ve tracking değeri
@@ -248,7 +248,7 @@ verebiliyor.
 Şu request’i ele alalım:
 
 ```text
-/ihtiyac-kredisi/istanbul?amount=100000&utm_source=google
+/konut-kredisi?amount=2500000&term=120&utm_source=google
 ```
 
 Bu route için registry tanımı özünde şöyledir:
@@ -409,8 +409,8 @@ partition tasarımı ve ayrı güvenlik modeli gerekir. Bu proje full HTML’de 
 
 ## Rewrite sonrası hangi path key’e girer?
 
-`/emekli-bankaciligi` tarayıcıda görünen public URL iken internal route
-`/retirement-banking` olabilir. Cache key yalnız internal route adından oluşursa farklı public URL’ler
+`/konut-kredisi` tarayıcıda görünen public URL iken internal route
+`/housing-loans` olabilir. Cache key yalnız internal route adından oluşursa farklı public URL’ler
 istemeden birleşebilir. Canonical, analytics veya sayfa içi linkler public path’e göre değişiyorsa bu
 yanlış HTML paylaşımıdır.
 
@@ -548,7 +548,7 @@ propagation route/service kontratının parçasıdır.
 ### Cardinality'yi key formatı değil, input domain'i sınırlar
 
 Bir parametreyi 64 karakterde kesmek key boyutunu sınırlar; farklı key sayısını sınırlamaz. Örneğin
-`/ihtiyac-kredisi/random-1`, `random-2`, `random-3` hâlâ sonsuz bir Redis entry akışına dönüşebilir.
+`/konut-kredisi/random-1`, `random-2`, `random-3` hâlâ sonsuz bir Redis entry akışına dönüşebilir.
 Bu nedenle kredi şehirleri ve başvuru sayfaları deployment env'inde tutulan bir allowlist'ten değil,
 gateway/CMS'in yayınladığı route-domain snapshot'ından doğrulanıyor. İş verisini env'e koymak iki
 source-of-truth, config drift ve her içerik değişiminde deployment zorunluluğu üretirdi. Snapshot
@@ -902,7 +902,7 @@ Her HTML response `x-cache` taşır ve aynı state structured request log’una 
 
 ```json
 {
-  "path": "/ihtiyac-kredisi/istanbul",
+  "path": "/konut-kredisi",
   "status": 200,
   "cache": "STALE",
   "durationMs": 7,
