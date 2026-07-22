@@ -1,0 +1,13 @@
+# Redis-backed shared cache profile.
+
+services:
+  app:
+    depends_on:
+      mock-gw:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      CACHE_BACKEND: redis
+      CACHE_REQUIRED: "true"
+      REDIS_URL: redis://redis:6379

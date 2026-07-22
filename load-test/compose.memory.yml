@@ -1,0 +1,8 @@
+# In-memory cache profile — no Redis dependency.
+
+services:
+  app:
+    environment:
+      CACHE_BACKEND: memory
+      CACHE_REQUIRED: "false"
+      REDIS_URL: ""

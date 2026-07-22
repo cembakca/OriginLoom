@@ -88,6 +88,24 @@ describe("server config", () => {
     ).rejects.toThrow("CACHE_BACKEND=memory is not supported in production");
   });
 
+  it("allows memory cache in production only for APP_ENV=loadtest", async () => {
+    await expect(
+      validateWith({
+        NODE_ENV: "production",
+        APP_ENV: "loadtest",
+        CACHE_BACKEND: "memory",
+        GATEWAY_URL: "http://127.0.0.1:4002",
+        ALLOW_INSECURE_GATEWAY: "true",
+        SITE_URL: "http://127.0.0.1:31005",
+        CACHE_PURGE_SECRET: "loadtest-purge-secret",
+        REFERRAL_STATS_SECRET: "loadtest-referral-stats-secret",
+        MARKET_STREAM_TOKEN: "loadtest-market-stream-token",
+        AUTH_REFRESH_COORDINATION_SECRET: "loadtest-auth-coordination-secret",
+        RELEASE_ID: "loadtest",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("requires a dedicated production token for referral statistics", async () => {
     await expect(
       validateWith({

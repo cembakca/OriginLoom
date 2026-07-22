@@ -199,6 +199,29 @@ npm run build
 npm run ci
 ```
 
+## Yük testi ve pentest hazırlığı
+
+Docker üzerinde **2 vCPU / 4 GiB** sınırlı production build ile cache profili karşılaştırması:
+
+```bash
+npm run loadtest:memory
+npm run loadtest:redis
+npm run loadtest:compare
+```
+
+Kapasite kırma (503/504 bilinçli): `npm run stress:memory` / `npm run stress:redis`. Kısa: `--quick`.
+
+Kılavuz: [load-testing.md](docs/load-testing.md), [load-test/README.md](load-test/README.md).
+
+Staging pentest öncesi otomatik kontrol:
+
+```bash
+BASE_URL=https://staging.example.com npm run pentest:readiness
+```
+
+Rehber: [pentest-prep.md](docs/pentest-prep.md), firmaya iletilecek şablon:
+[pentest-brief-template.md](docs/pentest-brief-template.md).
+
 ## Gözlemlenebilirlik
 
 `server/instrumentation.ts` process başına bir kez OpenTelemetry SDK'yı başlatır ve graceful

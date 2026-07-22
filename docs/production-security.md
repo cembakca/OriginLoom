@@ -37,8 +37,11 @@ Retry-After` verir. Kredi hesaplama ve SSE için yük/admission testi yapılır.
    malformed/oversized payload sınıflarını kapsar. `5xx` sırasında auth cookie'sinin silinmediği
    browser üzerinden doğrulanır.
 9. Staging DAST ve bağımsız pentest bulgularında açık Critical/High kalmaz. Finansal mutation, ödeme
-   veya kişisel veri eklendiğinde tehdit modeli ve pentest yeniden açılır.
+   veya kişisel veri eklendiğinde tehdit modeli ve pentest yeniden açılır. Pentest öncesi checklist:
+   [pentest-prep.md](./pentest-prep.md) ve `npm run pentest:readiness`.
 10. Alert route, on-call sahibi, log/trace retention ve rollback tatbikatı kayıt altındadır.
+11. Release adayında Docker load test (`npm run loadtest:memory`, `npm run loadtest:redis`) regresyon
+    raporu eklenir — bkz. [load-testing.md](./load-testing.md).
 
 ## Secret rotation
 
