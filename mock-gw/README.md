@@ -27,7 +27,7 @@ Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Do
 | GET    | `/finance/housing-loans/:slug?...`      | Konut kredisi detay ve ödeme örneği       |
 | GET    | `/finance/credit-cards?...`             | Kredi kartı filtreleme ve pagination      |
 | GET    | `/finance/credit-cards/:slug`           | Stream öncesi kritik kart detayı          |
-| GET    | `/finance/credit-cards/:slug/campaigns` | Suspense ile stream edilen kampanyalar    |
+| GET    | `/finance/credit-cards/:slug/campaigns` | Suspense ile stream edilen kampanyalar (varsayılan ~1.5s gecikme) |
 | GET    | `/finance/calculators/loans?...`        | Sürümlü taksit ve ödeme planı hesabı      |
 | GET    | `/finance/credit-cards/compare?...`     | Bounded 2–3 kart karşılaştırması          |
 | GET    | `/finance/banks/:slug`                  | Banka profili ve ürün koleksiyonları      |
@@ -72,3 +72,7 @@ Canlı piyasa endpoint'i public browser endpoint'i değildir. `MARKET_STREAM_TOK
 BFF tarafından açılır, en fazla 100 doğrulanmış sembol kabul eder ve monotonic sequence taşıyan bounded
 quote batch'leri üretir. Browser yalnız UI uygulamasındaki aynı-origin `/api/markets/stream` kanalını
 görür.
+
+`/finance/credit-cards/:slug/campaigns` endpoint'i, `/kredi-kartlari/:slug` sayfasındaki React Suspense
+streaming demosunun görünür olması için varsayılan olarak ~1.5 saniye bekler. Gecikmeyi kapatmak veya
+değiştirmek için `MOCK_GW_CAMPAIGN_STREAM_DELAY_MS` kullanın (`0` = anında).

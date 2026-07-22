@@ -27,6 +27,12 @@ const housingSorts = new Set([
 const cardSorts = new Set(["recommended", "annual-fee-asc", "campaign-count-desc"]);
 const cardTypes = new Set(["classic", "premium", "student", "no-fee", "digital"]);
 const calculatorTerms = [12, 24, 36, 48, 60, 84, 120];
+/** Suspense/streaming demosu için kampanya endpoint gecikmesi (ms). 0 ile kapatılır. */
+const CAMPAIGN_STREAM_DELAY_MS = Number(process.env.MOCK_GW_CAMPAIGN_STREAM_DELAY_MS ?? 1500);
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function resolveFinanceRequest(request, url, readJson) {
   if (request.method === "GET" && url.pathname === "/finance/housing-loans") {
@@ -75,6 +81,9 @@ export async function resolveFinanceRequest(request, url, readJson) {
 
   const campaignSlug = pathSlug(url.pathname, "/finance/credit-cards/", "/campaigns");
   if (request.method === "GET" && campaignSlug) {
+    if (CAMPAIGN_STREAM_DELAY_MS > 0) {
+      await sleep(CAMPAIGN_STREAM_DELAY_MS);
+    }
     const card = creditCards.find((item) => item.slug === campaignSlug);
     return card
       ? { status: 200, body: { card: summaryCard(card), campaigns: campaignsFor(card.slug) } }
