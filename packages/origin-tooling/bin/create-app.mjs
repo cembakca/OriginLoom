@@ -28,15 +28,26 @@ async function main() {
     fail("Not inside an OriginLoom workspace (no pnpm-workspace.yaml found).");
   }
 
-  const name = options.name ?? (await promptName());
-  assertValidName(name);
+  const prompt = await createPrompter(options);
 
-  const appDir = join(workspaceRoot, "apps", name);
-  if (existsSync(appDir)) {
-    fail(`apps/${name} already exists.`);
+  let name;
+  let title;
+  try {
+    name = options.name ?? (await prompt("Project name (kebab-case, e.g. investment-web): "));
+    assertValidName(name);
+
+    if (existsSync(join(workspaceRoot, "apps", name))) {
+      fail(`apps/${name} already exists.`);
+    }
+
+    const suggested = titleCase(name);
+    title = options.title ?? (await prompt(`Display title [${suggested}]: `));
+    if (!title) title = suggested;
+  } finally {
+    prompt.close();
   }
 
-  const title = options.title ?? (await promptTitle(name));
+  const appDir = join(workspaceRoot, "apps", name);
   const port = options.port ?? 3010;
   const metricsPort = port + 6000;
 
@@ -79,25 +90,42 @@ function parseArgs(argv) {
   return options;
 }
 
-async function promptName() {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    const answer = await rl.question("Project name (kebab-case, e.g. investment-web): ");
-    return answer.trim();
-  } finally {
-    rl.close();
+/**
+ * Prompts from a terminal, or consumes piped lines so the generator stays
+ * scriptable. Answers supplied as flags are never prompted for.
+ */
+async function createPrompter(options) {
+  if (options.name !== undefined && options.title !== undefined) {
+    const noop = async () => "";
+    noop.close = () => {};
+    return noop;
   }
+
+  if (process.stdin.isTTY) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const ask = async (question) => (await rl.question(question)).trim();
+    ask.close = () => rl.close();
+    return ask;
+  }
+
+  const piped = (await readStdin()).split("\n");
+  let index = 0;
+  const ask = async (question) => {
+    const answer = (piped[index++] ?? "").trim();
+    process.stdout.write(`${question}${answer}\n`);
+    return answer;
+  };
+  ask.close = () => {};
+  return ask;
 }
 
-async function promptTitle(name) {
-  const suggested = titleCase(name);
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    const answer = await rl.question(`Display title [${suggested}]: `);
-    return answer.trim() || suggested;
-  } finally {
-    rl.close();
-  }
+function readStdin() {
+  return new Promise((resolvePromise) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => (data += chunk));
+    process.stdin.on("end", () => resolvePromise(data));
+  });
 }
 
 function assertValidName(name) {
