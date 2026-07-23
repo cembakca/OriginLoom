@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest";
-
 import {
   contentQueryCacheFragment,
   contentSearchString,
@@ -7,6 +5,7 @@ import {
   isTrackingQueryParam,
 } from "@originloom/react/lib/cache-query-params";
 import type { Ctx } from "@originloom/react/lib/types";
+import { describe, expect, it } from "vitest";
 
 function ctx(url: string, overrides: Partial<Ctx> = {}): Ctx {
   const parsed = new URL(url);

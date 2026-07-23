@@ -76,8 +76,9 @@ vi.mock("ioredis", () => ({
   },
 }));
 
-import { formatCacheKey } from "~/lib/cache-keys";
 import type { Route } from "@originloom/react/lib/types";
+
+import { formatCacheKey } from "~/lib/cache-keys";
 
 const assets = { js: "/assets/entry.client.js", css: [], fonts: [] };
 const homeRoute = home as Route;

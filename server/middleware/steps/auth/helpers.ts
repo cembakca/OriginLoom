@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 
+import { cookie } from "@originloom/react/lib/request";
+import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
+import { stripUndefined } from "@originloom/react/lib/strip-undefined";
 import { gatewayFetch } from "@server/adapters/gateway";
 import {
   acquireCoordinationLock,
@@ -11,10 +14,6 @@ import { config } from "@server/config";
 import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
 import type { CookieJar } from "@server/middleware/cookie-jar";
 import { Cookie } from "@server/middleware/types";
-
-import { cookie } from "@originloom/react/lib/request";
-import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
 
 import { createRefreshCoordinationCodec } from "./refresh-coordination-crypto";
 import type { RefreshResult } from "./refresh-result";

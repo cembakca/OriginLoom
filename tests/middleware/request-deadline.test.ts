@@ -1,3 +1,4 @@
+import type { Route } from "@originloom/react/lib/types";
 import { renderMetrics } from "@server/metrics";
 import {
   contextRequest,
@@ -7,8 +8,6 @@ import {
 import { type AppVariables, requestId } from "@server/middleware/request-id";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-
-import type { Route } from "@originloom/react/lib/types";
 
 const slowRoute: Route = {
   path: "/slow",

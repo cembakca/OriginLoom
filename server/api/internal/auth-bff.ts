@@ -1,3 +1,4 @@
+import { Cookie } from "@originloom/react/lib/cookies";
 import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
 import { runAuthCore } from "@server/middleware/steps/auth/core";
 import {
@@ -8,8 +9,6 @@ import {
   setSessionCookies,
   setTokenCookies,
 } from "@server/middleware/steps/auth/helpers";
-
-import { Cookie } from "@originloom/react/lib/cookies";
 
 export type BffAuthResult =
   | { kind: "authorized"; request: Request; cookies: CookieJar }

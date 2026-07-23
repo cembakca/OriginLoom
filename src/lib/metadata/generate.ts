@@ -2,10 +2,9 @@ import {
   normalizeCanonicalUrl,
   normalizeMetadataImageUrl,
 } from "@originloom/react/lib/content-url";
+import type { PageMetadata, SeoInfo } from "@originloom/react/lib/metadata/types";
 import { stripUndefined } from "@originloom/react/lib/strip-undefined";
 import type { Ctx } from "@originloom/react/lib/types";
-
-import type { PageMetadata, SeoInfo } from "@originloom/react/lib/metadata/types";
 
 /** Public absolute URL from browser-visible path. */
 export function publicAbsoluteUrl(ctx: Ctx, path?: string): string {

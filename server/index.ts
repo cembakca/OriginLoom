@@ -1,9 +1,9 @@
 import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
-
 import { configureRouting } from "@originloom/react/routing";
-import { createRewrites, redirects, rewrites } from "~/routing/rules";
 import { validateRoutingRules } from "@originloom/react/routing/validate";
+
+import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
 import { mountApi } from "./api";
 import { mountCachePurgeRoutes } from "./api/internal/cache-purge";

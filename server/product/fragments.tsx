@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import type { DeviceType } from "@originloom/react/lib/device";
+import type { Ctx } from "@originloom/react/lib/types";
 import { getOrSetFragmentByName } from "@server/cache/fragment";
 import { productConfig } from "@server/product/config";
 import type { FragmentDefinition } from "@server/runtime";
@@ -8,9 +10,7 @@ import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
 import { Footer } from "~/components/layout/footer";
 import { Header } from "~/components/layout/header";
 import { PopularKnowledgeArticles } from "~/features/knowledge-center/popular-articles";
-import type { DeviceType } from "@originloom/react/lib/device";
 import type { ShellData } from "~/lib/shell-data";
-import type { Ctx } from "@originloom/react/lib/types";
 
 export function headerFragmentKey(device: DeviceType): string {
   return `fragment:header:${device}`;

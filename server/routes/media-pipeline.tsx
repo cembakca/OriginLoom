@@ -1,3 +1,5 @@
+import { imagePreload } from "@originloom/react/lib/media";
+import { defineRoute } from "@originloom/react/lib/types";
 import { config } from "@server/config";
 import { responsiveImage, unoptimizedImage } from "@server/media";
 
@@ -7,10 +9,8 @@ import {
   MediaPipelinePage,
 } from "~/features/media-pipeline/page";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { imagePreload } from "@originloom/react/lib/media";
 import { generateMetaDataForPageWithSeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute } from "@originloom/react/lib/types";
 
 export default defineRoute<MediaPipelineData>({
   path: "/medya-pipeline",

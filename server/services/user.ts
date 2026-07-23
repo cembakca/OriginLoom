@@ -1,9 +1,9 @@
+import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import type { UserProfile } from "~/lib/contracts/account";
-import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
 
 const INVALID_PROFILE = "Profile gateway returned an invalid payload";
 

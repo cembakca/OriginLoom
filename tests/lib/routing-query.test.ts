@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vitest";
-
 import { mergeSearchParams } from "@originloom/react/routing";
+import { describe, expect, it } from "vitest";
 
 describe("routing query merge", () => {
   it("preserves incoming values and lets destination values win by key", () => {

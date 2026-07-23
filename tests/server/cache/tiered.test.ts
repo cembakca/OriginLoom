@@ -47,7 +47,7 @@ vi.mock("ioredis", () => ({
     });
     on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       if (event === "message") {
-        this.messageHandler = handler as (channel: string, message: string) => void;
+        this.messageHandler = handler;
       }
     });
     duplicate = vi.fn(() => new RedisMock());

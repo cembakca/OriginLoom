@@ -144,6 +144,13 @@ export default tseslint.config(
     },
   },
   {
+    // Workspace packages use plain relative imports; the ~/@server aliases are app-only.
+    files: ["packages/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
+  {
     languageOptions: {
       globals: globals.browser,
     },

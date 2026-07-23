@@ -3,7 +3,6 @@ import { Cookie } from "../cookies";
 import { getOriginalLocation, setOriginalLocation } from "../stores/session-store";
 import { getUserInfo } from "../stores/user-info-store";
 import { stripUndefined } from "../strip-undefined";
-
 import { pushDataLayer, signalReactReady } from "./data-layer";
 import type { PageAnalyticsMeta, PageDetails } from "./types";
 

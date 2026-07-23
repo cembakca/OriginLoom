@@ -1,9 +1,10 @@
-import { Container, Logo } from "~/components/ui/container";
 import type { DeviceType } from "@originloom/react/lib/device";
 import { getDeviceShell } from "@originloom/react/lib/device";
 import { serializeNavItems } from "@originloom/react/lib/menu/serialize";
 import type { IMenuItems } from "@originloom/react/lib/menu/types";
 import { sortNavItems, topNavItems } from "@originloom/react/lib/menu/utils";
+
+import { Container, Logo } from "~/components/ui/container";
 
 import { DesktopNavBar, MobileMenuSlot, UserChromeSlot } from "./nav-parts";
 

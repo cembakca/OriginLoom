@@ -1,10 +1,9 @@
+import { isRecord } from "@originloom/react/lib/runtime-schema";
 import { gatewayFetch } from "@server/adapters/gateway";
 import { config } from "@server/config";
 import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 import { logger } from "@server/logger";
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
-
-import { isRecord } from "@originloom/react/lib/runtime-schema";
 
 export type CmsRedirectRule =
   { kind: "redirect"; destination: string; status: 301 | 302 | 307 | 308 } | { kind: "gone" };

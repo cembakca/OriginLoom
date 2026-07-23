@@ -1,11 +1,10 @@
+import type { Ctx, Route } from "@originloom/react/lib/types";
 import type { Assets } from "@server/assets";
 import { config } from "@server/config";
 import { logError } from "@server/logger";
 import { observeRevalidation } from "@server/metrics";
 import { SpanKind, SpanStatusCode, withSpan } from "@server/observability";
 import { runLoader, runRender } from "@server/ssr/execute-route";
-
-import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import * as cache from "./index";
 

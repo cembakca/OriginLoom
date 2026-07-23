@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getPopularKnowledgeArticles = vi.hoisted(() => vi.fn());
 vi.mock("@server/services/knowledge-center", () => ({ getPopularKnowledgeArticles }));
 
+import type { Ctx } from "@originloom/react/lib/types";
 import { closeCache, initCache, read, write } from "@server/cache";
 import { fragmentCacheKey, getOrSetFragmentByName } from "@server/cache/fragment";
 import { executePurge } from "@server/cache/purge";
@@ -16,7 +17,6 @@ import { productRuntime } from "@server/product/runtime";
 import { installRuntime } from "@server/runtime";
 
 import type { ShellData } from "~/lib/shell-data";
-import type { Ctx } from "@originloom/react/lib/types";
 
 describe("fragment cache", () => {
   beforeEach(async () => {

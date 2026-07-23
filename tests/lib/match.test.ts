@@ -1,8 +1,7 @@
-import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
-
 import { match } from "@originloom/react/lib/match";
 import type { Route } from "@originloom/react/lib/types";
+import type { ReactElement } from "react";
+import { describe, expect, it } from "vitest";
 
 const stub = (path: string): Route => ({
   path,

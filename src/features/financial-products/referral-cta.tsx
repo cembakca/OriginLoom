@@ -1,6 +1,7 @@
+import { cn } from "@originloom/react/lib/utils";
+
 import { buttonVariants } from "~/components/ui/button";
 import { referralProductByGatewayType } from "~/lib/referral-products";
-import { cn } from "@originloom/react/lib/utils";
 
 export function ReferralCta({
   productType,

@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest";
-
 import { getDeviceShell, getDeviceType } from "@originloom/react/lib/device";
 import type { MenuItem } from "@originloom/react/lib/menu/types";
 import {
@@ -8,6 +6,7 @@ import {
   sortNavItems,
   topNavItems,
 } from "@originloom/react/lib/menu/utils";
+import { describe, expect, it } from "vitest";
 
 describe("device", () => {
   it("maps desktop UA to Desktop shell", () => {

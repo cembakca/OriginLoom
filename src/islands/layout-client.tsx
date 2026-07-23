@@ -1,10 +1,10 @@
-import { useLayoutEffect } from "react";
-
 import { hasAuthCookies, readCookie } from "@originloom/react/lib/client/cookies";
 import { Cookie } from "@originloom/react/lib/cookies";
-import type { LayoutClientProps } from "~/lib/shell-data";
 import { seedSession } from "@originloom/react/lib/stores/session-store";
 import { seedUserInfo } from "@originloom/react/lib/stores/user-info-store";
+import { useLayoutEffect } from "react";
+
+import type { LayoutClientProps } from "~/lib/shell-data";
 
 /** Store bootstrap — Header/Footer SSR; burada sadece session + auth store. */
 export default function LayoutClient(props: LayoutClientProps) {

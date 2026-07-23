@@ -1,3 +1,9 @@
+import {
+  normalizeMetadataImageUrl,
+  normalizeNavigationUrl,
+} from "@originloom/react/lib/content-url";
+import type { DeviceType } from "@originloom/react/lib/device";
+import type { IMenuItems, MenuItem } from "@originloom/react/lib/menu/types";
 import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import * as cache from "@server/cache";
 import { config } from "@server/config";
@@ -5,12 +11,6 @@ import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 import { productConfig } from "@server/product/config";
 
 import { menuCacheKey } from "~/lib/cache-keys";
-import {
-  normalizeMetadataImageUrl,
-  normalizeNavigationUrl,
-} from "@originloom/react/lib/content-url";
-import type { DeviceType } from "@originloom/react/lib/device";
-import type { IMenuItems, MenuItem } from "@originloom/react/lib/menu/types";
 
 const MAX_MENU_DEPTH = 3;
 const MAX_MENU_ITEMS = 200;

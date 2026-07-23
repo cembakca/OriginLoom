@@ -1,6 +1,6 @@
-import type { Stock } from "~/lib/contracts/markets";
-
 import type { JsonLdObject } from "@originloom/react/lib/metadata/jsonld";
+
+import type { Stock } from "~/lib/contracts/markets";
 
 export function stockItemListJsonLd(stocks: Stock[]): JsonLdObject | null {
   if (stocks.length === 0) return null;

@@ -1,8 +1,7 @@
+import { Cookie } from "@originloom/react/lib/cookies";
 import { handleAuthSessionApi } from "@server/api/internal/auth-session";
 import { handleRefresh } from "@server/api/internal/auth-session";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { Cookie } from "@originloom/react/lib/cookies";
 
 const originalNodeEnv = process.env.NODE_ENV;
 

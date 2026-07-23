@@ -1,19 +1,19 @@
-import { getKnowledgeArticles } from "@server/services/knowledge-center";
-
-import { KnowledgeCenterPage } from "~/features/knowledge-center/article-list";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { neverCache } from "@originloom/react/lib/cache-policy";
 import { resolvePageParam } from "@originloom/react/lib/content-values";
-import type { KnowledgeArticleList } from "~/lib/contracts/knowledge-center";
-import { knowledgeSearch } from "~/lib/knowledge-query";
-import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import {
   breadcrumbJsonLd,
   compactJsonLd,
   itemListJsonLd,
 } from "@originloom/react/lib/metadata/jsonld";
-import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
+import { getKnowledgeArticles } from "@server/services/knowledge-center";
+
+import { KnowledgeCenterPage } from "~/features/knowledge-center/article-list";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import type { KnowledgeArticleList } from "~/lib/contracts/knowledge-center";
+import { knowledgeSearch } from "~/lib/knowledge-query";
+import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<KnowledgeArticleList>({
   path: "/bilgi-merkezi",

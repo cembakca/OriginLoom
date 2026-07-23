@@ -1,11 +1,12 @@
+import type { NavItemProp } from "@originloom/react/lib/menu/serialize";
+import { linkRel } from "@originloom/react/lib/menu/utils";
+
 import {
   AccordionContent,
   AccordionItem,
   AccordionRoot,
   AccordionTrigger,
 } from "~/components/ui/accordion";
-import type { NavItemProp } from "@originloom/react/lib/menu/serialize";
-import { linkRel } from "@originloom/react/lib/menu/utils";
 
 type Props = { items: NavItemProp[] };
 

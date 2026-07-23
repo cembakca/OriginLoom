@@ -1,9 +1,10 @@
+import { Island } from "@originloom/react/lib/island";
+
 import { CatalogPagination } from "~/components/catalog-pagination";
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
 import { MarketLiveTable } from "~/features/markets/market-live-table";
 import type { StockList } from "~/lib/contracts/markets";
-import { Island } from "@originloom/react/lib/island";
 
 export function Bist100Page({ data }: { data: StockList }) {
   return (

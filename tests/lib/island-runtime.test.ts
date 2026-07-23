@@ -1,11 +1,10 @@
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it, vi } from "vitest";
-
 import {
   bootstrapIslandElements,
   createIslandMountWatchdog,
   loadIslandModule,
 } from "@originloom/react/lib/client/island-runtime";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
   vi.useRealTimers();

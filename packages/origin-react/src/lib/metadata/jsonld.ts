@@ -1,5 +1,4 @@
 import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url";
-
 import type { ResolvedMetadata } from "./types";
 
 export type JsonLdPrimitive = string | number | boolean | null;

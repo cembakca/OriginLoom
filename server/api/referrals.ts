@@ -1,3 +1,7 @@
+import { normalizeNavigationUrl } from "@originloom/react/lib/content-url";
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { Cookie } from "@originloom/react/lib/cookies";
+import { cookie } from "@originloom/react/lib/request";
 import { config } from "@server/config";
 import { observeReferralRedirect } from "@server/metrics/referrals";
 import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
@@ -8,11 +12,7 @@ import { guardPublicApi, type PublicApiPolicy } from "@server/security/public-ap
 import { createReferral } from "@server/services/financial-products";
 import type { Hono } from "hono";
 
-import { normalizeNavigationUrl } from "@originloom/react/lib/content-url";
-import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
-import { Cookie } from "@originloom/react/lib/cookies";
 import { referralProductByPublicType } from "~/lib/referral-products";
-import { cookie } from "@originloom/react/lib/request";
 
 const REFERRAL_SESSION_MAX_AGE = 86_400 * 30;
 const referralPolicy: PublicApiPolicy = {

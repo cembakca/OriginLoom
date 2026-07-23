@@ -1,10 +1,9 @@
-import { describe, expect, it } from "vitest";
-
 import {
   normalizeCanonicalUrl,
   normalizeMetadataImageUrl,
   normalizeNavigationUrl,
 } from "@originloom/react/lib/content-url";
+import { describe, expect, it } from "vitest";
 
 const siteUrl = "https://www.example.com";
 

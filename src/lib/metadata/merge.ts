@@ -2,16 +2,16 @@ import {
   normalizeCanonicalUrl,
   normalizeMetadataImageUrl,
 } from "@originloom/react/lib/content-url";
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
-import type { Ctx } from "@originloom/react/lib/types";
-
 import { baseStructuredData } from "@originloom/react/lib/metadata/jsonld";
-import { siteMetadata } from "./site-defaults";
 import type {
   PageMetadata,
   ResolvedMetadata,
   SiteMetadataConfig,
 } from "@originloom/react/lib/metadata/types";
+import { stripUndefined } from "@originloom/react/lib/strip-undefined";
+import type { Ctx } from "@originloom/react/lib/types";
+
+import { siteMetadata } from "./site-defaults";
 
 function formatTitle(pageTitle: string | undefined, site: SiteMetadataConfig): string {
   if (!pageTitle || pageTitle === site.title.default) return site.title.default;

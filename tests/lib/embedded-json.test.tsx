@@ -1,8 +1,7 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-
 import { parseEmbeddedJson, serializeEmbeddedJson } from "@originloom/react/lib/embedded-json";
 import { Island } from "@originloom/react/lib/island";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
 
 describe("embedded JSON", () => {
   it("escapes crawler-visible solidus values and round-trips without manual replacement", () => {

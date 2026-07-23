@@ -1,11 +1,10 @@
+import { parseTheme } from "@originloom/react/lib/content-values";
+import { cookie } from "@originloom/react/lib/request";
 import { sanitizeUuid, sanitizeValue } from "@server/middleware/sanitize";
 import { cloneRequestWithHeaders } from "@server/middleware/sequential";
 import type { MiddlewareStep } from "@server/middleware/types";
 import { Cookie } from "@server/middleware/types";
 import { tryGetRuntime } from "@server/runtime";
-
-import { parseTheme } from "@originloom/react/lib/content-values";
-import { cookie } from "@originloom/react/lib/request";
 
 const BOT_UA = /bot|crawl|spider|slurp|bingpreview/i;
 

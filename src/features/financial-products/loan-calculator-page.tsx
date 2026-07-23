@@ -1,7 +1,8 @@
+import { Island } from "@originloom/react/lib/island";
+
 import { Badge } from "~/components/ui/badge";
 import LoanCalculatorIsland from "~/islands/loan-calculator";
 import type { LoanCalculatorData } from "~/lib/contracts/financial-products";
-import { Island } from "@originloom/react/lib/island";
 
 export function LoanCalculatorPage({ data }: { data: LoanCalculatorData }) {
   return (

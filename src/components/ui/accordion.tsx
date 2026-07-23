@@ -1,9 +1,9 @@
+import { cn } from "@originloom/react/lib/utils";
 import * as Accordion from "@radix-ui/react-accordion";
 import type { ComponentPropsWithoutRef, ElementRef } from "react";
 import { forwardRef } from "react";
 
 import { ChevronDown } from "~/components/icons";
-import { cn } from "@originloom/react/lib/utils";
 
 export const AccordionRoot = Accordion.Root;
 

@@ -1,3 +1,4 @@
+import { getUserInfo, subscribeUserInfo } from "@originloom/react/lib/stores/user-info-store";
 import { useSyncExternalStore } from "react";
 
 import { User } from "~/components/icons";
@@ -11,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { getUserInfo, subscribeUserInfo } from "@originloom/react/lib/stores/user-info-store";
 
 /** Auth chrome — UI hints render immediately, authoritative session updates the store. */
 export default function UserChrome() {

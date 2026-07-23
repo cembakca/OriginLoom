@@ -1,3 +1,5 @@
+import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
+import type { Ctx, Route } from "@originloom/react/lib/types";
 import { productConfig } from "@server/product/config";
 import type { DocumentShell } from "@server/runtime";
 
@@ -7,9 +9,7 @@ import { MetadataHead } from "~/components/head/metadata-head";
 import { RootLayout } from "~/components/layout/root-layout";
 import { mergeMetadata } from "~/lib/metadata/merge";
 import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
-import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
 import { defaultPageMeta, type ShellData } from "~/lib/shell-data";
-import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import { NotFoundPage, RouteErrorPage } from "./boundary-pages";
 

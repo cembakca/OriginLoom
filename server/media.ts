@@ -1,7 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import { config } from "@server/config";
-
 import {
   createCdnImage,
   type ImageCandidate,
@@ -10,6 +8,7 @@ import {
   serializeSrcSet,
   type UnoptimizedImageData,
 } from "@originloom/react/lib/media";
+import { config } from "@server/config";
 
 const MANIFEST_PATH = "dist/client/asset-pipeline.json";
 

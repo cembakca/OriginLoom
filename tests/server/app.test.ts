@@ -1,10 +1,9 @@
+import type { Route } from "@originloom/react/lib/types";
 import { createApp } from "@server/app";
 import { closeCache, initCache } from "@server/cache";
 import { config } from "@server/config";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import type { Route } from "@originloom/react/lib/types";
 
 const assets = { js: "/assets/entry.client.js", css: [], fonts: [] };
 const passthroughCapacity = {

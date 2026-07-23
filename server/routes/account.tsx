@@ -1,9 +1,10 @@
+import { Island } from "@originloom/react/lib/island";
+import { defineRoute } from "@originloom/react/lib/types";
+
 import { AccountDashboardShell } from "~/features/account/dashboard-shell";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { Island } from "@originloom/react/lib/island";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute } from "@originloom/react/lib/types";
 
 /** SSR shell — kişisel veri defer island + TanStack Query BFF'den gelir. */
 export default defineRoute({

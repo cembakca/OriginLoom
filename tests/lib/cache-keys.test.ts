@@ -1,3 +1,6 @@
+import { clearCacheBypassChecks } from "@originloom/react/lib/cache-policy";
+import { Cookie } from "@originloom/react/lib/cookies";
+import type { Ctx } from "@originloom/react/lib/types";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -12,9 +15,6 @@ import {
   pageCacheRegistry,
   toCacheKeyApiEntry,
 } from "~/lib/cache-keys";
-import { clearCacheBypassChecks } from "@originloom/react/lib/cache-policy";
-import { Cookie } from "@originloom/react/lib/cookies";
-import type { Ctx } from "@originloom/react/lib/types";
 
 function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {
   const url = new URL(request.url);

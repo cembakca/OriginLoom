@@ -1,7 +1,3 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-
-import { ResponsiveImage, UnoptimizedImage } from "~/components/ui/responsive-image";
 import {
   buildImageCdnUrl,
   createCdnImage,
@@ -9,6 +5,10 @@ import {
   imagePreload,
   prefixMediaUrl,
 } from "@originloom/react/lib/media";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { ResponsiveImage, UnoptimizedImage } from "~/components/ui/responsive-image";
 
 describe("responsive media", () => {
   it("builds encoded CDN transformation URLs", () => {

@@ -1,10 +1,10 @@
+import type { Ctx } from "@originloom/react/lib/types";
 import { GatewayPayloadError } from "@server/gateway-payload";
 import { logger } from "@server/logger";
 import { observeShellDegradation } from "@server/metrics";
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import { buildLayoutClientProps, type ShellData } from "~/lib/shell-data";
-import type { Ctx } from "@originloom/react/lib/types";
 
 import { fetchMenuList } from "./menu";
 

@@ -4,7 +4,6 @@ import {
   normalizeNavigationUrl,
 } from "../content-url";
 import { stripUndefined } from "../strip-undefined";
-
 import type { SeoInfo } from "./types";
 
 const STRING_LIMITS = {

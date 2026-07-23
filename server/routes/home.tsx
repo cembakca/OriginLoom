@@ -1,14 +1,14 @@
+import { imagePreload, type ResponsiveImageData } from "@originloom/react/lib/media";
+import { locale } from "@originloom/react/lib/request";
+import { defineRoute } from "@originloom/react/lib/types";
 import { responsiveImage } from "@server/media";
 
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ResponsiveImage } from "~/components/ui/responsive-image";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { imagePreload, type ResponsiveImageData } from "@originloom/react/lib/media";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
-import { locale } from "@originloom/react/lib/request";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute } from "@originloom/react/lib/types";
 
 const links = [
   {

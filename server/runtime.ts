@@ -1,8 +1,7 @@
-import type { ComponentType, ReactElement, ReactNode } from "react";
-
 import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
 import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
 import type { Ctx, Route, RouteError } from "@originloom/react/lib/types";
+import type { ComponentType, ReactElement, ReactNode } from "react";
 
 export type BotVisit = { pathname: string; userAgent: string; trackingId: string };
 

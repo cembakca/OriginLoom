@@ -1,19 +1,19 @@
-import { getHousingLoans } from "@server/services/financial-products";
-
-import { HousingLoanListPage } from "~/features/financial-products/housing-loan-list";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { neverCache } from "@originloom/react/lib/cache-policy";
 import { resolvePageParam } from "@originloom/react/lib/content-values";
-import type { HousingLoanList } from "~/lib/contracts/financial-products";
-import { normalizedSearch } from "~/lib/finance-query";
-import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import {
   breadcrumbJsonLd,
   compactJsonLd,
   itemListJsonLd,
 } from "@originloom/react/lib/metadata/jsonld";
-import { defaultPageMeta } from "~/lib/shell-data";
 import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
+import { getHousingLoans } from "@server/services/financial-products";
+
+import { HousingLoanListPage } from "~/features/financial-products/housing-loan-list";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import type { HousingLoanList } from "~/lib/contracts/financial-products";
+import { normalizedSearch } from "~/lib/finance-query";
+import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
+import { defaultPageMeta } from "~/lib/shell-data";
 
 const QUERY = ["amount", "term", "city", "bank", "sortBy", "page"] as const;
 

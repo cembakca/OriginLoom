@@ -1,3 +1,5 @@
+import { stripUndefined } from "@originloom/react/lib/strip-undefined";
+import type { Route } from "@originloom/react/lib/types";
 import type { Assets } from "@server/assets";
 import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from "@server/handler";
 import {
@@ -11,9 +13,6 @@ import type { AppVariables } from "@server/middleware/request-id";
 import { setActiveHttpRoute } from "@server/observability";
 import { SsrCapacityError, ssrCapacityResponse } from "@server/ssr-capacity";
 import type { Handler } from "hono";
-
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
-import type { Route } from "@originloom/react/lib/types";
 
 export type Capacity = {
   run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T>;

@@ -1,5 +1,4 @@
 import { stripUndefined } from "../strip-undefined";
-
 import type { MenuItem } from "./types";
 
 /** Island props — serializable nav snapshot. */

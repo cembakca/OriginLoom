@@ -5,8 +5,9 @@ import {
 } from "@originloom/react/lib/cache-query-params";
 import type { DeviceType } from "@originloom/react/lib/device";
 import { locale } from "@originloom/react/lib/request";
-import { layoutCacheFragment } from "~/lib/shell-data";
 import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
+
+import { layoutCacheFragment } from "~/lib/shell-data";
 
 import { financeQueryNormalizers } from "./finance-query";
 import { knowledgeQueryNormalizers } from "./knowledge-query";

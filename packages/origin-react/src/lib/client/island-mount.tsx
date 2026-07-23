@@ -2,7 +2,6 @@ import { type ComponentType, type ReactNode, useEffect } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
 import { parseEmbeddedJson } from "../embedded-json";
-
 import { reportClientError } from "./error-telemetry";
 import { createIslandMountWatchdog, IslandRuntimeError, loadIslandModule } from "./island-runtime";
 

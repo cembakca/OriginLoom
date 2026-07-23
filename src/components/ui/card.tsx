@@ -1,6 +1,5 @@
-import type { HTMLAttributes } from "react";
-
 import { cn } from "@originloom/react/lib/utils";
+import type { HTMLAttributes } from "react";
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (

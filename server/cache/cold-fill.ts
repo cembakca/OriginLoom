@@ -1,11 +1,10 @@
+import type { CachePolicy } from "@originloom/react/lib/types";
 import { config } from "@server/config";
 import {
   observeCacheFill,
   observeCoalescedWait,
   observeColdMissLockTimeout,
 } from "@server/metrics";
-
-import type { CachePolicy } from "@originloom/react/lib/types";
 
 import * as cache from "./index";
 

@@ -1,13 +1,13 @@
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
 import { getReferral } from "@server/services/financial-products";
 
 import { ReferralPage } from "~/features/financial-products/referral-page";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 import type { ReferralDetail } from "~/lib/contracts/financial-products";
 import { publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { referralProductByPublicType } from "~/lib/referral-products";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute, notFound } from "@originloom/react/lib/types";
 
 type Data = { detail: ReferralDetail; publicType: string };
 

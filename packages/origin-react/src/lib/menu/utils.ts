@@ -1,5 +1,4 @@
 import type { DeviceShell } from "../device";
-
 import { type MenuItem, MenuItemType } from "./types";
 
 export function navLabel(item: MenuItem, shell: DeviceShell): string {

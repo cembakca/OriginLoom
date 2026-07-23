@@ -1,7 +1,6 @@
-import { describe, expect, it } from "vitest";
-
 import { applyPattern, matchPattern } from "@originloom/react/routing/pattern";
 import { resolveRouteWith } from "@originloom/react/routing/resolve";
+import { describe, expect, it } from "vitest";
 
 describe("routing pattern", () => {
   it("matches static paths", () => {

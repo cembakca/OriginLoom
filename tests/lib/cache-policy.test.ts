@@ -1,5 +1,3 @@
-import { beforeEach, describe, expect, it } from "vitest";
-
 import {
   clearCacheBypassChecks,
   hasPid,
@@ -9,6 +7,7 @@ import {
 } from "@originloom/react/lib/cache-policy";
 import { Cookie } from "@originloom/react/lib/cookies";
 import type { Ctx } from "@originloom/react/lib/types";
+import { beforeEach, describe, expect, it } from "vitest";
 
 function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {
   const url = new URL(request.url);

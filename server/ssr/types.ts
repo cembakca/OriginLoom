@@ -1,6 +1,5 @@
-import type { StreamResult } from "@server/document";
-
 import type { LoaderResult } from "@originloom/react/lib/types";
+import type { StreamResult } from "@server/document";
 
 export type HandleContext = {
   requestId?: string;

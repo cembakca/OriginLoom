@@ -1,3 +1,5 @@
+import type { NavItemProp } from "@originloom/react/lib/menu/serialize";
+
 import { Menu } from "~/components/icons";
 import {
   AccordionContent,
@@ -7,7 +9,6 @@ import {
 } from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
-import type { NavItemProp } from "@originloom/react/lib/menu/serialize";
 
 type Props = { items: NavItemProp[] };
 
