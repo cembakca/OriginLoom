@@ -54,7 +54,7 @@ export default defineRoute<Data>({
     <div className="space-y-8">
       <div className="grid items-center gap-6 lg:grid-cols-[1fr_0.9fr]">
         <div className="space-y-3">
-          <Badge>ssr-kit demo</Badge>
+          <Badge>OriginLoom demo</Badge>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             SSR + Tailwind + Radix
           </h1>

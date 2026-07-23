@@ -1,7 +1,7 @@
 # Load-test stack. App container is capped at 2 vCPU / 4 GiB to mimic a constrained pod.
 # Run via: npm run loadtest:memory | npm run loadtest:redis
 
-name: ssr-kit-loadtest
+name: origin-loom-loadtest
 
 services:
   mock-gw:

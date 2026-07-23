@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ssr-kit-config
+  name: origin-loom-config
 data:
   NODE_ENV: production
   PORT: "3005"
@@ -17,7 +17,7 @@ data:
   MARKET_STREAM_MAX_SYMBOLS: "25"
   MARKET_STREAM_MAX_DURATION_MS: "300000"
   MARKET_STREAM_HEARTBEAT_MS: "15000"
-  CACHE_BACKEND: redis
+  CACHE_BACKEND: memory
   CACHE_REQUIRED: "false"
   CACHE_MAX_ENTRIES: "2000"
   GATEWAY_URL: https://gateway.example.com

@@ -1,10 +1,11 @@
+import { cacheTopology } from "@server/cache";
 import {
   executePurge,
   listCacheKeys,
   parseListKeysQuery,
   parsePurgeBody,
 } from "@server/cache/purge";
-import { config, purgeSecurityConfig } from "@server/config";
+import { purgeSecurityConfig } from "@server/config";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
 import { secretMatches } from "@server/security/secrets";
@@ -56,7 +57,7 @@ export async function handleCachePurge(request: Request): Promise<Response> {
   const parsed = parsePurgeBody(body);
   if ("error" in parsed) return json({ error: parsed.error }, 400);
 
-  const result = await executePurge(parsed, config.cacheBackend);
+  const result = await executePurge(parsed, cacheTopology());
   return json({ ok: true, ...result });
 }
 
@@ -67,7 +68,7 @@ export async function handleCacheKeysList(request: Request): Promise<Response> {
   const parsed = parseListKeysQuery(new URL(request.url));
   if ("error" in parsed) return json({ error: parsed.error }, 400);
 
-  const result = await listCacheKeys(parsed, config.cacheBackend);
+  const result = await listCacheKeys(parsed, cacheTopology());
   return json({ ok: true, ...result });
 }
 

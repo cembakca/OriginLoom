@@ -4,12 +4,13 @@ import Redis from "ioredis";
 import type { CachePolicy } from "~/lib/types";
 
 import { decodeCacheEntry, encodeCacheEntry } from "./codec";
-import type {
-  CacheEntry,
-  CacheStore,
-  ListKeysOptions,
-  ListKeysResult,
-  RateLimitResult,
+import {
+  buildCacheEntry,
+  type CacheEntry,
+  type CacheStore,
+  type ListKeysOptions,
+  type ListKeysResult,
+  type RateLimitResult,
 } from "./types";
 
 export class RedisStore implements CacheStore {
@@ -38,6 +39,11 @@ export class RedisStore implements CacheStore {
   }
 
   async read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null> {
+    const hit = await this.readEntry(key);
+    return hit ? { body: hit.entry.body, state: hit.state } : null;
+  }
+
+  async readEntry(key: string): Promise<{ entry: CacheEntry; state: "fresh" | "stale" } | null> {
     const raw = await this.redis.getBuffer(this.redisKey(key));
     if (!raw) return null;
 
@@ -48,24 +54,16 @@ export class RedisStore implements CacheStore {
     }
 
     const now = Date.now();
-    if (now < entry.freshUntil) return { body: entry.body, state: "fresh" };
-    if (now < entry.staleUntil) return { body: entry.body, state: "stale" };
+    if (now < entry.freshUntil) return { entry, state: "fresh" };
+    if (now < entry.staleUntil) return { entry, state: "stale" };
 
     await this.redis.del(this.redisKey(key));
     return null;
   }
 
-  async write(key: string, body: string, policy: CachePolicy): Promise<void> {
+  async writeEntry(key: string, entry: CacheEntry, policy: CachePolicy): Promise<void> {
     if (policy.kind !== "shared") return;
-
-    const now = Date.now();
-    const entry: CacheEntry = {
-      body,
-      freshUntil: now + policy.ttl * 1000,
-      staleUntil: now + (policy.ttl + (policy.swr ?? 0)) * 1000,
-    };
-
-    const ttlSeconds = Math.max(1, policy.ttl + (policy.swr ?? 0));
+    const ttlSeconds = Math.max(1, Math.ceil((entry.staleUntil - Date.now()) / 1000));
     await this.redis.set(this.redisKey(key), encodeCacheEntry(entry), "EX", ttlSeconds);
   }
 
@@ -74,15 +72,38 @@ export class RedisStore implements CacheStore {
   }
 
   async deleteKeys(keys: string[]): Promise<number> {
-    if (keys.length === 0) return 0;
-    return await this.redis.del(...keys.map((key) => this.redisKey(key)));
+    return (await this.deleteKeysReturningNames(keys)).length;
+  }
+
+  /** Same as deleteKeys, but reports which keys actually existed — a bulk DEL
+   * only returns a count, so this pipelines individual DELs (still one round
+   * trip) to get per-key results for TieredStore's exact L1∪L2 union. */
+  async deleteKeysReturningNames(keys: string[]): Promise<string[]> {
+    if (keys.length === 0) return [];
+    const pipeline = this.redis.pipeline();
+    for (const key of keys) pipeline.del(this.redisKey(key));
+    const results = await pipeline.exec();
+    const deleted: string[] = [];
+    results?.forEach((result, index) => {
+      const [error, count] = result ?? [];
+      if (!error && typeof count === "number" && count > 0) deleted.push(keys[index]!);
+    });
+    return deleted;
   }
 
   async deleteByPrefix(prefix: string): Promise<number> {
+    return (await this.deleteByPrefixReturningNames(prefix)).length;
+  }
+
+  async deleteByPrefixReturningNames(prefix: string): Promise<string[]> {
     return this.scanAndDelete(this.matchPattern(prefix || undefined));
   }
 
   async flushAll(): Promise<number> {
+    return (await this.flushAllReturningNames()).length;
+  }
+
+  async flushAllReturningNames(): Promise<string[]> {
     return this.scanAndDelete(this.matchPattern());
   }
 
@@ -104,15 +125,16 @@ export class RedisStore implements CacheStore {
     };
   }
 
-  private async scanAndDelete(pattern: string): Promise<number> {
-    let deleted = 0;
+  private async scanAndDelete(pattern: string): Promise<string[]> {
+    const deleted: string[] = [];
     let cursor = "0";
 
     do {
       const [nextCursor, batch] = await this.redis.scan(cursor, "MATCH", pattern, "COUNT", 200);
       cursor = nextCursor;
       if (batch.length > 0) {
-        deleted += await this.redis.del(...batch);
+        await this.redis.del(...batch);
+        deleted.push(...batch.map((key) => key.slice(this.prefix.length)));
       }
     } while (cursor !== "0");
 
@@ -161,6 +183,19 @@ export class RedisStore implements CacheStore {
       `${this.prefix}lock:${key}`,
       token,
     );
+  }
+
+  async write(key: string, body: string, policy: CachePolicy): Promise<void> {
+    if (policy.kind !== "shared") return;
+    await this.writeEntry(key, buildCacheEntry(body, policy), policy);
+  }
+
+  duplicateClient(): Redis {
+    return this.redis.duplicate();
+  }
+
+  getClient(): Redis {
+    return this.redis;
   }
 
   async close(): Promise<void> {

@@ -30,6 +30,7 @@ const shellDegradations: CounterMap = new Map();
 const cacheFills: CounterMap = new Map();
 const coalescedWaits: CounterMap = new Map();
 const coldMissLockTimeouts: CounterMap = new Map();
+const cachePromotions: CounterMap = new Map();
 const botAnalyticsEnqueues: CounterMap = new Map();
 const botAnalyticsDrops: CounterMap = new Map();
 const botAnalyticsBatches: CounterMap = new Map();
@@ -54,6 +55,7 @@ let botAnalyticsQueueDepth = 0;
 let botAnalyticsInFlight = 0;
 let ssrRenderInFlight = 0;
 let ssrRenderQueueDepth = 0;
+let cacheL2Healthy = true;
 
 function statusClass(status: number): string {
   return status === 0 ? "error" : `${Math.floor(status / 100)}xx`;
@@ -191,8 +193,18 @@ export function setSsrCapacityState(inFlight: number, queueDepth: number): void 
   ssrRenderQueueDepth = Math.max(0, queueDepth);
 }
 
+export function observeCachePromotion(source: "l2"): void {
+  increment(cachePromotions, `source="${source}"`);
+}
+
+/** Tracks L2 (Redis) reachability independently of readiness routing — a degraded L2
+ * can be non-fatal to readiness (CACHE_REQUIRED=false) while still needing to be visible. */
+export function setCacheL2Health(healthy: boolean): void {
+  cacheL2Healthy = healthy;
+}
+
 export function observeCacheOperation(
-  backend: "memory" | "redis",
+  backend: "memory" | "redis" | "memory+redis",
   operation: string,
   outcome: OperationOutcome,
   durationMs: number,
@@ -354,6 +366,16 @@ export function renderMetrics(): string {
       "Gateway request duration",
     ),
     ...counterLines("ssr_cache_operations_total", "Cache operations by backend", cacheOperations),
+    ...counterLines(
+      "ssr_cache_promotion_total",
+      "L2 cache hits promoted into local L1",
+      cachePromotions,
+    ),
+    ...gauge(
+      "ssr_cache_l2_healthy",
+      "Whether the L2 (Redis) cache last responded to a ping (1) or not (0)",
+      cacheL2Healthy ? 1 : 0,
+    ),
     ...cacheDurations.lines(
       "ssr_cache_operation_duration_milliseconds",
       "Cache operation duration",

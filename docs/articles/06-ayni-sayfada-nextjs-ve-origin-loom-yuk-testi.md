@@ -1,4 +1,4 @@
-# Aynı Sayfada Next.js ve ssr-kit: Blog Paginated Yük Testi
+# Aynı Sayfada Next.js ve OriginLoom: Blog Paginated Yük Testi
 
 > Arşiv notu — Bu ölçüm ilk mimari karşılaştırmada kullanılan teknik blog fixture'ına aittir.
 > `/blogs/paginated` UI route'u ve `/blogs` mock endpoint'i gerçek finans sayfaları tamamlanınca
@@ -12,7 +12,9 @@ Bu yazı “Next.js yavaştır” iddiası taşımaz. Yerel makinede, kontrollü
 karşılaştırmada ne ölçtüğümüzü, sayıların ne anlama geldiğini ve neyi kanıtlamadığını netleştirir.
 
 > **Okuma notu (Temmuz 2026):** Aşağıdaki sonuçlar belirli commit, makine, route ve cache durumu için
-> tarihsel bir benchmark snapshot'ıdır; bugünkü kapasite taahhüdü değildir. Sonradan eklenen referral,
+> tarihsel bir benchmark snapshot'ıdır; bugünkü kapasite taahhüdü değildir. **Katmanlı L1+Redis mimarisi**
+> (Temmuz 2026 sonrası) önceki tek-store Redis ölçümleriyle birebir karşılaştırılamaz — sıcak path'te
+> L1 hit Redis round-trip içermez. Sonradan eklenen referral,
 > BIST snapshot/SSE ve observability yüzeyleri bu test route'unda ölçülmemiştir. Framework seçimi için
 > tek başına bu tablo değil, aynı production topolojisinde p50/p95/p99, hata oranı, CPU, memory ve
 > gateway yükü birlikte değerlendirilmelidir.
@@ -29,7 +31,7 @@ adlı bağımsız bir Next.js 16 (App Router) projesi oluşturduk.
 
 ### Ortak koşullar
 
-| Parça       | ssr-kit                                          | nextjs-overhead-poc                            |
+| Parça       | OriginLoom                                          | nextjs-overhead-poc                            |
 | ----------- | ------------------------------------------------ | ---------------------------------------------- |
 | URL         | `http://localhost:3005/blogs/paginated?page=2`   | `http://localhost:3006/blogs/paginated?page=2` |
 | Gateway     | Aynı `GATEWAY_URL` (mock-gw `:4002`)             | Aynı                                           |
@@ -38,12 +40,12 @@ adlı bağımsız bir Next.js 16 (App Router) projesi oluşturduk.
 | Cihaz       | User-Agent → Desktop / Tablet / Mobile           | Layout’ta `headers()` ile aynı kural           |
 | Menü        | `GET /pages/menuitem/list` + `device` header     | Layout’ta native `fetch`, SSR                  |
 | Blog verisi | `GET /blogs?page=2&pageSize=6&orderBy=date-desc` | Page’de native `fetch`, SSR                    |
-| Query       | `page` param, redirect / 404 kuralları           | ssr-kit ile aynı `resolvePageParam` mantığı    |
+| Query       | `page` param, redirect / 404 kuralları           | OriginLoom ile aynı `resolvePageParam` mantığı    |
 
 Kasıtlı sadeleştirmeler:
 
 - Next tarafında ağır gateway payload doğrulaması yok — düz `fetch` + `json()`.
-- ssr-kit’teki client island (sıralama, TanStack Query) yok; SSR shell ile aynı görünüm.
+- OriginLoom’teki client island (sıralama, TanStack Query) yok; SSR shell ile aynı görünüm.
 - Island’lar (`user-chrome`, `mobile-menu`) statik HTML fallback.
 
 Amaç: “framework overhead” değil, **aynı gateway ve aynı HTML kontratı** altında origin davranışını
@@ -74,7 +76,7 @@ Yerel koşulda (macOS, mock gateway, iki uygulama aynı anda ayakta) tek koşuda
 
 | Senaryo                      | RPS (ort.)   | Gecikme (ort.)  | Hata |
 | ---------------------------- | ------------ | --------------- | ---- |
-| **1. ssr-kit** (`:3005`)     | **1.971,87** | **24,86 ms**    | 0    |
+| **1. OriginLoom** (`:3005`)     | **1.971,87** | **24,86 ms**    | 0    |
 | **2. Next.js POC** (`:3006`) | **20,27**    | **2.227,47 ms** | 0    |
 
 Kabaca **~97× RPS** ve **~90× gecikme** farkı. Her iki tarafta da HTTP hata sayısı sıfır — karşılaştırma
@@ -86,7 +88,7 @@ geçerli istekler üzerinden yapılmış.
 
 Bu farkın büyük bölümü “React vs Next” değil, **route cache varlığı / yokluğu**.
 
-Ölçüm tarihinde ssr-kit’te `/blogs/paginated?page=2` geçerli bir `page` parametresiyle **shared HTML
+Ölçüm tarihinde OriginLoom’te `/blogs/paginated?page=2` geçerli bir `page` parametresiyle **shared HTML
 cache** kullanıyordu. Autocannon 15 saniye boyunca aynı URL’ye vurduğunda:
 
 1. İlk istek(ler) MISS — loader çalışır, gateway’den blog çekilir, React render, memory’e yazılır.
@@ -113,7 +115,7 @@ parçasıdır ([03 — Cache bir optimizasyon değil, route kontratıdır](./03-
 
 ### 2. Layout’ta menü = her istekte sabit maliyet
 
-Her iki tarafta da header/footer menüsü SSR ile dolduruluyor. ssr-kit menüyü ayrıca **Redis/memory
+Her iki tarafta da header/footer menüsü SSR ile dolduruluyor. OriginLoom menüyü ayrıca **Redis/memory
 menu cache** ile tutar (`menuCacheKey(device)`); blog sayfası HTML cache HIT olsa bile menü cache’i
 layout render yolunda devreye girebilir — fakat blog HTML HIT’inde layout zaten cache’lenmiş gövdeyle
 gelir, bu yüzden menü fetch’i tekrarlanmaz.
@@ -123,12 +125,12 @@ Bu, App Router’ın doğal modelidir; cache eklemedikçe layout maliyeti sıfı
 
 ### 3. Development modu Next tarafını ağırlaştırabilir
 
-POC varsayılan olarak `next dev` (`:3006`) ile koşturuldu. ssr-kit tarafı `npm run dev` (tsx watch +
+POC varsayılan olarak `next dev` (`:3006`) ile koşturuldu. OriginLoom tarafı `npm run dev` (tsx watch +
 memory cache). Next development modunda Turbopack derleme, RSC pipeline ve hot-reload altyapısı
 production `next start`’a göre daha ağır olabilir.
 
 Bu nedenle **mutlak 2,2 saniye** rakamını production SLA olarak okumamak gerekir. Önemli olan
-**göreli asimetri**: aynı koşulda ssr-kit tarafının cache sayesinde binlerce RPS bandına çıkabilmesi.
+**göreli asimetri**: aynı koşulda OriginLoom tarafının cache sayesinde binlerce RPS bandına çıkabilmesi.
 
 ### 4. Gateway mock olduğu için tavan yüksek
 
@@ -159,7 +161,7 @@ gecikmesi artar; **oransal cache faydası** genelde korunur, hatta upstream paha
 
 Sonuçları tartışmak için önerilen ek senaryolar:
 
-| #   | ssr-kit                              | Next.js POC                                     | Amaç                  |
+| #   | OriginLoom                              | Next.js POC                                     | Amaç                  |
 | --- | ------------------------------------ | ----------------------------------------------- | --------------------- |
 | A   | Cache açık (mevcut)                  | `unstable_cache` / fetch cache ile menü + sayfa | Cache simetrisi       |
 | B   | `neverCache()` veya cache bypass     | `cache: "no-store"` (mevcut)                    | Soğuk SSR eşleşmesi   |
@@ -171,14 +173,14 @@ Sonuçları tartışmak için önerilen ek senaryolar:
 
 ## Sonuç
 
-Autocannon çıktısı şunu söylüyor: `/blogs/paginated?page=2` için ssr-kit, ısınmış memory cache ile
+Autocannon çıktısı şunu söylüyor: `/blogs/paginated?page=2` için OriginLoom, ısınmış memory cache ile
 saniyede yaklaşık **2.000** isteği ~**25 ms** ortalama gecikmeyle taşıyabiliyor. Aynı gateway ve
 benzer HTML üreten Next.js POC, cache katmanı olmadan saniyede ~**20** istek ve ~**2,2 s** ortalama
 gecikme ile kalıyor.
 
 Bu farkın ana mesajı milisaniye kıskacı değil, **kararın görünürlüğü**:
 
-- ssr-kit’te “bu sayfa cache’lenir mi?” sorusunun cevabı route dosyasında açık.
+- OriginLoom’te “bu sayfa cache’lenir mi?” sorusunun cevabı route dosyasında açık.
 - Next.js POC’de aynı soru varsayılan olarak “hayır” — cache’i bilinçli eklemedikçe her istek full
   dynamic SSR kalır.
 

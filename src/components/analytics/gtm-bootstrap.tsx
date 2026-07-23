@@ -49,7 +49,7 @@ export function buildEventQueueScript(failOpenMs = ANALYTICS_FAIL_OPEN_MS): stri
     }
     return window.dataLayer.length;
   };
-  window.__ssrKitSignalReactReady=signalReactReady;
+  window.__originLoomSignalReactReady=signalReactReady;
   failOpenTimer=setTimeout(signalReactReady,${Math.max(0, Math.floor(failOpenMs))});
 })();
 `.trim();

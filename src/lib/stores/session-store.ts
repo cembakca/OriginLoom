@@ -1,4 +1,4 @@
-const ORIGINAL_LOCATION_KEY = "ssr-kit:originalLocation";
+const ORIGINAL_LOCATION_KEY = "origin-loom:originalLocation";
 
 let originalLocation: string | undefined;
 

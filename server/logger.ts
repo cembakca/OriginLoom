@@ -9,7 +9,7 @@ function write(level: LogLevel, msg: string, fields: LogFields = {}): void {
     level,
     msg,
     time: new Date().toISOString(),
-    service: process.env.OTEL_SERVICE_NAME ?? "ssr-kit",
+    service: process.env.OTEL_SERVICE_NAME ?? "origin-loom",
     releaseId: process.env.RELEASE_ID ?? "development",
     ...activeTraceFields(),
     ...fields,

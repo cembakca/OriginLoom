@@ -1,0 +1,7 @@
+# Opsiyonel Redis — CACHE_REQUIRED=false overlay (L2 kesintisinde L1 fallback testi).
+# load-test/compose.yml + compose.redis.yml + compose.redis-optional.yml
+
+services:
+  app:
+    environment:
+      CACHE_REQUIRED: "false"

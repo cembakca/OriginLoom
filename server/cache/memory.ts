@@ -1,11 +1,12 @@
 import type { CachePolicy } from "~/lib/types";
 
-import type {
-  CacheEntry,
-  CacheStore,
-  ListKeysOptions,
-  ListKeysResult,
-  RateLimitResult,
+import {
+  buildCacheEntry,
+  type CacheEntry,
+  type CacheStore,
+  type ListKeysOptions,
+  type ListKeysResult,
+  type RateLimitResult,
 } from "./types";
 
 export class MemoryStore implements CacheStore {
@@ -34,16 +35,24 @@ export class MemoryStore implements CacheStore {
 
   async write(key: string, body: string, policy: CachePolicy): Promise<void> {
     if (policy.kind !== "shared") return;
+    await this.writeEntry(key, buildCacheEntry(body, policy));
+  }
+
+  /** Writes an entry preserving absolute fresh/stale deadlines (L2 promotion path). */
+  async writeEntry(key: string, entry: CacheEntry): Promise<void> {
+    const now = Date.now();
+    if (now >= entry.staleUntil) return;
     if (!this.store.has(key) && this.store.size >= this.maxEntries) {
       this.store.delete(this.store.keys().next().value!);
     }
+    this.store.set(key, entry);
+  }
 
-    const now = Date.now();
-    this.store.set(key, {
-      body,
-      freshUntil: now + policy.ttl * 1000,
-      staleUntil: now + (policy.ttl + (policy.swr ?? 0)) * 1000,
-    });
+  /** Synchronous L1 flush for invalidation subscriber reconnect safety. */
+  flushAllSync(): number {
+    const deleted = this.store.size;
+    this.store.clear();
+    return deleted;
   }
 
   async deleteKey(key: string): Promise<boolean> {
@@ -51,26 +60,40 @@ export class MemoryStore implements CacheStore {
   }
 
   async deleteKeys(keys: string[]): Promise<number> {
-    let deleted = 0;
+    return this.deleteKeysReturningNames(keys).length;
+  }
+
+  /** Same as deleteKeys, but reports which keys actually existed — used by
+   * TieredStore to compute an exact L1∪L2 union instead of guessing from counts. */
+  deleteKeysReturningNames(keys: string[]): string[] {
+    const deleted: string[] = [];
     for (const key of keys) {
-      if (this.store.delete(key)) deleted++;
+      if (this.store.delete(key)) deleted.push(key);
     }
     return deleted;
   }
 
   async deleteByPrefix(prefix: string): Promise<number> {
-    let deleted = 0;
+    return this.deleteByPrefixReturningNames(prefix).length;
+  }
+
+  deleteByPrefixReturningNames(prefix: string): string[] {
+    const deleted: string[] = [];
     for (const key of [...this.store.keys()]) {
       if (key.startsWith(prefix)) {
         this.store.delete(key);
-        deleted++;
+        deleted.push(key);
       }
     }
     return deleted;
   }
 
   async flushAll(): Promise<number> {
-    const deleted = this.store.size;
+    return this.flushAllReturningNames().length;
+  }
+
+  flushAllReturningNames(): string[] {
+    const deleted = [...this.store.keys()];
     this.store.clear();
     return deleted;
   }

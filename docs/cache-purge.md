@@ -3,7 +3,7 @@
 Uygulama cache'ini (HTML + menü) HTTP API ile yönetmek için internal endpoint'ler.
 
 > **Erişim:** Endpoint'ler public `3005` listener'ında mount edilmez. Ayrı operations listener'ında
-> (`METRICS_PORT`, varsayılan `9090`) çalışır; `ssr-kit-operations` ClusterIP Service ve NetworkPolicy
+> (`METRICS_PORT`, varsayılan `9090`) çalışır; `origin-loom-operations` ClusterIP Service ve NetworkPolicy
 > yalnız monitoring/operations namespace'lerine erişim verir. Buna ek olarak
 > `CACHE_PURGE_SECRET` sabit zamanlı karşılaştırmayla doğrulanır.
 
@@ -78,7 +78,12 @@ Cache key'leri **lazy** oluşur — önceden tanımlı bir “key havuzu” yokt
 | İlk anonim MISS sonrası                                     | Evet                           |
 | Menü (`menu:*`)                                             | Layout render edildikten sonra |
 
-`CACHE_BACKEND=memory` iken key'ler process belleğindedir; restart sonrası liste boşalır. Production'da `CACHE_BACKEND=redis` ile tüm instance'lar aynı key setini paylaşır — yine de yalnızca gerçekten yazılmış entry'ler listelenir.
+`CACHE_BACKEND=memory` iken key'ler yalnızca pod L1 belleğindedir; restart sonrası liste boşalır.
+`CACHE_BACKEND=redis` ile L2'de key seti podlar arası paylaşılır; her podun L1'i ayrıca tutulur — purge
+L2'de uygulanır ve Pub/Sub ile diğer podların L1'i temizlenir. Yine de yalnızca gerçekten yazılmış
+entry'ler listelenir.
+
+Purge yanıtı `backend` alanı topolojiyi gösterir: `memory` veya `memory+redis`.
 
 Registry referansı (hangi prefix'lerin olması beklendiği): [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) → `listPageCachePrefixes()`.
 
@@ -120,7 +125,7 @@ curl -s \
       "display": "menu:Desktop"
     }
   ],
-  "backend": "redis"
+  "backend": "memory+redis"
 }
 ```
 
@@ -144,7 +149,7 @@ Redis'te daha fazla key varsa:
   "ok": true,
   "keys": ["..."],
   "nextCursor": "42",
-  "backend": "redis"
+  "backend": "memory+redis"
 }
 ```
 
@@ -184,7 +189,7 @@ HTML key'ler için list'ten `encoded` kopyala:
   "mode": "keys",
   "deleted": 2,
   "keys": ["menu:Desktop", "menu:Mobile"],
-  "backend": "redis"
+  "backend": "memory+redis"
 }
 ```
 
@@ -210,7 +215,7 @@ curl -s -X POST \
   "mode": "pageIds",
   "deleted": 3,
   "pageIds": ["blogs-paginated", "loan"],
-  "backend": "redis"
+  "backend": "memory+redis"
 }
 ```
 
@@ -234,7 +239,7 @@ curl -s -X POST \
   "mode": "prefix",
   "deleted": 3,
   "prefix": "menu:",
-  "backend": "redis"
+  "backend": "memory+redis"
 }
 ```
 
@@ -271,7 +276,7 @@ curl -s -X POST \
   "ok": true,
   "mode": "all",
   "deleted": 47,
-  "backend": "redis"
+  "backend": "memory+redis"
 }
 ```
 
@@ -373,7 +378,7 @@ CMS veya deploy pipeline'dan örnek:
 #!/usr/bin/env bash
 set -euo pipefail
 
-HOST="${SSR_OPERATIONS_HOST:-http://ssr-kit-operations:9090}"
+HOST="${SSR_OPERATIONS_HOST:-http://origin-loom-operations:9090}"
 SECRET="${CACHE_PURGE_SECRET:?}"
 
 # Menü + ana sayfa prefix purge

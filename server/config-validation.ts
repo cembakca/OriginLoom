@@ -141,14 +141,9 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
 
   validatePublicUrls(config);
 
-  const isLoadTest = config.appEnv === "loadtest";
-
   if (config.isProduction) {
     if (config.viteDevServerUrl)
       throw new Error("VITE_DEV_SERVER_URL is not allowed in production");
-    if (config.cacheBackend === "memory" && !isLoadTest) {
-      throw new Error("CACHE_BACKEND=memory is not supported in production");
-    }
     if (!env.GATEWAY_URL) throw new Error("Production GATEWAY_URL must be explicitly configured");
     if (!env.SITE_URL) throw new Error("Production SITE_URL must be explicitly configured");
     if (!config.cachePurgeSecret) throw new Error("CACHE_PURGE_SECRET is required in production");

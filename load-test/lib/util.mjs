@@ -54,7 +54,7 @@ export async function waitForHealthy(baseUrl, options = {}) {
 export async function sampleResponseHeaders(url) {
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "ssr-kit-loadtest/1.0",
+      "User-Agent": "origin-loom-loadtest/1.0",
       Accept: "text/html",
     },
   });

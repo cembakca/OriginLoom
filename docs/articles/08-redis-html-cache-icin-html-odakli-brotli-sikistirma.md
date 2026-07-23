@@ -1,7 +1,7 @@
 # Redis HTML Cache’i İçin HTML-Odaklı Brotli Sıkıştırma
 
-> Amaç bir dictionary bakım sistemi kurmak değil; Redis’e yazılan tam HTML document’ini güçlü biçimde
-> küçültüp her cache hit’inde aynı baytları güvenle geri üretmek.
+> Amaç bir dictionary bakım sistemi kurmak değil; Redis L2'ye yazılan tam HTML document’ini güçlü biçimde
+> küçültüp L1 miss sonrası L2 hit’inde aynı baytları güvenle geri üretmek. Sıcak L1 hit’te Redis okunmaz.
 
 SSR cache’inde binlerce HTML document tutulduğunda Redis belleğinin büyük kısmını body değerleri
 kullanır. Bu projede sıkıştırma Redis’in içinde değil, uygulama ile Redis arasındaki codec sınırında

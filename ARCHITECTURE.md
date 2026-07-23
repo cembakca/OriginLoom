@@ -1,4 +1,4 @@
-# SSR-Kit — Mimari Analiz
+# OriginLoom — Mimari Analiz
 
 ## Projenin Özü
 
@@ -28,7 +28,7 @@ Hono üzerinde çalışır, `@hono/node-server` ile Node.js HTTP server'a bağla
 | `*`                             | SSR pipeline → handler                                   |
 
 Prometheus `/metrics`, cache purge ve referral operations endpoint'leri public HTTP portunda
-bulunmaz. Ayrı `METRICS_PORT` listener'ı (varsayılan `9090`) `ssr-kit-operations` ClusterIP servisi ve
+bulunmaz. Ayrı `METRICS_PORT` listener'ı (varsayılan `9090`) `origin-loom-operations` ClusterIP servisi ve
 NetworkPolicy arkasındadır; public ingress yalnız `3005` portunu yayınlar. Public porttaki `/metrics`
 ve operations path'leri bilinçli `404` döner.
 
@@ -167,6 +167,38 @@ Gerçekten bütün route'ları etkileyen yeni bir bypass kuralı eklemek için:
 registerCacheBypassCheck(hasPid); // segment bazlı, PID cookie'si varsa bypass
 ```
 
+#### Katmanlı store — `server/cache/tiered.ts`
+
+Her pod **her zaman** process-local L1 (`MemoryStore`) kullanır. `CACHE_BACKEND=redis` ve geçerli
+`REDIS_URL` varken opsiyonel L2 (`RedisStore`) devreye girer: cross-pod HTML truth, dağıtık
+cold-fill lock, ephemeral coordination, rate-limit ve Pub/Sub ile L1 invalidation.
+
+```mermaid
+flowchart TD
+  Request[SSR isteği] --> L1{L1 memory hit}
+  L1 -->|Evet| Response[HTML response]
+  L1 -->|Hayır| L2Enabled{Redis aktif mi}
+  L2Enabled -->|Hayır| Render[Loader ve SSR]
+  L2Enabled -->|Evet| L2{L2 Redis hit}
+  L2 -->|Evet| Promote[L1'e promote — TTL korunur]
+  Promote --> Response
+  L2 -->|Hayır veya hata| Render
+  Render --> WriteL2[Varsa L2'ye yaz]
+  WriteL2 --> WriteL1[L1'e yaz]
+  WriteL1 --> Response
+```
+
+- `CACHE_BACKEND=memory` → yalnızca L1 (tek pod / Redis'siz production geçerli).
+- `CACHE_BACKEND=redis` + `REDIS_URL` → L1 + L2 + invalidation subscriber.
+- `CACHE_REQUIRED=false` (varsayılan): Redis yoksa veya runtime kesintisinde istek akışı L1-only
+  devam eder; `/readyz` düşmez.
+- `CACHE_REQUIRED=true`: başlangıçta `REDIS_URL` zorunlu; runtime kesintisinde readiness düşer;
+  çalışan istekler yine fail-open kalır.
+
+L2 hit'ler orijinal `freshUntil` / `staleUntil` ile L1'e promote edilir — promotion ömrü uzatmaz.
+Purge/delete/flush hem L2'de hem yerel L1'de uygulanır; L2 varsa Pub/Sub ile diğer pod'ların L1'i
+temizlenir. Subscriber reconnect olduğunda güvenlik için yerel L1 tamamen boşaltılır.
+
 #### Backend — `server/cache/memory.ts` ve `server/cache/redis.ts`
 
 Her iki backend de aynı `CacheStore` interface'ini implement eder:
@@ -187,19 +219,20 @@ interface CacheStore {
 }
 ```
 
-`MemoryStore`: In-process Map, `maxEntries` aşılınca en eski entry silinir (FIFO). Yalnızca development ve test içindir; production config doğrulaması `CACHE_BACKEND=memory` ile başlamayı reddeder.
+`MemoryStore`: In-process Map (L1), `maxEntries` aşılınca en eski entry silinir (FIFO). Her podda
+her zaman aktiftir; tek pod veya Redis'siz production'da yalnızca bu katman HTML cache taşır.
+Lock, ephemeral coordination ve rate-limit için process-local fallback sağlar (çok pod garantisi yok).
 
-`RedisStore`: `ioredis`, release bazlı `ssr:<release-id>:` namespace'i ve `SCAN` tabanlı toplu silme kullanır. Cache varsayılan olarak fail-open'dır: Redis yokken read/write işlemleri cache miss gibi davranır ve SSR isteğini düşürmez. Adapter korunur ve ioredis arka planda yeniden bağlanır; pod-local memory cache'e geçilmediği için replica'lar arasında ayrışmış cache oluşmaz. `CACHE_REQUIRED=true` readiness'i Redis'e sıkı bağlar.
+`RedisStore`: L2 olarak `ioredis`, release bazlı `ssr:<release-id>:` namespace'i ve `SCAN` tabanlı
+toplu silme. Sıcak path'te L1 hit olduğunda Redis GET yapılmaz; L2 yalnızca L1 miss, write-through,
+purge listesi ve dağıtık koordinasyon içindir. Redis erişilemezken read miss, write best-effort skip
+ve L1-only devam eder (`CACHE_REQUIRED=false`). `CACHE_REQUIRED=true` readiness'i Redis ping'ine bağlar.
 
 SWR revalidation aynı key için process içinde deduplicate edilir ve Redis `SET NX PX` kilidiyle podlar arasında tekilleştirilir. Başarısız loader/render/write denemeleri üstel backoff ile sınırlı sayıda tekrar edilir. Sunucu kapanırken aktif revalidation işleri `SWR_DRAIN_TIMEOUT_MS` süresince beklenir; böylece işler kontrolsüz fire-and-forget bırakılmaz.
 
 Cold cache miss de ayrı bir fill kontratıdır. Aynı process'teki request'ler key bazlı tek Promise'i
-bekler; replica'lar `cold-fill:<key>` namespace'inde token sahipli, kısa TTL'li Redis `SET NX PX`
-lock'u kullanır. Lock'u alamayan pod cache'i kısa aralıklarla poll eder; owner yazınca `HIT`/`STALE`
-body'yi kullanır, owner başarısız olup lock'u bırakırsa bekleyenlerden biri fill'i devralır. Wait
-bütçesi dolarsa erişilebilirliği korumak için response cache'e yazılmadan bir kez render edilir;
-`lock_timeout` metriği bu kontrollü stampede riskini görünür kılar. Redis erişilemiyorsa podlar arası
-garanti kaybolur fakat process içi coalescing devam eder.
+bekler (L1-only path). L2 varken replica'lar `cold-fill:<key>` namespace'inde token sahipli, kısa TTL'li
+Redis `SET NX PX` lock'u kullanır; L2 yokken yalnızca process içi coalescing çalışır.
 
 Cold fill loader + render işi `CACHE_FILL_TIMEOUT_MS` ile sınırlıdır ve timeout `AbortSignal` olarak
 request-scoped gateway çağrılarına taşınır. `CACHE_FILL_WAIT_MS` distributed waiter bütçesini,

@@ -7,7 +7,7 @@ import { validateRoutingRules } from "~/routing/validate";
 import { stopMarketStreamClients } from "./api/market-stream";
 import { createApp } from "./app";
 import { readAssets } from "./assets";
-import { closeCache, initCache } from "./cache";
+import { closeCache, initCache, cacheTopology } from "./cache";
 import { config, validateConfig } from "./config";
 import { drainRevalidations } from "./handler";
 import { register, shutdownInstrumentation } from "./instrumentation";
@@ -32,7 +32,7 @@ async function main() {
   httpServer = serve({ fetch: app.fetch, port: config.port }, (info) => {
     logger.info("server started", {
       port: info.port,
-      cacheBackend: config.cacheBackend,
+      cacheTopology: cacheTopology(),
       tracingEnabled,
       metricsPort: config.metricsPort,
     });

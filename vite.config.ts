@@ -30,7 +30,7 @@ function reloadAfterServerRestart(): Plugin {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   return {
-    name: "ssr-kit-server-reload",
+    name: "origin-loom-server-reload",
     apply: "serve",
     configureServer(server) {
       const onChange = (file: string) => {

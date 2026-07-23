@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ssr-kit
+  name: origin-loom
   labels:
-    app: ssr-kit
+    app: origin-loom
 spec:
   replicas: 2
   revisionHistoryLimit: 3
@@ -14,11 +14,11 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      app: ssr-kit
+      app: origin-loom
   template:
     metadata:
       labels:
-        app: ssr-kit
+        app: origin-loom
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: /metrics
@@ -31,15 +31,15 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: ssr-kit
+              app: origin-loom
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: ssr-kit
+        - name: origin-loom
           # CI must replace this with the pushed image digest.
-          image: ghcr.io/example/ssr-kit@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          image: ghcr.io/example/origin-loom@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -53,9 +53,9 @@ spec:
               containerPort: 9090
           envFrom:
             - configMapRef:
-                name: ssr-kit-config
+                name: origin-loom-config
             - secretRef:
-                name: ssr-kit-secrets
+                name: origin-loom-secrets
           resources:
             requests:
               cpu: 100m

@@ -1,4 +1,4 @@
-# ssr-kit mock gateway
+# OriginLoom mock gateway
 
 Bağımsız, dependency içermeyen Node.js geliştirme gateway'idir. Varsayılan olarak `4002`
 portunda çalışır:

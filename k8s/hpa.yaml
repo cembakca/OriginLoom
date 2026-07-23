@@ -1,12 +1,12 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: ssr-kit
+  name: origin-loom
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: ssr-kit
+    name: origin-loom
   minReplicas: 2
   maxReplicas: 10
   behavior:

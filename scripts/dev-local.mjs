@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 
+import { ensureLocalRedis } from "./local-redis.mjs";
 import { loadEnv, loadEnvOverlay } from "./load-env.mjs";
 
 function run(command, args, options = {}) {
@@ -14,9 +15,10 @@ function run(command, args, options = {}) {
 }
 
 async function prepareRedis() {
+  // app/mock-gw only exist as Docker services in the base compose file; stopping them here is
+  // harmless if they were never started and avoids port clashes with the host-run `npm run dev`.
   await run("docker", ["compose", "stop", "app", "mock-gw"]);
-  const code = await run("docker", ["compose", "up", "-d", "--wait", "redis"]);
-  if (code !== 0) throw new Error("Redis container could not be started");
+  await ensureLocalRedis();
 }
 
 function startDevelopment() {

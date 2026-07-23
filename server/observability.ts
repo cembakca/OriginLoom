@@ -12,7 +12,7 @@ import {
   trace,
 } from "@opentelemetry/api";
 
-const tracer = trace.getTracer("ssr-kit");
+const tracer = trace.getTracer("origin-loom");
 const REQUEST_ID_BAGGAGE_KEY = "ssr.request_id";
 const requestStorage = new AsyncLocalStorage<string>();
 

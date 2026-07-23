@@ -1,4 +1,4 @@
-# Redis-backed shared cache profile.
+# L1 + L2 Redis tiered cache — dağıtık lock, write-through, Pub/Sub invalidation.
 
 services:
   app:

@@ -5,7 +5,7 @@ import { buildEventQueueScript } from "~/components/analytics/gtm-bootstrap";
 
 afterEach(() => {
   vi.useRealTimers();
-  delete window.__ssrKitSignalReactReady;
+  delete window.__originLoomSignalReactReady;
   window.dataLayer = [];
 });
 
@@ -26,7 +26,7 @@ describe("inline GTM event queue", () => {
   it("preserves lifecycle events that arrive after an early React-ready signal", () => {
     window.dataLayer = [];
     window.eval(buildEventQueueScript(5_000));
-    window.__ssrKitSignalReactReady?.();
+    window.__originLoomSignalReactReady?.();
 
     window.dataLayer.push({ event: "gtm.dom" });
     window.dataLayer.push({ event: "gtm.load" });

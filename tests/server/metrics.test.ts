@@ -112,7 +112,7 @@ describe("production metrics", () => {
     expect(metrics).toContain("process_cpu_user_seconds_total");
     expect(metrics).toContain("# TYPE process_cpu_user_seconds_total counter");
     expect(metrics).toContain("# TYPE process_cpu_system_seconds_total counter");
-    expect(metrics).toContain('ssr_release_info{service="ssr-kit",release="development"} 1');
+    expect(metrics).toContain('ssr_release_info{service="origin-loom",release="development"} 1');
   });
 
   it("exports bounded cache cardinality and entry size metrics", () => {

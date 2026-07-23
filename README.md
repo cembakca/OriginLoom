@@ -1,4 +1,4 @@
-# ssr-kit
+# OriginLoom
 
 Hono ve React 19 üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı.
 
@@ -24,7 +24,7 @@ Bir sayfa isteği sırasıyla şu katmanlardan geçer:
 server/
   adapters/       Gateway gibi dış sistem adapter'ları
   api/            Public ve internal BFF endpointleri
-  cache/          Memory/Redis cache implementasyonları
+  cache/          Katmanlı L1 memory + opsiyonel L2 Redis, Pub/Sub invalidation
   middleware/     Request pipeline adımları
   routes/         Loader, cache ve metadata içeren SSR route tanımları
   services/       Server-only veri orkestrasyonu
@@ -78,12 +78,26 @@ Ortam yapılandırması `.env.development`, `.env.staging` ve `.env.production` 
 yönetilir. Kişisel override'lar için `.env.local` (veya `.env.<ortam>.local`) kullanın; shell
 değişkenleri dosyalardan önceliklidir.
 
-| Komut                   | Ortam dosyası                                 | Cache  | Açıklama                           |
-| ----------------------- | --------------------------------------------- | ------ | ---------------------------------- |
-| `npm run dev`           | `.env.development`                            | memory | Günlük geliştirme — Redis gerekmez |
-| `npm run dev:redis`     | `.env.development` + `.env.development.redis` | redis  | Docker Redis ile cache/SWR testi   |
-| `npm run start:staging` | `.env.staging`                                | redis  | Staging bundle                     |
-| `npm run start`         | `.env.production`                             | redis  | Production bundle                  |
+| Komut                            | Ortam dosyası                                 | Cache   | Açıklama                                            |
+| -------------------------------- | ---------------------------------------------- | ------- | ---------------------------------------------------- |
+| `npm run dev`                    | `.env.development`                             | L1-only | Günlük geliştirme — Redis gerekmez                   |
+| `npm run dev:redis`              | `.env.development` + `.env.development.redis`  | L1+L2   | Docker Redis ile dağıtık cache testi                 |
+| `npm run compose:up`             | `.env.production` (Docker)                     | L1-only | `docker compose up --build` — varsayılan stack       |
+| `npm run compose:redis`          | + Redis overlay                                | L1+L2   | `docker-compose.redis.yml` ile Redis, `--build`      |
+| `npm run start:local`            | `.env.production` + local mock gateway         | L1-only | **Yerel dry-run**: prod build, gerçek altyapı yok    |
+| `npm run start:local:redis`      | `.env.production` + local mock gateway         | L1+L2   | **Yerel dry-run**: + Docker Redis, gerçek altyapı yok |
+| `npm run start:staging:local`    | `.env.staging` + local mock gateway            | L1-only | **Yerel dry-run**: staging config, gerçek altyapı yok |
+| `npm run start:staging:local:redis` | `.env.staging` + local mock gateway         | L1+L2   | **Yerel dry-run**: + Docker Redis, gerçek altyapı yok |
+| `npm run start:memory`           | `.env.production` + memory overlay             | L1-only | Gerçek production build, Redis'siz tek pod deploy    |
+| `npm run start:staging`          | `.env.staging`                                 | redis   | Gerçek staging bundle (gerçek altyapıya bağlanır)    |
+| `npm run start`                  | `.env.production`                              | redis   | Gerçek production bundle (gerçek altyapıya bağlanır) |
+
+`start:local*` ve `start:staging:local*` komutları `npm run build` sonrası prod bundle'ı **yerel
+mock gateway'e** karşı çalıştırır — `GATEWAY_URL`/`SITE_URL` her zaman `127.0.0.1`'e zorlanır, staging/
+production `.env` dosyalarındaki gerçek adresler asla kullanılmaz. `:redis` varyantı
+`docker-compose.redis.yml`'deki `redis` servisini otomatik ayağa kaldırır. Bunlar yalnız yerel
+doğrulama/test amaçlıdır; gerçek deploy her zaman `start`, `start:staging` veya `start:memory`
+kullanır ve altyapı adreslerini/secret'ları ortam değişkenlerinden veya secret manager'dan alır.
 
 ```bash
 npm ci
@@ -173,7 +187,8 @@ Bu kural yalnız HTML'e embedded JSON içindir; API body, Redis ve log serializa
 
 ## Redis ve HTTP cache sınırı
 
-Redis, origin içindeki SSR HTML body cache'idir. Bir route Redis'ten `HIT` dönse bile HTML response'u
+Redis (L2), origin içindeki SSR HTML body cache'idir — her podda L1 memory her zaman önce okunur.
+Sıcak L1 hit'te request başına Redis round-trip yapılmaz. Bir route L1 veya L2'den `HIT` dönse bile HTML response'u
 varsayılan olarak `Cache-Control: private, no-cache, max-age=0` taşır; downstream CDN kendiliğinden
 ikinci bir HTML cache katmanına dönüşmez. Finalization sırasında herhangi bir `Set-Cookie` eklenirse
 response zorunlu `private, no-store` olur. Hash'li statik asset'lerin immutable CDN cache'i bu
@@ -201,7 +216,7 @@ npm run ci
 
 ## Yük testi ve pentest hazırlığı
 
-Docker üzerinde **2 vCPU / 4 GiB** sınırlı production build ile cache profili karşılaştırması:
+Docker üzerinde **2 vCPU / 4 GiB** sınırlı production build ile L1-only ve L1+Redis profil karşılaştırması:
 
 ```bash
 npm run loadtest:memory
@@ -242,7 +257,7 @@ metrikleri, event-loop lag, CPU, heap/RSS, uptime ve release bilgisi. Cache writ
 bazında body/key byte histogramı ile bounded distinct key observation gauge'i üretir; örnek alarmlar
 `k8s/prometheus-rules.yaml` içindedir. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı
 yapılmaz. Varsayılan operations listener `9090` portundadır; `/metrics`, cache purge ve referral stats
-bu listener'dadır. `ssr-kit-operations` ClusterIP servisi yalnız monitoring/operations namespace'lerine
+bu listener'dadır. `origin-loom-operations` ClusterIP servisi yalnız monitoring/operations namespace'lerine
 NetworkPolicy ile açılır. Public application `Service` yalnız `3005` portunu yayınlar; public
 `/metrics` ve operations endpoint'leri `404` döner.
 
@@ -283,7 +298,9 @@ Ortam dosyaları:
 
 | Dosya                    | Kullanım                                     |
 | ------------------------ | -------------------------------------------- |
-| `.env.development`       | `npm run dev` — memory cache, Redis gerekmez |
+| `.env.development`       | `npm run dev` — L1-only, Redis gerekmez |
+| `.env.development.redis` | `npm run dev:redis` overlay — L1+L2 |
+| `.env.production.memory` | `npm run start:memory` — tek pod production |
 | `.env.development.redis` | `npm run dev:redis` overlay'i                |
 | `.env.staging`           | `npm run start:staging`                      |
 | `.env.production`        | `npm run start` şablonu                      |
@@ -295,11 +312,11 @@ Temel değişkenler:
 - `METRICS_PORT` — cluster-only metrics + operations listener'ı; varsayılan `9090`
 - `GATEWAY_URL` — path/credential/query içermeyen backend origin'i; production varsayılan HTTPS
 - `ALLOW_INSECURE_GATEWAY` — yalnız güvenilir internal HTTP gateway için açık production istisnası
-- `CACHE_BACKEND` — `memory` veya `redis`; production yalnızca `redis` kabul eder
-- `CACHE_REQUIRED` — `true` ise Redis problemi readiness'i başarısız yapar; varsayılan fail-open
-- `REDIS_URL` — Redis seçildiğinde zorunlu; non-loopback production adresi varsayılan `rediss://`
+- `CACHE_BACKEND` — `memory` (L1-only) veya `redis` (L1 + opsiyonel L2); production'da ikisi de geçerli
+- `CACHE_REQUIRED` — yalnız *runtime* Redis kesintisini yönetir: `true` ise başlangıç ping'i başarısız olursa process patlar ve sonraki kesintilerde readiness düşer; pub/sub subscriber kurulumu her zaman best-effort'tur ve bağlantı sağlanınca kendiliğinden toparlanır. `false` (varsayılan) L1-only fallback ile devam eder
+- `REDIS_URL` — `CACHE_BACKEND=redis` iken *her zaman* zorunlu (startup'ta doğrulanır); `CACHE_REQUIRED` bu kontrolü etkilemez — eksikse process hiç başlamaz
 - `ALLOW_INSECURE_REDIS` — yalnız kontrollü internal ağ için açık production TLS istisnası
-- `CACHE_MAX_ENTRIES` — memory cache kapasitesi
+- `CACHE_MAX_ENTRIES` — L1 memory kapasitesi (her pod)
 - `CACHE_PURGE_SECRET` — production purge endpoint yetkilendirmesi
 - `REFERRAL_STATS_SECRET` — internal referral sayı/latency endpoint'i için operations token'ı
 - `MARKET_STREAM_TOKEN` — BFF ile gateway canlı piyasa stream'i arasındaki server-only token
@@ -312,7 +329,7 @@ Temel değişkenler:
 - `SITE_URL` — canonical URL tabanı
 - `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` / `YANDEX_SITE_VERIFICATION` — isteğe bağlı webmaster doğrulama token'ları
 - `RELEASE_ID` — release/Git SHA; Redis HTML cache namespace'i
-- `OTEL_SERVICE_NAME` — trace ve metric service adı; varsayılan `ssr-kit`
+- `OTEL_SERVICE_NAME` — trace ve metric service adı; varsayılan `origin-loom`
 - `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP/HTTP collector adresi; yoksa tracing no-op kalır
 - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` — yalnız trace sinyali için tam OTLP endpoint'i
 - `OTEL_TRACES_EXPORTER` — `otlp` veya `none`
@@ -360,3 +377,9 @@ olarak 4002 portunda çalışır; Docker Compose uygulamayı bu servise bağlar.
 olduğunda yalnızca `GATEWAY_URL` değiştirilir.
 
 Detaylı cache ve geliştirme kuralları için [docs/conventions.md](docs/conventions.md) belgesine bakın.
+
+### Migration (katmanlı cache)
+
+Önceki sürümlerde `CACHE_BACKEND=redis` doğrudan Redis hot path anlamına geliyordu. Güncel mimaride
+her podda L1 memory her zaman vardır; `redis` = L1 + L2 + Pub/Sub invalidation. Env adları korunur;
+load test ve latency raporları eski sonuçlarla birebir karşılaştırılamaz.

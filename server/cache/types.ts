@@ -15,6 +15,15 @@ export type ListKeysResult = {
 
 export type RateLimitResult = { allowed: boolean; retryAfterMs: number };
 
+export function buildCacheEntry(body: string, policy: CachePolicy & { kind: "shared" }): CacheEntry {
+  const now = Date.now();
+  return {
+    body,
+    freshUntil: now + policy.ttl * 1000,
+    staleUntil: now + (policy.ttl + (policy.swr ?? 0)) * 1000,
+  };
+}
+
 export interface CacheStore {
   read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null>;
   write(key: string, body: string, policy: CachePolicy): Promise<void>;

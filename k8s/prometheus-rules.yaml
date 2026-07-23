@@ -1,12 +1,12 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: ssr-kit-cache-cardinality
+  name: origin-loom-cache-cardinality
   labels:
-    app: ssr-kit
+    app: origin-loom
 spec:
   groups:
-    - name: ssr-kit.cache
+    - name: origin-loom.cache
       rules:
         - alert: SsrCacheCardinalityWindowNearLimit
           expr: max by (route) (ssr_cache_distinct_keys_observed) > 1600
@@ -89,7 +89,7 @@ spec:
             summary: "Bot analytics queue did not drain during shutdown"
             description: "A terminating SSR process exhausted its bot analytics drain budget and dropped pending events."
 
-    - name: ssr-kit.slo
+    - name: origin-loom.slo
       rules:
         - alert: SsrAvailabilityLow
           expr: sum(rate(ssr_http_requests_total{status_class!~"5xx"}[5m])) / sum(rate(ssr_http_requests_total[5m])) < 0.995

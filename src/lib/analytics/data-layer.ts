@@ -3,7 +3,7 @@ import type { DataLayerPushPriority } from "./types";
 declare global {
   interface Window {
     dataLayer: Record<string, unknown>[];
-    __ssrKitSignalReactReady?: () => void;
+    __originLoomSignalReactReady?: () => void;
   }
 }
 
@@ -21,7 +21,7 @@ export function pushDataLayer(
   }
 
   // Non-immediate custom events — after React ready (gtm.dom released by head script).
-  if (priority === "after-dom" && window.__ssrKitSignalReactReady) {
+  if (priority === "after-dom" && window.__originLoomSignalReactReady) {
     window.dataLayer.push(payload);
   } else {
     window.dataLayer.push(payload);
@@ -29,5 +29,5 @@ export function pushDataLayer(
 }
 
 export function signalReactReady(): void {
-  window.__ssrKitSignalReactReady?.();
+  window.__originLoomSignalReactReady?.();
 }

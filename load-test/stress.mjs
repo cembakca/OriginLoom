@@ -51,7 +51,7 @@ let composeArgs = null;
 
 try {
   await mkdir(outputDir, { recursive: true });
-  console.log(`\n[ssr-kit stress] profile=${profile} limits=2cpu/4GiB suite=stress\n`);
+  console.log(`\n[origin-loom stress] profile=${profile} limits=2cpu/4GiB suite=stress\n`);
 
   const stack = await startLoadTestStack(profile, { skipBuild });
   composeArgs = stack.composeArgs;

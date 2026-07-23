@@ -62,6 +62,10 @@ async function observeProcessWait<T>(
 async function runDistributedColdFill<T>(
   options: Parameters<typeof coalesceColdMiss<T>>[0],
 ): Promise<ColdFillResult<T>> {
+  if (!cache.isL2Configured()) {
+    return fillUnderLock(options, crypto.randomUUID());
+  }
+
   const firstLock = await cache.acquireColdMissLock(options.key);
   if (firstLock.kind === "acquired") return fillUnderLock(options, firstLock.token);
   if (firstLock.kind === "unavailable") return { kind: "work", work: await options.work() };

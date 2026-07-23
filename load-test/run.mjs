@@ -55,7 +55,7 @@ let composeArgs = null;
 try {
   await mkdir(outputDir, { recursive: true });
 
-  console.log(`\n[ssr-kit loadtest] profile=${profile} limits=2cpu/4GiB\n`);
+  console.log(`\n[origin-loom loadtest] profile=${profile} limits=2cpu/4GiB\n`);
   if (!skipBuild) console.log("[loadtest] Building production image...");
   console.log("[loadtest] Starting docker stack...");
   const stack = await startLoadTestStack(profile, { skipBuild });

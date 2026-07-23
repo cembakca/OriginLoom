@@ -40,7 +40,7 @@ export async function startLoadTestStack(profile, options = {}) {
   if (profile === "redis") composeArgs.push("--profile", "redis");
 
   if (!options.skipBuild) {
-    await runCommand("docker", ["build", "--tag", "ssr-kit-loadtest:local", rootDir], { cwd: rootDir });
+    await runCommand("docker", ["build", "--tag", "origin-loom-loadtest:local", rootDir], { cwd: rootDir });
   }
 
   await runCommand("docker", [...composeArgs, "down", "--volumes", "--remove-orphans"], {

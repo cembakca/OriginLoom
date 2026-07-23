@@ -33,7 +33,7 @@ export async function writeReport({ outputDir, profile, suite, meta, results, me
  */
 function renderMarkdown(payload) {
   const lines = [
-    `# ssr-kit ${payload.suite === "stress" ? "stress test" : "load test"} report`,
+    `# OriginLoom ${payload.suite === "stress" ? "stress test" : "load test"} report`,
     "",
     "| Alan | Değer |",
     "| --- | --- |",

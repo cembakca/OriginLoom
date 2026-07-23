@@ -24,7 +24,7 @@ export function runtimeMetricLines(): string[] {
   const memory = process.memoryUsage();
   const cpu = process.cpuUsage();
   const release = escapeLabel(process.env.RELEASE_ID ?? "development");
-  const service = escapeLabel(process.env.OTEL_SERVICE_NAME ?? "ssr-kit");
+  const service = escapeLabel(process.env.OTEL_SERVICE_NAME ?? "origin-loom");
 
   return [
     ...gauge("ssr_event_loop_lag_p50_seconds", "Event loop delay p50", eventLoopP50()),

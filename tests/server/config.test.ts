@@ -74,7 +74,7 @@ describe("server config", () => {
     ).rejects.toThrow("Production GATEWAY_URL");
   });
 
-  it("rejects process-local memory cache in production", async () => {
+  it("allows L1-only production when CACHE_BACKEND=memory", async () => {
     await expect(
       validateWith({
         NODE_ENV: "production",
@@ -83,9 +83,21 @@ describe("server config", () => {
         SITE_URL: "https://www.example.com",
         CACHE_PURGE_SECRET: "secret",
         REFERRAL_STATS_SECRET: "referral-secret",
+        MARKET_STREAM_TOKEN: "market-secret",
+        AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
         RELEASE_ID: "release-1",
       }),
-    ).rejects.toThrow("CACHE_BACKEND=memory is not supported in production");
+    ).resolves.toBeUndefined();
+  });
+
+  it("requires REDIS_URL when CACHE_BACKEND=redis regardless of CACHE_REQUIRED", async () => {
+    await expect(
+      validateWith({
+        CACHE_BACKEND: "redis",
+        CACHE_REQUIRED: "false",
+        REDIS_URL: undefined,
+      }),
+    ).rejects.toThrow("REDIS_URL is required when CACHE_BACKEND=redis");
   });
 
   it("allows memory cache in production only for APP_ENV=loadtest", async () => {

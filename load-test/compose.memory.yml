@@ -1,4 +1,4 @@
-# In-memory cache profile — no Redis dependency.
+# L1-only tiered cache — Redis bağımlılığı yok.
 
 services:
   app:

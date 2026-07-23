@@ -49,13 +49,13 @@ jobs:
           retention-days: 7
 
       - name: Build production container
-        run: docker build --tag ssr-kit-ci:${{ github.sha }} .
+        run: docker build --tag origin-loom-ci:${{ github.sha }} .
 
       - name: Smoke test production container
         shell: bash
         run: |
           set -euo pipefail
-          docker run --detach --name ssr-kit-ci --publish 3005:3005 \
+          docker run --detach --name origin-loom-ci --publish 3005:3005 \
             --env CACHE_BACKEND=redis \
             --env CACHE_REQUIRED=false \
             --env REDIS_URL=redis://127.0.0.1:6379 \
@@ -66,8 +66,8 @@ jobs:
             --env MARKET_STREAM_TOKEN=container-market-stream-secret \
             --env AUTH_REFRESH_COORDINATION_SECRET=container-auth-refresh-coordination-secret \
             --env RELEASE_ID=${{ github.sha }} \
-            ssr-kit-ci:${{ github.sha }}
-          trap 'docker logs ssr-kit-ci || true; docker rm --force ssr-kit-ci || true' EXIT
+            origin-loom-ci:${{ github.sha }}
+          trap 'docker logs origin-loom-ci || true; docker rm --force origin-loom-ci || true' EXIT
 
           for attempt in {1..30}; do
             if response="$(curl --fail --silent http://127.0.0.1:3005/healthz)" && [[ "$response" == "ok" ]]; then
@@ -82,7 +82,7 @@ jobs:
       - name: Scan production container
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ssr-kit-ci:${{ github.sha }}
+          image-ref: origin-loom-ci:${{ github.sha }}
           format: table
           exit-code: "1"
           ignore-unfixed: true

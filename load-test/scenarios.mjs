@@ -20,7 +20,7 @@
 /** Shared browser-like headers for SSR routes. */
 export const browserHeaders = {
   "User-Agent":
-    "ssr-kit-loadtest/1.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0",
+    "origin-loom-loadtest/1.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0",
   Accept: "text/html,application/xhtml+xml",
   "Accept-Language": "tr-TR,tr;q=0.9",
 };

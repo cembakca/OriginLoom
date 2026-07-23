@@ -1,0 +1,9 @@
+# L1-only overlay — tek pod veya Redis olmadan çalıştırma.
+# kubectl apply -f k8s/configmap.yaml -f k8s/configmap.memory.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: origin-loom-config
+data:
+  CACHE_BACKEND: memory
+  CACHE_REQUIRED: "false"

@@ -421,20 +421,31 @@ kapatarak trafik alınmaması seçilebilir.
 Aynı terim farklı dependency’de farklı iş sonucu ifade eder. Bu nedenle politika genel exception
 handler’da değil, boundary’nin domain anlamında kurulmalıdır.
 
-## Local development için üç çalışma modu
+## Local development için altı çalışma modu
 
 Tek bir geliştirme modu bütün ihtiyaçları karşılamıyor:
 
-| Komut                       | App                   | Mock gateway | Cache / Redis | Amaç                          |
-| --------------------------- | --------------------- | ------------ | ------------- | ----------------------------- |
-| `npm run dev`               | Host/watch            | Host         | memory        | Günlük geliştirme — Redis yok |
-| `npm run dev:redis`         | Host/watch            | Host         | Docker Redis  | SWR/purge/lock testi          |
-| `docker compose up --build` | Container/prod bundle | Container    | Container     | Production-benzeri topoloji   |
+| Komut                                | App                    | Mock gateway | Cache / Redis        | Amaç                                        |
+| ------------------------------------- | ---------------------- | ------------ | --------------------- | -------------------------------------------- |
+| `npm run dev`                         | Host/watch             | Host         | L1-only               | Günlük geliştirme — Redis yok               |
+| `npm run dev:redis`                   | Host/watch             | Host         | L1 + Docker L2        | SWR/purge/lock/invalidation testi           |
+| `npm run compose:up`                  | Container/prod bundle  | Container    | L1-only (varsayılan)  | Tek container stack (her zaman `--build`)   |
+| `npm run compose:redis`               | Container              | Container    | L1 + L2               | Redis overlay ile çok pod simülasyonu       |
+| `npm run start:local[:redis]`         | Host/prod bundle       | Host         | L1-only veya L1 + L2  | Prod config'i yerelde dry-run — gerçek altyapı yok |
+| `npm run start:staging:local[:redis]` | Host/prod bundle       | Host         | L1-only veya L1 + L2  | Staging config'i yerelde dry-run — gerçek altyapı yok |
 
 Ortam dosyaları: `.env.development` (memory), `.env.development.redis` (overlay), `.env.staging`,
 `.env.production`. `dev:local`, `dev:redis` için geriye dönük alias'tır.
 
-`npm run dev` `.env.development` dosyasını yükler; `CACHE_BACKEND=memory` ile Redis gerekmez.
+Son iki satır farklı bir ihtiyacı çözer: `.env.staging`/`.env.production` gerçek gateway ve Redis
+adresleri taşır, doğrudan yerelde başlatılamaz. `start:local`/`start:staging:local` bu dosyaları
+yükler ama `GATEWAY_URL`/`SITE_URL`'i her zaman host'taki mock gateway'e zorlar; `:redis` eki
+`docker-compose.redis.yml`'deki `redis` servisini otomatik ayağa kaldırır. Amaç, staging/production
+config'inin (validation kuralları, cache topolojisi, timeout'lar) build sonrası gerçekten çalıştığını
+gerçek altyapıya dokunmadan doğrulamaktır — CI/CD deploy'u yine yalnız `start`/`start:staging`/
+`start:memory` kullanır.
+
+`npm run dev` `.env.development` dosyasını yükler; `CACHE_BACKEND=memory` ile yalnızca L1 kullanılır, Redis gerekmez.
 
 `npm run dev` gerçek Vite development server’ı, mock gateway’i ve `tsx watch` Hono server’ını
 `scripts/dev.mjs` üzerinden birlikte başlatır. Vite build-watch ile `dist/client` yazmaz; source
@@ -448,8 +459,9 @@ topolojisi bırakmaz. Production ise bu yoldan bağımsız olarak hashed client 
 bundle’ını kullanmaya devam eder.
 
 `dev:redis` önce Compose içindeki app ve mock-gw container’larını durdurur, yalnız Redis’i
-`docker compose up -d --wait redis` ile hazırlar, `.env.development.redis` overlay’ini uygular ve
-host üzerinde watch süreçlerini başlatır:
+`docker compose -f docker-compose.yml -f docker-compose.redis.yml up -d --wait redis` ile hazırlar
+(`redis` servisi yalnız bu overlay dosyasında tanımlı — düz `docker compose up redis` başarısız olur),
+`.env.development.redis` overlay’ini uygular ve host üzerinde watch süreçlerini başlatır:
 
 ```text
 REDIS_URL=redis://127.0.0.1:6379
@@ -599,11 +611,10 @@ Development’ta `localhost` varsayımları faydalıdır. Production’da tehlik
 config’i doğruluyor ve şu koşullarda fail-fast davranıyor:
 
 - `CACHE_BACKEND` bilinmeyen bir değer.
-- Redis seçilmiş ama `REDIS_URL` yok.
+- Redis seçilmiş ama `REDIS_URL` yok — bu `CACHE_REQUIRED` değerinden bağımsız, koşulsuz bir hatadır.
 - Timeout, port veya kapasite değerleri geçersiz.
 - SWR drain timeout global shutdown timeout’tan büyük.
 - Release ID güvenli formatta değil.
-- Production’da memory cache seçilmiş.
 - Production `GATEWAY_URL` veya `SITE_URL` açıkça verilmemiş.
 - Production gateway HTTP kullanıyor ve internal-network istisnası açıkça seçilmemiş.
 - `GATEWAY_URL` origin değil ya da `ASSET_CDN_URL` credential/query/hash taşıyor.
@@ -687,7 +698,7 @@ Docker image healthcheck’i `/healthz` kullanıyor. Kubernetes manifest’inde 
 readiness için `/readyz` ayrı tanımlanmalıdır; yavaş startup varsa startup probe eklenmelidir.
 Prometheus pod'u annotation üzerinden `9090` operations listener'ını scrape eder; cache purge ve
 referral stats da aynı cluster-only listener'dadır. Public application Service yalnız `3005`
-yayınlar. Ayrı `ssr-kit-operations` Service ve NetworkPolicy yalnız monitoring/operations
+yayınlar. Ayrı `origin-loom-operations` Service ve NetworkPolicy yalnız monitoring/operations
 namespace'lerine izin verir; public ingress'e path bazlı istisna bırakılmaz.
 
 ## Structured log olmadan ayrı gateway yalnız gürültü üretir

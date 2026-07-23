@@ -15,7 +15,7 @@ olarak sahiplenmenin kazanç ve maliyetlerini inceler.
 
 ## Ölçüm ve platform derinlik yazıları
 
-6. [Aynı Sayfada Next.js ve ssr-kit: Yük Testi](./06-ayni-sayfada-nextjs-ve-ssr-kit-yuk-testi.md) — belirli bir kurulumun tarihsel benchmark snapshot’ı.
+6. [Aynı Sayfada Next.js ve OriginLoom: Yük Testi](./06-ayni-sayfada-nextjs-ve-origin-loom-yuk-testi.md) — belirli bir kurulumun tarihsel benchmark snapshot’ı.
 7. [Vite Manifest ile Island Preload](./07-vite-manifest-ile-island-modulepreload.md) — eager JavaScript discovery ve network waterfall.
 8. [Redis HTML Cache’i İçin HTML-Odaklı Brotli](./08-redis-html-cache-icin-html-odakli-brotli-sikistirma.md) — binary wire format ve storage/CPU dengesi.
 9. [Cache-Safe CSP ve Observability](./09-hono-ssr-uzerinde-cache-safe-csp-ve-observability.md) — hash, nonce, telemetry cardinality ve long-lived stream metrikleri.

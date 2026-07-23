@@ -120,7 +120,7 @@ async function route(request, response) {
 
   if (request.method === "OPTIONS") return empty(response);
   if (request.method === "GET" && url.pathname === "/healthz") {
-    return json(response, 200, { ok: true, service: "ssr-kit-mock-gw" });
+    return json(response, 200, { ok: true, service: "origin-loom-mock-gw" });
   }
   if (request.method === "GET" && url.pathname === "/pages/menuitem/list") {
     return json(response, 200, menu);

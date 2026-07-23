@@ -1,41 +1,91 @@
 import type { Span } from "@opentelemetry/api";
 import { config } from "@server/config";
 import { logError, logger } from "@server/logger";
-import { observeCacheEntryWrite, observeCacheOperation } from "@server/metrics";
+import { observeCacheEntryWrite, observeCacheOperation, setCacheL2Health } from "@server/metrics";
 import { SpanKind, withSpan } from "@server/observability";
 
 import { formatCacheKey } from "~/lib/cache-keys";
 import type { CachePolicy } from "~/lib/types";
 
+import {
+  applyInvalidationToL1,
+  CacheInvalidationBus,
+} from "./invalidation";
 import { MemoryStore } from "./memory";
 import { RedisStore } from "./redis";
+import { TieredStore } from "./tiered";
 import type { CacheStore } from "./types";
 import type { RateLimitResult } from "./types";
 
 let store: CacheStore | null = null;
+let invalidationBus: CacheInvalidationBus | null = null;
+
+function runtimeCacheBackend(): "memory" | "redis" {
+  const value = process.env.CACHE_BACKEND ?? config.cacheBackend;
+  return value === "redis" ? "redis" : "memory";
+}
+
+function runtimeRedisUrl(): string | undefined {
+  const value = process.env.REDIS_URL ?? config.redisUrl;
+  return value?.trim() ? value : undefined;
+}
+
+export type CacheTopology = "memory" | "memory+redis";
+
+export function cacheTopology(): CacheTopology {
+  return runtimeCacheBackend() === "redis" && runtimeRedisUrl() ? "memory+redis" : "memory";
+}
+
+export function isL2Configured(): boolean {
+  return runtimeCacheBackend() === "redis" && Boolean(runtimeRedisUrl());
+}
 
 export async function initCache(): Promise<CacheStore> {
   if (store) return store;
 
-  if (config.cacheBackend === "redis") {
-    if (!config.redisUrl) {
-      throw new Error("REDIS_URL is required when CACHE_BACKEND=redis");
+  const l1 = new MemoryStore(config.cacheMaxEntries);
+  let l2: RedisStore | null = null;
+  let invalidation: CacheInvalidationBus | undefined;
+  const backend = runtimeCacheBackend();
+  const redisUrl = runtimeRedisUrl();
+
+  if (backend === "redis") {
+    if (!redisUrl) {
+      if (config.cacheRequired) {
+        throw new Error("REDIS_URL is required when CACHE_BACKEND=redis");
+      }
+      logger.warn("CACHE_BACKEND=redis without REDIS_URL; continuing with L1-only cache");
+    } else {
+      l2 = new RedisStore(redisUrl, config.releaseId);
+      try {
+        await l2.ping();
+      } catch (error) {
+        if (config.cacheRequired) throw error;
+        logError(error, {
+          msg: "redis unavailable at startup; continuing with L1-only cache until reconnect",
+        });
+      }
+
+      invalidation = new CacheInvalidationBus(
+        l2.getClient(),
+        config.releaseId,
+        (message) => applyInvalidationToL1(l1, message),
+      );
+      try {
+        await invalidation.startSubscriber(() => l2!.duplicateClient());
+        invalidationBus = invalidation;
+      } catch (error) {
+        if (config.cacheRequired) throw error;
+        logError(error, {
+          msg: "cache invalidation subscriber failed; cross-pod L1 sync disabled until reconnect",
+        });
+        invalidation = undefined;
+      }
     }
-    const redis = new RedisStore(config.redisUrl, config.releaseId);
-    try {
-      await runCacheOperation("ping", () => redis.ping());
-      store = redis;
-    } catch (error) {
-      if (config.cacheRequired) throw error;
-      logError(error, { msg: "redis unavailable at startup; continuing without cache hits" });
-      // Keep the Redis adapter: ioredis reconnects in the background. Read/write
-      // wrappers below fail open until the shared backend becomes available.
-      store = redis;
-    }
-  } else {
-    store = new MemoryStore(config.cacheMaxEntries);
   }
 
+  store = new TieredStore({ l1, l2, ...(invalidation ? { invalidation } : {}) });
+  logger.info("cache initialized", { topology: cacheTopology() });
   return store;
 }
 
@@ -49,6 +99,8 @@ export function isCacheInitialized(): boolean {
 }
 
 export async function closeCache(): Promise<void> {
+  await invalidationBus?.close();
+  invalidationBus = null;
   await store?.close?.();
   store = null;
 }
@@ -89,20 +141,22 @@ export async function deleteKey(key: string): Promise<boolean> {
 
 export function cacheControl(policy: CachePolicy): string {
   if (policy.kind === "none") return "private, no-store";
-  // Redis is the shared HTML body cache. Do not implicitly turn every browser/CDN
-  // between the user and the origin into a second cache with an unknown Vary key.
   return "private, no-cache, max-age=0";
 }
 
 export async function pingCache(): Promise<boolean> {
+  if (!isL2Configured()) return true;
   const cache = getCache();
   try {
-    return cache.ping ? await runCacheOperation("ping", () => cache.ping!()) : true;
+    const healthy = cache.ping ? await runCacheOperation("ping", () => cache.ping!()) : true;
+    setCacheL2Health(healthy);
+    return config.cacheRequired ? healthy : true;
   } catch (error) {
     logger.warn("cache ping failed", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return false;
+    setCacheL2Health(false);
+    return config.cacheRequired ? false : true;
   }
 }
 
@@ -135,7 +189,9 @@ export type ColdMissLockAttempt =
 
 export async function acquireColdMissLock(key: string): Promise<ColdMissLockAttempt> {
   const cache = getCache();
-  if (!cache.acquireLock) return { kind: "acquired", token: crypto.randomUUID() };
+  if (!cache.acquireLock) {
+    return { kind: "acquired", token: crypto.randomUUID() };
+  }
   try {
     const token = await runCacheOperation("cold_fill_lock.acquire", () =>
       cache.acquireLock!(`cold-fill:${key}`, config.cacheFillTimeoutMs + 1_000),
@@ -239,13 +295,14 @@ async function runCacheOperation<T>(
   operation: string,
   work: (span: Span) => Promise<T>,
 ): Promise<T> {
+  const topology = cacheTopology();
   return withSpan(
     `cache.${operation}`,
     {
       kind: SpanKind.INTERNAL,
       attributes: {
-        "cache.backend": config.cacheBackend,
-        ...(config.cacheBackend === "redis" ? { "db.system.name": "redis" } : {}),
+        "cache.backend": topology,
+        ...(topology === "memory+redis" ? { "db.system.name": "redis" } : {}),
       },
     },
     async (span) => {
@@ -259,7 +316,7 @@ async function runCacheOperation<T>(
       } finally {
         span.setAttribute("cache.operation", operation);
         span.setAttribute("cache.outcome", outcome);
-        observeCacheOperation(config.cacheBackend, operation, outcome, performance.now() - started);
+        observeCacheOperation(topology, operation, outcome, performance.now() - started);
       }
     },
   );

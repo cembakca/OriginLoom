@@ -5,7 +5,7 @@ import {
   toCacheKeyApiEntry,
 } from "~/lib/cache-keys";
 
-import { getCache } from "./index";
+import { getCache, cacheTopology } from "./index";
 import type { ListKeysOptions, ListKeysResult } from "./types";
 
 export type { CacheKeyApiEntry };
@@ -114,8 +114,9 @@ export function parseListKeysQuery(url: URL): ListKeysOptions | { error: string 
   };
 }
 
-export async function executePurge(request: PurgeRequest, backend: string): Promise<PurgeResult> {
+export async function executePurge(request: PurgeRequest, _backend?: string): Promise<PurgeResult> {
   const store = getCache();
+  const backend = _backend ?? cacheTopology();
 
   if (request.mode === "all") {
     const deleted = await store.flushAll();
@@ -151,8 +152,9 @@ export async function executePurge(request: PurgeRequest, backend: string): Prom
 
 export async function listCacheKeys(
   options: ListKeysOptions,
-  backend: string,
+  _backend?: string,
 ): Promise<ListKeysResult & { backend: string; entries: CacheKeyApiEntry[] }> {
+  const backend = _backend ?? cacheTopology();
   const result = await getCache().listKeys(options);
   const entries = result.keys.map(toCacheKeyApiEntry);
   return { ...result, entries, backend };

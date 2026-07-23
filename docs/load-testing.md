@@ -21,7 +21,7 @@ Buradaki değerler **göreli karşılaştırma** içindir.
 
 ```mermaid
 flowchart LR
-  AC[autocannon host] --> APP[ssr-kit app\n2 CPU / 4 GiB]
+  AC[autocannon host] --> APP[OriginLoom app\n2 CPU / 4 GiB]
   APP --> GW[mock-gw]
   APP --> R[(Redis\nredis profili)]
   AC --> MET[metrics :9090]
@@ -34,17 +34,27 @@ flowchart LR
 
 ## Profiller
 
-### memory
+### memory (L1-only)
 
 - `CACHE_BACKEND=memory`, Redis yok
 - Tek pod / restart sonrası soğuk davranışa yakın
-- `APP_ENV=loadtest` ile production build + memory cache (yalnızca load test için izinli)
+- `APP_ENV=loadtest` ile production build + L1-only cache
 
-### redis
+### redis (L1 + L2)
 
-- `CACHE_BACKEND=redis`, `CACHE_REQUIRED=true`
-- Paylaşımlı HTML cache + cold-fill coalescing
-- Çok replika senaryosuna daha yakın
+- `CACHE_BACKEND=redis`, `REDIS_URL` zorunlu (profilde)
+- Paylaşımlı L2 HTML cache + cold-fill da distributed lock + Pub/Sub L1 invalidation
+- Sıcak L1 hit'te Redis GET yapılmaması beklenir — eski tek-store Redis profili sonuçlarıyla birebir karşılaştırılamaz
+
+### redis-fallback (manuel senaryo)
+
+Opsiyonel L2 kesintisi doğrulaması — otomatik suite'e dahil değil:
+
+1. `load-test/compose.redis-optional.yml` ile `CACHE_REQUIRED=false` stack başlat
+2. `cache-hit-home` senaryosu ile L1'i ısıt
+3. Redis container'ını durdur (`docker compose stop redis`)
+4. Aynı senaryoyu tekrar koştur — **5xx olmamalı**, `x-cache: HIT` L1'den gelmeli
+5. Redis yeniden başlatıldığında subscriber reconnect L1'i flush eder (kaçırılmış invalidation güvenliği)
 
 Her release adayında **her iki profil de** ardışık koşturulmalı; sonuçlar `load-test/results/`
 altında saklanır (gitignore).
@@ -69,14 +79,14 @@ Stress koşularından türetilmiş **üst limit tahminleri** — prod gateway il
 | Profil / trafik | Rahat çalışma | Sert tavan |
 | --- | ---: | ---: |
 | Hard concurrent SSR | — | **96** (32+64 kuyruk) |
-| Memory + cache HIT | ~1.200 req/s | ~1.600 req/s |
-| Redis + cache HIT | ~800–1.000 req/s | ~1.480 req/s (yüksek conn'da 503) |
+| Memory + cache HIT (L1-only) | ~1.200 req/s | ~1.600 req/s |
+| L1+Redis sıcak L1 HIT | ~1.200 req/s | ~1.600 req/s |
+| L1+Redis soğuk L2 miss | ~800–1.000 req/s | ~1.480 req/s (yüksek conn'da 503) |
 | BYPASS rotalar | ~80–100 req/s | ~150 req/s |
 | Karışık (finans benzeri) | ~800–1.000 req/s | ~1.200 req/s |
 
-Redis profili ~96 eşzamanlı SSR altında memory ile eşit; üstünde cache HIT path Redis
-round-trip nedeniyle daha erken 503 üretir. Stress suite bunu bilinçli ortaya çıkarır; benchmark
-suite steady-state regresyon içindir.
+Redis profili (L1+L2) ~96 eşzamanlı SSR altında L1-only ile benzer steady-state HIT davranışı gösterir;
+soğuk pod / L2 miss path'te ek round-trip nedeniyle daha erken 503 üretebilir.
 
 Karşılaştırma:
 
@@ -119,9 +129,10 @@ Staging gate öncesi iç kontrol önerisi:
 
 1. Steady-state senaryolarda (`cache-hit-*`, `mixed-catalog`) hata oranı **< %1**
 2. `capacity-ramp` dışında **504** yok; `503` yalnızca bilinçli stres senaryosunda
-3. Aynı senaryoda redis profili p99, memory'ye göre anlamlı iyileşme göstermeli (soğuk start hariç)
+3. Aynı senaryoda redis profili p99, memory'ye göre anlamlı iyileşme göstermeli (soğuk start hariç) — **tiered mimari ölçümü**: sıcak L1+Redis yolunda Redis GET sayısı düşük olmalı
 4. p99 bir önceki release'e göre **>%20** kötüleşme → SSR capacity, gateway timeout veya cache key incelemesi
 5. `ssr_gateway_invalid_payload_total` artışı yok
+6. Redis kesintisi fallback manuel senaryosunda steady-state **5xx** yok
 
 ## Release döngüsü önerisi
 

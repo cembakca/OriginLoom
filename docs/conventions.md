@@ -1,4 +1,4 @@
-# ssr-kit Konvansiyonları
+# OriginLoom Konvansiyonları
 
 Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon kurallarını açıklar.
 
@@ -203,14 +203,15 @@ ssr:<release-id>:home\0tr\0desktop     → HTML gövdesi + freshUntil / staleUnt
 ssr:<release-id>:menu:Desktop          → menü JSON
 ```
 
-### Bellek vs Redis
+### Bellek vs Redis (katmanlı)
 
-| Ortam            | Ortam dosyası                    | `CACHE_BACKEND` | Davranış                                           |
-| ---------------- | -------------------------------- | --------------- | -------------------------------------------------- |
-| Yerel geliştirme | `.env.development`               | `memory`        | Tek Node process içi `Map`; restart'ta sıfırlanır  |
-| Redis testi      | `.env.development.redis` overlay | `redis`         | Docker Redis; SWR lock ve purge production'a yakın |
-| Staging          | `.env.staging`                   | `redis`         | Production kuralları, staging URL'leri             |
-| Production       | `.env.production`                | `redis`         | Tüm app instance'ları aynı cache'i paylaşır        |
+| Ortam            | Ortam dosyası                    | `CACHE_BACKEND` | Topoloji        | Davranış |
+| ---------------- | -------------------------------- | --------------- | --------------- | -------- |
+| Yerel geliştirme | `.env.development`               | `memory`        | L1-only         | Tek process; restart'ta sıfırlanır |
+| Redis testi      | `.env.development.redis` overlay | `redis`         | L1 + L2 + Pub/Sub | Docker Redis; purge/SWR/cold-fill dağıtık |
+| Staging          | `.env.staging`                   | `redis`         | L1 + L2 (opsiyonel) | `CACHE_REQUIRED=false` — Redis kesintisinde L1 devam |
+| Production tek pod | `.env.production.memory` overlay | `memory`        | L1-only         | Redis gerekmez |
+| Production çok pod | `.env.production`                | `redis`         | L1 + L2 + Pub/Sub | Paylaşımlı HTML + cross-pod invalidation |
 
 İlgili env değişkenleri — yerel geliştirme (`.env.development`):
 
@@ -239,18 +240,50 @@ RELEASE_ID=...
 Kişisel override: `.env.local` veya `.env.<ortam>.local` (gitignore'da). Shell değişkenleri
 dosyalardan önceliklidir.
 
-Docker Compose (`docker-compose.yml`) Redis'i ayağa kaldırır; app servisi `REDIS_URL=redis://redis:6379` ile bağlanır. Sağlık kontrolü: `GET /readyz` cache ping'i yapar (`pingCache()`).
+Docker Compose varsayılanı L1-only (`docker-compose.yml`). Redis overlay:
+`docker compose -f docker-compose.yml -f docker-compose.redis.yml up` veya `npm run compose:redis`.
+Her iki `compose:*` script'i de `--build` ile çalışır; imaj varsayılanı önbelleklenmiş halde
+kalmaz, kaynak her `up`'ta yeniden derlenir. Sağlık kontrolü: `GET /readyz` — L2 yapılandırılmamışsa
+veya `CACHE_REQUIRED=false` iken Redis kesintisi readiness'i düşürmez; `CACHE_REQUIRED=true` iken L2
+ping başarısız olursa düşer.
+
+### Staging/production'ı Docker olmadan yerelde denemek
+
+`.env.staging` ve `.env.production` gerçek altyapı adreslerini (gateway, Redis) taşır — doğrudan
+yerelde çalıştırılamaz. `run-local.mjs` bu iki dosyayı yükleyip `GATEWAY_URL`/`SITE_URL`'i her zaman
+host'taki mock gateway'e (`127.0.0.1:4002`) zorlayan, gerçek altyapıya asla dokunmayan bir dry-run
+sağlar:
+
+```bash
+npm run build                       # prod bundle gerekli
+npm run start:local                 # production config, L1-only, mock gateway
+npm run start:local:redis           # production config, L1+L2 (docker-compose.redis.yml → redis)
+npm run start:staging:local         # staging config, L1-only, mock gateway
+npm run start:staging:local:redis   # staging config, L1+L2, mock gateway
+```
+
+Bu komutlar yalnız yerel doğrulama içindir; gerçek deploy `start`/`start:staging`/`start:memory`
+kullanır ve `GATEWAY_URL`/`REDIS_URL`/secret'ları ortam veya secret manager'dan alır — `run-local.mjs`
+bu üçüne hiç dokunmaz.
 
 ### Bellek mi Redis mi? (route bazlı değil)
 
-`CACHE_BACKEND` **tüm uygulama için tek** bir ayardır — HTML cache ve menü cache aynı store'u kullanır. Route bazında “bu sayfa memory, şu sayfa redis” ayrımı yoktur.
+`CACHE_BACKEND=redis` artık “doğrudan Redis hot path” değil **L1 + opsiyonel L2** anlamına gelir.
+Her podda L1 her zaman vardır; Redis yalnızca L1 miss, write-through, purge listesi ve dağıtık
+lock/coordination içindir. Sıcak L1 hit'te request başına Redis GET yapılmaz.
 
-Production config `memory` backend'i reddeder. Redis erişilemezse adapter memory store'a düşmez; read/write fail-open davranıp cache miss üretirken ioredis yeniden bağlanmayı sürdürür. Böylece birden fazla pod bağımsız cache üretmez. SWR işleri Redis lock ile podlar arasında tekilleştirilir, retry/backoff uygular ve graceful shutdown sırasında drain edilir.
+`CACHE_BACKEND` **tüm uygulama için tek** bir ayardır — HTML cache ve menü cache aynı katmanlı
+store'u kullanır. Route bazında “bu sayfa memory, şu sayfa redis” ayrımı yoktur.
+
+Production'da `CACHE_BACKEND=memory` geçerlidir (tek pod). Çok pod'da `redis` + Pub/Sub önerilir.
+Redis erişilemezken lock, ephemeral coordination ve rate-limit process-local implementasyona düşer;
+multi-pod garantisi kaybolur, istekler L1 ile fail-open devam eder.
 
 | Soru                                    | Cevap                                                                                                       |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Geliştirmede neden az key görüyorum?    | Varsayılan `memory`; process restart'ta sıfırlanır                                                          |
-| Prod'da hepsini Redis'e taşımalı mıyız? | Evet — `CACHE_BACKEND=redis` yeterli; ekstra migration gerekmez                                             |
+| Geliştirmede neden az key görüyorum?    | Varsayılan L1-only; process restart'ta sıfırlanır                                                           |
+| Prod'da Redis şart mı?                  | Tek pod: hayır (`memory` veya `start:memory`). Çok pod: `redis` + invalidation önerilir                     |
+| Eski load test sonuçları karşılaştırılır mı? | Hayır — tiered mimari önceki tek-store sonuçlarıyla birebir karşılaştırılamaz                          |
 | Key listesinde tüm route'lar neden yok? | Key yalnızca **anonim GET + cache MISS sonrası write** ile oluşur; ziyaret edilmemiş sayfa listede görünmez |
 | `/hesabim` neden yok?                   | `neverCache()` — HTML cache'e hiç yazılmaz                                                                  |
 
@@ -789,7 +822,7 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 
 ### Dosya haritası
 
-| Next.js             | ssr-kit                                  | Sorumluluk                   |
+| Next.js             | OriginLoom                                | Sorumluluk                   |
 | ------------------- | ---------------------------------------- | ---------------------------- |
 | `app/layout.tsx`    | `server/document.tsx` + `RootLayout`     | HTML shell, GTM bootstrap    |
 | `layout.client.tsx` | `src/islands/layout-client.tsx`          | Chrome + store seed          |
@@ -1032,7 +1065,7 @@ uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/ser
 
 Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](../src/routing/rules.ts)
 
-| Next.js                 | ssr-kit                             | Davranış                            |
+| Next.js                 | OriginLoom                           | Davranış                            |
 | ----------------------- | ----------------------------------- | ----------------------------------- |
 | `redirects()`           | `redirects[]`                       | Tarayıcı URL değişir (301/308)      |
 | `rewrites()` (internal) | `rewrites[]` + internal destination | URL aynı, route internal path görür |

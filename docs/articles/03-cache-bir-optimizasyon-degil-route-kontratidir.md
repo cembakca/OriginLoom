@@ -734,12 +734,13 @@ Drain timeout sonsuz beklemeyi önler; global shutdown timeout da son güvenlik 
 anında cache write’ın ortasında process’i kesme ihtimali azaltılır ve hangi işlerin bekletildiği
 gözlemlenebilir kalır.
 
-## Neden production’da memory cache yasak?
+## Neden çok pod’lu production’da yalnız memory cache riskli?
 
-Memory adapter development ve testte değerlidir: Redis çalıştırmadan hızlı test, deterministik
-fixture ve küçük local ortam sağlar. Maksimum entry sayısında en eski kaydı silen sınırlı bir Map’tir.
+Memory adapter development, testte ve **tek pod’luk** production’da değerlidir: Redis çalıştırmadan
+hızlı test, deterministik fixture ve küçük ortam sağlar. Maksimum entry sayısında en eski kaydı silen
+sınırlı bir Map’tir.
 
-Production’da ise her replica kendi Map’ine sahip olur:
+Birden fazla replica’da ise her pod kendi Map’ine sahip olur:
 
 ```mermaid
 flowchart LR
@@ -749,18 +750,68 @@ flowchart LR
 ```
 
 Aynı kullanıcı ardışık request’lerde farklı içerik görebilir. Bir pod’a gönderilen purge diğerlerini
-etkilemez. Rolling deploy sırasında eski ve yeni HTML rastgele karışır. Bu nedenle production config
-`CACHE_BACKEND=memory` ile başlamayı reddeder.
+etkilemez. Rolling deploy sırasında eski ve yeni HTML rastgele karışır. **Tek pod** için
+`CACHE_BACKEND=memory` (yalnızca L1) geçerli bir production seçeneğidir; **çok pod** için
+`CACHE_BACKEND=redis` ile L1 + L2 + Pub/Sub invalidation önerilir.
 
-Redis yoksa da sessizce memory cache’e fallback yapılmaz. Böyle bir fallback availability sağlıyor
-gibi görünür ama replica’ları birbirinden ayırır. Bunun yerine Redis adapter’ı korunur; read/write
-hataları cache miss gibi fail-open davranır ve ioredis arka planda reconnect eder. Uygulama daha yavaş
-SSR üretir ama farklı pod’lar farklı local truth oluşturmaz.
+Burada iki farklı “Redis yok” durumunu birbirine karıştırmamak gerekir:
 
-`CACHE_REQUIRED=true` seçilirse readiness Redis ping’ine bağlanabilir. Bu operasyon kararıdır:
+- `CACHE_BACKEND=redis` seçilip `REDIS_URL` hiç verilmemişse bu bir yapılandırma hatasıdır; process
+  başlangıçta (`validateAppConfig`) patlar — `CACHE_REQUIRED` değeri bu kontrolü etkilemez. Tek pod
+  isteniyorsa açıkça `CACHE_BACKEND=memory` seçilmelidir; “Redis’i unutup memory’ye sessizce düşmek”
+  mümkün değildir.
+- `REDIS_URL` doğru şekilde verilmiş ama Redis *runtime*’da (deploy sonrası) geçici olarak erişilemez
+  hale gelmişse `CACHE_REQUIRED` devreye girer: `true` ise process/readiness bu durumu patlatır;
+  `false` (varsayılan) ise o pod L1-only’e fail-open olur — availability korunur, ancak Redis geri
+  gelene kadar podlar arası lock, rate-limit, auth coordination ve invalidation garantisi o pod için
+  geçici olarak kaybolur.
 
-- Cache yalnız performans katmanıysa fail-open ve trafik almaya devam etmek mantıklı olabilir.
-- Gateway cache olmadan yükü taşıyamıyorsa pod’un ready olmaması daha güvenli olabilir.
+Bu ayrım aşağıda L1+L2 mimarisi bölümünde ayrıntılandırılıyor.
+
+## L1 + L2: katmanlı cache nasıl çalışır?
+
+`CACHE_BACKEND=redis` seçildiğinde store tek bir backend değil, iki katmandır: L1 her pod’un kendi
+process memory’si, L2 podlar arası paylaşılan Redis’tir. L2 zorunlu değildir — `hasL2` false olduğunda
+sistem sessizce L1-only tek-pod davranışına döner; fakat konfigüre edilmişse aşağıdaki üç akış devreye
+girer.
+
+**Okuma:** L1’de HIT varsa L2’ye hiç gidilmez — sıcak path Redis round-trip’i içermez. L1 miss olursa L2
+kontrol edilir; L2’de bulunursa entry, kendi `freshUntil`/`staleUntil` değerleri korunarak L1’e
+“promote” edilir (`ssr_cache_promotion_total` bunu sayar). Böylece aynı key’e ikinci kez düşen bir
+request — hangi pod olursa olsun — L2’yi tekrar sormaz.
+
+**Yazma:** Body önce L2’ye, sonra L1’e yazılır. L2 yazımı başarılıysa Pub/Sub üzerinden diğer podlara
+“bu key değişti” mesajı yayınlanır; mesajı alan podlar kendi L1 kopyalarını **siler** (yeni body’yi
+kendileri taşımaz). Bir sonraki okuma o podda L1 miss olur, L2’den taze veriyi çeker ve tekrar promote
+eder. Bu tasarım SWR revalidation’ın tek bir podda tamamlanıp diğerlerinin süresi dolana kadar eski
+body’yi servis etmeye devam etmesini engeller.
+
+**Silme/purge:** `deleteKey`, `deleteKeys`, `deleteByPrefix` ve `flushAll` L1 ve L2’de ayrı ayrı
+çalışır; rapor edilen silinen anahtar sayısı iki katmanın **union**’ıdır (yalnızca L1’de olan veya
+yalnızca L2’de olan key’ler dahil), iki sayının büyüğü değil — L1 eviction ile L2 TTL farklı zamanlarda
+tetiklendiği için iki küme kısmen ayrışabilir.
+
+Pub/Sub kanalı da release namespace’i taşır (`ssr:{releaseId}:cache-invalidate`), böylece rolling
+deploy sırasında eski ve yeni sürüm birbirinin invalidation mesajını işlemez.
+
+### Subscriber bağlantısı koptuğunda ne olur?
+
+Redis pub/sub bağlantısı ioredis’in kendi reconnect mantığıyla yönetilir; bağlantı her koptuğunda
+(geçici ağ sıçraması dahil) `close` event’i tetiklenir. Bunu “her kopuşta bütün L1’i boşalt” olarak
+uygulamak yanlış olurdu: kısa bir reconnect döngüsünde birkaç `close` art arda gelebilir ve her biri
+L1’i sıfırlarsa bütün pod’lar aynı anda origin’e/L2’ye tekrar yüklenir (self-inflicted thundering
+herd). Bunun yerine sistem yalnızca gerçek bir bağlantı kaybından **sonra yeniden bağlanınca** (`ready`)
+bir kez L1’i boşaltır; art arda gelen `close` event’leri arada tek bir flush’a birikir. İlk subscribe
+denemesi başarısız olsa bile abonelik `ready` event’inde yeniden denenir — geçici bir boot hatası
+invalidation’ı kalıcı olarak devre dışı bırakmaz.
+
+### Readiness neyi gösterir, neyi göstermez?
+
+`GET /readyz` `CACHE_REQUIRED=false` (varsayılan) iken L2 kesintisini kasıtlı olarak gizler — amaç, L2
+salt performans/koordinasyon katmanıyken geçici bir Redis kesintisi yüzünden sağlıklı pod’ları trafikten
+düşürmemektir. Bu routing kararından bağımsız olarak `ssr_cache_l2_healthy` gauge’i L2’nin son ping
+sonucunu her zaman doğru raporlar; dashboard ve alarm bu gauge üzerinden L2 durumunu izlemeli,
+`/readyz`’in “healthy” dönmesini L2’nin çalıştığının kanıtı saymamalıdır.
 
 ## Release namespace rolling deployment sorununu küçültür
 
@@ -784,20 +835,26 @@ belirtiyor. Biz bu ilişkiyi Redis namespace’inde doğrudan görünür tutuyor
 
 ## Redis entry TTL’si neden `ttl + swr`?
 
-Redis fiziksel expiry süresi yalnız fresh TTL kadar olursa entry stale pencereye ulaşamadan silinir.
-Bu nedenle store şu süreyle yazar:
+`freshUntil`/`staleUntil` çifti L1 ve L2 için ortak bir `buildCacheEntry(body, policy)` helper’ından
+üretilir — iki katmanın freshness hesabı tek yerde tanımlanır, birbirinden sessizce sapamaz. Redis
+fiziksel expiry süresi yalnız fresh TTL kadar olursa entry stale pencereye ulaşamadan silinir; bu
+nedenle L2 yazımı kalan stale süresinden türetilir:
 
 ```ts
-const ttlSeconds = Math.max(1, policy.ttl + (policy.swr ?? 0));
-await redis.set(key, JSON.stringify(entry), "EX", ttlSeconds);
+const ttlSeconds = Math.max(1, Math.ceil((entry.staleUntil - Date.now()) / 1000));
+await redis.set(key, encodeCacheEntry(entry), "EX", ttlSeconds);
 ```
 
 `freshUntil` uygulamaya body’nin HIT mi STALE mi olduğunu söyler. Redis `EX` ise stale pencere bittiğinde
 entry’nin fiziksel olarak da temizlenmesini sağlar. Read sırasında süresi geçmiş bozuk veya eski entry
-görülürse defensive olarak silinir.
+görülürse defensive olarak silinir. L1 tarafında da aynı invariant korunur: `staleUntil` geçmişse
+`writeEntry` entry’yi hiç saklamaz.
 
-Entry JSON parse ve shape validation’dan geçer. Geçersiz body, `NaN` timestamp veya eski şema sessizce
-HTML olarak servis edilmez; key silinir ve normal miss yolu çalışır.
+Wire formatı ham JSON değildir — büyük HTML body'leri Brotli ile sıkıştırılmış ikili bir header+payload
+olarak saklanır; küçük servis değerleri ham geçer. Format ve sıkıştırma eşiği
+[HTML-odaklı Brotli yazısında](./08-redis-html-cache-icin-html-odakli-brotli-sikistirma.md) ayrıntılı
+işleniyor. Decode başarısız olursa (bozuk header, `NaN` timestamp, eski şema) entry sessizce HTML olarak
+servis edilmez; key silinir ve normal miss yolu çalışır.
 
 ## Origin cache ile CDN cache aynı şey değildir
 
@@ -1081,7 +1138,8 @@ component, loader, metadata, auth ve URL semantiğiyle birlikte belirlenir.
 - Entry belirli süre fresh, belirli süre stale olabilir; daha sonra bloklayan miss’e döner.
 - Aynı key yalnız bir replica tarafından yenilenir.
 - Başarısız yenileme çalışan eski body’yi ezmez.
-- Redis yoksa farklı pod’larda gizli local truth oluşmaz.
+- Çok pod’da L2 devredeyse write ve delete Pub/Sub ile diğer pod’ların L1 kopyasına yayılır; tek pod
+  bilinçli olarak `memory`’de çalışıyorsa zaten tek bir truth vardır.
 - Purge edilecek entry’nin kimliği ve kapsamı operasyon tarafından bulunabilir.
 
 Bu cümleler doğruysa Redis uygulamayı hızlandırır. Yanlışsa Redis yalnız hatayı daha hızlı ve daha geniş

@@ -1,0 +1,10 @@
+# Redis L2 + Pub/Sub overlay — çok pod dağıtımı için önerilir.
+# REDIS_URL Secret'tan gelir; bu overlay yalnızca cache backend davranışını netleştirir.
+# kubectl apply -f k8s/configmap.yaml -f k8s/configmap.redis.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: origin-loom-config
+data:
+  CACHE_BACKEND: redis
+  CACHE_REQUIRED: "true"

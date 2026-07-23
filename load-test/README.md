@@ -1,6 +1,6 @@
 # Load testing
 
-Bu klasör, ssr-kit için **Docker üzerinde kaynak sınırlı** (app: **2 vCPU / 4 GiB RAM**) gerçek yük
+Bu klasör, OriginLoom için **Docker üzerinde kaynak sınırlı** (app: **2 vCPU / 4 GiB RAM**) gerçek yük
 testi koşturur. Gateway mock kalır; amaç prod SLA değil, **cache profili karşılaştırması** ve
 **kapasite sinyalleri** (503/504, metrikler) toplamaktır.
 
@@ -8,8 +8,9 @@ testi koşturur. Gateway mock kalır; amaç prod SLA değil, **cache profili kar
 
 | Profil | Cache | Compose |
 | --- | --- | --- |
-| `memory` | In-process (`CACHE_BACKEND=memory`) | `compose.yml` + `compose.memory.yml` |
-| `redis` | Paylaşımlı Redis (`CACHE_BACKEND=redis`) | `compose.yml` + `compose.redis.yml` + `--profile redis` |
+| `memory` | L1-only (`CACHE_BACKEND=memory`) | `compose.yml` + `compose.memory.yml` |
+| `redis` | L1 + L2 (`CACHE_BACKEND=redis`) | `compose.yml` + `compose.redis.yml` + `--profile redis` |
+| `redis-fallback` (manuel) | L1+L2, `CACHE_REQUIRED=false` | + `compose.redis-optional.yml` — Redis durdurma testi |
 
 ## Hızlı başlangıç
 
@@ -70,8 +71,7 @@ npm run stress:compare
 
 ## Yorumlama
 
-1. **memory vs redis**: Aynı senaryoda redis profili genelde daha yüksek HIT oranı ve daha düşük p99
-   gösterir; memory profili pod restart / tek replika davranışını yansıtır.
+1. **memory vs redis**: Tiered mimaride redis profili L2 paylaşımı ve dağıtık cold-fill ölçer; memory profili tek pod L1-only davranışını yansıtır. Sıcak L1+Redis yolunda Redis GET yapılmaması beklenir — eski load test raporları birebir karşılaştırılamaz.
 2. **capacity-ramp**: Bilinçli stres — `503` (queue/full) ve `504` (deadline) burada beklenen sinyallerdir.
 3. **Mutlak RPS**: mock gateway ve tek container limiti nedeniyle prod taahhüdü değildir.
 4. **Metrikler**: `ssr_ssr_capacity_rejected_total`, `ssr_request_timeout_total`,

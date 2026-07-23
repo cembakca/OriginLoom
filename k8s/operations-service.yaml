@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ssr-kit-operations
+  name: origin-loom-operations
   labels:
-    app: ssr-kit
+    app: origin-loom
 spec:
   type: ClusterIP
   selector:
-    app: ssr-kit
+    app: origin-loom
   ports:
     - name: operations
       port: 9090

@@ -1,5 +1,5 @@
 {
-  "name": "ssr-kit",
+  "name": "origin-loom",
   "private": true,
   "type": "module",
   "engines": {
@@ -18,10 +18,16 @@
     "dev": "npm run icons && npm run media && node scripts/dev.mjs",
     "dev:redis": "node scripts/dev-local.mjs",
     "dev:local": "npm run dev:redis",
+    "compose:up": "docker compose up --build",
+    "compose:redis": "docker compose -f docker-compose.yml -f docker-compose.redis.yml up --build",
     "start": "node scripts/run-with-env.mjs production node --enable-source-maps dist/server/index.js",
     "start:memory": "node scripts/start-memory.mjs",
     "start:staging": "node scripts/run-with-env.mjs staging node --enable-source-maps dist/server/index.js",
     "start:dev": "node scripts/run-with-env.mjs development node --import tsx/esm server/index.ts",
+    "start:local": "node scripts/run-local.mjs production",
+    "start:local:redis": "node scripts/run-local.mjs production --redis",
+    "start:staging:local": "node scripts/run-local.mjs staging",
+    "start:staging:local:redis": "node scripts/run-local.mjs staging --redis",
     "typecheck": "tsc --noEmit",
     "check:cycles": "node scripts/check-import-cycles.mjs",
     "lint": "eslint . --max-warnings 9",

@@ -44,15 +44,16 @@ GET /bilgi-merkezi
   → Bilgi Merkezi loader + buffered SSR render/cache lookup
   → <ssr-fragment name="popular-knowledge-articles"> bulunur
   → fragment:popular-knowledge-articles:v1
-      HIT  → Redis HTML
-      MISS → GET /content/articles/popular + React fragment render + Redis write
+      HIT  → L1 (sıcak) veya L2 promote
+      MISS → GET /content/articles/popular + React fragment render + L1/L2 write
   → tamamlanmış HTML response
 ```
 
 Document TTL'i ile popüler widget TTL'i birbirinden bağımsızdır. Page HIT olsa bile stitching response
 kopyasında çalışır ve widget beş dakika boyunca gateway'e tekrar gitmez.
-“HIT 0 ms” garantisi yoktur: Redis network ve decode süresi devam eder. Garanti, fragment HIT’inde
-widget gateway çağrısının ve React fragment render’ının atlanmasıdır.
+“HIT 0 ms” garantisi yoktur: L2 miss path’te network ve decode süresi devam eder; sıcak L1 hit’te
+yalnızca bellek okunur. Garanti, fragment HIT’inde widget gateway çağrısının ve React fragment
+render’ının atlanmasıdır.
 
 ## Fragment kontratı
 
@@ -126,7 +127,7 @@ oluşturur. Fragment fill mevcut `coalesceColdMiss()` altyapısını kullanır:
 
 ```text
 process içi Promise dedup
-  → Redis distributed lock
+  → L2 varsa Redis distributed lock; yoksa process-local lock
   → cache race check
   → tek resolver/render/write
   → diğer request’ler sonucu bekler

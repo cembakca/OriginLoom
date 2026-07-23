@@ -2,7 +2,7 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { defaultResource, resourceFromAttributes } from "@opentelemetry/resources";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
-const serviceName = process.env.OTEL_SERVICE_NAME ?? "ssr-kit";
+const serviceName = process.env.OTEL_SERVICE_NAME ?? "origin-loom";
 const releaseId = process.env.RELEASE_ID ?? "development";
 
 let sdk: NodeSDK | undefined;

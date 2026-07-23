@@ -25,6 +25,57 @@ import recourseRedirect from "@server/routes/recourse-redirect";
 import { createElement, Suspense, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const handlerRedisData = new Map<string, Buffer>();
+
+function handlerRedisBuffer(value: string | Buffer): Buffer {
+  return Buffer.isBuffer(value) ? value : Buffer.from(value, "utf8");
+}
+
+vi.mock("ioredis", () => ({
+  default: class HandlerRedisMock {
+    status = "ready";
+    get = vi.fn(async (key: string) => handlerRedisData.get(key)?.toString("utf8") ?? null);
+    getBuffer = vi.fn(async (key: string) => handlerRedisData.get(key) ?? null);
+    set = vi.fn(async (key: string, value: string | Buffer, ...args: unknown[]) => {
+      if (args.includes("NX") && handlerRedisData.has(key)) return null;
+      handlerRedisData.set(key, handlerRedisBuffer(value));
+      return "OK";
+    });
+    del = vi.fn(async (...keys: string[]) => {
+      let count = 0;
+      for (const key of keys) {
+        if (handlerRedisData.delete(key)) count++;
+      }
+      return count;
+    });
+    pipeline = vi.fn(() => {
+      const ops: Array<() => [null, number]> = [];
+      const chain = {
+        del: (key: string) => {
+          ops.push(() => [null, handlerRedisData.delete(key) ? 1 : 0]);
+          return chain;
+        },
+        exec: async () => ops.map((op) => op()),
+      };
+      return chain;
+    });
+    ping = vi.fn(async () => "PONG");
+    publish = vi.fn(async () => 1);
+    subscribe = vi.fn(async () => {});
+    scan = vi.fn(async () => ["0", [] as string[]]);
+    eval = vi.fn(async (_script: string, _keyCount: number, key: string, token: string) => {
+      if (handlerRedisData.get(key)?.toString("utf8") !== token) return 0;
+      handlerRedisData.delete(key);
+      return 1;
+    });
+    connect = vi.fn(async () => {});
+    quit = vi.fn(async () => {});
+    disconnect = vi.fn();
+    on = vi.fn();
+    duplicate = vi.fn(() => new HandlerRedisMock());
+  },
+}));
+
 import { formatCacheKey } from "~/lib/cache-keys";
 import type { Route } from "~/lib/types";
 
@@ -38,7 +89,10 @@ const recourseRedirectRoute = recourseRedirect as Route;
 
 describe("handler", () => {
   beforeEach(async () => {
-    process.env.CACHE_BACKEND = "memory";
+    handlerRedisData.clear();
+    process.env.CACHE_BACKEND = "redis";
+    process.env.REDIS_URL = "redis://127.0.0.1:6379";
+    process.env.CACHE_REQUIRED = "false";
     await closeCache();
     await initCache();
   });
@@ -435,6 +489,11 @@ describe("handler", () => {
   });
 
   it("coalesces concurrent cold misses inside the process", async () => {
+    process.env.CACHE_BACKEND = "memory";
+    process.env.REDIS_URL = "";
+    await closeCache();
+    await initCache();
+
     let loaderCalls = 0;
     let releaseLoader: (() => void) | undefined;
     const gate = new Promise<void>((resolve) => (releaseLoader = resolve));
