@@ -2,14 +2,18 @@ import { getCreditCards } from "@server/services/financial-products";
 
 import { CreditCardListPage } from "~/features/financial-products/credit-card-list";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { neverCache } from "~/lib/cache-policy";
-import { resolvePageParam } from "~/lib/content-values";
+import { neverCache } from "@originloom/react/lib/cache-policy";
+import { resolvePageParam } from "@originloom/react/lib/content-values";
 import type { CreditCardList } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
 import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd, itemListJsonLd } from "~/lib/metadata/jsonld";
+import {
+  breadcrumbJsonLd,
+  compactJsonLd,
+  itemListJsonLd,
+} from "@originloom/react/lib/metadata/jsonld";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute, notFound, redirect } from "~/lib/types";
+import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
 
 const QUERY = ["bank", "cardType", "annualFee", "network", "sortBy", "page"] as const;
 

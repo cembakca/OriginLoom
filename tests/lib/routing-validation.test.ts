@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createRewrites, redirects } from "~/routing/rules";
-import { validateRoutingRules } from "~/routing/validate";
+import { validateRoutingRules } from "@originloom/react/routing/validate";
 
 describe("routing rule validation", () => {
   it("accepts the application's configured rules", () => {

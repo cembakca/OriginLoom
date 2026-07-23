@@ -2,13 +2,17 @@ import { getBank } from "@server/services/financial-products";
 
 import { BankDetailPage } from "~/features/financial-products/bank-detail";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { isBoundedRouteSlug } from "~/lib/content-values";
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 import type { BankDetail } from "~/lib/contracts/financial-products";
 import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd, itemListJsonLd } from "~/lib/metadata/jsonld";
+import {
+  breadcrumbJsonLd,
+  compactJsonLd,
+  itemListJsonLd,
+} from "@originloom/react/lib/metadata/jsonld";
 import { bankProfileJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute, notFound } from "~/lib/types";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
 
 export default defineRoute<BankDetail>({
   path: "/bankalar/:slug",

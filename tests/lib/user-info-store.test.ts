@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getUserInfo, seedUserInfo, subscribeUserInfo } from "~/lib/stores/user-info-store";
+import {
+  getUserInfo,
+  seedUserInfo,
+  subscribeUserInfo,
+} from "@originloom/react/lib/stores/user-info-store";
 
 afterEach(() => seedUserInfo({ isSignedIn: false }));
 

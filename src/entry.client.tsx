@@ -1,8 +1,8 @@
 import "./styles/globals.css";
 
-import { reportClientError } from "~/lib/client/error-telemetry";
-import { runIslandBootstrap } from "~/lib/client/island-runtime";
-import { installReloadButtons } from "~/lib/client/reload-button";
+import { reportClientError } from "@originloom/react/lib/client/error-telemetry";
+import { runIslandBootstrap } from "@originloom/react/lib/client/island-runtime";
+import { installReloadButtons } from "@originloom/react/lib/client/reload-button";
 
 installReloadButtons();
 

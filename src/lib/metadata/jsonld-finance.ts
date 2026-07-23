@@ -1,6 +1,6 @@
 import type { BankProfile, CreditCard, HousingLoan } from "~/lib/contracts/financial-products";
 
-import type { JsonLdObject } from "./jsonld";
+import type { JsonLdObject } from "@originloom/react/lib/metadata/jsonld";
 
 export function housingLoanJsonLd(product: HousingLoan, canonical: string): JsonLdObject {
   return {

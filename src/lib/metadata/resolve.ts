@@ -1,8 +1,8 @@
-import type { Ctx, Route } from "~/lib/types";
+import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import { generateMetaDataForPageWithDummySeoInfo, metadataFromTitle } from "./generate";
 import { mergeMetadata } from "./merge";
-import type { PageMetadata, ResolvedMetadata } from "./types";
+import type { PageMetadata, ResolvedMetadata } from "@originloom/react/lib/metadata/types";
 
 /** Resolve final <head> SEO from site defaults + route generateMetadata. */
 export function resolveDocumentMetadata<T>(route: Route<T>, data: T, ctx: Ctx): ResolvedMetadata {

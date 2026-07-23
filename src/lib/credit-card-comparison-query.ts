@@ -1,4 +1,4 @@
-import { isBoundedRouteSlug } from "~/lib/content-values";
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 
 export const defaultComparedCreditCards = ["maximum", "bonus", "axess"] as const;
 

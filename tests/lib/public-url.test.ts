@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizePublicUrl } from "~/routing";
+import { normalizePublicUrl } from "@originloom/react/routing";
 
 describe("public URL normalization", () => {
   it.each([

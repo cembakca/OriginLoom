@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 
 import { BrandMark } from "~/components/icons";
-import { cn } from "~/lib/utils";
+import { cn } from "@originloom/react/lib/utils";
 
 export function Container({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)} {...props} />;

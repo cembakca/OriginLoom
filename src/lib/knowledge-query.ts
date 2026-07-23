@@ -1,4 +1,4 @@
-import { parsePage } from "./content-values";
+import { parsePage } from "@originloom/react/lib/content-values";
 
 const CATEGORIES = new Set(["all", "konut-kredisi", "kredi-kartlari", "krediler", "yatirim"]);
 const ORDER = new Set(["date-desc", "date-asc", "read-time-asc"]);

@@ -2,13 +2,13 @@ import { getKnowledgeArticle } from "@server/services/knowledge-center";
 
 import { KnowledgeArticlePage } from "~/features/knowledge-center/article-detail";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { isBoundedRouteSlug } from "~/lib/content-values";
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 import type { KnowledgeArticleDetail } from "~/lib/contracts/knowledge-center";
 import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
 import { articleJsonLd, faqJsonLd } from "~/lib/metadata/jsonld-article";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute, notFound } from "~/lib/types";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
 
 export default defineRoute<KnowledgeArticleDetail>({
   path: "/bilgi-merkezi/:slug",

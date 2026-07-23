@@ -1,10 +1,10 @@
 import { FooterAccordionSlot, NavLink } from "~/components/layout/header/nav-parts";
 import { Container, Logo } from "~/components/ui/container";
-import type { DeviceType } from "~/lib/device";
-import { getDeviceShell } from "~/lib/device";
-import { serializeNavItems } from "~/lib/menu/serialize";
-import type { IMenuItems } from "~/lib/menu/types";
-import { footerNavItems, linkRel, sortFooterItems } from "~/lib/menu/utils";
+import type { DeviceType } from "@originloom/react/lib/device";
+import { getDeviceShell } from "@originloom/react/lib/device";
+import { serializeNavItems } from "@originloom/react/lib/menu/serialize";
+import type { IMenuItems } from "@originloom/react/lib/menu/types";
+import { footerNavItems, linkRel, sortFooterItems } from "@originloom/react/lib/menu/utils";
 
 export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
   const shell = getDeviceShell(deviceType);

@@ -4,9 +4,9 @@ import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { compress } from "hono/compress";
 import { HTTPException } from "hono/http-exception";
 
-import { stripUndefined } from "~/lib/strip-undefined";
-import type { Route } from "~/lib/types";
-import { normalizePublicUrl } from "~/routing";
+import { stripUndefined } from "@originloom/react/lib/strip-undefined";
+import type { Route } from "@originloom/react/lib/types";
+import { normalizePublicUrl } from "@originloom/react/routing";
 
 import { type Capacity, createSsrDispatch } from "./app/ssr-dispatch";
 import type { Assets } from "./assets";

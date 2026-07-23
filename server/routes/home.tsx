@@ -4,11 +4,11 @@ import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ResponsiveImage } from "~/components/ui/responsive-image";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { imagePreload, type ResponsiveImageData } from "~/lib/media";
+import { imagePreload, type ResponsiveImageData } from "@originloom/react/lib/media";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
-import { locale } from "~/lib/request";
+import { locale } from "@originloom/react/lib/request";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute } from "~/lib/types";
+import { defineRoute } from "@originloom/react/lib/types";
 
 const links = [
   {

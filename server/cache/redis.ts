@@ -1,7 +1,7 @@
 import { logger } from "@server/logger";
 import Redis from "ioredis";
 
-import type { CachePolicy } from "~/lib/types";
+import type { CachePolicy } from "@originloom/react/lib/types";
 
 import { decodeCacheEntry, encodeCacheEntry } from "./codec";
 import {

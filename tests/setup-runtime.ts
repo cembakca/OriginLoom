@@ -5,9 +5,16 @@ import { beforeEach } from "vitest";
 // An eager import here would create a second, unmocked module graph and split
 // singletons like the cache store between setup and test imports.
 beforeEach(async () => {
-  const [{ productRuntime }, { installRuntime }] = await Promise.all([
+  const [{ productRuntime }, { installRuntime }, { configureRouting }, rules] = await Promise.all([
     import("@server/product/runtime"),
     import("@server/runtime"),
+    import("@originloom/react/routing"),
+    import("~/routing/rules"),
   ]);
   installRuntime(productRuntime);
+  configureRouting({
+    redirects: rules.redirects,
+    rewrites: rules.rewrites,
+    createRewrites: rules.createRewrites,
+  });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isBoundedRouteSlug, MAX_PAGE, parsePage, resolvePageParam } from "~/lib/content-values";
+import {
+  isBoundedRouteSlug,
+  MAX_PAGE,
+  parsePage,
+  resolvePageParam,
+} from "@originloom/react/lib/content-values";
 
 describe("bounded content values", () => {
   it("caps permissive API page parsing", () => {

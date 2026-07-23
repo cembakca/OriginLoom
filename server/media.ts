@@ -9,7 +9,7 @@ import {
   type ResponsiveImageData,
   serializeSrcSet,
   type UnoptimizedImageData,
-} from "~/lib/media";
+} from "@originloom/react/lib/media";
 
 const MANIFEST_PATH = "dist/client/asset-pipeline.json";
 

@@ -1,7 +1,20 @@
 import { applyPattern, buildExternalUrl, isExternalUrl, matchPattern } from "./pattern";
 import { mergeSearchParams } from "./query";
-import { createRewrites, redirects, rewrites } from "./rules";
-import type { RouteResolution } from "./types";
+import type { RedirectRule, RewriteRule, RouteResolution } from "./types";
+
+export type RoutingRulesConfig = {
+  redirects: readonly RedirectRule[];
+  rewrites: readonly RewriteRule[];
+  /** Gateway-bound rewrites; used when resolveRoute receives a gatewayUrl. */
+  createRewrites?: (gatewayUrl: string) => readonly RewriteRule[];
+};
+
+let configured: RoutingRulesConfig = { redirects: [], rewrites: [] };
+
+/** Install the app's routing rules once at startup (composition root / test setup). */
+export function configureRouting(rules: RoutingRulesConfig): void {
+  configured = rules;
+}
 
 /**
  * Resolve incoming URL → redirect | proxy | internal rewrite | pass-through.
@@ -11,22 +24,25 @@ import type { RouteResolution } from "./types";
  */
 export function resolveRoute(url: URL, gatewayUrl?: string): RouteResolution {
   return resolveRouteWith(url, {
-    redirects,
-    rewrites: gatewayUrl ? createRewrites(gatewayUrl) : rewrites,
+    redirects: configured.redirects,
+    rewrites:
+      gatewayUrl && configured.createRewrites
+        ? configured.createRewrites(gatewayUrl)
+        : configured.rewrites,
   });
 }
 
-/** Test helper — resolve with custom rule sets. */
+/** Resolve with explicit rule sets (tests, custom pipelines). */
 export function resolveRouteWith(
   url: URL,
   opts: {
-    redirects?: typeof redirects;
-    rewrites?: typeof rewrites;
+    redirects?: readonly RedirectRule[];
+    rewrites?: readonly RewriteRule[];
   },
 ): RouteResolution {
   const publicPath = url.pathname;
-  const redirs = opts.redirects ?? redirects;
-  const rws = opts.rewrites ?? rewrites;
+  const redirs = opts.redirects ?? configured.redirects;
+  const rws = opts.rewrites ?? configured.rewrites;
 
   for (const rule of redirs) {
     const params = matchPattern(rule.source, publicPath);

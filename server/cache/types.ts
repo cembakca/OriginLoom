@@ -1,4 +1,4 @@
-import type { CachePolicy } from "~/lib/types";
+import type { CachePolicy } from "@originloom/react/lib/types";
 
 export type CacheEntry = { body: string; freshUntil: number; staleUntil: number };
 

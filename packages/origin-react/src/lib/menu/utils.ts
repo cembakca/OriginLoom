@@ -1,4 +1,4 @@
-import type { DeviceShell } from "~/lib/device";
+import type { DeviceShell } from "../device";
 
 import { type MenuItem, MenuItemType } from "./types";
 

@@ -7,9 +7,9 @@ import { MetadataHead } from "~/components/head/metadata-head";
 import { RootLayout } from "~/components/layout/root-layout";
 import { mergeMetadata } from "~/lib/metadata/merge";
 import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
-import type { ResolvedMetadata } from "~/lib/metadata/types";
+import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
 import { defaultPageMeta, type ShellData } from "~/lib/shell-data";
-import type { Ctx, Route } from "~/lib/types";
+import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import { NotFoundPage, RouteErrorPage } from "./boundary-pages";
 

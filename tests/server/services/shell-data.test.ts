@@ -3,7 +3,7 @@ import { renderMetrics } from "@server/metrics";
 import { buildShellData } from "@server/services/shell-data";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Ctx } from "~/lib/types";
+import type { Ctx } from "@originloom/react/lib/types";
 
 describe("shell gateway degradation", () => {
   beforeEach(async () => {

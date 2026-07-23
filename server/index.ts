@@ -1,8 +1,9 @@
 import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
 
-import { createRewrites, redirects } from "~/routing/rules";
-import { validateRoutingRules } from "~/routing/validate";
+import { configureRouting } from "@originloom/react/routing";
+import { createRewrites, redirects, rewrites } from "~/routing/rules";
+import { validateRoutingRules } from "@originloom/react/routing/validate";
 
 import { mountApi } from "./api";
 import { mountCachePurgeRoutes } from "./api/internal/cache-purge";
@@ -29,6 +30,7 @@ let metricsServer: ServerType | null = null;
 
 async function main() {
   installProductRuntime();
+  configureRouting({ redirects, rewrites, createRewrites });
   const tracingEnabled = register();
   validateConfig([validateProductConfig]);
   validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });

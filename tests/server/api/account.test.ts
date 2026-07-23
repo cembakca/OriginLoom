@@ -1,7 +1,7 @@
 import { handleAccountSummaryApi } from "@server/api/internal/account";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Cookie } from "~/lib/cookies";
+import { Cookie } from "@originloom/react/lib/cookies";
 
 const originalNodeEnv = process.env.NODE_ENV;
 

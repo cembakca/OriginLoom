@@ -8,7 +8,7 @@ import {
   createUnoptimizedImage,
   imagePreload,
   prefixMediaUrl,
-} from "~/lib/media";
+} from "@originloom/react/lib/media";
 
 describe("responsive media", () => {
   it("builds encoded CDN transformation URLs", () => {

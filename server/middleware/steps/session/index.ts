@@ -4,8 +4,8 @@ import type { MiddlewareStep } from "@server/middleware/types";
 import { Cookie } from "@server/middleware/types";
 import { tryGetRuntime } from "@server/runtime";
 
-import { parseTheme } from "~/lib/content-values";
-import { cookie } from "~/lib/request";
+import { parseTheme } from "@originloom/react/lib/content-values";
+import { cookie } from "@originloom/react/lib/request";
 
 const BOT_UA = /bot|crawl|spider|slurp|bingpreview/i;
 

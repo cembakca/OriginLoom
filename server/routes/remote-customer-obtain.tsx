@@ -1,7 +1,7 @@
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute } from "~/lib/types";
+import { defineRoute } from "@originloom/react/lib/types";
 
 export default defineRoute<{ publicPath: string }>({
   path: "/remote-customer-obtain",

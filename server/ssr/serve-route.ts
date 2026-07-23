@@ -9,7 +9,7 @@ import { logError, logger } from "@server/logger";
 import { SpanKind, withSpan } from "@server/observability";
 import { renderNotFoundDocument, renderRouteErrorDocument } from "@server/route-boundary";
 
-import type { CachePolicy, Ctx, LoaderResult, Route } from "~/lib/types";
+import type { CachePolicy, Ctx, LoaderResult, Route } from "@originloom/react/lib/types";
 
 import { rethrowRequestDeadline } from "./context";
 import { CacheFillTimeoutError, executeRoute, executeRouteWithBudget } from "./execute-route";

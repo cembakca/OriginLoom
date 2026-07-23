@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { reportClientError } from "~/lib/client/error-telemetry";
+import { reportClientError } from "@originloom/react/lib/client/error-telemetry";
 
 afterEach(() => {
   vi.unstubAllGlobals();

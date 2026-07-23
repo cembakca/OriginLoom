@@ -3,7 +3,12 @@ import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload"
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import type { AccountActivity, AccountSummary, UserProfile } from "~/lib/contracts/account";
-import { isBoundedArray, isBoundedString, isFiniteNumber, isRecord } from "~/lib/runtime-schema";
+import {
+  isBoundedArray,
+  isBoundedString,
+  isFiniteNumber,
+  isRecord,
+} from "@originloom/react/lib/runtime-schema";
 
 const INVALID_ACCOUNT = "Account gateway returned an invalid payload";
 

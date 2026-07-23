@@ -1,10 +1,10 @@
 import type { Assets } from "@server/assets";
 import type { ReactElement } from "react";
 
-import type { PageAnalyticsMeta } from "~/lib/analytics/types";
-import type { ImagePreload } from "~/lib/media";
-import type { ResolvedMetadata } from "~/lib/metadata/types";
-import type { Ctx } from "~/lib/types";
+import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
+import type { ImagePreload } from "@originloom/react/lib/media";
+import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
+import type { Ctx } from "@originloom/react/lib/types";
 
 export type DocumentContext = { routeCtx: Ctx };
 

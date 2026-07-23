@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { formatMoney } from "~/features/financial-products/format";
-import { clientApiFetch } from "~/lib/client/api-fetch";
+import { clientApiFetch } from "@originloom/react/lib/client/api-fetch";
 import type { LoanCalculatorData } from "~/lib/contracts/financial-products";
 
 export default function LoanCalculatorIsland(initialData: LoanCalculatorData) {

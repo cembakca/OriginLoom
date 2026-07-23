@@ -2,7 +2,7 @@ import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 import { type FragmentDefinition, getRuntime } from "@server/runtime";
 import { renderToString } from "react-dom/server";
 
-import type { CachePolicy, Ctx } from "~/lib/types";
+import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
 
 import { coalesceColdMiss } from "./cold-fill";
 

@@ -1,4 +1,4 @@
-import type { Route } from "~/lib/types";
+import type { Route } from "@originloom/react/lib/types";
 
 import account from "./account";
 import bankDetail from "./bank-detail";

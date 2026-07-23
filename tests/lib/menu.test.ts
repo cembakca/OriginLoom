@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { getDeviceShell, getDeviceType } from "~/lib/device";
-import type { MenuItem } from "~/lib/menu/types";
-import { footerNavItems, linkRel, sortNavItems, topNavItems } from "~/lib/menu/utils";
+import { getDeviceShell, getDeviceType } from "@originloom/react/lib/device";
+import type { MenuItem } from "@originloom/react/lib/menu/types";
+import {
+  footerNavItems,
+  linkRel,
+  sortNavItems,
+  topNavItems,
+} from "@originloom/react/lib/menu/utils";
 
 describe("device", () => {
   it("maps desktop UA to Desktop shell", () => {

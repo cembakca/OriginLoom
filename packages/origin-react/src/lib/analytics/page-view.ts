@@ -1,8 +1,8 @@
-import { readCookie } from "~/lib/client/cookies";
-import { Cookie } from "~/lib/cookies";
-import { getOriginalLocation, setOriginalLocation } from "~/lib/stores/session-store";
-import { getUserInfo } from "~/lib/stores/user-info-store";
-import { stripUndefined } from "~/lib/strip-undefined";
+import { readCookie } from "../client/cookies";
+import { Cookie } from "../cookies";
+import { getOriginalLocation, setOriginalLocation } from "../stores/session-store";
+import { getUserInfo } from "../stores/user-info-store";
+import { stripUndefined } from "../strip-undefined";
 
 import { pushDataLayer, signalReactReady } from "./data-layer";
 import type { PageAnalyticsMeta, PageDetails } from "./types";

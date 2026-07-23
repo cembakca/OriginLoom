@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { installReloadButtons } from "~/lib/client/reload-button";
+import { installReloadButtons } from "@originloom/react/lib/client/reload-button";
 
 afterEach(() => document.body.replaceChildren());
 

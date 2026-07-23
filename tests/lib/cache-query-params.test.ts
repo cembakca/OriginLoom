@@ -5,8 +5,8 @@ import {
   contentSearchString,
   foreignQueryParamNames,
   isTrackingQueryParam,
-} from "~/lib/cache-query-params";
-import type { Ctx } from "~/lib/types";
+} from "@originloom/react/lib/cache-query-params";
+import type { Ctx } from "@originloom/react/lib/types";
 
 function ctx(url: string, overrides: Partial<Ctx> = {}): Ctx {
   const parsed = new URL(url);

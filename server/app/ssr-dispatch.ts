@@ -12,8 +12,8 @@ import { setActiveHttpRoute } from "@server/observability";
 import { SsrCapacityError, ssrCapacityResponse } from "@server/ssr-capacity";
 import type { Handler } from "hono";
 
-import { stripUndefined } from "~/lib/strip-undefined";
-import type { Route } from "~/lib/types";
+import { stripUndefined } from "@originloom/react/lib/strip-undefined";
+import type { Route } from "@originloom/react/lib/types";
 
 export type Capacity = {
   run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T>;

@@ -12,9 +12,9 @@ import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload"
 import type { CookieJar } from "@server/middleware/cookie-jar";
 import { Cookie } from "@server/middleware/types";
 
-import { cookie } from "~/lib/request";
-import { isBoundedString, isRecord } from "~/lib/runtime-schema";
-import { stripUndefined } from "~/lib/strip-undefined";
+import { cookie } from "@originloom/react/lib/request";
+import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
+import { stripUndefined } from "@originloom/react/lib/strip-undefined";
 
 import { createRefreshCoordinationCodec } from "./refresh-coordination-crypto";
 import type { RefreshResult } from "./refresh-result";

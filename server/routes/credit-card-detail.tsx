@@ -1,14 +1,14 @@
 import { getCreditCard, getCreditCardCampaigns } from "@server/services/financial-products";
 
 import { CreditCardDetailPage } from "~/features/financial-products/credit-card-detail";
-import { neverCache } from "~/lib/cache-policy";
-import { isBoundedRouteSlug } from "~/lib/content-values";
+import { neverCache } from "@originloom/react/lib/cache-policy";
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 import type { CreditCardCampaign, CreditCardDetail } from "~/lib/contracts/financial-products";
 import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
 import { creditCardJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute, notFound } from "~/lib/types";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
 
 type Data = {
   detail: CreditCardDetail;

@@ -5,9 +5,12 @@ import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 import { productConfig } from "@server/product/config";
 
 import { menuCacheKey } from "~/lib/cache-keys";
-import { normalizeMetadataImageUrl, normalizeNavigationUrl } from "~/lib/content-url";
-import type { DeviceType } from "~/lib/device";
-import type { IMenuItems, MenuItem } from "~/lib/menu/types";
+import {
+  normalizeMetadataImageUrl,
+  normalizeNavigationUrl,
+} from "@originloom/react/lib/content-url";
+import type { DeviceType } from "@originloom/react/lib/device";
+import type { IMenuItems, MenuItem } from "@originloom/react/lib/menu/types";
 
 const MAX_MENU_DEPTH = 3;
 const MAX_MENU_ITEMS = 200;

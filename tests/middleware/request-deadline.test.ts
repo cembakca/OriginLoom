@@ -8,7 +8,7 @@ import { type AppVariables, requestId } from "@server/middleware/request-id";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 
-import type { Route } from "~/lib/types";
+import type { Route } from "@originloom/react/lib/types";
 
 const slowRoute: Route = {
   path: "/slow",

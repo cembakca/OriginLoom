@@ -4,7 +4,7 @@ import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 import { logger } from "@server/logger";
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
-import { isRecord } from "~/lib/runtime-schema";
+import { isRecord } from "@originloom/react/lib/runtime-schema";
 
 export type CmsRedirectRule =
   { kind: "redirect"; destination: string; status: 301 | 302 | 307 | 308 } | { kind: "gone" };

@@ -2,7 +2,7 @@ import { logError } from "@server/logger";
 import { getRuntime } from "@server/runtime";
 import { rethrowRequestDeadline } from "@server/ssr/context";
 
-import type { Ctx, Route } from "~/lib/types";
+import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import { fragmentRequiresShell, getOrSetFragmentByName, shouldResolveFragment } from "./fragment";
 

@@ -9,7 +9,7 @@ import {
   setTokenCookies,
 } from "@server/middleware/steps/auth/helpers";
 
-import { Cookie } from "~/lib/cookies";
+import { Cookie } from "@originloom/react/lib/cookies";
 
 export type BffAuthResult =
   | { kind: "authorized"; request: Request; cookies: CookieJar }

@@ -1,4 +1,4 @@
-import { Cookie } from "~/lib/cookies";
+import { Cookie } from "../cookies";
 
 /** Client-side cookie reader — safe inside islands; never embed values in cached HTML. */
 export function readCookie(name: string): string | undefined {

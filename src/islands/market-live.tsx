@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { MarketLiveTable, type MarketStreamStatus } from "~/features/markets/market-live-table";
-import { reportClientError } from "~/lib/client/error-telemetry";
+import { reportClientError } from "@originloom/react/lib/client/error-telemetry";
 import type { MarketQuoteBatch, Stock } from "~/lib/contracts/markets";
 import { parseMarketQuoteBatch } from "~/lib/market-stream";
 

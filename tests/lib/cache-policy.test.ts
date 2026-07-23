@@ -6,9 +6,9 @@ import {
   isAuthenticated,
   registerCacheBypassCheck,
   sharedUnlessBypass,
-} from "~/lib/cache-policy";
-import { Cookie } from "~/lib/cookies";
-import type { Ctx } from "~/lib/types";
+} from "@originloom/react/lib/cache-policy";
+import { Cookie } from "@originloom/react/lib/cookies";
+import type { Ctx } from "@originloom/react/lib/types";
 
 function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {
   const url = new URL(request.url);

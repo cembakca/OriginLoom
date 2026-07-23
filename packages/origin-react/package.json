@@ -1,0 +1,37 @@
+{
+  "name": "@originloom/react",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    "./lib/island": "./src/lib/island.tsx",
+    "./lib/query/provider": "./src/lib/query/provider.tsx",
+    "./lib/client/island-mount": "./src/lib/client/island-mount.tsx",
+    "./lib/*": "./src/lib/*.ts",
+    "./routing": "./src/routing/index.ts",
+    "./routing/*": "./src/routing/*.ts",
+    "./vite": "./src/vite/preset.ts",
+    "./vite/*": "./src/vite/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.101.2",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@vitejs/plugin-react": "^5.2.0",
+    "typescript": "^5.7.2",
+    "vite": "^8.1.5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

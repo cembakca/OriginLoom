@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineConfig } from "vite";
 
-import { createClientViteConfig } from "./src/vite/preset";
+import { createClientViteConfig } from "@originloom/react/vite";
 
 export default defineConfig(
   createClientViteConfig({

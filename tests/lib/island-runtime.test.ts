@@ -5,7 +5,7 @@ import {
   bootstrapIslandElements,
   createIslandMountWatchdog,
   loadIslandModule,
-} from "~/lib/client/island-runtime";
+} from "@originloom/react/lib/client/island-runtime";
 
 afterEach(() => {
   vi.useRealTimers();

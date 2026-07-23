@@ -1,4 +1,4 @@
-import { stripUndefined } from "~/lib/strip-undefined";
+import { stripUndefined } from "../strip-undefined";
 
 import type { MenuItem } from "./types";
 

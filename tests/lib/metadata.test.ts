@@ -6,8 +6,8 @@ import {
   generatePaginatedMetadata,
 } from "~/lib/metadata/generate";
 import { mergeMetadata } from "~/lib/metadata/merge";
-import { parseSeoInfo } from "~/lib/metadata/schema";
-import type { Ctx } from "~/lib/types";
+import { parseSeoInfo } from "@originloom/react/lib/metadata/schema";
+import type { Ctx } from "@originloom/react/lib/types";
 
 const ctx = (publicPath = "/konut-kredisi"): Ctx => ({
   request: new Request(`http://localhost:3005${publicPath}`),

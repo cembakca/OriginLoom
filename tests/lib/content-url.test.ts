@@ -4,7 +4,7 @@ import {
   normalizeCanonicalUrl,
   normalizeMetadataImageUrl,
   normalizeNavigationUrl,
-} from "~/lib/content-url";
+} from "@originloom/react/lib/content-url";
 
 const siteUrl = "https://www.example.com";
 

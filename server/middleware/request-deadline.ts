@@ -4,9 +4,9 @@ import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { timeout } from "hono/timeout";
 
-import { match } from "~/lib/match";
-import type { Route } from "~/lib/types";
-import { resolveRoute } from "~/routing";
+import { match } from "@originloom/react/lib/match";
+import type { Route } from "@originloom/react/lib/types";
+import { resolveRoute } from "@originloom/react/routing";
 
 import type { AppVariables, RequestClass } from "./context";
 

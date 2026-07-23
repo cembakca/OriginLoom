@@ -2,7 +2,9 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import type { UserConfig } from "vite";
 
-import { createDevReloadPlugin, type DevReloadOptions } from "./dev-reload";
+// Explicit extension: the Vite config loader hands this module to Node's native
+// TS type-stripping, which requires fully-specified relative imports.
+import { createDevReloadPlugin, type DevReloadOptions } from "./dev-reload.ts";
 
 export type ClientViteConfigOptions = {
   /** Absolute path of the client entry module. */
@@ -33,7 +35,9 @@ export function createClientViteConfig(options: ClientViteConfigOptions): UserCo
       tailwindcss(),
       ...(options.reload ? [createDevReloadPlugin(options.reload)] : []),
     ],
-    resolve: { alias: options.alias ?? {} },
+    resolve: { alias: options.alias ?? {}, dedupe: ["react", "react-dom"] },
+    // Workspace packages ship TypeScript source; keep them out of the dep optimizer.
+    optimizeDeps: { exclude: ["@originloom/react", "@originloom/core"] },
     server: {
       host,
       port,
@@ -54,7 +58,9 @@ export function createClientViteConfig(options: ClientViteConfigOptions): UserCo
 /** SSR server bundle: single self-contained index.js consumed by plain Node. */
 export function createServerViteConfig(options: ServerViteConfigOptions): UserConfig {
   return {
-    resolve: { alias: options.alias ?? {} },
+    resolve: { alias: options.alias ?? {}, dedupe: ["react", "react-dom"] },
+    // Inline workspace package source into the bundle — Node cannot import the raw .ts exports.
+    ssr: { noExternal: [/^@originloom\//] },
     build: {
       ssr: options.entry,
       outDir: options.outDir ?? "dist/server",

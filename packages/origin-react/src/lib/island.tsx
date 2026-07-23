@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { serializeEmbeddedJson } from "~/lib/embedded-json";
+import { serializeEmbeddedJson } from "./embedded-json";
 
 /**
  * `hydrate` — server renders it, client wakes it up.

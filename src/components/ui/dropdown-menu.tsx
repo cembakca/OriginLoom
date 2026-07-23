@@ -2,7 +2,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
 import { forwardRef } from "react";
 
-import { cn } from "~/lib/utils";
+import { cn } from "@originloom/react/lib/utils";
 
 export const DropdownMenuRoot = DropdownMenu.Root;
 export const DropdownMenuTrigger = DropdownMenu.Trigger;

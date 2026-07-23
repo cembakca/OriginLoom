@@ -8,9 +8,9 @@ import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
 import { Footer } from "~/components/layout/footer";
 import { Header } from "~/components/layout/header";
 import { PopularKnowledgeArticles } from "~/features/knowledge-center/popular-articles";
-import type { DeviceType } from "~/lib/device";
+import type { DeviceType } from "@originloom/react/lib/device";
 import type { ShellData } from "~/lib/shell-data";
-import type { Ctx } from "~/lib/types";
+import type { Ctx } from "@originloom/react/lib/types";
 
 export function headerFragmentKey(device: DeviceType): string {
   return `fragment:header:${device}`;

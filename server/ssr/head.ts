@@ -7,9 +7,9 @@ import { setActiveHttpRoute } from "@server/observability";
 import { proxyRequest } from "@server/proxy";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "@server/public-url";
 
-import { match } from "~/lib/match";
-import type { Route } from "~/lib/types";
-import { normalizePublicUrl, resolveRoute } from "~/routing";
+import { match } from "@originloom/react/lib/match";
+import type { Route } from "@originloom/react/lib/types";
+import { normalizePublicUrl, resolveRoute } from "@originloom/react/routing";
 
 import { createRouteContext, rethrowRequestDeadline } from "./context";
 import { runLoader } from "./execute-route";

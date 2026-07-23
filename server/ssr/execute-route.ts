@@ -5,8 +5,8 @@ import { logError } from "@server/logger";
 import { SpanKind, withSpan } from "@server/observability";
 import { renderRouteErrorDocument } from "@server/route-boundary";
 
-import { isBotRequest } from "~/components/analytics/gtm-bootstrap";
-import type { Ctx, Route } from "~/lib/types";
+import { getRuntime } from "@server/runtime";
+import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import { rethrowRequestDeadline } from "./context";
 import type { RenderPhase, RouteExecution } from "./types";
@@ -53,7 +53,8 @@ export async function executeRoute(
   const result = await runLoader(route, routeCtx, phase);
   if (result.kind && result.kind !== "data") return { result };
 
-  const shouldStream = route.streaming && phase === "request" && !isBotRequest(routeCtx.request);
+  const shouldStream =
+    route.streaming && phase === "request" && !getRuntime().document.isBotRequest(routeCtx.request);
   if (!shouldStream) {
     return { result, body: await runRender(route, result.data, assets, routeCtx, phase) };
   }

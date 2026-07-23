@@ -1,7 +1,7 @@
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { ResponsiveImage, UnoptimizedImage } from "~/components/ui/responsive-image";
-import type { ResponsiveImageData, UnoptimizedImageData } from "~/lib/media";
+import type { ResponsiveImageData, UnoptimizedImageData } from "@originloom/react/lib/media";
 
 export const MEDIA_DEMO_SIZES = "(min-width: 1024px) 50vw, 100vw";
 

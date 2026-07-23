@@ -1,7 +1,7 @@
 import * as cache from "@server/cache";
 import { logger } from "@server/logger";
 
-import type { LoaderResult, Route } from "~/lib/types";
+import type { LoaderResult, Route } from "@originloom/react/lib/types";
 
 type CachePolicy = ReturnType<NonNullable<Route["cache"]>>;
 

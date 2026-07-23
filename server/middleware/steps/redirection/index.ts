@@ -1,7 +1,7 @@
 import { lookupRedirect } from "@server/middleware/api/redirect-map";
 import type { MiddlewareStep } from "@server/middleware/types";
 
-import { mergeSearchParams } from "~/routing";
+import { mergeSearchParams } from "@originloom/react/routing";
 
 import { renderGonePage } from "./gone";
 

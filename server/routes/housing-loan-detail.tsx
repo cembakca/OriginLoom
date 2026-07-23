@@ -2,14 +2,14 @@ import { getHousingLoan } from "@server/services/financial-products";
 
 import { HousingLoanDetailPage } from "~/features/financial-products/housing-loan-detail";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { isBoundedRouteSlug } from "~/lib/content-values";
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 import type { HousingLoanDetail } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
 import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd } from "~/lib/metadata/jsonld";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
 import { housingLoanJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute, notFound } from "~/lib/types";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
 
 export default defineRoute<HousingLoanDetail>({
   path: "/housing-loans/:slug",

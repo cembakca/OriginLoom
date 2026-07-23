@@ -1,6 +1,6 @@
 import { buttonVariants } from "~/components/ui/button";
-import { buildPaginationItems } from "~/lib/pagination";
-import { cn } from "~/lib/utils";
+import { buildPaginationItems } from "@originloom/react/lib/pagination";
+import { cn } from "@originloom/react/lib/utils";
 
 export function CatalogPagination({
   pathname,

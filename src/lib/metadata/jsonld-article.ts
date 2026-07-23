@@ -1,6 +1,6 @@
 import type { KnowledgeArticle } from "~/lib/contracts/knowledge-center";
 
-import type { JsonLdObject } from "./jsonld";
+import type { JsonLdObject } from "@originloom/react/lib/metadata/jsonld";
 
 export function articleJsonLd(
   article: KnowledgeArticle,

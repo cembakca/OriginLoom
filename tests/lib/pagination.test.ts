@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPaginationItems } from "~/lib/pagination";
+import { buildPaginationItems } from "@originloom/react/lib/pagination";
 
 describe("pagination window", () => {
   it("renders every page for a small result set", () => {

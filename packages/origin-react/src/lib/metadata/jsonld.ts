@@ -1,4 +1,4 @@
-import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "~/lib/content-url";
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url";
 
 import type { ResolvedMetadata } from "./types";
 

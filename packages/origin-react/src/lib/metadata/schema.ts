@@ -2,8 +2,8 @@ import {
   normalizeCanonicalUrl,
   normalizeMetadataImageUrl,
   normalizeNavigationUrl,
-} from "~/lib/content-url";
-import { stripUndefined } from "~/lib/strip-undefined";
+} from "../content-url";
+import { stripUndefined } from "../strip-undefined";
 
 import type { SeoInfo } from "./types";
 

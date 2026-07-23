@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
 import { Container } from "~/components/ui/container";
-import type { PageAnalyticsMeta } from "~/lib/analytics/types";
-import { Island } from "~/lib/island";
+import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
+import { Island } from "@originloom/react/lib/island";
 import type { ShellData } from "~/lib/shell-data";
 
 import { Footer } from "./footer";

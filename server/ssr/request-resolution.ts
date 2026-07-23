@@ -6,9 +6,9 @@ import { proxyRequest } from "@server/proxy";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "@server/public-url";
 import { renderNotFoundDocument } from "@server/route-boundary";
 
-import { match } from "~/lib/match";
-import type { CachePolicy, Ctx, Route } from "~/lib/types";
-import { normalizePublicUrl, resolveRoute } from "~/routing";
+import { match } from "@originloom/react/lib/match";
+import type { CachePolicy, Ctx, Route } from "@originloom/react/lib/types";
+import { normalizePublicUrl, resolveRoute } from "@originloom/react/routing";
 
 import { createRouteContext } from "./context";
 import { htmlResponse, logRequest } from "./response";

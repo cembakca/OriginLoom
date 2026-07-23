@@ -3,7 +3,7 @@ import { isKnownRecoursePage } from "@server/services/route-domains";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
-import { defineRoute } from "~/lib/types";
+import { defineRoute } from "@originloom/react/lib/types";
 
 export default defineRoute<{ page: string; publicPath: string }>({
   path: "/recourse/:page/redirect",

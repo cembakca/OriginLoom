@@ -1,4 +1,4 @@
-import type { Ctx } from "~/lib/types";
+import type { Ctx } from "./types";
 
 /**
  * SSR HTML'i etkilemeyen query parametreleri — cache key'e asla girmez.

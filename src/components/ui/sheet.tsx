@@ -3,7 +3,7 @@ import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react
 import { forwardRef } from "react";
 
 import { X } from "~/components/icons";
-import { cn } from "~/lib/utils";
+import { cn } from "@originloom/react/lib/utils";
 
 export const Sheet = Dialog.Root;
 export const SheetTrigger = Dialog.Trigger;

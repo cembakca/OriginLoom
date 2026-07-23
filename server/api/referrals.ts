@@ -8,11 +8,11 @@ import { guardPublicApi, type PublicApiPolicy } from "@server/security/public-ap
 import { createReferral } from "@server/services/financial-products";
 import type { Hono } from "hono";
 
-import { normalizeNavigationUrl } from "~/lib/content-url";
-import { isBoundedRouteSlug } from "~/lib/content-values";
-import { Cookie } from "~/lib/cookies";
+import { normalizeNavigationUrl } from "@originloom/react/lib/content-url";
+import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { Cookie } from "@originloom/react/lib/cookies";
 import { referralProductByPublicType } from "~/lib/referral-products";
-import { cookie } from "~/lib/request";
+import { cookie } from "@originloom/react/lib/request";
 
 const REFERRAL_SESSION_MAX_AGE = 86_400 * 30;
 const referralPolicy: PublicApiPolicy = {

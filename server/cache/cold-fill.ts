@@ -5,7 +5,7 @@ import {
   observeColdMissLockTimeout,
 } from "@server/metrics";
 
-import type { CachePolicy } from "~/lib/types";
+import type { CachePolicy } from "@originloom/react/lib/types";
 
 import * as cache from "./index";
 

@@ -1,7 +1,7 @@
 import { config } from "@server/config";
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
-import type { Ctx } from "~/lib/types";
+import type { Ctx } from "@originloom/react/lib/types";
 
 import type { HandleContext } from "./types";
 

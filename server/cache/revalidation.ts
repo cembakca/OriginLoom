@@ -5,7 +5,7 @@ import { observeRevalidation } from "@server/metrics";
 import { SpanKind, SpanStatusCode, withSpan } from "@server/observability";
 import { runLoader, runRender } from "@server/ssr/execute-route";
 
-import type { Ctx, Route } from "~/lib/types";
+import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import * as cache from "./index";
 

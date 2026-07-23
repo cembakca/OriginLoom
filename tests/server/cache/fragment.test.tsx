@@ -16,7 +16,7 @@ import { productRuntime } from "@server/product/runtime";
 import { installRuntime } from "@server/runtime";
 
 import type { ShellData } from "~/lib/shell-data";
-import type { Ctx } from "~/lib/types";
+import type { Ctx } from "@originloom/react/lib/types";
 
 describe("fragment cache", () => {
   beforeEach(async () => {

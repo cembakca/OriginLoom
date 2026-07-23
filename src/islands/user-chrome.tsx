@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { getUserInfo, subscribeUserInfo } from "~/lib/stores/user-info-store";
+import { getUserInfo, subscribeUserInfo } from "@originloom/react/lib/stores/user-info-store";
 
 /** Auth chrome — UI hints render immediately, authoritative session updates the store. */
 export default function UserChrome() {

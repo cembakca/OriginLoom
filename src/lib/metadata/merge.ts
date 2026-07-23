@@ -1,10 +1,17 @@
-import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "~/lib/content-url";
-import { stripUndefined } from "~/lib/strip-undefined";
-import type { Ctx } from "~/lib/types";
+import {
+  normalizeCanonicalUrl,
+  normalizeMetadataImageUrl,
+} from "@originloom/react/lib/content-url";
+import { stripUndefined } from "@originloom/react/lib/strip-undefined";
+import type { Ctx } from "@originloom/react/lib/types";
 
-import { baseStructuredData } from "./jsonld";
+import { baseStructuredData } from "@originloom/react/lib/metadata/jsonld";
 import { siteMetadata } from "./site-defaults";
-import type { PageMetadata, ResolvedMetadata, SiteMetadataConfig } from "./types";
+import type {
+  PageMetadata,
+  ResolvedMetadata,
+  SiteMetadataConfig,
+} from "@originloom/react/lib/metadata/types";
 
 function formatTitle(pageTitle: string | undefined, site: SiteMetadataConfig): string {
   if (!pageTitle || pageTitle === site.title.default) return site.title.default;

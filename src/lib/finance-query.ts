@@ -1,4 +1,4 @@
-import { parsePage } from "./content-values";
+import { parsePage } from "@originloom/react/lib/content-values";
 
 const CITY = new Set(["istanbul", "ankara", "izmir", "bursa", "antalya"]);
 const LOAN_SORT = new Set([

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clientApiFetch } from "~/lib/client/api-fetch";
-import { getUserInfo, seedUserInfo } from "~/lib/stores/user-info-store";
+import { clientApiFetch } from "@originloom/react/lib/client/api-fetch";
+import { getUserInfo, seedUserInfo } from "@originloom/react/lib/stores/user-info-store";
 
 afterEach(() => {
   seedUserInfo({ isSignedIn: false });

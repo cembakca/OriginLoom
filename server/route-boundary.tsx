@@ -1,4 +1,4 @@
-import type { Ctx, Route, RouteError } from "~/lib/types";
+import type { Ctx, Route, RouteError } from "@originloom/react/lib/types";
 
 import type { Assets } from "./assets";
 import { renderDocumentView } from "./document";

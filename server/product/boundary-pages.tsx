@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import type { RouteError } from "~/lib/types";
+import type { RouteError } from "@originloom/react/lib/types";
 
 export function NotFoundPage() {
   return (

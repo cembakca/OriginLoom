@@ -1,4 +1,4 @@
-import type { SiteMetadataConfig } from "./types";
+import type { SiteMetadataConfig } from "@originloom/react/lib/metadata/types";
 
 /** Root layout `export const metadata` karşılığı — statik site kimliği. */
 export function siteMetadata(baseUrl: string): SiteMetadataConfig {
