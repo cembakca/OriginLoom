@@ -425,14 +425,14 @@ handler’da değil, boundary’nin domain anlamında kurulmalıdır.
 
 Tek bir geliştirme modu bütün ihtiyaçları karşılamıyor:
 
-| Komut                                | App                    | Mock gateway | Cache / Redis        | Amaç                                        |
-| ------------------------------------- | ---------------------- | ------------ | --------------------- | -------------------------------------------- |
-| `npm run dev`                         | Host/watch             | Host         | L1-only               | Günlük geliştirme — Redis yok               |
-| `npm run dev:redis`                   | Host/watch             | Host         | L1 + Docker L2        | SWR/purge/lock/invalidation testi           |
-| `npm run compose:up`                  | Container/prod bundle  | Container    | L1-only (varsayılan)  | Tek container stack (her zaman `--build`)   |
-| `npm run compose:redis`               | Container              | Container    | L1 + L2               | Redis overlay ile çok pod simülasyonu       |
-| `npm run start:local[:redis]`         | Host/prod bundle       | Host         | L1-only veya L1 + L2  | Prod config'i yerelde dry-run — gerçek altyapı yok |
-| `npm run start:staging:local[:redis]` | Host/prod bundle       | Host         | L1-only veya L1 + L2  | Staging config'i yerelde dry-run — gerçek altyapı yok |
+| Komut                                 | App                   | Mock gateway | Cache / Redis        | Amaç                                                  |
+| ------------------------------------- | --------------------- | ------------ | -------------------- | ----------------------------------------------------- |
+| `npm run dev`                         | Host/watch            | Host         | L1-only              | Günlük geliştirme — Redis yok                         |
+| `npm run dev:redis`                   | Host/watch            | Host         | L1 + Docker L2       | SWR/purge/lock/invalidation testi                     |
+| `npm run compose:up`                  | Container/prod bundle | Container    | L1-only (varsayılan) | Tek container stack (her zaman `--build`)             |
+| `npm run compose:redis`               | Container             | Container    | L1 + L2              | Redis overlay ile çok pod simülasyonu                 |
+| `npm run start:local[:redis]`         | Host/prod bundle      | Host         | L1-only veya L1 + L2 | Prod config'i yerelde dry-run — gerçek altyapı yok    |
+| `npm run start:staging:local[:redis]` | Host/prod bundle      | Host         | L1-only veya L1 + L2 | Staging config'i yerelde dry-run — gerçek altyapı yok |
 
 Ortam dosyaları: `.env.development` (memory), `.env.development.redis` (overlay), `.env.staging`,
 `.env.production`. `dev:local`, `dev:redis` için geriye dönük alias'tır.

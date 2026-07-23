@@ -1,9 +1,15 @@
+import { existsSync as fsExistsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import ts from "typescript";
 
 const root = process.cwd();
-const sourceRoots = [join(root, "server"), join(root, "src")];
+const workspaceRoot = findWorkspaceRoot(root);
+const packageRoots = {
+  "@originloom/core": join(workspaceRoot, "packages/origin-core/src"),
+  "@originloom/react": join(workspaceRoot, "packages/origin-react/src"),
+};
+const sourceRoots = [join(root, "server"), join(root, "src"), ...Object.values(packageRoots)];
 const extensions = [".ts", ".tsx", ".js", ".mjs"];
 const files = (await Promise.all(sourceRoots.map(walk))).flat();
 const fileSet = new Set(files);
@@ -14,7 +20,10 @@ for (const file of files) {
   const dependencies = new Set();
   for (const specifier of collectRuntimeImports(file, source)) {
     const dependency = resolveImport(file, specifier);
-    if (dependency) dependencies.add(dependency);
+    if (dependency) {
+      assertLayering(file, dependency);
+      dependencies.add(dependency);
+    }
   }
   graph.set(file, [...dependencies]);
 }
@@ -46,7 +55,14 @@ function resolveImport(importer, specifier) {
   if (specifier.startsWith("@server/")) base = join(root, "server", specifier.slice(8));
   else if (specifier.startsWith("~/")) base = join(root, "src", specifier.slice(2));
   else if (specifier.startsWith(".")) base = resolve(dirname(importer), specifier);
-  else return null;
+  else {
+    for (const [name, packageRoot] of Object.entries(packageRoots)) {
+      if (specifier === name) base = packageRoot;
+      else if (specifier.startsWith(`${name}/`))
+        base = join(packageRoot, specifier.slice(name.length + 1));
+    }
+    if (!base) return null;
+  }
 
   const candidates = extname(base)
     ? [base]
@@ -127,4 +143,25 @@ async function walk(directory) {
     }),
   );
   return nested.flat();
+}
+
+/** Layering guard: the client/runtime package must never depend on the server core. */
+function assertLayering(importer, dependency) {
+  const reactRoot = packageRoots["@originloom/react"];
+  const coreRoot = packageRoots["@originloom/core"];
+  if (importer.startsWith(reactRoot) && dependency.startsWith(coreRoot)) {
+    throw new Error(
+      `Layering violation: @originloom/react must not import @originloom/core (${relative(workspaceRoot, importer)} -> ${relative(workspaceRoot, dependency)})`,
+    );
+  }
+}
+
+function findWorkspaceRoot(start) {
+  let current = start;
+  for (;;) {
+    if (fsExistsSync(join(current, "pnpm-workspace.yaml"))) return current;
+    const parent = dirname(current);
+    if (parent === current) return start;
+    current = parent;
+  }
 }

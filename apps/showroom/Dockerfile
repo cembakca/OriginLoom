@@ -1,18 +1,18 @@
+# Build context: repository root (docker build -f apps/showroom/Dockerfile .)
 FROM node:22-alpine AS builder
 
 RUN corepack enable
 
-WORKDIR /app
+WORKDIR /repo
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+RUN pnpm fetch
 
 COPY . .
-RUN pnpm run typecheck && pnpm run build
+RUN pnpm install --frozen-lockfile --offline
+RUN pnpm --filter showroom typecheck && pnpm --filter showroom build
 
 FROM node:22-alpine AS runner
-
-RUN corepack enable
 
 WORKDIR /app
 
@@ -21,10 +21,9 @@ ENV PORT=3005
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile --prod && pnpm store prune
-
-COPY --from=builder /app/dist ./dist
+# The server bundle is fully self-contained (ssr.noExternal: true) — no node_modules needed.
+COPY --from=builder --chown=nodejs:nodejs /repo/apps/showroom/dist ./dist
+RUN printf '{"type":"module"}\n' > package.json
 
 USER nodejs
 

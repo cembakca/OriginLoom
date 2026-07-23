@@ -1,13 +1,15 @@
 services:
   mock-gw:
-    build: ./mock-gw
+    build: ../../tools/mock-gw
     ports:
       - "4002:4002"
     environment:
       MARKET_STREAM_TOKEN: dev-market-stream-token
 
   app:
-    build: .
+    build:
+      context: ../..
+      dockerfile: apps/showroom/Dockerfile
     ports:
       - "3005:3005"
     env_file:

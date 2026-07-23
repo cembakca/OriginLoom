@@ -3,7 +3,7 @@ import { downDevStack, downLoadTestStack, removeLocalRedis } from "./docker-comp
 const args = new Set(process.argv.slice(2));
 
 function usage() {
-  console.error(`Usage: node scripts/docker-clean.mjs [options]
+  console.error(`Usage: origin-docker-clean [options]
 
 Options (default: --all without --volumes):
   --redis       Remove only the local Redis container (dev overlay)

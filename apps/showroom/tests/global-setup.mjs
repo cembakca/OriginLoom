@@ -1,7 +1,9 @@
 import { once } from "node:events";
 
 export default async function setup() {
-  await import("../scripts/build-media.mjs");
+  // Tooling bins resolve the app root from ORIGIN_APP_ROOT (vitest runs from the workspace root).
+  process.env.ORIGIN_APP_ROOT = new URL("..", import.meta.url).pathname;
+  await import("@originloom/tooling/bin/build-media.mjs");
   process.env.MOCK_GW_QUIET = "1";
   const { createMockGatewayServer } = await import("../../../tools/mock-gw/server.js");
   const server = createMockGatewayServer();

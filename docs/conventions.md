@@ -205,13 +205,13 @@ ssr:<release-id>:menu:Desktop          → menü JSON
 
 ### Bellek vs Redis (katmanlı)
 
-| Ortam            | Ortam dosyası                    | `CACHE_BACKEND` | Topoloji        | Davranış |
-| ---------------- | -------------------------------- | --------------- | --------------- | -------- |
-| Yerel geliştirme | `.env.development`               | `memory`        | L1-only         | Tek process; restart'ta sıfırlanır |
-| Redis testi      | `.env.development.redis` overlay | `redis`         | L1 + L2 + Pub/Sub | Docker Redis; purge/SWR/cold-fill dağıtık |
-| Staging          | `.env.staging`                   | `redis`         | L1 + L2 (opsiyonel) | `CACHE_REQUIRED=false` — Redis kesintisinde L1 devam |
-| Production tek pod | `.env.production.memory` overlay | `memory`        | L1-only         | Redis gerekmez |
-| Production çok pod | `.env.production`                | `redis`         | L1 + L2 + Pub/Sub | Paylaşımlı HTML + cross-pod invalidation |
+| Ortam              | Ortam dosyası                    | `CACHE_BACKEND` | Topoloji            | Davranış                                             |
+| ------------------ | -------------------------------- | --------------- | ------------------- | ---------------------------------------------------- |
+| Yerel geliştirme   | `.env.development`               | `memory`        | L1-only             | Tek process; restart'ta sıfırlanır                   |
+| Redis testi        | `.env.development.redis` overlay | `redis`         | L1 + L2 + Pub/Sub   | Docker Redis; purge/SWR/cold-fill dağıtık            |
+| Staging            | `.env.staging`                   | `redis`         | L1 + L2 (opsiyonel) | `CACHE_REQUIRED=false` — Redis kesintisinde L1 devam |
+| Production tek pod | `.env.production.memory` overlay | `memory`        | L1-only             | Redis gerekmez                                       |
+| Production çok pod | `.env.production`                | `redis`         | L1 + L2 + Pub/Sub   | Paylaşımlı HTML + cross-pod invalidation             |
 
 İlgili env değişkenleri — yerel geliştirme (`.env.development`):
 
@@ -279,13 +279,13 @@ Production'da `CACHE_BACKEND=memory` geçerlidir (tek pod). Çok pod'da `redis` 
 Redis erişilemezken lock, ephemeral coordination ve rate-limit process-local implementasyona düşer;
 multi-pod garantisi kaybolur, istekler L1 ile fail-open devam eder.
 
-| Soru                                    | Cevap                                                                                                       |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Geliştirmede neden az key görüyorum?    | Varsayılan L1-only; process restart'ta sıfırlanır                                                           |
-| Prod'da Redis şart mı?                  | Tek pod: hayır (`memory` veya `start:memory`). Çok pod: `redis` + invalidation önerilir                     |
-| Eski load test sonuçları karşılaştırılır mı? | Hayır — tiered mimari önceki tek-store sonuçlarıyla birebir karşılaştırılamaz                          |
-| Key listesinde tüm route'lar neden yok? | Key yalnızca **anonim GET + cache MISS sonrası write** ile oluşur; ziyaret edilmemiş sayfa listede görünmez |
-| `/hesabim` neden yok?                   | `neverCache()` — HTML cache'e hiç yazılmaz                                                                  |
+| Soru                                         | Cevap                                                                                                       |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Geliştirmede neden az key görüyorum?         | Varsayılan L1-only; process restart'ta sıfırlanır                                                           |
+| Prod'da Redis şart mı?                       | Tek pod: hayır (`memory` veya `start:memory`). Çok pod: `redis` + invalidation önerilir                     |
+| Eski load test sonuçları karşılaştırılır mı? | Hayır — tiered mimari önceki tek-store sonuçlarıyla birebir karşılaştırılamaz                               |
+| Key listesinde tüm route'lar neden yok?      | Key yalnızca **anonim GET + cache MISS sonrası write** ile oluşur; ziyaret edilmemiş sayfa listede görünmez |
+| `/hesabim` neden yok?                        | `neverCache()` — HTML cache'e hiç yazılmaz                                                                  |
 
 Menü key'leri (`menu:Desktop` vb.) layout render sırasında oluşur; sayfa HTML key'leri ise o URL'e anonim istek gelince oluşur.
 
@@ -822,7 +822,7 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 
 ### Dosya haritası
 
-| Next.js             | OriginLoom                                | Sorumluluk                   |
+| Next.js             | OriginLoom                               | Sorumluluk                   |
 | ------------------- | ---------------------------------------- | ---------------------------- |
 | `app/layout.tsx`    | `server/document.tsx` + `RootLayout`     | HTML shell, GTM bootstrap    |
 | `layout.client.tsx` | `src/islands/layout-client.tsx`          | Chrome + store seed          |
@@ -1065,7 +1065,7 @@ uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/ser
 
 Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](../src/routing/rules.ts)
 
-| Next.js                 | OriginLoom                           | Davranış                            |
+| Next.js                 | OriginLoom                          | Davranış                            |
 | ----------------------- | ----------------------------------- | ----------------------------------- |
 | `redirects()`           | `redirects[]`                       | Tarayıcı URL değişir (301/308)      |
 | `rewrites()` (internal) | `rewrites[]` + internal destination | URL aynı, route internal path görür |

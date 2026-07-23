@@ -1,15 +1,20 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 const ROOT = join(import.meta.dirname, "../..");
+const generateIcons = createRequire(import.meta.url).resolve(
+  "@originloom/tooling/bin/generate-icons.mjs",
+);
 
 describe("generate-icons", () => {
   it("produces TSX components and barrel exports from SVG sources", () => {
-    execFileSync(process.execPath, [join(ROOT, "scripts/generate-icons.mjs")], {
+    execFileSync(process.execPath, [generateIcons], {
       cwd: ROOT,
+      env: { ...process.env, ORIGIN_APP_ROOT: ROOT },
       stdio: "pipe",
     });
 

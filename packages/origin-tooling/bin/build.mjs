@@ -1,12 +1,11 @@
 import { spawn } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 import { loadEnv } from "./load-env.mjs";
 
 loadEnv("production");
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
 
 function run(label, args) {
   return new Promise((resolve, reject) => {
@@ -24,9 +23,9 @@ function run(label, args) {
   });
 }
 
-await run("icons", [resolve(root, "scripts/generate-icons.mjs")]);
+await run("icons", [new URL("./generate-icons.mjs", import.meta.url).pathname]);
 await run("client", [resolve(root, "node_modules/vite/bin/vite.js"), "build"]);
-await run("media", [resolve(root, "scripts/build-media.mjs")]);
+await run("media", [new URL("./build-media.mjs", import.meta.url).pathname]);
 await run("server", [
   resolve(root, "node_modules/vite/bin/vite.js"),
   "build",

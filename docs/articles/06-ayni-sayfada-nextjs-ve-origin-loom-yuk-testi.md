@@ -31,7 +31,7 @@ adlı bağımsız bir Next.js 16 (App Router) projesi oluşturduk.
 
 ### Ortak koşullar
 
-| Parça       | OriginLoom                                          | nextjs-overhead-poc                            |
+| Parça       | OriginLoom                                       | nextjs-overhead-poc                            |
 | ----------- | ------------------------------------------------ | ---------------------------------------------- |
 | URL         | `http://localhost:3005/blogs/paginated?page=2`   | `http://localhost:3006/blogs/paginated?page=2` |
 | Gateway     | Aynı `GATEWAY_URL` (mock-gw `:4002`)             | Aynı                                           |
@@ -40,7 +40,7 @@ adlı bağımsız bir Next.js 16 (App Router) projesi oluşturduk.
 | Cihaz       | User-Agent → Desktop / Tablet / Mobile           | Layout’ta `headers()` ile aynı kural           |
 | Menü        | `GET /pages/menuitem/list` + `device` header     | Layout’ta native `fetch`, SSR                  |
 | Blog verisi | `GET /blogs?page=2&pageSize=6&orderBy=date-desc` | Page’de native `fetch`, SSR                    |
-| Query       | `page` param, redirect / 404 kuralları           | OriginLoom ile aynı `resolvePageParam` mantığı    |
+| Query       | `page` param, redirect / 404 kuralları           | OriginLoom ile aynı `resolvePageParam` mantığı |
 
 Kasıtlı sadeleştirmeler:
 
@@ -76,7 +76,7 @@ Yerel koşulda (macOS, mock gateway, iki uygulama aynı anda ayakta) tek koşuda
 
 | Senaryo                      | RPS (ort.)   | Gecikme (ort.)  | Hata |
 | ---------------------------- | ------------ | --------------- | ---- |
-| **1. OriginLoom** (`:3005`)     | **1.971,87** | **24,86 ms**    | 0    |
+| **1. OriginLoom** (`:3005`)  | **1.971,87** | **24,86 ms**    | 0    |
 | **2. Next.js POC** (`:3006`) | **20,27**    | **2.227,47 ms** | 0    |
 
 Kabaca **~97× RPS** ve **~90× gecikme** farkı. Her iki tarafta da HTTP hata sayısı sıfır — karşılaştırma
@@ -161,7 +161,7 @@ gecikmesi artar; **oransal cache faydası** genelde korunur, hatta upstream paha
 
 Sonuçları tartışmak için önerilen ek senaryolar:
 
-| #   | OriginLoom                              | Next.js POC                                     | Amaç                  |
+| #   | OriginLoom                           | Next.js POC                                     | Amaç                  |
 | --- | ------------------------------------ | ----------------------------------------------- | --------------------- |
 | A   | Cache açık (mevcut)                  | `unstable_cache` / fetch cache ile menü + sayfa | Cache simetrisi       |
 | B   | `neverCache()` veya cache bypass     | `cache: "no-store"` (mevcut)                    | Soğuk SSR eşleşmesi   |

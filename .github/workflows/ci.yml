@@ -52,7 +52,7 @@ jobs:
           retention-days: 7
 
       - name: Build production container
-        run: docker build --tag origin-loom-ci:${{ github.sha }} .
+        run: docker build --file apps/showroom/Dockerfile --tag origin-loom-ci:${{ github.sha }} .
 
       - name: Smoke test production container
         shell: bash

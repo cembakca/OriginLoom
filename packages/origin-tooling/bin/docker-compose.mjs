@@ -1,8 +1,7 @@
 import { spawn } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
 const loadTestDir = resolve(root, "load-test");
 
 /** Base stack: mock-gw + app (L1-only). */

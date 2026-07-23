@@ -8,7 +8,7 @@ const [appEnv, ...flags] = process.argv.slice(2);
 const useRedis = flags.includes("--redis");
 
 if (appEnv !== "staging" && appEnv !== "production") {
-  console.error("Usage: node scripts/run-local.mjs <staging|production> [--redis]");
+  console.error("Usage: origin-run-local <staging|production> [--redis]");
   process.exit(1);
 }
 

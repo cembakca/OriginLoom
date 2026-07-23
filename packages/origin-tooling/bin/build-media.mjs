@@ -1,11 +1,10 @@
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename, extname, resolve } from "node:path";
 
 import sharp from "sharp";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
 const config = JSON.parse(await readFile(resolve(root, "server/media.config.json"), "utf8"));
 const outputDir = resolve(root, "dist/client/assets/media");
 

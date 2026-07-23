@@ -39,7 +39,7 @@ spec:
       containers:
         - name: origin-loom
           # CI must replace this with the pushed image digest.
-          image: ghcr.io/example/origin-loom@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          image: ghcr.io/example/originloom-showroom@sha256:0000000000000000000000000000000000000000000000000000000000000000
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

@@ -22,6 +22,12 @@ export type ServerViteConfigOptions = {
   entry: string;
   alias?: Record<string, string>;
   outDir?: string;
+  /**
+   * true bundles every dependency into the output (fully self-contained
+   * server, container needs no node_modules). Defaults to inlining only
+   * the workspace packages.
+   */
+  noExternal?: true | Array<string | RegExp>;
 };
 
 /** Client island bundle. The server is plain Node — it never goes through Vite. */
@@ -60,7 +66,7 @@ export function createServerViteConfig(options: ServerViteConfigOptions): UserCo
   return {
     resolve: { alias: options.alias ?? {}, dedupe: ["react", "react-dom"] },
     // Inline workspace package source into the bundle — Node cannot import the raw .ts exports.
-    ssr: { noExternal: [/^@originloom\//] },
+    ssr: { noExternal: options.noExternal ?? [/^@originloom\//] },
     build: {
       ssr: options.entry,
       outDir: options.outDir ?? "dist/server",

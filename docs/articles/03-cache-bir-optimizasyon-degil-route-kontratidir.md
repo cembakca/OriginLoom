@@ -760,7 +760,7 @@ Burada iki farklı “Redis yok” durumunu birbirine karıştırmamak gerekir:
   başlangıçta (`validateAppConfig`) patlar — `CACHE_REQUIRED` değeri bu kontrolü etkilemez. Tek pod
   isteniyorsa açıkça `CACHE_BACKEND=memory` seçilmelidir; “Redis’i unutup memory’ye sessizce düşmek”
   mümkün değildir.
-- `REDIS_URL` doğru şekilde verilmiş ama Redis *runtime*’da (deploy sonrası) geçici olarak erişilemez
+- `REDIS_URL` doğru şekilde verilmiş ama Redis _runtime_’da (deploy sonrası) geçici olarak erişilemez
   hale gelmişse `CACHE_REQUIRED` devreye girer: `true` ise process/readiness bu durumu patlatır;
   `false` (varsayılan) ise o pod L1-only’e fail-open olur — availability korunur, ancak Redis geri
   gelene kadar podlar arası lock, rate-limit, auth coordination ve invalidation garantisi o pod için

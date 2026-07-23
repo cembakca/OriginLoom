@@ -8,5 +8,12 @@
       "@server/*": ["./server/*"]
     }
   },
-  "include": ["src", "server", "tests", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts"]
+  "include": [
+    "src",
+    "server",
+    "tests",
+    "vite.config.ts",
+    "vite.server.config.ts",
+    "vitest.config.ts"
+  ]
 }

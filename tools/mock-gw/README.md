@@ -13,33 +13,33 @@ Redis gerekmez. Redis/SWR testi için `npm run dev:redis` kullanın.
 Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Docker Compose
 `GATEWAY_URL` üzerinden bu servise bağlanır; gerçek gateway geldiğinde URL değiştirmek yeterlidir.
 
-| Method | Endpoint                                | Amaç                                      |
-| ------ | --------------------------------------- | ----------------------------------------- |
-| GET    | `/healthz`                              | Liveness                                  |
-| POST   | `/auth/login`                           | Test access/refresh üretir                |
-| POST   | `/auth/refresh`                         | Refresh token rotation                    |
-| GET    | `/user/profile`                         | Bearer token profil doğrular              |
-| GET    | `/account/summary`                      | Korumalı hesap özeti                      |
-| GET    | `/pages/menuitem/list`                  | Header/footer menüsü                      |
-| GET    | `/routing/domains`                      | Route iş-domain snapshot'ı                |
-| GET    | `/cms/redirects?path=...`               | Redirect/gone kuralı                      |
-| GET    | `/finance/housing-loans?...`            | Konut kredisi filtreleme ve pagination    |
-| GET    | `/finance/housing-loans/:slug?...`      | Konut kredisi detay ve ödeme örneği       |
-| GET    | `/finance/credit-cards?...`             | Kredi kartı filtreleme ve pagination      |
-| GET    | `/finance/credit-cards/:slug`           | Stream öncesi kritik kart detayı          |
+| Method | Endpoint                                | Amaç                                                              |
+| ------ | --------------------------------------- | ----------------------------------------------------------------- |
+| GET    | `/healthz`                              | Liveness                                                          |
+| POST   | `/auth/login`                           | Test access/refresh üretir                                        |
+| POST   | `/auth/refresh`                         | Refresh token rotation                                            |
+| GET    | `/user/profile`                         | Bearer token profil doğrular                                      |
+| GET    | `/account/summary`                      | Korumalı hesap özeti                                              |
+| GET    | `/pages/menuitem/list`                  | Header/footer menüsü                                              |
+| GET    | `/routing/domains`                      | Route iş-domain snapshot'ı                                        |
+| GET    | `/cms/redirects?path=...`               | Redirect/gone kuralı                                              |
+| GET    | `/finance/housing-loans?...`            | Konut kredisi filtreleme ve pagination                            |
+| GET    | `/finance/housing-loans/:slug?...`      | Konut kredisi detay ve ödeme örneği                               |
+| GET    | `/finance/credit-cards?...`             | Kredi kartı filtreleme ve pagination                              |
+| GET    | `/finance/credit-cards/:slug`           | Stream öncesi kritik kart detayı                                  |
 | GET    | `/finance/credit-cards/:slug/campaigns` | Suspense ile stream edilen kampanyalar (varsayılan ~1.5s gecikme) |
-| GET    | `/finance/calculators/loans?...`        | Sürümlü taksit ve ödeme planı hesabı      |
-| GET    | `/finance/credit-cards/compare?...`     | Bounded 2–3 kart karşılaştırması          |
-| GET    | `/finance/banks/:slug`                  | Banka profili ve ürün koleksiyonları      |
-| GET    | `/finance/referrals/:productType/:slug` | Başvuru öncesi ürün/yasal bilgilendirme   |
-| POST   | `/finance/referrals`                    | Kısa ömürlü başvuru yönlendirmesi         |
-| GET    | `/internal/referrals/stats`             | Server-side referral sayı/latency özeti   |
-| GET    | `/content/articles?...`                 | Bilgi Merkezi filtreli içerik listesi     |
-| GET    | `/content/articles/:slug`               | Finansal makale detayı ve ilişkili içerik |
-| GET    | `/content/articles/popular`             | Fragment-cache popüler rehberleri         |
-| GET    | `/markets/bist100?...`                  | BIST 100 tarzı hisse listesi              |
-| GET    | `/internal/markets/stream`              | Token korumalı SSE quote batch akışı      |
-| POST   | `/analytics/bot`                        | Bounded bot event batch sink              |
+| GET    | `/finance/calculators/loans?...`        | Sürümlü taksit ve ödeme planı hesabı                              |
+| GET    | `/finance/credit-cards/compare?...`     | Bounded 2–3 kart karşılaştırması                                  |
+| GET    | `/finance/banks/:slug`                  | Banka profili ve ürün koleksiyonları                              |
+| GET    | `/finance/referrals/:productType/:slug` | Başvuru öncesi ürün/yasal bilgilendirme                           |
+| POST   | `/finance/referrals`                    | Kısa ömürlü başvuru yönlendirmesi                                 |
+| GET    | `/internal/referrals/stats`             | Server-side referral sayı/latency özeti                           |
+| GET    | `/content/articles?...`                 | Bilgi Merkezi filtreli içerik listesi                             |
+| GET    | `/content/articles/:slug`               | Finansal makale detayı ve ilişkili içerik                         |
+| GET    | `/content/articles/popular`             | Fragment-cache popüler rehberleri                                 |
+| GET    | `/markets/bist100?...`                  | BIST 100 tarzı hisse listesi                                      |
+| GET    | `/internal/markets/stream`              | Token korumalı SSE quote batch akışı                              |
+| POST   | `/analytics/bot`                        | Bounded bot event batch sink                                      |
 
 `/content/articles` tüketici finansmanı, kredi kartları, konut kredileri ve yatırım okuryazarlığı
 için **Bilgi Merkezi** kontratıdır. Teknik blog endpoint'leri kaldırılmış; streaming, fragment cache,

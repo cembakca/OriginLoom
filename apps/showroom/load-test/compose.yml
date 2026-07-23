@@ -5,7 +5,7 @@ name: origin-loom-loadtest
 
 services:
   mock-gw:
-    build: ../mock-gw
+    build: ../../../tools/mock-gw
     cpus: 0.5
     mem_limit: 256m
     environment:
@@ -37,8 +37,8 @@ services:
 
   app:
     build:
-      context: ..
-      dockerfile: Dockerfile
+      context: ../../..
+      dockerfile: apps/showroom/Dockerfile
     cpus: 2.0
     mem_limit: 4096m
     mem_reservation: 512m
