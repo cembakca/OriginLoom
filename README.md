@@ -82,8 +82,9 @@ değişkenleri dosyalardan önceliklidir.
 | -------------------------------- | ---------------------------------------------- | ------- | ---------------------------------------------------- |
 | `npm run dev`                    | `.env.development`                             | L1-only | Günlük geliştirme — Redis gerekmez                   |
 | `npm run dev:redis`              | `.env.development` + `.env.development.redis`  | L1+L2   | Docker Redis ile dağıtık cache testi                 |
-| `npm run compose:up`             | `.env.production` (Docker)                     | L1-only | `docker compose up --build` — varsayılan stack       |
-| `npm run compose:redis`          | + Redis overlay                                | L1+L2   | `docker-compose.redis.yml` ile Redis, `--build`      |
+| `npm run compose:up`             | `.env.production` (Docker)                     | L1-only | Foreground stack; Ctrl+C sonrası container'lar kaldırılır |
+| `npm run compose:redis`          | + Redis overlay                                | L1+L2   | Redis overlay ile stack; çıkışta `compose down`        |
+| `npm run compose:clean`          | —                                              | —       | Dev + load-test compose container'larını kaldırır      |
 | `npm run start:local`            | `.env.production` + local mock gateway         | L1-only | **Yerel dry-run**: prod build, gerçek altyapı yok    |
 | `npm run start:local:redis`      | `.env.production` + local mock gateway         | L1+L2   | **Yerel dry-run**: + Docker Redis, gerçek altyapı yok |
 | `npm run start:staging:local`    | `.env.staging` + local mock gateway            | L1-only | **Yerel dry-run**: staging config, gerçek altyapı yok |
@@ -169,8 +170,8 @@ npm run dev:redis
 
 Bu script önce Compose'taki `app` ve `mock-gw` container'larını durdurur, yalnızca Redis'i
 `docker compose up -d --wait redis` ile hazırlar, `.env.development.redis` overlay'ini uygular ve
-sonra `npm run dev` çalıştırır. Script kapatıldığında Redis açık kalır; sonraki kod
-değişikliklerinde `compose down` gerekmez.
+sonra `npm run dev` çalıştırır. Script kapatıldığında (Ctrl+C) Redis container'ı da kaldırılır; kalıntı
+temizliği için `npm run compose:clean` kullanın.
 
 `dev:local`, `dev:redis` için geriye dönük alias'tır.
 

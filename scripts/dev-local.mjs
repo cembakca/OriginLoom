@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-import { ensureLocalRedis } from "./local-redis.mjs";
+import { ensureLocalRedis, removeLocalRedis } from "./local-redis.mjs";
 import { loadEnv, loadEnvOverlay } from "./load-env.mjs";
 
 function run(command, args, options = {}) {
@@ -33,6 +33,20 @@ function startDevelopment() {
     env: process.env,
   });
 
+  let cleaning = false;
+  const cleanupRedis = async () => {
+    if (cleaning) return;
+    cleaning = true;
+    try {
+      await removeLocalRedis();
+    } catch (error) {
+      console.error(
+        "Could not remove Redis container:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  };
+
   const forward = (signal) => {
     if (!child.killed) child.kill(signal);
   };
@@ -41,10 +55,14 @@ function startDevelopment() {
 
   child.once("error", (error) => {
     console.error("Development processes could not be started:", error);
-    process.exitCode = 1;
+    void cleanupRedis().finally(() => {
+      process.exitCode = 1;
+    });
   });
   child.once("exit", (code, signal) => {
-    process.exitCode = signal ? 1 : (code ?? 1);
+    void cleanupRedis().finally(() => {
+      process.exitCode = signal ? 1 : (code ?? 1);
+    });
   });
 }
 

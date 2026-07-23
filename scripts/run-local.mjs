@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 
-import { ensureLocalRedis } from "./local-redis.mjs";
+import { ensureLocalRedis, removeLocalRedis } from "./local-redis.mjs";
 import { loadEnv } from "./load-env.mjs";
 
 const [appEnv, ...flags] = process.argv.slice(2);
@@ -78,6 +78,33 @@ function shutdown(signal, exitCode) {
     }
   }, 5_000);
   force.unref();
+
+  const finish = async () => {
+    if (useRedis) {
+      try {
+        await removeLocalRedis();
+      } catch (error) {
+        console.error(
+          "Could not remove Redis container:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+    process.exit(process.exitCode ?? exitCode);
+  };
+
+  if (children.size === 0) {
+    void finish();
+    return;
+  }
+
+  let pending = children.size;
+  for (const child of children) {
+    child.once("exit", () => {
+      pending--;
+      if (pending === 0) void finish();
+    });
+  }
 }
 
 process.once("SIGINT", () => shutdown("SIGINT", 0));
