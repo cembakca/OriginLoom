@@ -1,5 +1,5 @@
 import { isRequestDeadlineError } from "@server/middleware/request-deadline";
-import { getRuntime, type FragmentDefinition } from "@server/runtime";
+import { type FragmentDefinition, getRuntime } from "@server/runtime";
 import { renderToString } from "react-dom/server";
 
 import type { CachePolicy, Ctx } from "~/lib/types";

@@ -6,6 +6,7 @@ import {
 } from "@server/metrics/market-stream";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
+import { productConfig } from "@server/product/config";
 import { type MarketQuoteHub, marketQuoteHub } from "@server/services/market-stream/hub";
 import type { Context, Hono } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -16,8 +17,8 @@ import { MarketStreamAdmission } from "./admission";
 
 const symbolPattern = /^[A-Z0-9.]{1,12}$/;
 const defaultAdmission = new MarketStreamAdmission(
-  config.marketStreamMaxConnections,
-  config.marketStreamMaxConnectionsPerIp,
+  productConfig.marketStreamMaxConnections,
+  productConfig.marketStreamMaxConnectionsPerIp,
 );
 const shutdownController = new AbortController();
 
@@ -73,7 +74,7 @@ function handleMarketStream(
     const onShutdown = () => inbox.close();
     request.signal.addEventListener("abort", onRequestAbort, { once: true });
     shutdownController.signal.addEventListener("abort", onShutdown, { once: true });
-    const expiresAt = Date.now() + config.marketStreamMaxDurationMs;
+    const expiresAt = Date.now() + productConfig.marketStreamMaxDurationMs;
 
     try {
       await stream.writeSSE({
@@ -88,7 +89,7 @@ function handleMarketStream(
         Date.now() < expiresAt
       ) {
         const waitMs = Math.min(
-          config.marketStreamHeartbeatMs,
+          productConfig.marketStreamHeartbeatMs,
           Math.max(1, expiresAt - Date.now()),
         );
         const batch = await inbox.next(waitMs);
@@ -146,11 +147,11 @@ function validateBrowserRequest(request: Request): Response | null {
 }
 
 function parseSymbols(raw: string | null): ReadonlySet<string> | null {
-  if (!raw || raw.length > config.marketStreamMaxSymbols * 13) return null;
+  if (!raw || raw.length > productConfig.marketStreamMaxSymbols * 13) return null;
   const symbols = new Set(raw.split(","));
   if (
     symbols.size === 0 ||
-    symbols.size > config.marketStreamMaxSymbols ||
+    symbols.size > productConfig.marketStreamMaxSymbols ||
     [...symbols].some((symbol) => !symbolPattern.test(symbol))
   ) {
     return null;

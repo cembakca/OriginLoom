@@ -6,12 +6,8 @@ import { SpanKind, withSpan } from "@server/observability";
 
 import type { CachePolicy } from "~/lib/types";
 
+import { applyInvalidationToL1, CacheInvalidationBus } from "./invalidation";
 import { formatCacheKey } from "./key-codec";
-
-import {
-  applyInvalidationToL1,
-  CacheInvalidationBus,
-} from "./invalidation";
 import { MemoryStore } from "./memory";
 import { RedisStore } from "./redis";
 import { TieredStore } from "./tiered";
@@ -67,10 +63,8 @@ export async function initCache(): Promise<CacheStore> {
         });
       }
 
-      invalidation = new CacheInvalidationBus(
-        l2.getClient(),
-        config.releaseId,
-        (message) => applyInvalidationToL1(l1, message),
+      invalidation = new CacheInvalidationBus(l2.getClient(), config.releaseId, (message) =>
+        applyInvalidationToL1(l1, message),
       );
       try {
         await invalidation.startSubscriber(() => l2!.duplicateClient());

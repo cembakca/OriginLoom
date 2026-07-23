@@ -1,6 +1,7 @@
 import { gatewayUrl } from "@server/adapters/gateway";
 import { config } from "@server/config";
 import { observeMarketStreamEvent } from "@server/metrics/market-stream";
+import { productConfig } from "@server/product/config";
 
 import type { MarketQuoteBatch } from "~/lib/contracts/markets";
 import { parseMarketQuoteBatch } from "~/lib/market-stream";
@@ -24,7 +25,7 @@ export async function consumeGatewayMarketStream(
     response = await fetch(gatewayUrl("/internal/markets/stream"), {
       headers: {
         accept: "text/event-stream",
-        authorization: `Bearer ${config.marketStreamToken}`,
+        authorization: `Bearer ${productConfig.marketStreamToken}`,
       },
       signal: AbortSignal.any([signal, handshake.signal]),
     });

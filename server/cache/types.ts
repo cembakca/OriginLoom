@@ -15,7 +15,10 @@ export type ListKeysResult = {
 
 export type RateLimitResult = { allowed: boolean; retryAfterMs: number };
 
-export function buildCacheEntry(body: string, policy: CachePolicy & { kind: "shared" }): CacheEntry {
+export function buildCacheEntry(
+  body: string,
+  policy: CachePolicy & { kind: "shared" },
+): CacheEntry {
   const now = Date.now();
   return {
     body,

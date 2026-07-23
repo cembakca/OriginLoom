@@ -5,32 +5,28 @@ import { resolveCspSourceOrigins } from "@server/csp-origins";
 import type { MiddlewareHandler } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 
-import {
-  buildEventQueueScript,
-  buildGtmScript,
-  EARLY_TRACKING_SCRIPT,
-} from "~/components/analytics/gtm-bootstrap";
-
 import type { AppVariables } from "./request-id";
 
-function sha256(content: string): string {
+/** CSP hash source for an inline script body: 'sha256-…'. */
+export function cspScriptHash(content: string): string {
   const hash = crypto.createHash("sha256").update(content).digest("base64");
   return `'sha256-${hash}'`;
 }
 
 // Local development requires arbitrary inline script execution for Vite HMR / React Refresh.
 // Since modern browsers ignore 'unsafe-inline' if hashes are present in script-src,
-// we only compute and specify hashes in production to keep local dev fully working.
-const hashes = config.isProduction
-  ? [
-      sha256("window.dataLayer=window.dataLayer||[];"),
-      sha256(buildEventQueueScript()),
-      sha256(EARLY_TRACKING_SCRIPT),
-    ]
-  : [];
+// hashes only take effect in production to keep local dev fully working.
+const registeredHashes = new Set<string>();
+const hashes: string[] = [];
 
-if (config.isProduction && config.gtmContainerId) {
-  hashes.push(sha256(buildGtmScript(config.gtmContainerId)));
+/** Products register hashes of their inline scripts (e.g. GTM bootstrap) at startup. */
+export function registerCspScriptHashes(...values: string[]): void {
+  if (!config.isProduction) return;
+  for (const value of values) {
+    if (registeredHashes.has(value)) continue;
+    registeredHashes.add(value);
+    hashes.push(value);
+  }
 }
 
 const devScripts = !config.isProduction ? ["'unsafe-inline'"] : [];

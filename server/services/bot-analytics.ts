@@ -1,5 +1,5 @@
 import { gatewayFetch } from "@server/adapters/gateway";
-import { config } from "@server/config";
+import { productConfig } from "@server/product/config";
 
 import {
   BotAnalyticsDispatcher,
@@ -12,12 +12,12 @@ export { BotAnalyticsDispatcher } from "./bot-analytics/dispatcher";
 
 const dispatcher = new BotAnalyticsDispatcher(
   {
-    capacity: config.botAnalyticsQueueCapacity,
-    concurrency: config.botAnalyticsConcurrency,
-    batchSize: config.botAnalyticsBatchSize,
-    flushMs: config.botAnalyticsFlushMs,
-    dedupTtlMs: config.botAnalyticsDedupTtlMs,
-    sampleRate: config.botAnalyticsSampleRate,
+    capacity: productConfig.botAnalyticsQueueCapacity,
+    concurrency: productConfig.botAnalyticsConcurrency,
+    batchSize: productConfig.botAnalyticsBatchSize,
+    flushMs: productConfig.botAnalyticsFlushMs,
+    dedupTtlMs: productConfig.botAnalyticsDedupTtlMs,
+    sampleRate: productConfig.botAnalyticsSampleRate,
   },
   sendBatch,
 );
@@ -26,7 +26,9 @@ export function storeBotVisit(payload: BotVisit): void {
   dispatcher.enqueue(payload);
 }
 
-export function drainBotAnalytics(timeoutMs = config.botAnalyticsDrainTimeoutMs): Promise<boolean> {
+export function drainBotAnalytics(
+  timeoutMs = productConfig.botAnalyticsDrainTimeoutMs,
+): Promise<boolean> {
   return dispatcher.drain(timeoutMs);
 }
 

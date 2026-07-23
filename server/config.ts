@@ -2,18 +2,18 @@ type CacheBackend = "memory" | "redis";
 
 import { validateAppConfig } from "./config-validation";
 
-function numberEnv(name: string, fallback: number): number {
+export function numberEnv(name: string, fallback: number): number {
   const value = process.env[name];
   return value === undefined ? fallback : Number(value);
 }
 
-function booleanEnv(name: string, fallback: boolean): boolean {
+export function booleanEnv(name: string, fallback: boolean): boolean {
   const value = process.env[name];
   if (value === undefined) return fallback;
   return value === "1" || value.toLowerCase() === "true";
 }
 
-function publicHttpUrlEnv(name: string): string | undefined {
+export function publicHttpUrlEnv(name: string): string | undefined {
   const value = process.env[name]?.trim().replace(/\/$/, "");
   if (!value) return undefined;
   if (/^(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(value)) return `http://${value}`;
@@ -25,6 +25,7 @@ const gatewayTimeoutMs = numberEnv("GATEWAY_TIMEOUT_MS", 5_000);
 const cacheFillTimeoutMs = numberEnv("CACHE_FILL_TIMEOUT_MS", gatewayTimeoutMs * 2 + 2_000);
 const ssrRequestTimeoutMs = numberEnv("SSR_REQUEST_TIMEOUT_MS", 15_000);
 
+/** Platform runtime configuration. Product-specific env lives in the app config. */
 export const config = {
   port: numberEnv("PORT", 3005),
   metricsPort: numberEnv("METRICS_PORT", 9090),
@@ -58,13 +59,6 @@ export const config = {
   cacheFillTimeoutMs,
   cacheFillWaitMs: numberEnv("CACHE_FILL_WAIT_MS", cacheFillTimeoutMs + 500),
   cacheFillPollMs: numberEnv("CACHE_FILL_POLL_MS", 100),
-  botAnalyticsQueueCapacity: numberEnv("BOT_ANALYTICS_QUEUE_CAPACITY", 1_000),
-  botAnalyticsConcurrency: numberEnv("BOT_ANALYTICS_CONCURRENCY", 2),
-  botAnalyticsBatchSize: numberEnv("BOT_ANALYTICS_BATCH_SIZE", 25),
-  botAnalyticsFlushMs: numberEnv("BOT_ANALYTICS_FLUSH_MS", 250),
-  botAnalyticsDedupTtlMs: numberEnv("BOT_ANALYTICS_DEDUP_TTL_MS", 60_000),
-  botAnalyticsSampleRate: numberEnv("BOT_ANALYTICS_SAMPLE_RATE", 1),
-  botAnalyticsDrainTimeoutMs: numberEnv("BOT_ANALYTICS_DRAIN_TIMEOUT_MS", 3_000),
   proxyBodyLimitBytes: numberEnv("PROXY_BODY_LIMIT_BYTES", 1_048_576),
   trustProxy: booleanEnv("TRUST_PROXY", false),
   trustedProxyHops: numberEnv("TRUSTED_PROXY_HOPS", 1),
@@ -74,34 +68,13 @@ export const config = {
     .filter(Boolean),
   allowInsecureGateway: booleanEnv("ALLOW_INSECURE_GATEWAY", false),
   allowInsecureRedis: booleanEnv("ALLOW_INSECURE_REDIS", false),
-  gtmContainerId: process.env.GTM_CONTAINER_ID?.trim() ?? "",
-  clientErrorRateLimit: numberEnv("CLIENT_ERROR_RATE_LIMIT", 120),
-  clientErrorWindowMs: numberEnv("CLIENT_ERROR_WINDOW_MS", 60_000),
-  clientErrorSampleRate: numberEnv("CLIENT_ERROR_SAMPLE_RATE", 1),
-  clientErrorIpRateLimit: numberEnv("CLIENT_ERROR_IP_RATE_LIMIT", 20),
-  clientErrorIpMaxEntries: numberEnv("CLIENT_ERROR_IP_MAX_ENTRIES", 10_000),
-  clientErrorIpTtlMs: numberEnv("CLIENT_ERROR_IP_TTL_MS", 300_000),
-  marketStreamToken:
-    process.env.MARKET_STREAM_TOKEN ?? (nodeEnv === "production" ? "" : "dev-market-stream-token"),
-  marketStreamMaxConnections: numberEnv("MARKET_STREAM_MAX_CONNECTIONS", 1_000),
-  marketStreamMaxConnectionsPerIp: numberEnv("MARKET_STREAM_MAX_CONNECTIONS_PER_IP", 5),
-  marketStreamMaxSymbols: numberEnv("MARKET_STREAM_MAX_SYMBOLS", 25),
-  marketStreamMaxDurationMs: numberEnv("MARKET_STREAM_MAX_DURATION_MS", 300_000),
-  marketStreamHeartbeatMs: numberEnv("MARKET_STREAM_HEARTBEAT_MS", 15_000),
   siteUrl: (process.env.SITE_URL ?? "http://localhost:3005").replace(/\/$/, ""),
-  googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION?.trim() || undefined,
-  bingSiteVerification: process.env.BING_SITE_VERIFICATION?.trim() || undefined,
-  yandexSiteVerification: process.env.YANDEX_SITE_VERIFICATION?.trim() || undefined,
-  menuCacheTtl: numberEnv("MENU_CACHE_TTL", 14_400),
-  menuCacheSwr: numberEnv("MENU_CACHE_SWR", 86_400),
   redirectCacheTtlMs: numberEnv("REDIRECT_CACHE_TTL_MS", 60_000),
   redirectCacheMaxEntries: numberEnv("REDIRECT_CACHE_MAX_ENTRIES", 10_000),
   redirectAllowedHosts: (process.env.REDIRECT_ALLOWED_HOSTS ?? "")
     .split(",")
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean),
-  cachePurgeSecret: process.env.CACHE_PURGE_SECRET,
-  referralStatsSecret: process.env.REFERRAL_STATS_SECRET,
   releaseId: process.env.RELEASE_ID ?? "development",
   assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
   imageCdnUrl: publicHttpUrlEnv("IMAGE_CDN_URL"),
@@ -114,24 +87,8 @@ export const config = {
 
 export type AppConfig = typeof config;
 
-/** Read at request time so rotated secrets can be injected without coupling API code to process.env. */
-export function purgeSecurityConfig(): { secret?: string; isProduction: boolean } {
-  const secret = process.env.CACHE_PURGE_SECRET;
-  return {
-    ...(secret ? { secret } : {}),
-    isProduction: (process.env.NODE_ENV ?? config.nodeEnv) === "production",
-  };
-}
-
-/** Read at request time so the operations token can rotate without changing handler ownership. */
-export function referralStatsSecurityConfig(): { secret?: string; isProduction: boolean } {
-  const secret = process.env.REFERRAL_STATS_SECRET;
-  return {
-    ...(secret ? { secret } : {}),
-    isProduction: (process.env.NODE_ENV ?? config.nodeEnv) === "production",
-  };
-}
-
-export function validateConfig(): void {
+/** Validates the platform config, then any product-supplied validators. */
+export function validateConfig(extraValidators: Array<() => void> = []): void {
   validateAppConfig(config, process.env);
+  for (const validate of extraValidators) validate();
 }

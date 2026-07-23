@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 
-import {
-  BoundedIpRateLimiter,
-  FixedWindowRateLimiter,
-} from "@server/api/internal/client-errors/rate-limit";
 import { isCacheInitialized, takeDistributedRateLimit } from "@server/cache";
 import { config } from "@server/config";
+
+import { BoundedIpRateLimiter, FixedWindowRateLimiter } from "./rate-limit";
+
+const DEFAULT_IP_MAX_ENTRIES = 10_000;
+const DEFAULT_IP_TTL_MS = 300_000;
 
 export type PublicApiPolicy = {
   name: string;
@@ -13,6 +14,9 @@ export type PublicApiPolicy = {
   globalLimit: number;
   ipLimit: number;
   requireSameOriginMutation?: boolean;
+  /** Memory bound of the local per-IP limiter map. */
+  ipMaxEntries?: number;
+  ipTtlMs?: number;
 };
 
 type LocalLimiters = {
@@ -84,8 +88,8 @@ function localLimiter(policy: PublicApiPolicy): LocalLimiters {
       ip: new BoundedIpRateLimiter(
         policy.ipLimit,
         policy.windowMs,
-        config.clientErrorIpMaxEntries,
-        config.clientErrorIpTtlMs,
+        policy.ipMaxEntries ?? DEFAULT_IP_MAX_ENTRIES,
+        policy.ipTtlMs ?? DEFAULT_IP_TTL_MS,
       ),
     };
     localLimiters.set(policy.name, value);

@@ -1,6 +1,6 @@
 import { getRuntime } from "@server/runtime";
 
-import { getCache, cacheTopology } from "./index";
+import { cacheTopology, getCache } from "./index";
 import { type CacheKeyApiEntry, decodeCacheKeyFromApi, toCacheKeyApiEntry } from "./key-codec";
 import type { ListKeysOptions, ListKeysResult } from "./types";
 

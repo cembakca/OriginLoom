@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { getOrSetFragmentByName } from "@server/cache/fragment";
-import { config } from "@server/config";
+import { productConfig } from "@server/product/config";
 import type { FragmentDefinition } from "@server/runtime";
 import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
 
@@ -24,7 +24,7 @@ export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
   header: {
     requiresShell: true,
     resolveOnFreshDocument: false,
-    ttl: config.menuCacheTtl,
+    ttl: productConfig.menuCacheTtl,
     key: (shell) =>
       `${headerFragmentKey(requireShell(shell).deviceType)}:${menuFingerprint(shell)}`,
     resolve: (shell) => {
@@ -35,7 +35,7 @@ export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
   footer: {
     requiresShell: true,
     resolveOnFreshDocument: false,
-    ttl: config.menuCacheTtl,
+    ttl: productConfig.menuCacheTtl,
     key: (shell) =>
       `${footerFragmentKey(requireShell(shell).deviceType)}:${menuFingerprint(shell)}`,
     resolve: (shell) => {

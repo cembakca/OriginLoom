@@ -10,12 +10,13 @@ import { mountReferralStatsApi } from "./api/internal/referral-stats";
 import { stopMarketStreamClients } from "./api/market-stream";
 import { createApp } from "./app";
 import { readAssets } from "./assets";
-import { closeCache, initCache, cacheTopology } from "./cache";
+import { cacheTopology, closeCache, initCache } from "./cache";
 import { config, validateConfig } from "./config";
 import { drainRevalidations } from "./handler";
 import { register, shutdownInstrumentation } from "./instrumentation";
 import { logError, logger } from "./logger";
 import { createMetricsApp } from "./metrics-server";
+import { productConfig, validateProductConfig } from "./product/config";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
 import { mountSeoRoutes } from "./seo";
@@ -29,7 +30,7 @@ let metricsServer: ServerType | null = null;
 async function main() {
   installProductRuntime();
   const tracingEnabled = register();
-  validateConfig();
+  validateConfig([validateProductConfig]);
   validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });
   await initCache();
 
@@ -75,7 +76,7 @@ async function main() {
           closeServer(httpServer),
           closeServer(metricsServer),
           drainRevalidations(config.revalidationDrainTimeoutMs),
-          drainBotAnalytics(config.botAnalyticsDrainTimeoutMs),
+          drainBotAnalytics(productConfig.botAnalyticsDrainTimeoutMs),
           stopMarketQuoteHub(),
         ]);
         if (!revalidationsDrained) logger.warn("revalidation drain timed out");

@@ -2,6 +2,7 @@ import { gatewayFetchForRequest } from "@server/adapters/gateway";
 import * as cache from "@server/cache";
 import { config } from "@server/config";
 import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
+import { productConfig } from "@server/product/config";
 
 import { menuCacheKey } from "~/lib/cache-keys";
 import { normalizeMetadataImageUrl, normalizeNavigationUrl } from "~/lib/content-url";
@@ -20,8 +21,8 @@ export async function fetchMenuList(request: Request, device: DeviceType): Promi
   const key = menuCacheKey(device);
   const policy = {
     kind: "shared" as const,
-    ttl: config.menuCacheTtl,
-    swr: config.menuCacheSwr,
+    ttl: productConfig.menuCacheTtl,
+    swr: productConfig.menuCacheSwr,
     key: [key],
   };
   const cacheKey = cache.cacheKey(policy);

@@ -151,7 +151,9 @@ export function applyInvalidationToL1(l1: MemoryStore, message: InvalidationMess
   }
 }
 
-export function createInvalidationHandler(store: TieredStore): (message: InvalidationMessage) => void {
+export function createInvalidationHandler(
+  store: TieredStore,
+): (message: InvalidationMessage) => void {
   return (message) => {
     applyInvalidationToL1(store.l1, message);
   };

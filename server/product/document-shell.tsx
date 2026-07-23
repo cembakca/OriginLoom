@@ -1,4 +1,4 @@
-import { config } from "@server/config";
+import { productConfig } from "@server/product/config";
 import type { DocumentShell } from "@server/runtime";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
@@ -47,7 +47,7 @@ export const productDocumentShell: DocumentShell<ShellData> = {
     </>
   ),
   renderHeadEnd: ({ cspNonce, isBot }) => (
-    <GtmBootstrap containerId={config.gtmContainerId} isBot={isBot} nonce={cspNonce} />
+    <GtmBootstrap containerId={productConfig.gtmContainerId} isBot={isBot} nonce={cspNonce} />
   ),
   renderLayout: ({ shell, pageMeta, children }) => (
     <RootLayout shell={shell} pageMeta={pageMeta}>
@@ -61,12 +61,14 @@ function withSiteVerification(metadata: ResolvedMetadata): ResolvedMetadata {
     ...metadata,
     verification: {
       ...metadata.verification,
-      ...(config.googleSiteVerification
-        ? { "google-site-verification": config.googleSiteVerification }
+      ...(productConfig.googleSiteVerification
+        ? { "google-site-verification": productConfig.googleSiteVerification }
         : {}),
-      ...(config.bingSiteVerification ? { "msvalidate.01": config.bingSiteVerification } : {}),
-      ...(config.yandexSiteVerification
-        ? { "yandex-verification": config.yandexSiteVerification }
+      ...(productConfig.bingSiteVerification
+        ? { "msvalidate.01": productConfig.bingSiteVerification }
+        : {}),
+      ...(productConfig.yandexSiteVerification
+        ? { "yandex-verification": productConfig.yandexSiteVerification }
         : {}),
     },
   };

@@ -1,6 +1,6 @@
-import { referralStatsSecurityConfig } from "@server/config";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
+import { referralStatsSecurityConfig } from "@server/product/config";
 import { secretMatches } from "@server/security/secrets";
 import { getReferralStats } from "@server/services/financial-products";
 import type { Hono } from "hono";

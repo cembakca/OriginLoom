@@ -5,9 +5,9 @@ import {
   parseListKeysQuery,
   parsePurgeBody,
 } from "@server/cache/purge";
-import { purgeSecurityConfig } from "@server/config";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
+import { purgeSecurityConfig } from "@server/product/config";
 import { secretMatches } from "@server/security/secrets";
 import type { Context } from "hono";
 

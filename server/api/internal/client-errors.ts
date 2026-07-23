@@ -3,6 +3,13 @@ import { logger } from "@server/logger";
 import { observeClientErrorTelemetry } from "@server/metrics";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";
+import { productConfig } from "@server/product/config";
+import {
+  BoundedIpRateLimiter,
+  FixedWindowRateLimiter,
+  type IpRateLimiter,
+  type RateLimiter,
+} from "@server/security/rate-limit";
 import type { Hono } from "hono";
 
 import {
@@ -10,15 +17,9 @@ import {
   parseClientErrorPayload,
   sanitizeClientErrorPayload,
 } from "./client-errors/contract";
-import {
-  BoundedIpRateLimiter,
-  FixedWindowRateLimiter,
-  type IpRateLimiter,
-  type RateLimiter,
-} from "./client-errors/rate-limit";
 
 export { redactSensitive } from "./client-errors/contract";
-export { BoundedIpRateLimiter, FixedWindowRateLimiter } from "./client-errors/rate-limit";
+export { BoundedIpRateLimiter, FixedWindowRateLimiter } from "@server/security/rate-limit";
 
 type ClientErrorApiOptions = {
   rateLimiter?: RateLimiter;
@@ -27,14 +28,14 @@ type ClientErrorApiOptions = {
 };
 
 const defaultGlobalRateLimiter = new FixedWindowRateLimiter(
-  config.clientErrorRateLimit,
-  config.clientErrorWindowMs,
+  productConfig.clientErrorRateLimit,
+  productConfig.clientErrorWindowMs,
 );
 const defaultIpRateLimiter = new BoundedIpRateLimiter(
-  config.clientErrorIpRateLimit,
-  config.clientErrorWindowMs,
-  config.clientErrorIpMaxEntries,
-  config.clientErrorIpTtlMs,
+  productConfig.clientErrorIpRateLimit,
+  productConfig.clientErrorWindowMs,
+  productConfig.clientErrorIpMaxEntries,
+  productConfig.clientErrorIpTtlMs,
 );
 
 export function mountClientErrorApi(
@@ -43,7 +44,7 @@ export function mountClientErrorApi(
 ): void {
   const globalRateLimiter = options.rateLimiter ?? defaultGlobalRateLimiter;
   const ipRateLimiter = options.ipRateLimiter ?? defaultIpRateLimiter;
-  const sampleRate = options.sampleRate ?? config.clientErrorSampleRate;
+  const sampleRate = options.sampleRate ?? productConfig.clientErrorSampleRate;
   app.post("/api/internal/client-errors", async (c) => {
     const payload = await parseClientErrorPayload(contextRequest(c));
     if (!payload) {
@@ -62,7 +63,7 @@ export function mountClientErrorApi(
       observeClientErrorTelemetry("rate_limited");
       return c.body(null, 429, {
         "cache-control": "private, no-store",
-        "retry-after": String(Math.ceil(config.clientErrorWindowMs / 1_000)),
+        "retry-after": String(Math.ceil(productConfig.clientErrorWindowMs / 1_000)),
       });
     }
     if (!globalRateLimiter.take()) {
@@ -70,7 +71,7 @@ export function mountClientErrorApi(
       observeClientErrorTelemetry("rate_limited");
       return c.body(null, 429, {
         "cache-control": "private, no-store",
-        "retry-after": String(Math.ceil(config.clientErrorWindowMs / 1_000)),
+        "retry-after": String(Math.ceil(productConfig.clientErrorWindowMs / 1_000)),
       });
     }
 

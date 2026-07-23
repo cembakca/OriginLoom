@@ -18,7 +18,8 @@ async function validateWith(env: Record<string, string | undefined>): Promise<vo
   }
   vi.resetModules();
   const { validateConfig } = await import("@server/config");
-  validateConfig();
+  const { validateProductConfig } = await import("@server/product/config");
+  validateConfig([validateProductConfig]);
 }
 
 describe("server config", () => {
@@ -128,6 +129,7 @@ describe("server config", () => {
         SITE_URL: "https://www.example.com",
         CACHE_PURGE_SECRET: "secret",
         REFERRAL_STATS_SECRET: undefined,
+        AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
         RELEASE_ID: "release-1",
       }),
     ).rejects.toThrow("REFERRAL_STATS_SECRET is required in production");
@@ -144,6 +146,7 @@ describe("server config", () => {
         CACHE_PURGE_SECRET: "secret",
         REFERRAL_STATS_SECRET: "referral-secret",
         MARKET_STREAM_TOKEN: undefined,
+        AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
         RELEASE_ID: "release-1",
       }),
     ).rejects.toThrow("MARKET_STREAM_TOKEN is required in production");
