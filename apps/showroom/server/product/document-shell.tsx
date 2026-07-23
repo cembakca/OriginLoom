@@ -1,14 +1,14 @@
 import type { DocumentShell } from "@originloom/core/runtime";
+import { mergeMetadata } from "@originloom/react/lib/metadata/merge";
+import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
+import { resolveDocumentMetadata } from "@originloom/react/lib/metadata/resolve";
 import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
 import type { Ctx, Route } from "@originloom/react/lib/types";
 import { productConfig } from "@server/product/config";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import { HeadClient } from "~/components/head/head-client";
-import { MetadataHead } from "~/components/head/metadata-head";
 import { RootLayout } from "~/components/layout/root-layout";
-import { mergeMetadata } from "~/lib/metadata/merge";
-import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
 import { defaultPageMeta, type ShellData } from "~/lib/shell-data";
 
 import { NotFoundPage, RouteErrorPage } from "./boundary-pages";

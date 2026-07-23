@@ -1,5 +1,9 @@
 import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 import {
+  generateMetaDataForPageWithSeoInfo,
+  publicAbsoluteUrl,
+} from "@originloom/react/lib/metadata/generate";
+import {
   breadcrumbJsonLd,
   compactJsonLd,
   itemListJsonLd,
@@ -10,7 +14,6 @@ import { getBank } from "@server/services/financial-products";
 import { BankDetailPage } from "~/features/financial-products/bank-detail";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import type { BankDetail } from "~/lib/contracts/financial-products";
-import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { bankProfileJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
 

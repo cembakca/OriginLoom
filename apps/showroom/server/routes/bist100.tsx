@@ -1,5 +1,9 @@
 import { neverCache } from "@originloom/react/lib/cache-policy";
 import { resolvePageParam } from "@originloom/react/lib/content-values";
+import {
+  generatePaginatedMetadata,
+  publicAbsoluteUrl,
+} from "@originloom/react/lib/metadata/generate";
 import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
 import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
 import { getBist100 } from "@server/services/markets";
@@ -8,7 +12,6 @@ import { Bist100Page } from "~/features/markets/bist100-page";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import type { StockList } from "~/lib/contracts/markets";
 import { marketSearch } from "~/lib/market-query";
-import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { stockItemListJsonLd } from "~/lib/metadata/jsonld-market";
 import { defaultPageMeta } from "~/lib/shell-data";
 

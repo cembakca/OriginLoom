@@ -10,6 +10,7 @@
     "./lib/island": "./src/lib/island.tsx",
     "./lib/query/provider": "./src/lib/query/provider.tsx",
     "./lib/client/island-mount": "./src/lib/client/island-mount.tsx",
+    "./lib/metadata/metadata-head": "./src/lib/metadata/metadata-head.tsx",
     "./lib/*": "./src/lib/*.ts",
     "./routing": "./src/routing/index.ts",
     "./routing/*": "./src/routing/*.ts",

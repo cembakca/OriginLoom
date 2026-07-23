@@ -1,11 +1,14 @@
 import { neverCache } from "@originloom/react/lib/cache-policy";
+import {
+  generateMetaDataForPageWithSeoInfo,
+  publicAbsoluteUrl,
+} from "@originloom/react/lib/metadata/generate";
 import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
 import { getCreditCardComparison } from "@server/services/financial-products";
 
 import { CreditCardComparisonPage } from "~/features/financial-products/credit-card-comparison";
 import type { CreditCardComparison } from "~/lib/contracts/financial-products";
 import { comparisonSearch, parseComparedCreditCards } from "~/lib/credit-card-comparison-query";
-import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<CreditCardComparison>({

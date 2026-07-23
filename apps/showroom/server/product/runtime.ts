@@ -1,5 +1,6 @@
 import { cspScriptHash, registerCspScriptHashes } from "@originloom/core/middleware/security";
 import { installRuntime, type OriginRuntime } from "@originloom/core/runtime";
+import { configureSiteMetadata } from "@originloom/react/lib/metadata/site-config";
 import { marketStreamMetricLines } from "@server/metrics/market-stream";
 import { referralMetricLines } from "@server/metrics/referrals";
 import { storeBotVisit } from "@server/services/bot-analytics";
@@ -11,6 +12,8 @@ import {
   EARLY_TRACKING_SCRIPT,
 } from "~/components/analytics/gtm-bootstrap";
 import { isKnownPageCachePrefix } from "~/lib/cache-keys";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
+import { siteMetadata } from "~/lib/metadata/site-defaults";
 import type { ShellData } from "~/lib/shell-data";
 
 import { productConfig } from "./config";
@@ -38,5 +41,9 @@ export const productRuntime: OriginRuntime<ShellData> = {
 };
 
 export function installProductRuntime(): void {
+  configureSiteMetadata({
+    site: siteMetadata,
+    fallbackPageMetadata: (path, ctx) => generateMetaDataForPageWithDummySeoInfo(path, ctx),
+  });
   installRuntime(productRuntime);
 }

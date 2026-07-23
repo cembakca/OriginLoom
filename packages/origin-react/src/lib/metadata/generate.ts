@@ -1,10 +1,7 @@
-import {
-  normalizeCanonicalUrl,
-  normalizeMetadataImageUrl,
-} from "@originloom/react/lib/content-url";
-import type { PageMetadata, SeoInfo } from "@originloom/react/lib/metadata/types";
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
-import type { Ctx } from "@originloom/react/lib/types";
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url";
+import { stripUndefined } from "../strip-undefined";
+import type { Ctx } from "../types";
+import type { PageMetadata, SeoInfo } from "./types";
 
 /** Public absolute URL from browser-visible path. */
 export function publicAbsoluteUrl(ctx: Ctx, path?: string): string {
@@ -12,24 +9,6 @@ export function publicAbsoluteUrl(ctx: Ctx, path?: string): string {
   const p = path ?? ctx.publicPath;
   return normalizeCanonicalUrl(p.startsWith("/") ? p : `/${p}`, base) ?? `${base}/`;
 }
-
-const dummySeoByPath: Record<string, Partial<SeoInfo>> = {
-  "/": {
-    title: "Hangikredi",
-    metaDescription: "Kredi ve bankacılık ürünlerini karşılaştır.",
-  },
-  "/hesabim": {
-    title: "Hesabım",
-    noindex: true,
-  },
-  "/remote-customer-obtain": {
-    title: "Uzaktan Müşteri Edinimi",
-  },
-  "/medya-pipeline": {
-    title: "Image ve Font Pipeline",
-    metaDescription: "Responsive, unoptimized CDN image ve self-host font pipeline demosu.",
-  },
-};
 
 /** CMS seoInfo → route PageMetadata. */
 export function generateMetaDataForPageWithSeoInfo(seoInfo: SeoInfo, ctx: Ctx): PageMetadata {
@@ -114,21 +93,6 @@ export function generatePaginatedMetadata(
       next: page < totalPages ? pageUrl(page + 1) : undefined,
     }),
   };
-}
-
-/** API seoInfo yoksa zayıf fallback — path tabanlı. */
-export function generateMetaDataForPageWithDummySeoInfo(path: string, ctx: Ctx): PageMetadata {
-  const key = Object.keys(dummySeoByPath).find((p) => path === p || ctx.publicPath === p) ?? path;
-  const dummy = dummySeoByPath[key] ?? dummySeoByPath[ctx.publicPath] ?? { title: path };
-
-  return generateMetaDataForPageWithSeoInfo(
-    {
-      ...dummy,
-      friendlyUrl: ctx.publicPath,
-      canonicalUrl: publicAbsoluteUrl(ctx),
-    },
-    ctx,
-  );
 }
 
 /** Route title helper → minimal metadata. */

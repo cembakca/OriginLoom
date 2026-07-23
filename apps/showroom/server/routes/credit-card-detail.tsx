@@ -1,12 +1,15 @@
 import { neverCache } from "@originloom/react/lib/cache-policy";
 import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import {
+  generateMetaDataForPageWithSeoInfo,
+  publicAbsoluteUrl,
+} from "@originloom/react/lib/metadata/generate";
 import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
 import { defineRoute, notFound } from "@originloom/react/lib/types";
 import { getCreditCard, getCreditCardCampaigns } from "@server/services/financial-products";
 
 import { CreditCardDetailPage } from "~/features/financial-products/credit-card-detail";
 import type { CreditCardCampaign, CreditCardDetail } from "~/lib/contracts/financial-products";
-import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { creditCardJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
 

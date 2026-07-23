@@ -6,7 +6,6 @@ vi.mock("@server/services/knowledge-center", () => ({ getPopularKnowledgeArticle
 import { closeCache, initCache, read, write } from "@originloom/core/cache";
 import { fragmentCacheKey, getOrSetFragmentByName } from "@originloom/core/cache/fragment";
 import { executePurge } from "@originloom/core/cache/purge";
-import { installRuntime } from "@originloom/core/runtime";
 import type { Ctx } from "@originloom/react/lib/types";
 import {
   footerFragmentKey,
@@ -14,14 +13,14 @@ import {
   getOrSetHeaderFragment,
   headerFragmentKey,
 } from "@server/product/fragments";
-import { productRuntime } from "@server/product/runtime";
+import { installProductRuntime } from "@server/product/runtime";
 
 import type { ShellData } from "~/lib/shell-data";
 
 describe("fragment cache", () => {
   beforeEach(async () => {
     // Re-install with this file's module graph so the mocked knowledge-center is used.
-    installRuntime(productRuntime);
+    installProductRuntime();
     process.env.CACHE_BACKEND = "memory";
     await closeCache();
     await initCache();

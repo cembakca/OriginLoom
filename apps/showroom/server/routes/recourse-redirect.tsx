@@ -2,7 +2,7 @@ import { defineRoute } from "@originloom/react/lib/types";
 import { isKnownRecoursePage } from "@server/services/route-domains";
 
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<{ page: string; publicPath: string }>({

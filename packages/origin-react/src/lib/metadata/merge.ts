@@ -1,17 +1,9 @@
-import {
-  normalizeCanonicalUrl,
-  normalizeMetadataImageUrl,
-} from "@originloom/react/lib/content-url";
-import { baseStructuredData } from "@originloom/react/lib/metadata/jsonld";
-import type {
-  PageMetadata,
-  ResolvedMetadata,
-  SiteMetadataConfig,
-} from "@originloom/react/lib/metadata/types";
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
-import type { Ctx } from "@originloom/react/lib/types";
-
-import { siteMetadata } from "./site-defaults";
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url";
+import { stripUndefined } from "../strip-undefined";
+import type { Ctx } from "../types";
+import { baseStructuredData } from "./jsonld";
+import { siteMetadataConfig } from "./site-config";
+import type { PageMetadata, ResolvedMetadata, SiteMetadataConfig } from "./types";
 
 function formatTitle(pageTitle: string | undefined, site: SiteMetadataConfig): string {
   if (!pageTitle || pageTitle === site.title.default) return site.title.default;
@@ -38,7 +30,7 @@ function robotsTag(robots: NonNullable<PageMetadata["robots"]>, site: SiteMetada
 export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): ResolvedMetadata {
   const pageMeta = page ?? {};
   const base = ctx.siteUrl ?? ctx.url.origin;
-  const site = siteMetadata(base);
+  const site = siteMetadataConfig(base);
   const title = formatTitle(pageMeta.title, site);
   const description = pageMeta.description ?? site.description;
   const canonical = resolveCanonical(pageMeta, ctx, base);

@@ -7,7 +7,7 @@ import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ResponsiveImage } from "~/components/ui/responsive-image";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 const links = [

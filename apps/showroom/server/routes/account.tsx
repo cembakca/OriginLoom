@@ -3,7 +3,7 @@ import { defineRoute } from "@originloom/react/lib/types";
 
 import { AccountDashboardShell } from "~/features/account/dashboard-shell";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/generate";
+import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 /** SSR shell — kişisel veri defer island + TanStack Query BFF'den gelir. */

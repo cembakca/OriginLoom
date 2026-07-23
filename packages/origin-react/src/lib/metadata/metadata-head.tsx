@@ -1,5 +1,5 @@
-import { serializeEmbeddedJson } from "@originloom/react/lib/embedded-json";
-import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
+import { serializeEmbeddedJson } from "../embedded-json";
+import type { ResolvedMetadata } from "./types";
 
 /** Metadata API çıktısı → HTML head tag'leri. GTM/analytics burada değil. */
 export function MetadataHead({

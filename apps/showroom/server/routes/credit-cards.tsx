@@ -1,6 +1,10 @@
 import { neverCache } from "@originloom/react/lib/cache-policy";
 import { resolvePageParam } from "@originloom/react/lib/content-values";
 import {
+  generatePaginatedMetadata,
+  publicAbsoluteUrl,
+} from "@originloom/react/lib/metadata/generate";
+import {
   breadcrumbJsonLd,
   compactJsonLd,
   itemListJsonLd,
@@ -12,7 +16,6 @@ import { CreditCardListPage } from "~/features/financial-products/credit-card-li
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import type { CreditCardList } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
-import { generatePaginatedMetadata, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 const QUERY = ["bank", "cardType", "annualFee", "network", "sortBy", "page"] as const;

@@ -1,9 +1,8 @@
+import { mergeMetadata } from "@originloom/react/lib/metadata/merge";
+import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
 import type { Ctx } from "@originloom/react/lib/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-
-import { MetadataHead } from "~/components/head/metadata-head";
-import { mergeMetadata } from "~/lib/metadata/merge";
 
 const context: Ctx = {
   request: new Request("https://www.example.com/bilgi-merkezi?page=2"),

@@ -1,6 +1,7 @@
 import { config } from "@originloom/core/config";
 import { responsiveImage, unoptimizedImage } from "@originloom/core/media";
 import { imagePreload } from "@originloom/react/lib/media";
+import { generateMetaDataForPageWithSeoInfo } from "@originloom/react/lib/metadata/generate";
 import { defineRoute } from "@originloom/react/lib/types";
 
 import {
@@ -9,7 +10,6 @@ import {
   MediaPipelinePage,
 } from "~/features/media-pipeline/page";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
-import { generateMetaDataForPageWithSeoInfo } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<MediaPipelineData>({

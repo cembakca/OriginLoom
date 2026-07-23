@@ -1,4 +1,8 @@
 import { neverCache } from "@originloom/react/lib/cache-policy";
+import {
+  generateMetaDataForPageWithSeoInfo,
+  publicAbsoluteUrl,
+} from "@originloom/react/lib/metadata/generate";
 import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
 import { defineRoute, notFound } from "@originloom/react/lib/types";
 import { getLoanCalculation } from "@server/services/financial-products";
@@ -6,7 +10,6 @@ import { getLoanCalculation } from "@server/services/financial-products";
 import { LoanCalculatorPage } from "~/features/financial-products/loan-calculator-page";
 import type { LoanCalculatorData } from "~/lib/contracts/financial-products";
 import { parseLoanCalculatorSearch } from "~/lib/loan-calculator-query";
-import { generateMetaDataForPageWithSeoInfo, publicAbsoluteUrl } from "~/lib/metadata/generate";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<LoanCalculatorData>({

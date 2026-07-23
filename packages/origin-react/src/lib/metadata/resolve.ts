@@ -1,8 +1,8 @@
-import type { PageMetadata, ResolvedMetadata } from "@originloom/react/lib/metadata/types";
-import type { Ctx, Route } from "@originloom/react/lib/types";
-
-import { generateMetaDataForPageWithDummySeoInfo, metadataFromTitle } from "./generate";
+import type { Ctx, Route } from "../types";
+import { metadataFromTitle } from "./generate";
 import { mergeMetadata } from "./merge";
+import { fallbackPageMetadata } from "./site-config";
+import type { PageMetadata, ResolvedMetadata } from "./types";
 
 /** Resolve final <head> SEO from site defaults + route generateMetadata. */
 export function resolveDocumentMetadata<T>(route: Route<T>, data: T, ctx: Ctx): ResolvedMetadata {
@@ -15,5 +15,5 @@ function resolvePageMetadata<T>(route: Route<T>, data: T, ctx: Ctx): PageMetadat
 
   if (route.title) return metadataFromTitle(route.title(data), ctx);
 
-  return generateMetaDataForPageWithDummySeoInfo(route.path, ctx);
+  return fallbackPageMetadata(route.path, ctx) ?? metadataFromTitle(route.path, ctx);
 }
