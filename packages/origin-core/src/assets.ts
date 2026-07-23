@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { config } from "./config";
 import { type FontAsset, readFontAssets } from "./media";
@@ -43,7 +44,7 @@ export type ManifestPreloadOptions = {
 
 const DEFAULT_CLIENT_ENTRY = "/src/entry.client.tsx";
 const DEFAULT_DEV_STYLESHEETS = ["/src/styles/globals.css"];
-const DEFAULT_MANIFEST_PATH = "dist/client/.vite/manifest.json";
+
 const DEFAULT_ISLAND_SOURCE_PREFIX = "src/islands/";
 
 /** Mantıksal asset path → CDN veya origin URL. */
@@ -56,7 +57,7 @@ export function assetUrl(path: string): string {
 export function readAssets(options: AssetsOptions = {}): Assets {
   const clientEntry = options.clientEntry ?? DEFAULT_CLIENT_ENTRY;
   const devStylesheets = options.devStylesheets ?? DEFAULT_DEV_STYLESHEETS;
-  const manifestPath = options.manifestPath ?? DEFAULT_MANIFEST_PATH;
+  const manifestPath = options.manifestPath ?? join(config.clientDistDir, ".vite/manifest.json");
 
   if (config.viteDevServerUrl) {
     const viteOrigin = config.viteDevServerUrl.replace(/\/$/, "");

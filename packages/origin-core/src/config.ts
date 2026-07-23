@@ -80,6 +80,12 @@ export const config = {
   imageCdnUrl: publicHttpUrlEnv("IMAGE_CDN_URL"),
   imageTransformUrl: publicHttpUrlEnv("IMAGE_TRANSFORM_URL"),
   viteDevServerUrl: process.env.VITE_DEV_SERVER_URL?.replace(/\/$/, "") || undefined,
+  /**
+   * Client build output directory holding the Vite and media manifests plus static
+   * assets. Relative paths resolve against the process cwd, which is the app root in
+   * every run mode; tooling that runs from the workspace root sets it explicitly.
+   */
+  clientDistDir: process.env.CLIENT_DIST_DIR?.replace(/\/$/, "") || "dist/client",
   gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),
   cspEnforce: booleanEnv("CSP_ENFORCE", nodeEnv === "production"),
   cspReportUri: process.env.CSP_REPORT_URI?.trim() || undefined,

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   createCdnImage,
@@ -11,7 +12,9 @@ import {
 
 import { config } from "./config";
 
-const MANIFEST_PATH = "dist/client/asset-pipeline.json";
+function mediaManifestPath(): string {
+  return join(config.clientDistDir, "asset-pipeline.json");
+}
 
 export type FontAsset = {
   family: string;
@@ -97,12 +100,13 @@ function localResponsiveImage(image: ImageManifestEntry): ResponsiveImageData {
 
 function readMediaManifest(): MediaManifest {
   if (cachedManifest) return cachedManifest;
-  if (!existsSync(MANIFEST_PATH)) {
-    throw new Error(`Media manifest not found: run npm run media before starting the server`);
+  const manifestPath = mediaManifestPath();
+  if (!existsSync(manifestPath)) {
+    throw new Error(`Media manifest not found at ${manifestPath}: run \`pnpm media\` first`);
   }
 
-  const parsed: unknown = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
-  if (!isMediaManifest(parsed)) throw new Error("Invalid dist/client/asset-pipeline.json");
+  const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+  if (!isMediaManifest(parsed)) throw new Error(`Invalid media manifest: ${mediaManifestPath()}`);
   cachedManifest = parsed;
   return parsed;
 }

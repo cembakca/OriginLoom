@@ -118,7 +118,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   app.use("*", publicBodyLimit(config.proxyBodyLimitBytes));
 
   app.use("/assets/*", staticAssetCacheHeaders);
-  app.use("/assets/*", serveStatic({ root: options.staticRoot ?? "./dist/client" }));
+  app.use("/assets/*", serveStatic({ root: options.staticRoot ?? config.clientDistDir }));
 
   app.get("/healthz", (c) => {
     c.set("requestRoute", "<health>");
