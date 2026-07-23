@@ -2,12 +2,13 @@
   "name": "origin-loom",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=22.12.0"
   },
-  "overrides": {
-    "autocannon": {
-      "hyperid": "^4.0.0"
+  "pnpm": {
+    "overrides": {
+      "autocannon>hyperid": "^4.0.0"
     }
   },
   "scripts": {
@@ -15,9 +16,9 @@
     "media": "node scripts/build-media.mjs",
     "build": "node scripts/build.mjs",
     "mock-gw": "node scripts/run-with-env.mjs development node mock-gw/server.js",
-    "dev": "npm run icons && npm run media && node scripts/dev.mjs",
+    "dev": "pnpm run icons && pnpm run media && node scripts/dev.mjs",
     "dev:redis": "node scripts/dev-local.mjs",
-    "dev:local": "npm run dev:redis",
+    "dev:local": "pnpm run dev:redis",
     "compose:up": "node scripts/compose-up.mjs",
     "compose:redis": "node scripts/compose-up.mjs --redis",
     "compose:clean": "node scripts/docker-clean.mjs",
@@ -50,8 +51,8 @@
     "stress:redis": "node load-test/stress.mjs --profile redis",
     "pentest:readiness": "node scripts/pentest-readiness.mjs",
     "pentest:readiness:loadtest": "node scripts/pentest-readiness-loadtest.mjs",
-    "audit:prod": "npm audit --omit=dev --audit-level=high",
-    "ci": "npm run typecheck && npm run check:cycles && npm run lint && npm run format:check && npm run test:coverage && npm run build && npm run smoke"
+    "audit:prod": "pnpm audit --prod --audit-level=high",
+    "ci": "pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run build && pnpm run smoke"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

@@ -1,14 +1,18 @@
 FROM node:22-alpine AS builder
 
+RUN corepack enable
+
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run typecheck && npm run build
+RUN pnpm run typecheck && pnpm run build
 
 FROM node:22-alpine AS runner
+
+RUN corepack enable
 
 WORKDIR /app
 
@@ -17,8 +21,8 @@ ENV PORT=3005
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile --prod && pnpm store prune
 
 COPY --from=builder /app/dist ./dist
 
