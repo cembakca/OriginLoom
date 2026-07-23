@@ -1,7 +1,7 @@
+import { closeCache, initCache } from "@originloom/core/cache";
+import { createMetricsApp, type MetricsAppOptions } from "@originloom/core/metrics-server";
 import { mountCachePurgeRoutes } from "@server/api/internal/cache-purge";
 import { mountReferralStatsApi } from "@server/api/internal/referral-stats";
-import { closeCache, initCache } from "@server/cache";
-import { createMetricsApp, type MetricsAppOptions } from "@server/metrics-server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const productMounts: MetricsAppOptions = {

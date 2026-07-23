@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 
+import { getOrSetFragmentByName } from "@originloom/core/cache/fragment";
+import type { FragmentDefinition } from "@originloom/core/runtime";
 import type { DeviceType } from "@originloom/react/lib/device";
 import type { Ctx } from "@originloom/react/lib/types";
-import { getOrSetFragmentByName } from "@server/cache/fragment";
 import { productConfig } from "@server/product/config";
-import type { FragmentDefinition } from "@server/runtime";
 import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
 
 import { Footer } from "~/components/layout/footer";

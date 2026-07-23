@@ -1,4 +1,4 @@
-import type { AppVariables } from "@server/middleware/request-id";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 
 import { mountInternalApi } from "./internal";

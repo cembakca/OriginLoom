@@ -1,4 +1,4 @@
-import { proxyRequest } from "@server/proxy";
+import { proxyRequest } from "@originloom/core/proxy";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {

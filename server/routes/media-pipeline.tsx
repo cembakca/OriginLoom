@@ -1,7 +1,7 @@
+import { config } from "@originloom/core/config";
+import { responsiveImage, unoptimizedImage } from "@originloom/core/media";
 import { imagePreload } from "@originloom/react/lib/media";
 import { defineRoute } from "@originloom/react/lib/types";
-import { config } from "@server/config";
-import { responsiveImage, unoptimizedImage } from "@server/media";
 
 import {
   MEDIA_DEMO_SIZES,

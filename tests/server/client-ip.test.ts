@@ -1,4 +1,4 @@
-import { resolveTrustedClientIp } from "@server/client-ip";
+import { resolveTrustedClientIp } from "@originloom/core/client-ip";
 import { describe, expect, it } from "vitest";
 
 describe("trusted client IP resolution", () => {

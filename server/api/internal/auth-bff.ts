@@ -1,6 +1,5 @@
-import { Cookie } from "@originloom/react/lib/cookies";
-import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
-import { runAuthCore } from "@server/middleware/steps/auth/core";
+import { applyCookies, CookieJar } from "@originloom/core/middleware/cookie-jar";
+import { runAuthCore } from "@originloom/core/middleware/steps/auth/core";
 import {
   clearTokenCookies,
   displayNameFromAccess,
@@ -8,7 +7,8 @@ import {
   refreshTokens,
   setSessionCookies,
   setTokenCookies,
-} from "@server/middleware/steps/auth/helpers";
+} from "@originloom/core/middleware/steps/auth/helpers";
+import { Cookie } from "@originloom/react/lib/cookies";
 
 export type BffAuthResult =
   | { kind: "authorized"; request: Request; cookies: CookieJar }

@@ -1,7 +1,7 @@
+import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { config } from "@originloom/core/config";
 import type { Route } from "@originloom/react/lib/types";
-import { createApp } from "@server/app";
-import { closeCache, initCache } from "@server/cache";
-import { config } from "@server/config";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

@@ -1,5 +1,5 @@
-import { config, numberEnv } from "@server/config";
-import { assertPositiveInteger } from "@server/config-validation";
+import { config, numberEnv } from "@originloom/core/config";
+import { assertPositiveInteger } from "@originloom/core/config-validation";
 
 /** Product-specific environment: analytics, market stream, menu cache, ops secrets. */
 export const productConfig = {

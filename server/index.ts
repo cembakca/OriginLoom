@@ -1,5 +1,13 @@
 import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
+import { createApp } from "@originloom/core/app";
+import { readAssets } from "@originloom/core/assets";
+import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
+import { config, validateConfig } from "@originloom/core/config";
+import { drainRevalidations } from "@originloom/core/handler";
+import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
+import { logError, logger } from "@originloom/core/logger";
+import { createMetricsApp } from "@originloom/core/metrics-server";
 import { configureRouting } from "@originloom/react/routing";
 import { validateRoutingRules } from "@originloom/react/routing/validate";
 
@@ -9,14 +17,6 @@ import { mountApi } from "./api";
 import { mountCachePurgeRoutes } from "./api/internal/cache-purge";
 import { mountReferralStatsApi } from "./api/internal/referral-stats";
 import { stopMarketStreamClients } from "./api/market-stream";
-import { createApp } from "./app";
-import { readAssets } from "./assets";
-import { cacheTopology, closeCache, initCache } from "./cache";
-import { config, validateConfig } from "./config";
-import { drainRevalidations } from "./handler";
-import { register, shutdownInstrumentation } from "./instrumentation";
-import { logError, logger } from "./logger";
-import { createMetricsApp } from "./metrics-server";
 import { productConfig, validateProductConfig } from "./product/config";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";

@@ -1,6 +1,9 @@
-import { logger } from "@server/logger";
-import { contextRequest, isRequestDeadlineError } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
+import { logger } from "@originloom/core/logger";
+import {
+  contextRequest,
+  isRequestDeadlineError,
+} from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { fetchSitemapEntries, type SitemapEntry } from "@server/services/sitemap";
 import type { Hono } from "hono";
 

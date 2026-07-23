@@ -1,5 +1,5 @@
-import { gatewayFetchForRequest } from "@server/adapters/gateway";
-import { withRequestSpan } from "@server/observability";
+import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+import { withRequestSpan } from "@originloom/core/observability";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("gatewayFetch", () => {

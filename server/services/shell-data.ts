@@ -1,8 +1,8 @@
+import { GatewayPayloadError } from "@originloom/core/gateway-payload";
+import { logger } from "@originloom/core/logger";
+import { observeShellDegradation } from "@originloom/core/metrics";
+import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import type { Ctx } from "@originloom/react/lib/types";
-import { GatewayPayloadError } from "@server/gateway-payload";
-import { logger } from "@server/logger";
-import { observeShellDegradation } from "@server/metrics";
-import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import { buildLayoutClientProps, type ShellData } from "~/lib/shell-data";
 

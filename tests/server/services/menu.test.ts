@@ -1,4 +1,4 @@
-import { cacheKey, closeCache, initCache, write } from "@server/cache";
+import { cacheKey, closeCache, initCache, write } from "@originloom/core/cache";
 import { fetchMenuList } from "@server/services/menu";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

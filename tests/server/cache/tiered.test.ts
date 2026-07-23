@@ -75,9 +75,9 @@ vi.mock("ioredis", () => ({
   },
 }));
 
-import { MemoryStore } from "@server/cache/memory";
-import { RedisStore } from "@server/cache/redis";
-import { TieredStore } from "@server/cache/tiered";
+import { MemoryStore } from "@originloom/core/cache/memory";
+import { RedisStore } from "@originloom/core/cache/redis";
+import { TieredStore } from "@originloom/core/cache/tiered";
 
 describe("TieredStore", () => {
   afterEach(() => {

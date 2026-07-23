@@ -1,5 +1,5 @@
+import { lookupRedirect } from "@originloom/core/middleware/api/redirect-map";
 import { resolveRoute } from "@originloom/react/routing/resolve";
-import { lookupRedirect } from "@server/middleware/api/redirect-map";
 import { describe, expect, it } from "vitest";
 
 describe("CMS + static routing order", () => {

@@ -13,7 +13,7 @@ import { financeQueryNormalizers } from "./finance-query";
 import { knowledgeQueryNormalizers } from "./knowledge-query";
 import { marketQueryNormalizers } from "./market-query";
 
-export type { CacheKeyApiEntry } from "@server/cache/key-codec";
+export type { CacheKeyApiEntry } from "@originloom/core/cache/key-codec";
 export {
   CACHE_KEY_SEP,
   decodeCacheKeyFromApi,
@@ -22,7 +22,7 @@ export {
   formatCacheKey,
   parseCacheKey,
   toCacheKeyApiEntry,
-} from "@server/cache/key-codec";
+} from "@originloom/core/cache/key-codec";
 
 /** HTML sayfa cache kimlikleri — purge API ve dokümantasyonda referans. */
 export const PageCacheId = {

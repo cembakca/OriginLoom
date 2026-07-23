@@ -1,5 +1,5 @@
-import { contextRequest } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 
 import { mountAccountApi } from "./account";

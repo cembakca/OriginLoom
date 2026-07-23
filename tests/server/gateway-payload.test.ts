@@ -2,8 +2,8 @@ import {
   GatewayPayloadError,
   readGatewayJson,
   requireGatewayPayload,
-} from "@server/gateway-payload";
-import { renderMetrics } from "@server/metrics";
+} from "@originloom/core/gateway-payload";
+import { renderMetrics } from "@originloom/core/metrics";
 import { describe, expect, it } from "vitest";
 
 describe("gateway payload boundary", () => {

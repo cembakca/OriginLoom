@@ -11,14 +11,14 @@ describe("assetUrl", () => {
   it("returns origin path when CDN is not set", async () => {
     delete process.env.ASSET_CDN_URL;
     vi.resetModules();
-    const { assetUrl } = await import("@server/assets");
+    const { assetUrl } = await import("@originloom/core/assets");
     expect(assetUrl("/assets/entry.client.js")).toBe("/assets/entry.client.js");
   });
 
   it("prefixes CDN base when ASSET_CDN_URL is set", async () => {
     process.env.ASSET_CDN_URL = "https://cdn.hangikredi.com";
     vi.resetModules();
-    const { assetUrl, assetCdnOrigin } = await import("@server/assets");
+    const { assetUrl, assetCdnOrigin } = await import("@originloom/core/assets");
     expect(assetUrl("/assets/entry.client.js")).toBe(
       "https://cdn.hangikredi.com/assets/entry.client.js",
     );
@@ -28,14 +28,14 @@ describe("assetUrl", () => {
   it("strips trailing slash from CDN URL", async () => {
     process.env.ASSET_CDN_URL = "https://cdn.hangikredi.com/";
     vi.resetModules();
-    const { assetUrl } = await import("@server/assets");
+    const { assetUrl } = await import("@originloom/core/assets");
     expect(assetUrl("/assets/entry.css")).toBe("https://cdn.hangikredi.com/assets/entry.css");
   });
 
   it("uses source modules and Vite runtime instead of the manifest in development", async () => {
     process.env.VITE_DEV_SERVER_URL = "http://127.0.0.1:5174/";
     vi.resetModules();
-    const { readAssets } = await import("@server/assets");
+    const { readAssets } = await import("@originloom/core/assets");
 
     const assets = readAssets();
     expect(assets).toMatchObject({
@@ -51,7 +51,7 @@ describe("assetUrl", () => {
   });
 
   it("collects only global eager islands and their recursive static imports", async () => {
-    const { resolveManifestPreloads } = await import("@server/assets");
+    const { resolveManifestPreloads } = await import("@originloom/core/assets");
     const resolved = resolveManifestPreloads(
       {
         "src/entry.client.tsx": {

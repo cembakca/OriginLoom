@@ -1,9 +1,9 @@
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import {
   BoundedIpRateLimiter,
   FixedWindowRateLimiter,
   mountClientErrorApi,
 } from "@server/api/internal/client-errors";
-import type { AppVariables } from "@server/middleware/request-id";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 

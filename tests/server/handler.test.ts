@@ -5,17 +5,17 @@ import {
   initCache,
   releaseColdMissLock,
   write,
-} from "@server/cache";
-import { config } from "@server/config";
+} from "@originloom/core/cache";
+import { config } from "@originloom/core/config";
 import {
   drainRevalidations,
   handle,
   handleHead,
   isSsrRouteRequest,
   methodNotAllowedResponse,
-} from "@server/handler";
-import { renderMetrics } from "@server/metrics";
-import { RequestDeadlineError } from "@server/middleware/request-deadline";
+} from "@originloom/core/handler";
+import { renderMetrics } from "@originloom/core/metrics";
+import { RequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import account from "@server/routes/account";
 import creditCards from "@server/routes/credit-cards";
 import home from "@server/routes/home";

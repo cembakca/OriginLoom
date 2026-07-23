@@ -1,5 +1,5 @@
-import { applyInvalidationToL1, CacheInvalidationBus } from "@server/cache/invalidation";
-import { MemoryStore } from "@server/cache/memory";
+import { applyInvalidationToL1, CacheInvalidationBus } from "@originloom/core/cache/invalidation";
+import { MemoryStore } from "@originloom/core/cache/memory";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 type Handler = (...args: unknown[]) => void;

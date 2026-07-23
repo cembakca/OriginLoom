@@ -1,7 +1,7 @@
+import { cspScriptHash, registerCspScriptHashes } from "@originloom/core/middleware/security";
+import { installRuntime, type OriginRuntime } from "@originloom/core/runtime";
 import { marketStreamMetricLines } from "@server/metrics/market-stream";
 import { referralMetricLines } from "@server/metrics/referrals";
-import { cspScriptHash, registerCspScriptHashes } from "@server/middleware/security";
-import { installRuntime, type OriginRuntime } from "@server/runtime";
 import { storeBotVisit } from "@server/services/bot-analytics";
 import { buildShellData } from "@server/services/shell-data";
 

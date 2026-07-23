@@ -1,5 +1,5 @@
-import { gatewayUrl } from "@server/adapters/gateway";
-import { config } from "@server/config";
+import { gatewayUrl } from "@originloom/core/adapters/gateway";
+import { config } from "@originloom/core/config";
 import { observeMarketStreamEvent } from "@server/metrics/market-stream";
 import { productConfig } from "@server/product/config";
 

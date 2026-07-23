@@ -1,4 +1,9 @@
-import { counterLines, type CounterMap, gauge, increment } from "./primitives";
+import {
+  counterLines,
+  type CounterMap,
+  gauge,
+  increment,
+} from "@originloom/core/metrics/primitives";
 
 const connections: CounterMap = new Map();
 const events: CounterMap = new Map();

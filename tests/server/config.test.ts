@@ -17,7 +17,7 @@ async function validateWith(env: Record<string, string | undefined>): Promise<vo
     else process.env[key] = value;
   }
   vi.resetModules();
-  const { validateConfig } = await import("@server/config");
+  const { validateConfig } = await import("@originloom/core/config");
   const { validateProductConfig } = await import("@server/product/config");
   validateConfig([validateProductConfig]);
 }
@@ -337,7 +337,7 @@ describe("server config", () => {
     };
     delete process.env.VITE_DEV_SERVER_URL;
     vi.resetModules();
-    const { config, validateConfig } = await import("@server/config");
+    const { config, validateConfig } = await import("@originloom/core/config");
 
     expect(config.imageCdnUrl).toBe("http://localhost:3005/images");
     expect(config.cspEnforce).toBe(true);

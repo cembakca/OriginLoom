@@ -1,15 +1,15 @@
-import { config } from "@server/config";
-import { logger } from "@server/logger";
-import { observeClientErrorTelemetry } from "@server/metrics";
-import { contextRequest } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
-import { productConfig } from "@server/product/config";
+import { config } from "@originloom/core/config";
+import { logger } from "@originloom/core/logger";
+import { observeClientErrorTelemetry } from "@originloom/core/metrics";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import {
   BoundedIpRateLimiter,
   FixedWindowRateLimiter,
   type IpRateLimiter,
   type RateLimiter,
-} from "@server/security/rate-limit";
+} from "@originloom/core/security/rate-limit";
+import { productConfig } from "@server/product/config";
 import type { Hono } from "hono";
 
 import {
@@ -19,7 +19,7 @@ import {
 } from "./client-errors/contract";
 
 export { redactSensitive } from "./client-errors/contract";
-export { BoundedIpRateLimiter, FixedWindowRateLimiter } from "@server/security/rate-limit";
+export { BoundedIpRateLimiter, FixedWindowRateLimiter } from "@originloom/core/security/rate-limit";
 
 type ClientErrorApiOptions = {
   rateLimiter?: RateLimiter;

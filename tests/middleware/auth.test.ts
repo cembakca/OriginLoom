@@ -1,7 +1,10 @@
-import { closeCache, initCache } from "@server/cache";
-import { CookieJar } from "@server/middleware/cookie-jar";
-import { runAuthCore } from "@server/middleware/steps/auth/core";
-import { isAccessTokenExpired, refreshTokens } from "@server/middleware/steps/auth/helpers";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { CookieJar } from "@originloom/core/middleware/cookie-jar";
+import { runAuthCore } from "@originloom/core/middleware/steps/auth/core";
+import {
+  isAccessTokenExpired,
+  refreshTokens,
+} from "@originloom/core/middleware/steps/auth/helpers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const originalNodeEnv = process.env.NODE_ENV;

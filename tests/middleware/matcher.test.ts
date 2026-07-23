@@ -1,4 +1,4 @@
-import { shouldRunPipeline } from "@server/middleware/matcher";
+import { shouldRunPipeline } from "@originloom/core/middleware/matcher";
 import { describe, expect, it } from "vitest";
 
 describe("shouldRunPipeline", () => {

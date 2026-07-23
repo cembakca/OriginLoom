@@ -1,14 +1,14 @@
+import { config } from "@originloom/core/config";
+import { applyCookies, CookieJar } from "@originloom/core/middleware/cookie-jar";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { sanitizeUuid } from "@originloom/core/middleware/sanitize";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
 import { normalizeNavigationUrl } from "@originloom/react/lib/content-url";
 import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
 import { Cookie } from "@originloom/react/lib/cookies";
 import { cookie } from "@originloom/react/lib/request";
-import { config } from "@server/config";
 import { observeReferralRedirect } from "@server/metrics/referrals";
-import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
-import { contextRequest } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
-import { sanitizeUuid } from "@server/middleware/sanitize";
-import { guardPublicApi, type PublicApiPolicy } from "@server/security/public-api-guard";
 import { createReferral } from "@server/services/financial-products";
 import type { Hono } from "hono";
 

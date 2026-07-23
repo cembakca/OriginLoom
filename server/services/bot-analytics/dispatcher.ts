@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 
-import { logger } from "@server/logger";
+import { logger } from "@originloom/core/logger";
 import {
   observeBotAnalyticsBatch,
   observeBotAnalyticsDrain,
   observeBotAnalyticsDrop,
   observeBotAnalyticsEnqueue,
   setBotAnalyticsQueueState,
-} from "@server/metrics";
+} from "@originloom/core/metrics";
 
 export type BotVisit = {
   pathname: string;

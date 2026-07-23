@@ -1,7 +1,7 @@
+import { responsiveImage } from "@originloom/core/media";
 import { imagePreload, type ResponsiveImageData } from "@originloom/react/lib/media";
 import { locale } from "@originloom/react/lib/request";
 import { defineRoute } from "@originloom/react/lib/types";
-import { responsiveImage } from "@server/media";
 
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";

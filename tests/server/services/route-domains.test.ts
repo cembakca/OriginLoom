@@ -1,4 +1,4 @@
-import { closeCache, initCache } from "@server/cache";
+import { closeCache, initCache } from "@originloom/core/cache";
 import { fetchRouteDomains, isKnownRecoursePage } from "@server/services/route-domains";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

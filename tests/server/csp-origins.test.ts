@@ -1,4 +1,4 @@
-import { resolveCspSourceOrigins } from "@server/csp-origins";
+import { resolveCspSourceOrigins } from "@originloom/core/csp-origins";
 import { describe, expect, it } from "vitest";
 
 describe("CSP configured origins", () => {

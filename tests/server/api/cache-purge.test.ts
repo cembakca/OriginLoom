@@ -1,9 +1,9 @@
+import { closeCache, initCache, read, write } from "@originloom/core/cache";
 import {
   assertPurgeAuthorized,
   handleCacheKeysList,
   handleCachePurge,
 } from "@server/api/internal/cache-purge";
-import { closeCache, initCache, read, write } from "@server/cache";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { encodeCacheKeyForApi, formatCacheKey } from "~/lib/cache-keys";

@@ -1,4 +1,8 @@
-import { type AppVariables, normalizeRequestId, requestId } from "@server/middleware/request-id";
+import {
+  type AppVariables,
+  normalizeRequestId,
+  requestId,
+} from "@originloom/core/middleware/request-id";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 

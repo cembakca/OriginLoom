@@ -7,7 +7,7 @@ import { beforeEach } from "vitest";
 beforeEach(async () => {
   const [{ productRuntime }, { installRuntime }, { configureRouting }, rules] = await Promise.all([
     import("@server/product/runtime"),
-    import("@server/runtime"),
+    import("@originloom/core/runtime"),
     import("@originloom/react/routing"),
     import("~/routing/rules"),
   ]);

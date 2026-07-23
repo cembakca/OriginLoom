@@ -1,4 +1,4 @@
-import { MemoryStore } from "@server/cache/memory";
+import { MemoryStore } from "@originloom/core/cache/memory";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("MemoryStore", () => {

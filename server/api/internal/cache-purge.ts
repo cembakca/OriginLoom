@@ -1,14 +1,14 @@
-import { cacheTopology } from "@server/cache";
+import { cacheTopology } from "@originloom/core/cache";
 import {
   executePurge,
   listCacheKeys,
   parseListKeysQuery,
   parsePurgeBody,
-} from "@server/cache/purge";
-import { contextRequest } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
+} from "@originloom/core/cache/purge";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { secretMatches } from "@originloom/core/security/secrets";
 import { purgeSecurityConfig } from "@server/product/config";
-import { secretMatches } from "@server/security/secrets";
 import type { Context } from "hono";
 
 function json(data: unknown, status = 200): Response {

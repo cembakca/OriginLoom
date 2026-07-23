@@ -1,4 +1,4 @@
-import { renderMetrics } from "@server/metrics";
+import { renderMetrics } from "@originloom/core/metrics";
 import { BotAnalyticsDispatcher, type BotVisit } from "@server/services/bot-analytics";
 import { afterEach, describe, expect, it, vi } from "vitest";
 

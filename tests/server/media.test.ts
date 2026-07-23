@@ -12,7 +12,7 @@ describe("server media delivery", () => {
     process.env.IMAGE_CDN_URL = "https://cdn.example.com/image-origin";
     delete process.env.IMAGE_TRANSFORM_URL;
     vi.resetModules();
-    const { responsiveImage, unoptimizedImage } = await import("@server/media");
+    const { responsiveImage, unoptimizedImage } = await import("@originloom/core/media");
 
     expect(unoptimizedImage("home-hero").src).toMatch(
       /^https:\/\/cdn\.example\.com\/image-origin\/assets\/media\/home-hero-source\./,
@@ -27,7 +27,7 @@ describe("server media delivery", () => {
     process.env.IMAGE_CDN_URL = "https://cdn.example.com/image-origin";
     process.env.IMAGE_TRANSFORM_URL = "https://images.example.com/transform";
     vi.resetModules();
-    const { responsiveImage, unoptimizedImage } = await import("@server/media");
+    const { responsiveImage, unoptimizedImage } = await import("@originloom/core/media");
 
     const responsive = responsiveImage("home-hero");
     expect(responsive.srcSet).toContain("https://images.example.com/transform?");

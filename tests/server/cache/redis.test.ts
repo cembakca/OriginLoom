@@ -31,7 +31,7 @@ vi.mock("ioredis", () => ({
   },
 }));
 
-import { RedisStore } from "@server/cache/redis";
+import { RedisStore } from "@originloom/core/cache/redis";
 
 describe("RedisStore", () => {
   beforeEach(() => {

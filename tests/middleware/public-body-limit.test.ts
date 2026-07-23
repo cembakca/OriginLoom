@@ -1,5 +1,5 @@
-import { publicBodyLimit } from "@server/middleware/public-body-limit";
-import type { AppVariables } from "@server/middleware/request-id";
+import { publicBodyLimit } from "@originloom/core/middleware/public-body-limit";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 

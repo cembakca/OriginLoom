@@ -20,7 +20,7 @@ import {
   renderMetrics,
   setBotAnalyticsQueueState,
   setSsrCapacityState,
-} from "@server/metrics";
+} from "@originloom/core/metrics";
 import {
   observeMarketStreamConnection,
   observeMarketStreamEvent,

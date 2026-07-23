@@ -1,6 +1,6 @@
+import { closeCache, initCache } from "@originloom/core/cache";
+import { renderMetrics } from "@originloom/core/metrics";
 import type { Ctx } from "@originloom/react/lib/types";
-import { closeCache, initCache } from "@server/cache";
-import { renderMetrics } from "@server/metrics";
 import { buildShellData } from "@server/services/shell-data";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

@@ -1,5 +1,5 @@
-import { decodeCacheEntry, encodeCacheEntry } from "@server/cache/codec";
-import type { CacheEntry } from "@server/cache/types";
+import { decodeCacheEntry, encodeCacheEntry } from "@originloom/core/cache/codec";
+import type { CacheEntry } from "@originloom/core/cache/types";
 import { describe, expect, it } from "vitest";
 
 const timestamps = {

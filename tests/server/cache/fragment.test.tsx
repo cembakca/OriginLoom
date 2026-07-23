@@ -3,10 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getPopularKnowledgeArticles = vi.hoisted(() => vi.fn());
 vi.mock("@server/services/knowledge-center", () => ({ getPopularKnowledgeArticles }));
 
+import { closeCache, initCache, read, write } from "@originloom/core/cache";
+import { fragmentCacheKey, getOrSetFragmentByName } from "@originloom/core/cache/fragment";
+import { executePurge } from "@originloom/core/cache/purge";
+import { installRuntime } from "@originloom/core/runtime";
 import type { Ctx } from "@originloom/react/lib/types";
-import { closeCache, initCache, read, write } from "@server/cache";
-import { fragmentCacheKey, getOrSetFragmentByName } from "@server/cache/fragment";
-import { executePurge } from "@server/cache/purge";
 import {
   footerFragmentKey,
   getOrSetFooterFragment,
@@ -14,7 +15,6 @@ import {
   headerFragmentKey,
 } from "@server/product/fragments";
 import { productRuntime } from "@server/product/runtime";
-import { installRuntime } from "@server/runtime";
 
 import type { ShellData } from "~/lib/shell-data";
 

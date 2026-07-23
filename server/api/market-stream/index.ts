@@ -1,11 +1,11 @@
-import { config } from "@server/config";
+import { config } from "@originloom/core/config";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import {
   observeMarketStreamConnection,
   observeMarketStreamEvent,
   setMarketStreamActiveConnections,
 } from "@server/metrics/market-stream";
-import { contextRequest } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
 import { productConfig } from "@server/product/config";
 import { type MarketQuoteHub, marketQuoteHub } from "@server/services/market-stream/hub";
 import type { Context, Hono } from "hono";

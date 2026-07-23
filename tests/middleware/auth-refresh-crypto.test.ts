@@ -1,4 +1,4 @@
-import { createRefreshCoordinationCodec } from "@server/middleware/steps/auth/refresh-coordination-crypto";
+import { createRefreshCoordinationCodec } from "@originloom/core/middleware/steps/auth/refresh-coordination-crypto";
 import { describe, expect, it } from "vitest";
 
 describe("auth refresh coordination encryption", () => {

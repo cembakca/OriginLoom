@@ -1,5 +1,5 @@
-import { gatewayFetch } from "@server/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
+import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import {
   createFinancialReferralGuards,
   isReferralStats,

@@ -1,7 +1,7 @@
-import { contextRequest } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { secretMatches } from "@originloom/core/security/secrets";
 import { referralStatsSecurityConfig } from "@server/product/config";
-import { secretMatches } from "@server/security/secrets";
 import { getReferralStats } from "@server/services/financial-products";
 import type { Hono } from "hono";
 

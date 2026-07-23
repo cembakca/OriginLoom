@@ -1,6 +1,6 @@
-import { contextRequest } from "@server/middleware/request-deadline";
-import type { AppVariables } from "@server/middleware/request-id";
-import { guardPublicApi, type PublicApiPolicy } from "@server/security/public-api-guard";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
 import { getLoanCalculation } from "@server/services/financial-products";
 import type { Hono } from "hono";
 

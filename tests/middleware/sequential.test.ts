@@ -1,5 +1,5 @@
-import { createInitialResult, runSequential } from "@server/middleware/sequential";
-import type { MiddlewareStep, PipelineContext } from "@server/middleware/types";
+import { createInitialResult, runSequential } from "@originloom/core/middleware/sequential";
+import type { MiddlewareStep, PipelineContext } from "@originloom/core/middleware/types";
 import { describe, expect, it, vi } from "vitest";
 
 const ctx: PipelineContext = {

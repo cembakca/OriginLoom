@@ -1,4 +1,4 @@
-import { gatewayFetch } from "@server/adapters/gateway";
+import { gatewayFetch } from "@originloom/core/adapters/gateway";
 import { productConfig } from "@server/product/config";
 
 import {

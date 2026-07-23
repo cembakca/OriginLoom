@@ -1,7 +1,7 @@
+import type { DocumentShell } from "@originloom/core/runtime";
 import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
 import type { Ctx, Route } from "@originloom/react/lib/types";
 import { productConfig } from "@server/product/config";
-import type { DocumentShell } from "@server/runtime";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import { HeadClient } from "~/components/head/head-client";

@@ -1,5 +1,5 @@
-import { renderMetrics } from "@server/metrics";
-import { SsrCapacity, SsrCapacityError } from "@server/ssr-capacity";
+import { renderMetrics } from "@originloom/core/metrics";
+import { SsrCapacity, SsrCapacityError } from "@originloom/core/ssr-capacity";
 import { describe, expect, it } from "vitest";
 
 describe("SSR capacity", () => {

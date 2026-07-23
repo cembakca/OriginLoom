@@ -1,11 +1,11 @@
-import type { Route } from "@originloom/react/lib/types";
-import { renderMetrics } from "@server/metrics";
+import { renderMetrics } from "@originloom/core/metrics";
 import {
   contextRequest,
   requestDeadline,
   RequestDeadlineError,
-} from "@server/middleware/request-deadline";
-import { type AppVariables, requestId } from "@server/middleware/request-id";
+} from "@originloom/core/middleware/request-deadline";
+import { type AppVariables, requestId } from "@originloom/core/middleware/request-id";
+import type { Route } from "@originloom/react/lib/types";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 

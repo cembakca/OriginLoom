@@ -1,6 +1,6 @@
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { mountMarketStreamApi } from "@server/api/market-stream";
 import { MarketStreamAdmission } from "@server/api/market-stream/admission";
-import type { AppVariables } from "@server/middleware/request-id";
 import type { MarketQuoteHub } from "@server/services/market-stream/hub";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";

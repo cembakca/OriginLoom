@@ -1,4 +1,10 @@
-import { counterLines, type CounterMap, escapeLabel, Histogram, increment } from "./primitives";
+import {
+  counterLines,
+  type CounterMap,
+  escapeLabel,
+  Histogram,
+  increment,
+} from "@originloom/core/metrics/primitives";
 
 const DURATION_BUCKETS_MS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000];
 const referralRedirects: CounterMap = new Map();

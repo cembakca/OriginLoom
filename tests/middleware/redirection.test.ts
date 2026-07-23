@@ -1,6 +1,6 @@
-import { createInitialResult } from "@server/middleware/sequential";
-import { redirectionStep } from "@server/middleware/steps/redirection";
-import type { PipelineContext } from "@server/middleware/types";
+import { createInitialResult } from "@originloom/core/middleware/sequential";
+import { redirectionStep } from "@originloom/core/middleware/steps/redirection";
+import type { PipelineContext } from "@originloom/core/middleware/types";
 import { describe, expect, it } from "vitest";
 
 describe("redirection step", () => {

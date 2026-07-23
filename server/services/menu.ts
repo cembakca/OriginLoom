@@ -1,13 +1,13 @@
+import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+import * as cache from "@originloom/core/cache";
+import { config } from "@originloom/core/config";
+import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-payload";
 import {
   normalizeMetadataImageUrl,
   normalizeNavigationUrl,
 } from "@originloom/react/lib/content-url";
 import type { DeviceType } from "@originloom/react/lib/device";
 import type { IMenuItems, MenuItem } from "@originloom/react/lib/menu/types";
-import { gatewayFetchForRequest } from "@server/adapters/gateway";
-import * as cache from "@server/cache";
-import { config } from "@server/config";
-import { parseGatewayPayload, readGatewayJson } from "@server/gateway-payload";
 import { productConfig } from "@server/product/config";
 
 import { menuCacheKey } from "~/lib/cache-keys";

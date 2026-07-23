@@ -1,12 +1,12 @@
+import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import {
   isBoundedArray,
   isBoundedString,
   isFiniteNumber,
   isRecord,
 } from "@originloom/react/lib/runtime-schema";
-import { gatewayFetchForRequest } from "@server/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@server/gateway-payload";
-import { isRequestDeadlineError } from "@server/middleware/request-deadline";
 
 import type { AccountActivity, AccountSummary, UserProfile } from "~/lib/contracts/account";
 

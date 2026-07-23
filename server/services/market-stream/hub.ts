@@ -1,4 +1,4 @@
-import { logger } from "@server/logger";
+import { logger } from "@originloom/core/logger";
 import { observeMarketStreamEvent } from "@server/metrics/market-stream";
 
 import type { MarketQuoteBatch } from "~/lib/contracts/markets";

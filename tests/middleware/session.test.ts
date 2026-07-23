@@ -1,6 +1,6 @@
-import { createInitialResult } from "@server/middleware/sequential";
-import { sessionStep } from "@server/middleware/steps/session";
-import type { PipelineContext } from "@server/middleware/types";
+import { createInitialResult } from "@originloom/core/middleware/sequential";
+import { sessionStep } from "@originloom/core/middleware/steps/session";
+import type { PipelineContext } from "@originloom/core/middleware/types";
 import { describe, expect, it } from "vitest";
 
 describe("session response isolation", () => {

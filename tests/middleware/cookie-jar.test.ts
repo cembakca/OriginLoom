@@ -1,4 +1,4 @@
-import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
+import { applyCookies, CookieJar } from "@originloom/core/middleware/cookie-jar";
 import { describe, expect, it } from "vitest";
 
 describe("cookie response isolation", () => {

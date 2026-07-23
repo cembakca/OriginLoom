@@ -1,9 +1,9 @@
-import { closeCache, initCache } from "@server/cache";
+import { closeCache, initCache } from "@originloom/core/cache";
 import {
   guardPublicApi,
   isSameOriginBrowserRequest,
   type PublicApiPolicy,
-} from "@server/security/public-api-guard";
+} from "@originloom/core/security/public-api-guard";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const policy: PublicApiPolicy = {

@@ -1,6 +1,6 @@
+import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
 import { mountApi } from "@server/api";
-import { createApp } from "@server/app";
-import { closeCache, initCache } from "@server/cache";
 import { routes } from "@server/routes";
 import { mountSeoRoutes } from "@server/seo";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
