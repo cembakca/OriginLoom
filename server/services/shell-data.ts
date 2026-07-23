@@ -10,7 +10,7 @@ import { fetchMenuList } from "./menu";
 
 export async function buildShellData(
   ctx: Ctx,
-  opts?: { minimalChrome?: boolean },
+  opts?: { minimalChrome?: boolean | undefined },
 ): Promise<ShellData> {
   const base = buildLayoutClientProps(ctx, opts);
   if (base.minimalChrome) return { ...base, menu: null };

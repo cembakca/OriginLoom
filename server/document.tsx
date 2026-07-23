@@ -1,17 +1,13 @@
 import { PassThrough, Readable } from "node:stream";
 
 import type { Assets } from "@server/assets";
-import { config } from "@server/config";
-import { buildShellData } from "@server/services/shell-data";
+import { getRuntime } from "@server/runtime";
 import type { ReactElement } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
 
-import { isBotRequest } from "~/components/analytics/gtm-bootstrap";
 import type { PageAnalyticsMeta } from "~/lib/analytics/types";
 import type { ImagePreload } from "~/lib/media";
-import { resolveDocumentMetadata } from "~/lib/metadata/resolve";
 import type { ResolvedMetadata } from "~/lib/metadata/types";
-import { defaultPageMeta } from "~/lib/shell-data";
 import { stripUndefined } from "~/lib/strip-undefined";
 import type { Ctx, Route } from "~/lib/types";
 
@@ -28,11 +24,12 @@ export async function renderDocument<T>(
   docCtx: DocumentContext,
 ): Promise<string> {
   const { routeCtx } = docCtx;
-  const seo = withSiteVerification(resolveDocumentMetadata(route, data, routeCtx));
+  const doc = getRuntime().document;
+  const seo = doc.resolveMetadata(route, data, routeCtx);
   const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
-    defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
+    doc.defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
 
   return renderDocumentView({
     assets,
@@ -70,8 +67,9 @@ export async function renderDocumentView({
   minimalChrome?: boolean;
   cspNonce?: string;
 }): Promise<string> {
-  const isBot = isBotRequest(routeCtx.request);
-  const shell = await buildShellData(routeCtx, stripUndefined({ minimalChrome }));
+  const runtime = getRuntime();
+  const isBot = runtime.document.isBotRequest(routeCtx.request);
+  const shell = await runtime.buildShellData(routeCtx, stripUndefined({ minimalChrome }));
   const seo = metadata;
 
   const { preconnectOrigins, modulePreloads } = resolveDocumentHeadAssets(assets, preloadIslands);
@@ -101,14 +99,16 @@ export async function renderDocumentToStream<T>(
   onError: (error: unknown) => void,
 ): Promise<StreamResult> {
   const { routeCtx } = docCtx;
-  const seo = withSiteVerification(resolveDocumentMetadata(route, data, routeCtx));
+  const runtime = getRuntime();
+  const doc = runtime.document;
+  const seo = doc.resolveMetadata(route, data, routeCtx);
   const imagePreloads = route.preloadImages?.(data, routeCtx) ?? [];
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
-    defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
+    doc.defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
   const preloadIslands = route.preloadIslands ?? [];
-  const isBot = isBotRequest(routeCtx.request);
-  const shell = await buildShellData(
+  const isBot = doc.isBotRequest(routeCtx.request);
+  const shell = await runtime.buildShellData(
     routeCtx,
     stripUndefined({ minimalChrome: route.minimalChrome }),
   );
@@ -170,22 +170,6 @@ export async function renderDocumentToStream<T>(
     stream: Readable.toWeb(passThrough) as unknown as ReadableStream<Uint8Array>,
     abort: () => rxStream.abort(),
     allReady: allReadyPromise,
-  };
-}
-
-function withSiteVerification(metadata: ResolvedMetadata): ResolvedMetadata {
-  return {
-    ...metadata,
-    verification: {
-      ...metadata.verification,
-      ...(config.googleSiteVerification
-        ? { "google-site-verification": config.googleSiteVerification }
-        : {}),
-      ...(config.bingSiteVerification ? { "msvalidate.01": config.bingSiteVerification } : {}),
-      ...(config.yandexSiteVerification
-        ? { "yandex-verification": config.yandexSiteVerification }
-        : {}),
-    },
   };
 }
 

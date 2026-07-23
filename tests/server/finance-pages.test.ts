@@ -1,5 +1,8 @@
+import { mountApi } from "@server/api";
 import { createApp } from "@server/app";
 import { closeCache, initCache } from "@server/cache";
+import { routes } from "@server/routes";
+import { mountSeoRoutes } from "@server/seo";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const assets = { js: "/assets/entry.client.js", css: [], fonts: [] };
@@ -15,7 +18,13 @@ describe("finance content SSR pages", () => {
     await closeCache();
   });
 
-  const app = createApp({ assets, capacity, readinessCheck: async () => true });
+  const app = createApp({
+    assets,
+    routes,
+    capacity,
+    mounts: { api: mountApi, seo: mountSeoRoutes },
+    readinessCheck: async () => true,
+  });
 
   it.each([
     ["/konut-kredisi", "Konut kredilerini aynı hesapla karşılaştırın"],

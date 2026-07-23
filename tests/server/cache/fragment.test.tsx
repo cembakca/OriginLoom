@@ -4,21 +4,24 @@ const getPopularKnowledgeArticles = vi.hoisted(() => vi.fn());
 vi.mock("@server/services/knowledge-center", () => ({ getPopularKnowledgeArticles }));
 
 import { closeCache, initCache, read, write } from "@server/cache";
+import { fragmentCacheKey, getOrSetFragmentByName } from "@server/cache/fragment";
+import { executePurge } from "@server/cache/purge";
 import {
   footerFragmentKey,
-  fragmentCacheKey,
   getOrSetFooterFragment,
-  getOrSetFragmentByName,
   getOrSetHeaderFragment,
   headerFragmentKey,
-} from "@server/cache/fragment";
-import { executePurge } from "@server/cache/purge";
+} from "@server/product/fragments";
+import { productRuntime } from "@server/product/runtime";
+import { installRuntime } from "@server/runtime";
 
 import type { ShellData } from "~/lib/shell-data";
 import type { Ctx } from "~/lib/types";
 
 describe("fragment cache", () => {
   beforeEach(async () => {
+    // Re-install with this file's module graph so the mocked knowledge-center is used.
+    installRuntime(productRuntime);
     process.env.CACHE_BACKEND = "memory";
     await closeCache();
     await initCache();

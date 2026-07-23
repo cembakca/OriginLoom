@@ -8,7 +8,6 @@ import { stripUndefined } from "~/lib/strip-undefined";
 import type { Route } from "~/lib/types";
 import { normalizePublicUrl } from "~/routing";
 
-import { mountApi } from "./api";
 import { type Capacity, createSsrDispatch } from "./app/ssr-dispatch";
 import type { Assets } from "./assets";
 import { pingCache } from "./cache";
@@ -25,8 +24,6 @@ import { securityMiddleware } from "./middleware/security";
 import { staticAssetCacheHeaders } from "./middleware/static-assets";
 import { SpanStatusCode, withRequestSpan } from "./observability";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url";
-import { routes as defaultRoutes } from "./routes";
-import { mountSeoRoutes } from "./seo";
 import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity";
 
 const clientIpMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
@@ -34,9 +31,19 @@ const clientIpMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async
   await next();
 };
 
+export type AppMounts = {
+  /** Product BFF/API routes (mounted after health/readiness, before SSR dispatch). */
+  api?: (app: Hono<{ Variables: AppVariables }>) => void;
+  /** SEO routes (robots.txt, sitemap) — product decides whether and how. */
+  seo?: (app: Hono<{ Variables: AppVariables }>, siteUrl: string) => void;
+};
+
 export type CreateAppOptions = {
   assets: Assets;
-  routes?: Route[];
+  routes: Route[];
+  mounts?: AppMounts;
+  /** Static asset root served under /assets/*. Defaults to the local client build. */
+  staticRoot?: string;
   isShuttingDown?: () => boolean;
   readinessCheck?: () => Promise<boolean>;
   cacheRequired?: boolean;
@@ -44,7 +51,7 @@ export type CreateAppOptions = {
 };
 
 export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVariables }> {
-  const routeTable = options.routes ?? defaultRoutes;
+  const routeTable = options.routes;
   const isShuttingDown = options.isShuttingDown ?? (() => false);
   const readinessCheck = options.readinessCheck ?? pingCache;
   const cacheRequired = options.cacheRequired ?? config.cacheRequired;
@@ -112,7 +119,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   app.use("*", publicBodyLimit(config.proxyBodyLimitBytes));
 
   app.use("/assets/*", staticAssetCacheHeaders);
-  app.use("/assets/*", serveStatic({ root: "./dist/client" }));
+  app.use("/assets/*", serveStatic({ root: options.staticRoot ?? "./dist/client" }));
 
   app.get("/healthz", (c) => {
     c.set("requestRoute", "<health>");
@@ -126,8 +133,8 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     return ok || !cacheRequired ? c.text("ok") : c.text("cache unavailable", 503);
   });
 
-  mountSeoRoutes(app, config.siteUrl);
-  mountApi(app);
+  options.mounts?.seo?.(app, config.siteUrl);
+  options.mounts?.api?.(app);
 
   app.all(
     "*",

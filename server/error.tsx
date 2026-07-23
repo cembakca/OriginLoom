@@ -1,14 +1,16 @@
 import { renderToString } from "react-dom/server";
 
 import type { Assets } from "./assets";
+import { tryGetRuntime } from "./runtime";
 
 export function renderErrorPage(assets: Assets): string {
+  const doc = tryGetRuntime()?.document;
   const html = renderToString(
-    <html lang="tr">
+    <html lang={doc?.htmlLang ?? "tr"}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Sayfa gösterilemiyor | Hangikredi</title>
+        <title>{doc?.errorPageTitle ?? "Sayfa gösterilemiyor"}</title>
         <meta name="robots" content="noindex, nofollow" />
         {assets.css.map((href) => (
           <link key={href} rel="stylesheet" href={href} />

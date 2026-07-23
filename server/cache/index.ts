@@ -4,8 +4,9 @@ import { logError, logger } from "@server/logger";
 import { observeCacheEntryWrite, observeCacheOperation, setCacheL2Health } from "@server/metrics";
 import { SpanKind, withSpan } from "@server/observability";
 
-import { formatCacheKey } from "~/lib/cache-keys";
 import type { CachePolicy } from "~/lib/types";
+
+import { formatCacheKey } from "./key-codec";
 
 import {
   applyInvalidationToL1,

@@ -1,5 +1,4 @@
 import { cacheRouteLabel } from "./metrics/cache-label";
-import { marketStreamMetricLines } from "./metrics/market-stream";
 import {
   counterLines,
   type CounterMap,
@@ -8,10 +7,8 @@ import {
   Histogram,
   increment,
 } from "./metrics/primitives";
-import { referralMetricLines } from "./metrics/referrals";
 import { runtimeMetricLines } from "./metrics/runtime";
-
-export { observeReferralRedirect } from "./metrics/referrals";
+import { tryGetRuntime } from "./runtime";
 
 type GatewayOutcome = "success" | "client_error" | "server_error" | "timeout" | "network_error";
 type OperationOutcome = "success" | "error";
@@ -335,7 +332,6 @@ export function renderMetrics(): string {
       "Client runtime error ingestion outcomes",
       clientErrorTelemetry,
     ),
-    ...referralMetricLines(),
     ...counterLines(
       "request_timeout_total",
       "Requests terminated after exceeding their class deadline",
@@ -360,7 +356,6 @@ export function renderMetrics(): string {
       "SSR requests currently waiting for render capacity",
       ssrRenderQueueDepth,
     ),
-    ...marketStreamMetricLines(),
     ...gatewayDurations.lines(
       "ssr_gateway_request_duration_milliseconds",
       "Gateway request duration",
@@ -393,6 +388,7 @@ export function renderMetrics(): string {
       `Distinct cache keys exceeding the bounded ${MAX_DISTINCT_KEYS_PER_ROUTE}-key observation window`,
       cacheCardinalityOverflows,
     ),
+    ...(tryGetRuntime()?.metricSources ?? []).flatMap((source) => source()),
     ...runtimeMetricLines(),
   ];
   return `${lines.join("\n")}\n`;

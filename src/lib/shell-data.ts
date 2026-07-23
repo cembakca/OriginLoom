@@ -22,7 +22,7 @@ export type ShellData = LayoutClientProps & {
 
 export function buildLayoutClientProps(
   ctx: Ctx,
-  opts?: { minimalChrome?: boolean },
+  opts?: { minimalChrome?: boolean | undefined },
 ): LayoutClientProps {
   const deviceType = deviceCacheFragment(ctx.request);
   const theme = cookie(ctx.request, Cookie.theme);

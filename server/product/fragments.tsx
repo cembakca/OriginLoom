@@ -1,0 +1,91 @@
+import { createHash } from "node:crypto";
+
+import { getOrSetFragmentByName } from "@server/cache/fragment";
+import { config } from "@server/config";
+import type { FragmentDefinition } from "@server/runtime";
+import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
+
+import { Footer } from "~/components/layout/footer";
+import { Header } from "~/components/layout/header";
+import { PopularKnowledgeArticles } from "~/features/knowledge-center/popular-articles";
+import type { DeviceType } from "~/lib/device";
+import type { ShellData } from "~/lib/shell-data";
+import type { Ctx } from "~/lib/types";
+
+export function headerFragmentKey(device: DeviceType): string {
+  return `fragment:header:${device}`;
+}
+
+export function footerFragmentKey(device: DeviceType): string {
+  return `fragment:footer:${device}`;
+}
+
+export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
+  header: {
+    requiresShell: true,
+    resolveOnFreshDocument: false,
+    ttl: config.menuCacheTtl,
+    key: (shell) =>
+      `${headerFragmentKey(requireShell(shell).deviceType)}:${menuFingerprint(shell)}`,
+    resolve: (shell) => {
+      const resolved = requireShell(shell);
+      return <Header menu={resolved.menu!} deviceType={resolved.deviceType} />;
+    },
+  },
+  footer: {
+    requiresShell: true,
+    resolveOnFreshDocument: false,
+    ttl: config.menuCacheTtl,
+    key: (shell) =>
+      `${footerFragmentKey(requireShell(shell).deviceType)}:${menuFingerprint(shell)}`,
+    resolve: (shell) => {
+      const resolved = requireShell(shell);
+      return <Footer menu={resolved.menu!} deviceType={resolved.deviceType} />;
+    },
+  },
+  "popular-knowledge-articles": {
+    requiresShell: false,
+    resolveOnFreshDocument: true,
+    ttl: 300,
+    key: () => "fragment:popular-knowledge-articles:v1",
+    resolve: async (_shell, ctx) => {
+      const data = await getPopularKnowledgeArticles(ctx.request.signal);
+      return <PopularKnowledgeArticles items={data.items} />;
+    },
+  },
+};
+
+// Keep thin wrappers for compatibility with existing tests
+export async function getOrSetHeaderFragment(
+  device: DeviceType,
+  shell: ShellData,
+): Promise<string> {
+  return getOrSetFragmentByName("header", { ...shell, deviceType: device }, fragmentTestContext());
+}
+
+export async function getOrSetFooterFragment(
+  device: DeviceType,
+  shell: ShellData,
+): Promise<string> {
+  return getOrSetFragmentByName("footer", { ...shell, deviceType: device }, fragmentTestContext());
+}
+
+function requireShell(shell: ShellData | null): ShellData {
+  if (!shell?.menu) throw new Error("Fragment requires public shell menu data");
+  return shell;
+}
+
+function menuFingerprint(shell: ShellData | null): string {
+  const menu = requireShell(shell).menu;
+  return createHash("sha256").update(JSON.stringify(menu)).digest("base64url").slice(0, 12);
+}
+
+function fragmentTestContext(): Ctx {
+  const request = new Request("http://localhost/");
+  return {
+    request,
+    params: {},
+    url: new URL(request.url),
+    publicPath: "/",
+  };
+}

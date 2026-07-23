@@ -11,7 +11,6 @@ import {
   observeColdMissLockTimeout,
   observeGatewayRequest,
   observeInvalidGatewayPayload,
-  observeReferralRedirect,
   observeRequest,
   observeRequestTimeout,
   observeRevalidation,
@@ -27,6 +26,7 @@ import {
   observeMarketStreamEvent,
   setMarketStreamActiveConnections,
 } from "@server/metrics/market-stream";
+import { observeReferralRedirect } from "@server/metrics/referrals";
 import { describe, expect, it } from "vitest";
 
 describe("production metrics", () => {

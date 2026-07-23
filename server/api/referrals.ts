@@ -1,5 +1,5 @@
 import { config } from "@server/config";
-import { observeReferralRedirect } from "@server/metrics";
+import { observeReferralRedirect } from "@server/metrics/referrals";
 import { applyCookies, CookieJar } from "@server/middleware/cookie-jar";
 import { contextRequest } from "@server/middleware/request-deadline";
 import type { AppVariables } from "@server/middleware/request-id";

@@ -4,7 +4,6 @@ import type { ReactElement } from "react";
 import type { PageAnalyticsMeta } from "~/lib/analytics/types";
 import type { ImagePreload } from "~/lib/media";
 import type { ResolvedMetadata } from "~/lib/metadata/types";
-import type { ShellData } from "~/lib/shell-data";
 import type { Ctx } from "~/lib/types";
 
 export type DocumentContext = { routeCtx: Ctx };
@@ -22,7 +21,7 @@ export type DocumentLayoutProps = {
   imagePreloads: ImagePreload[];
   modulePreloads: string[];
   isBot: boolean;
-  shell: ShellData;
+  shell: unknown;
   pageMeta: PageAnalyticsMeta;
   content: ReactElement;
   cspNonce?: string | undefined;

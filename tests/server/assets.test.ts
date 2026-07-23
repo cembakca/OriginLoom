@@ -52,33 +52,36 @@ describe("assetUrl", () => {
 
   it("collects only global eager islands and their recursive static imports", async () => {
     const { resolveManifestPreloads } = await import("@server/assets");
-    const resolved = resolveManifestPreloads({
-      "src/entry.client.tsx": {
-        file: "assets/entry.js",
-        isEntry: true,
-        imports: ["_entry-shared.js"],
+    const resolved = resolveManifestPreloads(
+      {
+        "src/entry.client.tsx": {
+          file: "assets/entry.js",
+          isEntry: true,
+          imports: ["_entry-shared.js"],
+        },
+        "_entry-shared.js": { file: "assets/entry-shared.js" },
+        "_island-shared.js": { file: "assets/island-shared.js" },
+        "src/islands/layout-client.tsx": {
+          file: "assets/layout-client.js",
+          src: "src/islands/layout-client.tsx",
+          isDynamicEntry: true,
+          imports: ["src/entry.client.tsx", "_island-shared.js"],
+        },
+        "src/islands/page-analytics.tsx": {
+          file: "assets/page-analytics.js",
+          src: "src/islands/page-analytics.tsx",
+          isDynamicEntry: true,
+          imports: ["src/entry.client.tsx", "_island-shared.js"],
+        },
+        "src/islands/mobile-menu.tsx": {
+          file: "assets/mobile-menu.js",
+          src: "src/islands/mobile-menu.tsx",
+          isDynamicEntry: true,
+          imports: ["src/entry.client.tsx", "_island-shared.js"],
+        },
       },
-      "_entry-shared.js": { file: "assets/entry-shared.js" },
-      "_island-shared.js": { file: "assets/island-shared.js" },
-      "src/islands/layout-client.tsx": {
-        file: "assets/layout-client.js",
-        src: "src/islands/layout-client.tsx",
-        isDynamicEntry: true,
-        imports: ["src/entry.client.tsx", "_island-shared.js"],
-      },
-      "src/islands/page-analytics.tsx": {
-        file: "assets/page-analytics.js",
-        src: "src/islands/page-analytics.tsx",
-        isDynamicEntry: true,
-        imports: ["src/entry.client.tsx", "_island-shared.js"],
-      },
-      "src/islands/mobile-menu.tsx": {
-        file: "assets/mobile-menu.js",
-        src: "src/islands/mobile-menu.tsx",
-        isDynamicEntry: true,
-        imports: ["src/entry.client.tsx", "_island-shared.js"],
-      },
-    });
+      { eagerIslands: ["layout-client", "page-analytics"] },
+    );
 
     expect(resolved.modulePreloadFiles).toEqual([
       "assets/entry.js",

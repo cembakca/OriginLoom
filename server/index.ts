@@ -4,6 +4,9 @@ import { serve } from "@hono/node-server";
 import { createRewrites, redirects } from "~/routing/rules";
 import { validateRoutingRules } from "~/routing/validate";
 
+import { mountApi } from "./api";
+import { mountCachePurgeRoutes } from "./api/internal/cache-purge";
+import { mountReferralStatsApi } from "./api/internal/referral-stats";
 import { stopMarketStreamClients } from "./api/market-stream";
 import { createApp } from "./app";
 import { readAssets } from "./assets";
@@ -13,6 +16,9 @@ import { drainRevalidations } from "./handler";
 import { register, shutdownInstrumentation } from "./instrumentation";
 import { logError, logger } from "./logger";
 import { createMetricsApp } from "./metrics-server";
+import { installProductRuntime } from "./product/runtime";
+import { routes } from "./routes";
+import { mountSeoRoutes } from "./seo";
 import { drainBotAnalytics } from "./services/bot-analytics";
 import { stopMarketQuoteHub } from "./services/market-stream/hub";
 
@@ -21,13 +27,19 @@ let httpServer: ServerType | null = null;
 let metricsServer: ServerType | null = null;
 
 async function main() {
+  installProductRuntime();
   const tracingEnabled = register();
   validateConfig();
   validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });
   await initCache();
 
-  const assets = readAssets();
-  const app = createApp({ assets, isShuttingDown: () => shuttingDown });
+  const assets = readAssets({ eagerIslands: ["layout-client", "page-analytics"] });
+  const app = createApp({
+    assets,
+    routes,
+    mounts: { api: mountApi, seo: mountSeoRoutes },
+    isShuttingDown: () => shuttingDown,
+  });
 
   httpServer = serve({ fetch: app.fetch, port: config.port }, (info) => {
     logger.info("server started", {
@@ -37,7 +49,13 @@ async function main() {
       metricsPort: config.metricsPort,
     });
   });
-  metricsServer = serve({ fetch: createMetricsApp().fetch, port: config.metricsPort });
+  const metricsApp = createMetricsApp({
+    mounts: (app) => {
+      mountCachePurgeRoutes(app);
+      mountReferralStatsApi(app);
+    },
+  });
+  metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;

@@ -1,6 +1,15 @@
+import { mountCachePurgeRoutes } from "@server/api/internal/cache-purge";
+import { mountReferralStatsApi } from "@server/api/internal/referral-stats";
 import { closeCache, initCache } from "@server/cache";
 import { createMetricsApp } from "@server/metrics-server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const productMounts = {
+  mounts: (app: Parameters<typeof mountCachePurgeRoutes>[0]) => {
+    mountCachePurgeRoutes(app);
+    mountReferralStatsApi(app);
+  },
+};
 
 beforeEach(async () => initCache());
 afterEach(async () => {
@@ -20,7 +29,7 @@ describe("dedicated metrics listener", () => {
 
   it("owns operations endpoints outside the public application", async () => {
     vi.stubEnv("CACHE_PURGE_SECRET", "operations-secret");
-    const response = await createMetricsApp().request("/api/internal/cache/keys", {
+    const response = await createMetricsApp(productMounts).request("/api/internal/cache/keys", {
       headers: { authorization: "Bearer operations-secret" },
     });
     expect(response.status).toBe(200);

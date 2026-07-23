@@ -1,10 +1,5 @@
-import { config } from "@server/config";
 import type { FontAsset } from "@server/media";
-
-import { GtmBootstrap } from "~/components/analytics/gtm-bootstrap";
-import { HeadClient } from "~/components/head/head-client";
-import { MetadataHead } from "~/components/head/metadata-head";
-import { RootLayout } from "~/components/layout/root-layout";
+import { getRuntime } from "@server/runtime";
 
 import type { DocumentLayoutProps } from "./types";
 
@@ -20,13 +15,13 @@ export function DocumentLayout({
   content,
   cspNonce,
 }: DocumentLayoutProps) {
+  const doc = getRuntime().document;
   return (
-    <html lang="tr">
+    <html lang={doc.htmlLang}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <MetadataHead meta={seo} nonce={cspNonce} />
-        <HeadClient />
+        {doc.renderHeadStart({ seo, cspNonce })}
         {assets.fonts.map((font) =>
           font.preload ? (
             <link
@@ -73,14 +68,10 @@ export function DocumentLayout({
         {modulePreloads.map((href) => (
           <link key={href} rel="modulepreload" href={href} />
         ))}
-        <GtmBootstrap containerId={config.gtmContainerId} isBot={isBot} nonce={cspNonce} />
+        {doc.renderHeadEnd({ cspNonce, isBot })}
       </head>
       <body>
-        <div id="root">
-          <RootLayout shell={shell} pageMeta={pageMeta}>
-            {content}
-          </RootLayout>
-        </div>
+        <div id="root">{doc.renderLayout({ shell, pageMeta, children: content })}</div>
         <script
           type="module"
           src={assets.js}

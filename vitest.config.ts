@@ -11,6 +11,7 @@ export default defineConfig({
   },
   test: {
     globalSetup: ["./tests/global-setup.mjs"],
+    setupFiles: ["./tests/setup-runtime.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],

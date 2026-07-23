@@ -1,11 +1,7 @@
-import {
-  type CacheKeyApiEntry,
-  decodeCacheKeyFromApi,
-  isKnownPageCachePrefix,
-  toCacheKeyApiEntry,
-} from "~/lib/cache-keys";
+import { getRuntime } from "@server/runtime";
 
 import { getCache, cacheTopology } from "./index";
+import { type CacheKeyApiEntry, decodeCacheKeyFromApi, toCacheKeyApiEntry } from "./key-codec";
 import type { ListKeysOptions, ListKeysResult } from "./types";
 
 export type { CacheKeyApiEntry };
@@ -77,7 +73,7 @@ export function parsePurgeBody(body: unknown): PurgeRequest | { error: string } 
       return { error: `En fazla ${MAX_KEYS_PER_REQUEST} pageId silinebilir` };
     }
     for (const pageId of pageIds) {
-      if (!isKnownPageCachePrefix(pageId)) {
+      if (!getRuntime().cacheKeys.isKnownPageCachePrefix(pageId)) {
         return { error: `Bilinmeyen pageId: ${pageId}` };
       }
     }

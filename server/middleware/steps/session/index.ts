@@ -2,7 +2,7 @@ import { sanitizeUuid, sanitizeValue } from "@server/middleware/sanitize";
 import { cloneRequestWithHeaders } from "@server/middleware/sequential";
 import type { MiddlewareStep } from "@server/middleware/types";
 import { Cookie } from "@server/middleware/types";
-import { storeBotVisit } from "@server/services/bot-analytics";
+import { tryGetRuntime } from "@server/runtime";
 
 import { parseTheme } from "~/lib/content-values";
 import { cookie } from "~/lib/request";
@@ -38,7 +38,7 @@ export const sessionStep: MiddlewareStep = async (ctx, acc) => {
   const isBot = BOT_UA.test(ua);
   if (isBot) {
     jar.set(Cookie.botFlag, "1", { maxAge: 3600 });
-    storeBotVisit({ pathname: ctx.publicPath, userAgent: ua, trackingId });
+    tryGetRuntime()?.onBotVisit?.({ pathname: ctx.publicPath, userAgent: ua, trackingId });
   }
 
   const headers = new Headers(acc.request.headers);

@@ -1,5 +1,5 @@
 import { logError } from "@server/logger";
-import { buildShellData } from "@server/services/shell-data";
+import { getRuntime } from "@server/runtime";
 import { rethrowRequestDeadline } from "@server/ssr/context";
 
 import type { Ctx, Route } from "~/lib/types";
@@ -23,9 +23,12 @@ export async function stitchCachedHtml(
   if (matches.length === 0) return htmlContent;
 
   try {
+    const runtime = getRuntime();
     const needsShell = matches.some((match) => fragmentRequiresShell(match[1]!));
-    const shell = needsShell ? await buildShellData(routeCtx) : null;
-    if (needsShell && !shell?.menu) return htmlContent;
+    const shell = needsShell ? await runtime.buildShellData(routeCtx) : null;
+    if (needsShell && (shell == null || !runtime.isShellUsableForFragments(shell))) {
+      return htmlContent;
+    }
 
     const names = [...new Set(matches.map((match) => match[1]!))];
     const resolvedHtmls = await Promise.all(
