@@ -1,11 +1,11 @@
 import { mountCachePurgeRoutes } from "@server/api/internal/cache-purge";
 import { mountReferralStatsApi } from "@server/api/internal/referral-stats";
 import { closeCache, initCache } from "@server/cache";
-import { createMetricsApp } from "@server/metrics-server";
+import { createMetricsApp, type MetricsAppOptions } from "@server/metrics-server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const productMounts = {
-  mounts: (app: Parameters<typeof mountCachePurgeRoutes>[0]) => {
+const productMounts: MetricsAppOptions = {
+  mounts: (app) => {
     mountCachePurgeRoutes(app);
     mountReferralStatsApi(app);
   },

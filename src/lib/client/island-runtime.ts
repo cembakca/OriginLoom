@@ -117,6 +117,55 @@ export function bootstrapIslandElements(
   }
 }
 
+/**
+ * Bootstraps every island already in the document and watches for islands inserted
+ * while the document is still streaming (until DOMContentLoaded).
+ */
+export function runIslandBootstrap(
+  mountIsland: (element: HTMLElement) => void,
+  policy: BootstrapPolicy = {},
+): void {
+  const elements = document.querySelectorAll<HTMLElement>("[data-island]");
+  if (elements.length > 0) {
+    bootstrapIslandElements(elements, mountIsland, policy);
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    const newElements: HTMLElement[] = [];
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as HTMLElement;
+          if (element.hasAttribute("data-island")) {
+            newElements.push(element);
+          }
+          const children = element.querySelectorAll<HTMLElement>("[data-island]");
+          for (const child of children) {
+            newElements.push(child);
+          }
+        }
+      }
+    }
+    if (newElements.length > 0) {
+      bootstrapIslandElements(newElements, mountIsland, policy);
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    observer.disconnect();
+  } else {
+    window.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        observer.disconnect();
+      },
+      { once: true },
+    );
+  }
+}
+
 export function isTransientChunkLoadError(error: unknown): boolean {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
   if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
