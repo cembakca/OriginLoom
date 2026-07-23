@@ -31,6 +31,9 @@
     "ioredis": "^5.4.2"
   },
   "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "typescript": "^5.7.2"
   },
   "peerDependencies": {

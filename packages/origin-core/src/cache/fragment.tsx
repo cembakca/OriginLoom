@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
 import { renderToString } from "react-dom/server";
 

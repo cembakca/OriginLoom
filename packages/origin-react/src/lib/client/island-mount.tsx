@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { type ComponentType, type ReactNode, useEffect } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 

@@ -1,0 +1,986 @@
+# HELP ssr_http_requests_total HTTP requests
+# TYPE ssr_http_requests_total counter
+ssr_http_requests_total{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama"} 3070
+ssr_http_requests_total{status_class="2xx",cache="BYPASS",route="/hesabim"} 30820
+ssr_http_requests_total{status_class="2xx",cache="HIT",route="/"} 201856
+ssr_http_requests_total{status_class="2xx",cache="HIT",route="/bankalar/:slug"} 39867
+ssr_http_requests_total{status_class="2xx",cache="HIT",route="/housing-loans"} 36598
+ssr_http_requests_total{status_class="2xx",cache="HIT",route="/piyasalar/bist-100"} 38989
+ssr_http_requests_total{status_class="2xx",cache="MISS",route="/"} 1
+ssr_http_requests_total{status_class="2xx",cache="MISS",route="/bankalar/:slug"} 10
+ssr_http_requests_total{status_class="2xx",cache="MISS",route="/housing-loans"} 10
+ssr_http_requests_total{status_class="2xx",cache="MISS",route="/piyasalar/bist-100"} 10
+ssr_http_requests_total{status_class="2xx",cache="NONE",route="<health>"} 54949
+ssr_http_requests_total{status_class="2xx",cache="STALE",route="/piyasalar/bist-100"} 67
+ssr_http_requests_total{status_class="3xx",cache="NONE",route="<api referral>"} 30
+ssr_http_requests_total{status_class="4xx",cache="NONE",route="<api referral>"} 56588
+ssr_http_requests_total{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama"} 4
+ssr_http_requests_total{status_class="5xx",cache="NONE",route="/"} 41668
+# HELP ssr_http_request_duration_milliseconds HTTP request duration
+# TYPE ssr_http_request_duration_milliseconds histogram
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="5"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="10"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="25"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="50"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="100"} 194
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="250"} 3004
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="500"} 3070
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="1000"} 3070
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="2500"} 3070
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="5000"} 3070
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="10000"} 3070
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="15000"} 3070
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama",le="+Inf"} 3070
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama"} 486686.9193950003
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="BYPASS",route="/araclar/kredi-hesaplama"} 3070
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="5"} 22023
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="10"} 30187
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="25"} 30745
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="50"} 30807
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="100"} 30812
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="250"} 30819
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="500"} 30820
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="1000"} 30820
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="2500"} 30820
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="5000"} 30820
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="10000"} 30820
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="15000"} 30820
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="BYPASS",route="/hesabim",le="+Inf"} 30820
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="BYPASS",route="/hesabim"} 141812.38144399866
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="BYPASS",route="/hesabim"} 30820
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="5"} 17585
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="10"} 67927
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="25"} 158856
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="50"} 169340
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="100"} 199342
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="250"} 201607
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="500"} 201808
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="1000"} 201856
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="2500"} 201856
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="5000"} 201856
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="10000"} 201856
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="15000"} 201856
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/",le="+Inf"} 201856
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="HIT",route="/"} 4752888.088919004
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/"} 201856
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="5"} 4251
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="10"} 8948
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="25"} 37221
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="50"} 39735
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="100"} 39836
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="250"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="500"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="1000"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="2500"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="5000"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="10000"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="15000"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/bankalar/:slug",le="+Inf"} 39867
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="HIT",route="/bankalar/:slug"} 640614.1909090024
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/bankalar/:slug"} 39867
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="5"} 2500
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="10"} 7050
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="25"} 36021
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="50"} 36489
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="100"} 36585
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="250"} 36595
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="500"} 36598
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="1000"} 36598
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="2500"} 36598
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="5000"} 36598
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="10000"} 36598
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="15000"} 36598
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/housing-loans",le="+Inf"} 36598
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="HIT",route="/housing-loans"} 511716.9943500038
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/housing-loans"} 36598
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="5"} 2860
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="10"} 5753
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="25"} 38430
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="50"} 38889
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="100"} 38955
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="250"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="500"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="1000"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="2500"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="5000"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="10000"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="15000"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="HIT",route="/piyasalar/bist-100",le="+Inf"} 38989
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="HIT",route="/piyasalar/bist-100"} 604872.2716610038
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/piyasalar/bist-100"} 38989
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="5"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="10"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="25"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="50"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="100"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="250"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="500"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="1000"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="2500"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="5000"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="10000"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="15000"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/",le="+Inf"} 1
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="MISS",route="/"} 66.15025000000014
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="MISS",route="/"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="5"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="10"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="25"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="50"} 6
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="100"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="250"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="500"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="1000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="2500"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="5000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="10000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="15000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/bankalar/:slug",le="+Inf"} 10
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="MISS",route="/bankalar/:slug"} 494.3292499999952
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="MISS",route="/bankalar/:slug"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="5"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="10"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="25"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="50"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="100"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="250"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="500"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="1000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="2500"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="5000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="10000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="15000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/housing-loans",le="+Inf"} 10
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="MISS",route="/housing-loans"} 504.1327079999901
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="MISS",route="/housing-loans"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="5"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="10"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="25"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="50"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="100"} 9
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="250"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="500"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="1000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="2500"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="5000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="10000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="15000"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="MISS",route="/piyasalar/bist-100",le="+Inf"} 10
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="MISS",route="/piyasalar/bist-100"} 847.1363779999665
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="MISS",route="/piyasalar/bist-100"} 10
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="1"} 54940
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="5"} 54945
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="10"} 54948
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="25"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="50"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="100"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="250"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="500"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="1000"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="2500"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="5000"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="10000"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="15000"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="+Inf"} 54949
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="NONE",route="<health>"} 1341.9350160000952
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="NONE",route="<health>"} 54949
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="5"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="10"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="25"} 37
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="50"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="100"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="250"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="500"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="1000"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="2500"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="5000"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="10000"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="15000"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="STALE",route="/piyasalar/bist-100",le="+Inf"} 67
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="STALE",route="/piyasalar/bist-100"} 1503.3602100000135
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="STALE",route="/piyasalar/bist-100"} 67
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="5"} 11
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="10"} 26
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="25"} 26
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="50"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="100"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="250"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="500"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="1000"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="2500"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="5000"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="10000"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="15000"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="3xx",cache="NONE",route="<api referral>",le="+Inf"} 30
+ssr_http_request_duration_milliseconds_sum{status_class="3xx",cache="NONE",route="<api referral>"} 263.15462499990826
+ssr_http_request_duration_milliseconds_count{status_class="3xx",cache="NONE",route="<api referral>"} 30
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="1"} 55690
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="5"} 56580
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="10"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="25"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="50"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="100"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="250"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="500"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="1000"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="2500"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="5000"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="10000"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="15000"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="4xx",cache="NONE",route="<api referral>",le="+Inf"} 56588
+ssr_http_request_duration_milliseconds_sum{status_class="4xx",cache="NONE",route="<api referral>"} 17868.96844400378
+ssr_http_request_duration_milliseconds_count{status_class="4xx",cache="NONE",route="<api referral>"} 56588
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="1"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="5"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="10"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="25"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="50"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="100"} 0
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="250"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="500"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="1000"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="2500"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="5000"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="10000"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="15000"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama",le="+Inf"} 4
+ssr_http_request_duration_milliseconds_sum{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama"} 578.7716670000227
+ssr_http_request_duration_milliseconds_count{status_class="5xx",cache="ERROR",route="/araclar/kredi-hesaplama"} 4
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="1"} 41392
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="5"} 41449
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="10"} 41453
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="25"} 41455
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="50"} 41473
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="100"} 41479
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="250"} 41479
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="500"} 41668
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="1000"} 41668
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="2500"} 41668
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="5000"} 41668
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="10000"} 41668
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="15000"} 41668
+ssr_http_request_duration_milliseconds_bucket{status_class="5xx",cache="NONE",route="/",le="+Inf"} 41668
+ssr_http_request_duration_milliseconds_sum{status_class="5xx",cache="NONE",route="/"} 61477.12609600165
+ssr_http_request_duration_milliseconds_count{status_class="5xx",cache="NONE",route="/"} 41668
+# HELP ssr_cache_response_duration_milliseconds End-to-end response duration by cache state
+# TYPE ssr_cache_response_duration_milliseconds histogram
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="5"} 17585
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="10"} 67927
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="25"} 158856
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="50"} 169340
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="100"} 199342
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="250"} 201607
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="500"} 201808
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="1000"} 201856
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="2500"} 201856
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="5000"} 201856
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="10000"} 201856
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="15000"} 201856
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/",le="+Inf"} 201856
+ssr_cache_response_duration_milliseconds_sum{state="HIT",route="/"} 4752888.088919004
+ssr_cache_response_duration_milliseconds_count{state="HIT",route="/"} 201856
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="5"} 4251
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="10"} 8948
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="25"} 37221
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="50"} 39735
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="100"} 39836
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="250"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="500"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="1000"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="2500"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="5000"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="10000"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="15000"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/bankalar/:slug",le="+Inf"} 39867
+ssr_cache_response_duration_milliseconds_sum{state="HIT",route="/bankalar/:slug"} 640614.1909090024
+ssr_cache_response_duration_milliseconds_count{state="HIT",route="/bankalar/:slug"} 39867
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="5"} 2500
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="10"} 7050
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="25"} 36021
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="50"} 36489
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="100"} 36585
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="250"} 36595
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="500"} 36598
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="1000"} 36598
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="2500"} 36598
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="5000"} 36598
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="10000"} 36598
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="15000"} 36598
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/housing-loans",le="+Inf"} 36598
+ssr_cache_response_duration_milliseconds_sum{state="HIT",route="/housing-loans"} 511716.9943500038
+ssr_cache_response_duration_milliseconds_count{state="HIT",route="/housing-loans"} 36598
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="5"} 2860
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="10"} 5753
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="25"} 38430
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="50"} 38889
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="100"} 38955
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="250"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="500"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="1000"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="2500"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="5000"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="10000"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="15000"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="HIT",route="/piyasalar/bist-100",le="+Inf"} 38989
+ssr_cache_response_duration_milliseconds_sum{state="HIT",route="/piyasalar/bist-100"} 604872.2716610038
+ssr_cache_response_duration_milliseconds_count{state="HIT",route="/piyasalar/bist-100"} 38989
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="5"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="10"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="25"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="50"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="100"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="250"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="500"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="1000"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="2500"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="5000"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="10000"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="15000"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/",le="+Inf"} 1
+ssr_cache_response_duration_milliseconds_sum{state="MISS",route="/"} 66.15025000000014
+ssr_cache_response_duration_milliseconds_count{state="MISS",route="/"} 1
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="5"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="10"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="25"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="50"} 6
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="100"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="250"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="500"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="1000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="2500"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="5000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="10000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="15000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/bankalar/:slug",le="+Inf"} 10
+ssr_cache_response_duration_milliseconds_sum{state="MISS",route="/bankalar/:slug"} 494.3292499999952
+ssr_cache_response_duration_milliseconds_count{state="MISS",route="/bankalar/:slug"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="5"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="10"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="25"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="50"} 4
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="100"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="250"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="500"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="1000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="2500"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="5000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="10000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="15000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/housing-loans",le="+Inf"} 10
+ssr_cache_response_duration_milliseconds_sum{state="MISS",route="/housing-loans"} 504.1327079999901
+ssr_cache_response_duration_milliseconds_count{state="MISS",route="/housing-loans"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="5"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="10"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="25"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="50"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="100"} 9
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="250"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="500"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="1000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="2500"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="5000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="10000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="15000"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="MISS",route="/piyasalar/bist-100",le="+Inf"} 10
+ssr_cache_response_duration_milliseconds_sum{state="MISS",route="/piyasalar/bist-100"} 847.1363779999665
+ssr_cache_response_duration_milliseconds_count{state="MISS",route="/piyasalar/bist-100"} 10
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="1"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="5"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="10"} 0
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="25"} 37
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="50"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="100"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="250"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="500"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="1000"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="2500"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="5000"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="10000"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="15000"} 67
+ssr_cache_response_duration_milliseconds_bucket{state="STALE",route="/piyasalar/bist-100",le="+Inf"} 67
+ssr_cache_response_duration_milliseconds_sum{state="STALE",route="/piyasalar/bist-100"} 1503.3602100000135
+ssr_cache_response_duration_milliseconds_count{state="STALE",route="/piyasalar/bist-100"} 67
+# HELP ssr_gateway_requests_total Gateway requests by outcome
+# TYPE ssr_gateway_requests_total counter
+ssr_gateway_requests_total{status_class="2xx",outcome="success"} 3105
+ssr_gateway_requests_total{status_class="4xx",outcome="client_error"} 143
+ssr_gateway_requests_total{status_class="error",outcome="network_error"} 4
+# HELP ssr_gateway_invalid_payload_total Gateway payloads rejected by the runtime contract
+# TYPE ssr_gateway_invalid_payload_total counter
+# HELP ssr_shell_degraded_total Non-critical shell components rendered with controlled fallback data
+# TYPE ssr_shell_degraded_total counter
+# HELP ssr_cache_fill_total Cold cache fill attempts
+# TYPE ssr_cache_fill_total counter
+ssr_cache_fill_total{outcome="race_hit"} 40344
+ssr_cache_fill_total{outcome="success"} 6
+# HELP ssr_cache_fill_duration_milliseconds Cold cache loader, render and write duration
+# TYPE ssr_cache_fill_duration_milliseconds histogram
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="1"} 17501
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="5"} 36691
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="10"} 40100
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="25"} 40296
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="50"} 40332
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="100"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="250"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="500"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="1000"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="2500"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="5000"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="10000"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="15000"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="race_hit",le="+Inf"} 40344
+ssr_cache_fill_duration_milliseconds_sum{outcome="race_hit"} 78331.93351399901
+ssr_cache_fill_duration_milliseconds_count{outcome="race_hit"} 40344
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="1"} 0
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="5"} 0
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="10"} 2
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="25"} 2
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="50"} 5
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="100"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="250"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="500"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="1000"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="2500"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="5000"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="10000"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="15000"} 6
+ssr_cache_fill_duration_milliseconds_bucket{outcome="success",le="+Inf"} 6
+ssr_cache_fill_duration_milliseconds_sum{outcome="success"} 197.66624899999374
+ssr_cache_fill_duration_milliseconds_count{outcome="success"} 6
+# HELP ssr_cache_coalesced_wait_total Requests coalesced behind an in-process or Redis cold fill
+# TYPE ssr_cache_coalesced_wait_total counter
+ssr_cache_coalesced_wait_total{scope="process",outcome="cache_hit"} 594234
+ssr_cache_coalesced_wait_total{scope="process",outcome="filled"} 45
+# HELP ssr_cache_coalesced_wait_duration_milliseconds Time spent waiting for a coalesced cold fill
+# TYPE ssr_cache_coalesced_wait_duration_milliseconds histogram
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="1"} 137491
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="5"} 348693
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="10"} 507609
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="25"} 590816
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="50"} 593294
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="100"} 593844
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="250"} 594226
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="500"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="1000"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="2500"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="5000"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="10000"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="15000"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="cache_hit",le="+Inf"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_sum{scope="process",outcome="cache_hit"} 3018442.319171015
+ssr_cache_coalesced_wait_duration_milliseconds_count{scope="process",outcome="cache_hit"} 594234
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="1"} 2
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="5"} 4
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="10"} 17
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="25"} 18
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="50"} 36
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="100"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="250"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="500"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="1000"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="2500"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="5000"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="10000"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="15000"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_bucket{scope="process",outcome="filled",le="+Inf"} 45
+ssr_cache_coalesced_wait_duration_milliseconds_sum{scope="process",outcome="filled"} 1416.5459620000693
+ssr_cache_coalesced_wait_duration_milliseconds_count{scope="process",outcome="filled"} 45
+# HELP ssr_cache_lock_timeout_total Cold miss waits that exhausted the Redis lock wait budget
+# TYPE ssr_cache_lock_timeout_total counter
+# HELP ssr_bot_analytics_enqueue_total Bot analytics enqueue decisions
+# TYPE ssr_bot_analytics_enqueue_total counter
+# HELP ssr_bot_analytics_dropped_total Bot analytics events dropped before delivery
+# TYPE ssr_bot_analytics_dropped_total counter
+# HELP ssr_bot_analytics_batches_total Bot analytics batch delivery outcomes
+# TYPE ssr_bot_analytics_batches_total counter
+# HELP ssr_bot_analytics_batch_duration_milliseconds Bot analytics batch gateway duration
+# TYPE ssr_bot_analytics_batch_duration_milliseconds histogram
+# HELP ssr_bot_analytics_batch_size Bot analytics events per delivered batch
+# TYPE ssr_bot_analytics_batch_size histogram
+# HELP ssr_bot_analytics_drains_total Bot analytics shutdown drain outcomes
+# TYPE ssr_bot_analytics_drains_total counter
+# HELP ssr_bot_analytics_queue_depth Bot analytics events currently waiting in memory
+# TYPE ssr_bot_analytics_queue_depth gauge
+ssr_bot_analytics_queue_depth 0
+# HELP ssr_bot_analytics_in_flight Bot analytics batches currently in flight
+# TYPE ssr_bot_analytics_in_flight gauge
+ssr_bot_analytics_in_flight 0
+# HELP ssr_client_error_telemetry_total Client runtime error ingestion outcomes
+# TYPE ssr_client_error_telemetry_total counter
+# HELP ssr_referral_redirects_total Server-issued bank referral redirects
+# TYPE ssr_referral_redirects_total counter
+ssr_referral_redirects_total{product_type="credit-card",outcome="issued"} 30
+# HELP ssr_referral_redirect_duration_milliseconds End-to-end referral redirect creation duration
+# TYPE ssr_referral_redirect_duration_milliseconds histogram
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="1"} 0
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="5"} 11
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="10"} 26
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="25"} 26
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="50"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="100"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="250"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="500"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="1000"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="2500"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="5000"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="10000"} 30
+ssr_referral_redirect_duration_milliseconds_bucket{product_type="credit-card",outcome="issued",le="+Inf"} 30
+ssr_referral_redirect_duration_milliseconds_sum{product_type="credit-card",outcome="issued"} 259.55379299999913
+ssr_referral_redirect_duration_milliseconds_count{product_type="credit-card",outcome="issued"} 30
+# HELP ssr_referral_gateway_processing_milliseconds Gateway-reported referral ticket processing duration
+# TYPE ssr_referral_gateway_processing_milliseconds histogram
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="1"} 29
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="5"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="10"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="25"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="50"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="100"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="250"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="500"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="1000"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="2500"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="5000"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="10000"} 30
+ssr_referral_gateway_processing_milliseconds_bucket{product_type="credit-card",le="+Inf"} 30
+ssr_referral_gateway_processing_milliseconds_sum{product_type="credit-card"} 3.315999999999999
+ssr_referral_gateway_processing_milliseconds_count{product_type="credit-card"} 30
+# HELP request_timeout_total Requests terminated after exceeding their class deadline
+# TYPE request_timeout_total counter
+# HELP ssr_render_rejections_total SSR requests rejected by bounded render capacity
+# TYPE ssr_render_rejections_total counter
+ssr_render_rejections_total{reason="queue_full"} 41456
+ssr_render_rejections_total{reason="request_aborted"} 23
+ssr_render_rejections_total{reason="wait_timeout"} 189
+# HELP ssr_render_queue_wait_milliseconds Time SSR requests spent waiting for render capacity
+# TYPE ssr_render_queue_wait_milliseconds histogram
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="1"} 276354
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="5"} 304851
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="10"} 317880
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="25"} 319280
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="50"} 345399
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="100"} 350730
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="250"} 351295
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="500"} 351302
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="1000"} 351302
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="2500"} 351302
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="5000"} 351302
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="10000"} 351302
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="15000"} 351302
+ssr_render_queue_wait_milliseconds_bucket{outcome="accepted",le="+Inf"} 351302
+ssr_render_queue_wait_milliseconds_sum{outcome="accepted"} 1712849.504600006
+ssr_render_queue_wait_milliseconds_count{outcome="accepted"} 351302
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="1"} 0
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="5"} 0
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="10"} 0
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="25"} 0
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="50"} 17
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="100"} 23
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="250"} 23
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="500"} 212
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="1000"} 212
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="2500"} 212
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="5000"} 212
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="10000"} 212
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="15000"} 212
+ssr_render_queue_wait_milliseconds_bucket{outcome="rejected",le="+Inf"} 212
+ssr_render_queue_wait_milliseconds_sum{outcome="rejected"} 59396.18989499984
+ssr_render_queue_wait_milliseconds_count{outcome="rejected"} 212
+# HELP ssr_render_in_flight SSR requests currently holding render capacity
+# TYPE ssr_render_in_flight gauge
+ssr_render_in_flight 0
+# HELP ssr_render_queue_depth SSR requests currently waiting for render capacity
+# TYPE ssr_render_queue_depth gauge
+ssr_render_queue_depth 0
+# HELP ssr_market_stream_connections_total Market stream browser connection outcomes
+# TYPE ssr_market_stream_connections_total counter
+# HELP ssr_market_stream_events_total Market stream upstream event outcomes
+# TYPE ssr_market_stream_events_total counter
+# HELP ssr_market_stream_active_connections Active browser market stream connections
+# TYPE ssr_market_stream_active_connections gauge
+ssr_market_stream_active_connections 0
+# HELP ssr_gateway_request_duration_milliseconds Gateway request duration
+# TYPE ssr_gateway_request_duration_milliseconds histogram
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="1"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="5"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="10"} 14
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="25"} 92
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="50"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="100"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="250"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="500"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="1000"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="2500"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="5000"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="10000"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="15000"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="client_error",le="+Inf"} 143
+ssr_gateway_request_duration_milliseconds_sum{outcome="client_error"} 3042.635707000044
+ssr_gateway_request_duration_milliseconds_count{outcome="client_error"} 143
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="1"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="5"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="10"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="25"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="50"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="100"} 1
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="250"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="500"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="1000"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="2500"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="5000"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="10000"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="15000"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="network_error",le="+Inf"} 4
+ssr_gateway_request_duration_milliseconds_sum{outcome="network_error"} 483.1329170000099
+ssr_gateway_request_duration_milliseconds_count{outcome="network_error"} 4
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="1"} 0
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="5"} 27
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="10"} 65
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="25"} 152
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="50"} 519
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="100"} 1838
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="250"} 3083
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="500"} 3105
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="1000"} 3105
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="2500"} 3105
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="5000"} 3105
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="10000"} 3105
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="15000"} 3105
+ssr_gateway_request_duration_milliseconds_bucket{outcome="success",le="+Inf"} 3105
+ssr_gateway_request_duration_milliseconds_sum{outcome="success"} 289046.7933060008
+ssr_gateway_request_duration_milliseconds_count{outcome="success"} 3105
+# HELP ssr_cache_operations_total Cache operations by backend
+# TYPE ssr_cache_operations_total counter
+ssr_cache_operations_total{backend="redis",operation="cold_fill_lock.acquire",outcome="success"} 40350
+ssr_cache_operations_total{backend="redis",operation="cold_fill_lock.release",outcome="success"} 40350
+ssr_cache_operations_total{backend="redis",operation="lock.acquire",outcome="success"} 1
+ssr_cache_operations_total{backend="redis",operation="lock.release",outcome="success"} 1
+ssr_cache_operations_total{backend="redis",operation="ping",outcome="success"} 2
+ssr_cache_operations_total{backend="redis",operation="rate_limit.take",outcome="success"} 57618
+ssr_cache_operations_total{backend="redis",operation="read",outcome="success"} 709034
+ssr_cache_operations_total{backend="redis",operation="write",outcome="success"} 8
+# HELP ssr_cache_operation_duration_milliseconds Cache operation duration
+# TYPE ssr_cache_operation_duration_milliseconds histogram
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="1"} 11918
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="5"} 29536
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="10"} 36519
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="25"} 40288
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="50"} 40330
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="100"} 40342
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="250"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="500"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="1000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="2500"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="5000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="10000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="15000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.acquire",outcome="success",le="+Inf"} 40350
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="cold_fill_lock.acquire",outcome="success"} 151220.92217299948
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="cold_fill_lock.acquire",outcome="success"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="1"} 15343
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="5"} 38253
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="10"} 40172
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="25"} 40324
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="50"} 40339
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="100"} 40344
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="250"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="500"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="1000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="2500"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="5000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="10000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="15000"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="cold_fill_lock.release",outcome="success",le="+Inf"} 40350
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="cold_fill_lock.release",outcome="success"} 83020.9675479963
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="cold_fill_lock.release",outcome="success"} 40350
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="1"} 0
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="5"} 0
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="10"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="25"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="50"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="100"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="250"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="500"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="1000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="2500"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="5000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="10000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="15000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.acquire",outcome="success",le="+Inf"} 1
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="lock.acquire",outcome="success"} 5.29445799998939
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="lock.acquire",outcome="success"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="1"} 0
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="5"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="10"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="25"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="50"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="100"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="250"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="500"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="1000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="2500"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="5000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="10000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="15000"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="lock.release",outcome="success",le="+Inf"} 1
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="lock.release",outcome="success"} 2.3329170000215527
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="lock.release",outcome="success"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="1"} 0
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="5"} 0
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="10"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="25"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="50"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="100"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="250"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="500"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="1000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="2500"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="5000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="10000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="15000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="+Inf"} 2
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="ping",outcome="success"} 24.10349999999994
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="ping",outcome="success"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="1"} 56783
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="5"} 57608
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="10"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="25"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="50"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="100"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="250"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="500"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="1000"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="2500"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="5000"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="10000"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="15000"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="rate_limit.take",outcome="success",le="+Inf"} 57618
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="rate_limit.take",outcome="success"} 16421.584226997045
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="rate_limit.take",outcome="success"} 57618
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="1"} 139552
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="5"} 592857
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="10"} 693197
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="25"} 708146
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="50"} 708738
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="100"} 708924
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="250"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="500"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="1000"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="2500"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="5000"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="10000"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="15000"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="read",outcome="success",le="+Inf"} 709034
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="read",outcome="success"} 2208979.036974998
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="read",outcome="success"} 709034
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="1"} 0
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="5"} 3
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="10"} 4
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="25"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="50"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="100"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="250"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="500"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="1000"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="2500"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="5000"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="10000"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="15000"} 8
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="write",outcome="success",le="+Inf"} 8
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="write",outcome="success"} 74.98845699998287
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="write",outcome="success"} 8
+# HELP ssr_cache_revalidations_total SWR revalidations
+# TYPE ssr_cache_revalidations_total counter
+ssr_cache_revalidations_total{outcome="success"} 1
+# HELP ssr_cache_revalidation_duration_milliseconds SWR revalidation duration
+# TYPE ssr_cache_revalidation_duration_milliseconds histogram
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="1"} 0
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="5"} 0
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="10"} 0
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="25"} 0
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="50"} 0
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="100"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="250"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="500"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="1000"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="2500"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="5000"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="10000"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="15000"} 1
+ssr_cache_revalidation_duration_milliseconds_bucket{outcome="success",le="+Inf"} 1
+ssr_cache_revalidation_duration_milliseconds_sum{outcome="success"} 59.30054100000416
+ssr_cache_revalidation_duration_milliseconds_count{outcome="success"} 1
+# HELP ssr_cache_entry_body_bytes Cache entry body size in bytes
+# TYPE ssr_cache_entry_body_bytes histogram
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="1024"} 0
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="10240"} 0
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="51200"} 1
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="102400"} 1
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="262144"} 1
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="524288"} 1
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="1048576"} 1
+ssr_cache_entry_body_bytes_bucket{route="bank-detail",le="+Inf"} 1
+ssr_cache_entry_body_bytes_sum{route="bank-detail"} 22522
+ssr_cache_entry_body_bytes_count{route="bank-detail"} 1
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="1024"} 0
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="10240"} 0
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="51200"} 2
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="102400"} 2
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="262144"} 2
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="524288"} 2
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="1048576"} 2
+ssr_cache_entry_body_bytes_bucket{route="bist100",le="+Inf"} 2
+ssr_cache_entry_body_bytes_sum{route="bist100"} 59386
+ssr_cache_entry_body_bytes_count{route="bist100"} 2
+ssr_cache_entry_body_bytes_bucket{route="home",le="1024"} 0
+ssr_cache_entry_body_bytes_bucket{route="home",le="10240"} 0
+ssr_cache_entry_body_bytes_bucket{route="home",le="51200"} 1
+ssr_cache_entry_body_bytes_bucket{route="home",le="102400"} 1
+ssr_cache_entry_body_bytes_bucket{route="home",le="262144"} 1
+ssr_cache_entry_body_bytes_bucket{route="home",le="524288"} 1
+ssr_cache_entry_body_bytes_bucket{route="home",le="1048576"} 1
+ssr_cache_entry_body_bytes_bucket{route="home",le="+Inf"} 1
+ssr_cache_entry_body_bytes_sum{route="home"} 17361
+ssr_cache_entry_body_bytes_count{route="home"} 1
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="1024"} 0
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="10240"} 0
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="51200"} 1
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="102400"} 1
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="262144"} 1
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="524288"} 1
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="1048576"} 1
+ssr_cache_entry_body_bytes_bucket{route="housing-loans",le="+Inf"} 1
+ssr_cache_entry_body_bytes_sum{route="housing-loans"} 29685
+ssr_cache_entry_body_bytes_count{route="housing-loans"} 1
+ssr_cache_entry_body_bytes_bucket{route="menu",le="1024"} 0
+ssr_cache_entry_body_bytes_bucket{route="menu",le="10240"} 1
+ssr_cache_entry_body_bytes_bucket{route="menu",le="51200"} 1
+ssr_cache_entry_body_bytes_bucket{route="menu",le="102400"} 1
+ssr_cache_entry_body_bytes_bucket{route="menu",le="262144"} 1
+ssr_cache_entry_body_bytes_bucket{route="menu",le="524288"} 1
+ssr_cache_entry_body_bytes_bucket{route="menu",le="1048576"} 1
+ssr_cache_entry_body_bytes_bucket{route="menu",le="+Inf"} 1
+ssr_cache_entry_body_bytes_sum{route="menu"} 4003
+ssr_cache_entry_body_bytes_count{route="menu"} 1
+ssr_cache_entry_body_bytes_bucket{route="other",le="1024"} 0
+ssr_cache_entry_body_bytes_bucket{route="other",le="10240"} 2
+ssr_cache_entry_body_bytes_bucket{route="other",le="51200"} 2
+ssr_cache_entry_body_bytes_bucket{route="other",le="102400"} 2
+ssr_cache_entry_body_bytes_bucket{route="other",le="262144"} 2
+ssr_cache_entry_body_bytes_bucket{route="other",le="524288"} 2
+ssr_cache_entry_body_bytes_bucket{route="other",le="1048576"} 2
+ssr_cache_entry_body_bytes_bucket{route="other",le="+Inf"} 2
+ssr_cache_entry_body_bytes_sum{route="other"} 5711
+ssr_cache_entry_body_bytes_count{route="other"} 2
+# HELP ssr_cache_key_bytes Logical cache key size in bytes
+# TYPE ssr_cache_key_bytes histogram
+ssr_cache_key_bytes_bucket{route="bank-detail",le="32"} 0
+ssr_cache_key_bytes_bucket{route="bank-detail",le="64"} 1
+ssr_cache_key_bytes_bucket{route="bank-detail",le="128"} 1
+ssr_cache_key_bytes_bucket{route="bank-detail",le="256"} 1
+ssr_cache_key_bytes_bucket{route="bank-detail",le="512"} 1
+ssr_cache_key_bytes_bucket{route="bank-detail",le="1024"} 1
+ssr_cache_key_bytes_bucket{route="bank-detail",le="+Inf"} 1
+ssr_cache_key_bytes_sum{route="bank-detail"} 33
+ssr_cache_key_bytes_count{route="bank-detail"} 1
+ssr_cache_key_bytes_bucket{route="bist100",le="32"} 0
+ssr_cache_key_bytes_bucket{route="bist100",le="64"} 2
+ssr_cache_key_bytes_bucket{route="bist100",le="128"} 2
+ssr_cache_key_bytes_bucket{route="bist100",le="256"} 2
+ssr_cache_key_bytes_bucket{route="bist100",le="512"} 2
+ssr_cache_key_bytes_bucket{route="bist100",le="1024"} 2
+ssr_cache_key_bytes_bucket{route="bist100",le="+Inf"} 2
+ssr_cache_key_bytes_sum{route="bist100"} 96
+ssr_cache_key_bytes_count{route="bist100"} 2
+ssr_cache_key_bytes_bucket{route="home",le="32"} 1
+ssr_cache_key_bytes_bucket{route="home",le="64"} 1
+ssr_cache_key_bytes_bucket{route="home",le="128"} 1
+ssr_cache_key_bytes_bucket{route="home",le="256"} 1
+ssr_cache_key_bytes_bucket{route="home",le="512"} 1
+ssr_cache_key_bytes_bucket{route="home",le="1024"} 1
+ssr_cache_key_bytes_bucket{route="home",le="+Inf"} 1
+ssr_cache_key_bytes_sum{route="home"} 15
+ssr_cache_key_bytes_count{route="home"} 1
+ssr_cache_key_bytes_bucket{route="housing-loans",le="32"} 0
+ssr_cache_key_bytes_bucket{route="housing-loans",le="64"} 0
+ssr_cache_key_bytes_bucket{route="housing-loans",le="128"} 1
+ssr_cache_key_bytes_bucket{route="housing-loans",le="256"} 1
+ssr_cache_key_bytes_bucket{route="housing-loans",le="512"} 1
+ssr_cache_key_bytes_bucket{route="housing-loans",le="1024"} 1
+ssr_cache_key_bytes_bucket{route="housing-loans",le="+Inf"} 1
+ssr_cache_key_bytes_sum{route="housing-loans"} 94
+ssr_cache_key_bytes_count{route="housing-loans"} 1
+ssr_cache_key_bytes_bucket{route="menu",le="32"} 1
+ssr_cache_key_bytes_bucket{route="menu",le="64"} 1
+ssr_cache_key_bytes_bucket{route="menu",le="128"} 1
+ssr_cache_key_bytes_bucket{route="menu",le="256"} 1
+ssr_cache_key_bytes_bucket{route="menu",le="512"} 1
+ssr_cache_key_bytes_bucket{route="menu",le="1024"} 1
+ssr_cache_key_bytes_bucket{route="menu",le="+Inf"} 1
+ssr_cache_key_bytes_sum{route="menu"} 12
+ssr_cache_key_bytes_count{route="menu"} 1
+ssr_cache_key_bytes_bucket{route="other",le="32"} 0
+ssr_cache_key_bytes_bucket{route="other",le="64"} 2
+ssr_cache_key_bytes_bucket{route="other",le="128"} 2
+ssr_cache_key_bytes_bucket{route="other",le="256"} 2
+ssr_cache_key_bytes_bucket{route="other",le="512"} 2
+ssr_cache_key_bytes_bucket{route="other",le="1024"} 2
+ssr_cache_key_bytes_bucket{route="other",le="+Inf"} 2
+ssr_cache_key_bytes_sum{route="other"} 72
+ssr_cache_key_bytes_count{route="other"} 2
+# HELP ssr_cache_distinct_keys_observed Distinct cache keys observed by this process since startup
+# TYPE ssr_cache_distinct_keys_observed gauge
+ssr_cache_distinct_keys_observed{route="bank-detail"} 1
+ssr_cache_distinct_keys_observed{route="bist100"} 1
+ssr_cache_distinct_keys_observed{route="home"} 1
+ssr_cache_distinct_keys_observed{route="housing-loans"} 1
+ssr_cache_distinct_keys_observed{route="menu"} 1
+ssr_cache_distinct_keys_observed{route="other"} 2
+# HELP ssr_cache_cardinality_overflow_total Distinct cache keys exceeding the bounded 2000-key observation window
+# TYPE ssr_cache_cardinality_overflow_total counter
+# HELP ssr_event_loop_lag_p50_seconds Event loop delay p50
+# TYPE ssr_event_loop_lag_p50_seconds gauge
+ssr_event_loop_lag_p50_seconds 0.020021247
+# HELP ssr_event_loop_lag_p95_seconds Event loop delay p95
+# TYPE ssr_event_loop_lag_p95_seconds gauge
+ssr_event_loop_lag_p95_seconds 0.020643839
+# HELP ssr_event_loop_lag_p99_seconds Event loop delay p99
+# TYPE ssr_event_loop_lag_p99_seconds gauge
+ssr_event_loop_lag_p99_seconds 0.022413311
+# HELP process_resident_memory_bytes Resident memory size
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 762589184
+# HELP process_heap_used_bytes Process heap used
+# TYPE process_heap_used_bytes gauge
+process_heap_used_bytes 288393792
+# HELP process_uptime_seconds Process uptime
+# TYPE process_uptime_seconds gauge
+process_uptime_seconds 347.748660241
+# HELP process_cpu_user_seconds_total Total user CPU time
+# TYPE process_cpu_user_seconds_total counter
+process_cpu_user_seconds_total 281.027115
+# HELP process_cpu_system_seconds_total Total system CPU time
+# TYPE process_cpu_system_seconds_total counter
+process_cpu_system_seconds_total 46.616273
+# HELP ssr_release_info Build and service identity
+# TYPE ssr_release_info gauge
+ssr_release_info{service="ssr-kit",release="loadtest"} 1

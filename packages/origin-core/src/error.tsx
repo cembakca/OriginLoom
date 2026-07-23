@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { renderToString } from "react-dom/server";
 
 import type { Assets } from "./assets";

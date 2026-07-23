@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 

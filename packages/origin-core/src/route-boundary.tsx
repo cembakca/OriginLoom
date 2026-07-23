@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import type { Ctx, Route, RouteError } from "@originloom/react/lib/types";
 
 import type { Assets } from "./assets";

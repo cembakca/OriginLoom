@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { renderToString } from "react-dom/server";
 
 export function renderGonePage(): string {

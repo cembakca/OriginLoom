@@ -1,0 +1,10 @@
+{
+  "suite": "stress",
+  "appUrl": "http://127.0.0.1:31005",
+  "metricsUrl": "http://127.0.0.1:31090",
+  "ssrLimits": {
+    "maxConcurrency": 32,
+    "maxQueue": 64,
+    "queueWaitMs": 250
+  }
+}

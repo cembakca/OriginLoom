@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { PassThrough, Readable } from "node:stream";
 
 import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";

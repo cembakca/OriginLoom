@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import type { FontAsset } from "../media";
 import { getRuntime } from "../runtime";
 import type { DocumentLayoutProps } from "./types";
