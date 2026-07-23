@@ -11,6 +11,7 @@
     "origin-build-media": "./bin/build-media.mjs",
     "origin-check-cycles": "./bin/check-import-cycles.mjs",
     "origin-compose-up": "./bin/compose-up.mjs",
+    "origin-create-app": "./bin/create-app.mjs",
     "origin-dev": "./bin/dev.mjs",
     "origin-dev-local": "./bin/dev-local.mjs",
     "origin-docker-clean": "./bin/docker-clean.mjs",

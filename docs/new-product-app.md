@@ -9,6 +9,28 @@ route tablosu + ürün kontratı yazarak yeni bir deployable üretmek.
 
 ---
 
+## 0. Hızlı yol: generator
+
+Elle kurmak yerine CLI kullanın — aşağıdaki bölümlerin tamamını üretir:
+
+```bash
+pnpm create-app                                     # interaktif: isim ve başlık sorar
+pnpm create-app investment-web --port 3010          # doğrudan
+pnpm create-app investment-web --title "Yatırım" --install
+```
+
+| Bayrak          | Anlamı                                                           |
+| --------------- | ---------------------------------------------------------------- |
+| `--port <n>`    | Uygulamanın portu (metrics portu `n + 6000`). Varsayılan `3010`. |
+| `--title "..."` | Görünen ad; site metadata, layout ve README'de kullanılır.       |
+| `--install`     | Üretimden sonra `pnpm install` çalıştırır.                       |
+
+Üretilen uygulama çalışır durumdadır: `pnpm --filter <ad> dev` ile SSR sayfası, hydrate olan örnek
+bir island, cache'li HTML, `/healthz` ve `/readyz` hazır gelir. Sonraki bölümler generator'ın ne
+ürettiğini ve neden öyle ürettiğini açıklar — elle kurmak veya üretileni değiştirmek isteyenler için.
+
+---
+
 ## 1. İskelet
 
 `apps/showroom` referans implementasyondur. Yeni app için gereken minimum:
@@ -26,11 +48,13 @@ apps/<product>-web/
     routes/             route tablosu
     product/            OriginRuntime implementasyonu
   src/
-    entry.client.tsx    island glob + globals.css
+    entry.client.tsx    island bootstrap + globals.css
     hydrate.client.tsx  createIslandMounter({ modules })
     islands/            client giriş noktaları
     features/ components/ styles/
     lib/cache-keys.ts   bu ürünün sayfa cache registry'si
+    lib/shell-data.ts   ShellData tipi ve cache-safe layout props
+    lib/metadata/site-defaults.ts   site kimliği (ad, title template, OG)
     routing/rules.ts    redirect/rewrite kuralları
 ```
 

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
@@ -23,9 +24,14 @@ function run(label, args) {
   });
 }
 
-await run("icons", [new URL("./generate-icons.mjs", import.meta.url).pathname]);
+// Icons and media are opt-in: an app without SVG sources or a media config skips them.
+if (existsSync(resolve(root, "src/assets/svg"))) {
+  await run("icons", [new URL("./generate-icons.mjs", import.meta.url).pathname]);
+}
 await run("client", [resolve(root, "node_modules/vite/bin/vite.js"), "build"]);
-await run("media", [new URL("./build-media.mjs", import.meta.url).pathname]);
+if (existsSync(resolve(root, "server/media.config.json"))) {
+  await run("media", [new URL("./build-media.mjs", import.meta.url).pathname]);
+}
 await run("server", [
   resolve(root, "node_modules/vite/bin/vite.js"),
   "build",

@@ -44,7 +44,9 @@ type MediaManifest = {
 let cachedManifest: MediaManifest | undefined;
 
 export function readFontAssets(): FontAsset[] {
-  return readMediaManifest().fonts.map((font) => ({ ...font, href: fontAssetUrl(font.href) }));
+  // Apps without a media pipeline ship no self-hosted fonts.
+  const manifest = tryReadMediaManifest();
+  return (manifest?.fonts ?? []).map((font) => ({ ...font, href: fontAssetUrl(font.href) }));
 }
 
 export function imageCdnOrigins(): string[] {
@@ -96,6 +98,12 @@ function localResponsiveImage(image: ImageManifestEntry): ResponsiveImageData {
       { type: "image/webp", src: webp.at(-1)!.src, srcSet: serializeSrcSet(webp) },
     ],
   };
+}
+
+function tryReadMediaManifest(): MediaManifest | null {
+  if (cachedManifest) return cachedManifest;
+  if (!existsSync(mediaManifestPath())) return null;
+  return readMediaManifest();
 }
 
 function readMediaManifest(): MediaManifest {

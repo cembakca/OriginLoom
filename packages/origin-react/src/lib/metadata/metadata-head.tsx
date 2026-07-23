@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { serializeEmbeddedJson } from "../embedded-json";
 import type { ResolvedMetadata } from "./types";
 
