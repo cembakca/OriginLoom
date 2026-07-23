@@ -4,11 +4,11 @@ Bağımsız, dependency içermeyen Node.js geliştirme gateway'idir. Varsayılan
 portunda çalışır:
 
 ```bash
-npm run mock-gw
+pnpm mock-gw
 ```
 
-Günlük geliştirmede `npm run dev` mock gateway'i otomatik başlatır; cache in-memory çalışır,
-Redis gerekmez. Redis/SWR testi için `npm run dev:redis` kullanın.
+Günlük geliştirmede `pnpm dev` mock gateway'i otomatik başlatır; cache in-memory çalışır,
+Redis gerekmez. Redis/SWR testi için `pnpm dev:redis` kullanın.
 
 Uygulama runtime'ı fixture veya mock fallback içermez. Local geliştirme ve Docker Compose
 `GATEWAY_URL` üzerinden bu servise bağlanır; gerçek gateway geldiğinde URL değiştirmek yeterlidir.

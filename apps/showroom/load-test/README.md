@@ -18,20 +18,20 @@ testi koşturur. Gateway mock kalır; amaç prod SLA değil, **cache profili kar
 
 ```bash
 # Tam suite — memory (~15–25 dk)
-npm run loadtest:memory
+pnpm loadtest:memory
 
 # Tam suite — redis (~15–25 dk)
-npm run loadtest:redis
+pnpm loadtest:redis
 
 # Kısa smoke subset (~5 dk)
-npm run loadtest:memory -- --quick
-npm run loadtest:redis -- --quick
+pnpm loadtest:memory -- --quick
+pnpm loadtest:redis -- --quick
 
 # Image zaten build edildiyse
-npm run loadtest:redis -- --skip-build
+pnpm loadtest:redis -- --skip-build
 
 # Stack'i ayakta bırak (debug)
-npm run loadtest:memory -- --keep-stack
+pnpm loadtest:memory -- --keep-stack
 ```
 
 Sonuçlar: `load-test/results/<timestamp>-<profile>/`
@@ -43,14 +43,14 @@ Sonuçlar: `load-test/results/<timestamp>-<profile>/`
 Stack ayaktayken güvenlik smoke:
 
 ```bash
-npm run pentest:readiness:loadtest
+pnpm pentest:readiness:loadtest
 ```
 
 İki profil koşturulduktan sonra karşılaştırma:
 
 ```bash
-npm run loadtest:compare
-npm run stress:compare
+pnpm loadtest:compare
+pnpm stress:compare
 ```
 
 ## Senaryo matrisi
@@ -81,7 +81,7 @@ npm run stress:compare
 
 Release öncesi döngü:
 
-1. `npm run loadtest:memory` ve `npm run loadtest:redis` ardışık çalıştır.
+1. `pnpm loadtest:memory` ve `pnpm loadtest:redis` ardışık çalıştır.
 2. `report.md` dosyalarını `load-test/results/` altında sakla (gitignore'da).
 3. p99 regresyonu > %20 ise SSR capacity, gateway timeout veya cache key cardinality incele.
 4. Staging'de (gerçek gateway, gerçek Redis cluster) aynı senaryo URL'leriyle tekrarla — mutlak sayılar
@@ -95,11 +95,11 @@ Benchmark suite regresyon içindir. **Kapasite kırma** için ayrı stress suite
 
 ```bash
 # Tam stress (~25–40 dk)
-npm run stress:memory
-npm run stress:redis
+pnpm stress:memory
+pnpm stress:redis
 
 # Hızlı stress (~12–18 dk)
-npm run stress:memory -- --quick
+pnpm stress:memory -- --quick
 ```
 
 | Senaryo                          | Ne yapar                                      |

@@ -7,12 +7,12 @@ toplamaktır.
 
 ## Amaç ve kapsam dışı
 
-| Dahil                                    | Kapsam dışı                     |
-| ---------------------------------------- | ------------------------------- |
-| Production build (`npm run build` image) | Gerçek gateway latency/contract |
-| App container: **2 vCPU / 4 GiB**        | Çok pod / horizontal scale      |
-| mock-gw ile uçtan uca SSR                | CDN / edge cache                |
-| memory vs redis cache profili            | Finans prod cutover onayı       |
+| Dahil                                 | Kapsam dışı                     |
+| ------------------------------------- | ------------------------------- |
+| Production build (`pnpm build` image) | Gerçek gateway latency/contract |
+| App container: **2 vCPU / 4 GiB**     | Çok pod / horizontal scale      |
+| mock-gw ile uçtan uca SSR             | CDN / edge cache                |
+| memory vs redis cache profili         | Finans prod cutover onayı       |
 
 Mutlak RPS sayıları yalnızca staging (gerçek gateway + cluster Redis) tekrarında anlam kazanır.
 Buradaki değerler **göreli karşılaştırma** içindir.
@@ -91,25 +91,25 @@ soğuk pod / L2 miss path'te ek round-trip nedeniyle daha erken 503 üretebilir.
 Karşılaştırma:
 
 ```bash
-npm run loadtest:compare      # benchmark
-npm run stress:compare        # stress
+pnpm loadtest:compare      # benchmark
+pnpm stress:compare        # stress
 ```
 
 ## Çalıştırma
 
 ```bash
 # Tam suite (~15–25 dk / profil)
-npm run loadtest:memory
-npm run loadtest:redis
+pnpm loadtest:memory
+pnpm loadtest:redis
 
 # Hızlı smoke (~5 dk)
-npm run loadtest:memory -- --quick
+pnpm loadtest:memory -- --quick
 
 # Image zaten var
-npm run loadtest:redis -- --skip-build
+pnpm loadtest:redis -- --skip-build
 
 # Stack debug
-npm run loadtest:memory -- --keep-stack
+pnpm loadtest:memory -- --keep-stack
 ```
 
 ## Raporlama
@@ -136,20 +136,20 @@ Staging gate öncesi iç kontrol önerisi:
 
 ## Release döngüsü önerisi
 
-1. CI yeşil (`npm run ci`)
+1. CI yeşil (`ppnpm install`)
 2. `loadtest:memory` + `loadtest:redis` ardışık
 3. Raporları release ticket'a ekle
 4. Staging'de aynı URL seti + gerçek gateway ile tekrar (mutlak sayılar)
-5. Pentest readiness (`npm run pentest:readiness`) staging URL ile
+5. Pentest readiness (`pnpm pentest:readiness`) staging URL ile
 
 ## Stres testi (stress suite)
 
 Benchmark suite (`loadtest:*`) steady-state regresyon içindir. **Ciddi stres** için ayrı suite:
 
 ```bash
-npm run stress:memory
-npm run stress:redis
-npm run stress:memory -- --quick
+pnpm stress:memory
+pnpm stress:redis
+pnpm stress:memory -- --quick
 ```
 
 Stress suite bilinçli olarak `SSR_MAX_CONCURRENCY=32` + `SSR_MAX_QUEUE=64` sınırını aşar (384–512

@@ -1,0 +1,13 @@
+# Build context is the repository root (docker build -f apps/showroom/Dockerfile .)
+**/node_modules
+**/dist
+**/coverage
+.git
+.cursor
+.claude
+**/*.md
+!README.md
+**/.env
+**/.env.*
+!**/.env.local.example
+apps/showroom/load-test/results
