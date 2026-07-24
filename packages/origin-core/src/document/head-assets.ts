@@ -1,5 +1,5 @@
-import { assetCdnOrigin, type Assets } from "../assets";
-import { imageCdnOrigins } from "../media";
+import { assetCdnOrigin, type Assets } from "../assets.js";
+import { imageCdnOrigins } from "../media.js";
 
 export type DocumentHeadAssets = {
   preconnectOrigins: string[];

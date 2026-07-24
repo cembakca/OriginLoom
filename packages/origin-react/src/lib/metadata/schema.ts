@@ -2,9 +2,9 @@ import {
   normalizeCanonicalUrl,
   normalizeMetadataImageUrl,
   normalizeNavigationUrl,
-} from "../content-url";
-import { stripUndefined } from "../strip-undefined";
-import type { SeoInfo } from "./types";
+} from "../content-url.js";
+import { stripUndefined } from "../strip-undefined.js";
+import type { SeoInfo } from "./types.js";
 
 const STRING_LIMITS = {
   title: 200,

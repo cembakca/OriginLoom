@@ -1,12 +1,12 @@
-import { config } from "../config";
-import { observeGatewayRequest } from "../metrics";
+import { config } from "../config.js";
+import { observeGatewayRequest } from "../metrics.js";
 import {
   activeRequestId,
   injectActiveTrace,
   SpanKind,
   SpanStatusCode,
   withSpan,
-} from "../observability";
+} from "../observability.js";
 
 export function gatewayUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;

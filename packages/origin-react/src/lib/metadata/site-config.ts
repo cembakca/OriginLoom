@@ -1,5 +1,5 @@
-import type { Ctx } from "../types";
-import type { PageMetadata, SiteMetadataConfig } from "./types";
+import type { Ctx } from "../types.js";
+import type { PageMetadata, SiteMetadataConfig } from "./types.js";
 
 export type SiteMetadataOptions = {
   /** Static site identity (name, title template, OG defaults, icons). */

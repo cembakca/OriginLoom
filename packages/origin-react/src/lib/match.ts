@@ -1,4 +1,4 @@
-import type { Route } from "./types";
+import type { Route } from "./types.js";
 
 /**
  * The complete router. Supports "/a/b", "/a/:id", "/a/:id?".

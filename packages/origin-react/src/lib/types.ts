@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
 
-import type { PageAnalyticsMeta } from "./analytics/types";
-import type { ImagePreload } from "./media";
-import type { PageMetadata } from "./metadata/types";
+import type { PageAnalyticsMeta } from "./analytics/types.js";
+import type { ImagePreload } from "./media.js";
+import type { PageMetadata } from "./metadata/types.js";
 
 type RouteComponent<T> = {
   bivarianceHack(props: { data: T }): ReactElement;

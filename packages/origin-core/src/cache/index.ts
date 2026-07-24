@@ -1,17 +1,17 @@
 import type { Span } from "@opentelemetry/api";
 import type { CachePolicy } from "@originloom/react/lib/types";
 
-import { config } from "../config";
-import { logError, logger } from "../logger";
-import { observeCacheEntryWrite, observeCacheOperation, setCacheL2Health } from "../metrics";
-import { SpanKind, withSpan } from "../observability";
-import { applyInvalidationToL1, CacheInvalidationBus } from "./invalidation";
-import { formatCacheKey } from "./key-codec";
-import { MemoryStore } from "./memory";
-import { RedisStore } from "./redis";
-import { TieredStore } from "./tiered";
-import type { CacheStore } from "./types";
-import type { RateLimitResult } from "./types";
+import { config } from "../config.js";
+import { logError, logger } from "../logger.js";
+import { observeCacheEntryWrite, observeCacheOperation, setCacheL2Health } from "../metrics.js";
+import { SpanKind, withSpan } from "../observability.js";
+import { applyInvalidationToL1, CacheInvalidationBus } from "./invalidation.js";
+import { formatCacheKey } from "./key-codec.js";
+import { MemoryStore } from "./memory.js";
+import { RedisStore } from "./redis.js";
+import { TieredStore } from "./tiered.js";
+import type { CacheStore } from "./types.js";
+import type { RateLimitResult } from "./types.js";
 
 let store: CacheStore | null = null;
 let invalidationBus: CacheInvalidationBus | null = null;

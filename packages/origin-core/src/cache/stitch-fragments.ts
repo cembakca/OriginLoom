@@ -1,9 +1,13 @@
 import type { Ctx, Route } from "@originloom/react/lib/types";
 
-import { logError } from "../logger";
-import { getRuntime } from "../runtime";
-import { rethrowRequestDeadline } from "../ssr/context";
-import { fragmentRequiresShell, getOrSetFragmentByName, shouldResolveFragment } from "./fragment";
+import { logError } from "../logger.js";
+import { getRuntime } from "../runtime.js";
+import { rethrowRequestDeadline } from "../ssr/context.js";
+import {
+  fragmentRequiresShell,
+  getOrSetFragmentByName,
+  shouldResolveFragment,
+} from "./fragment.js";
 
 const FRAGMENT_PATTERN =
   /<ssr-fragment name="([a-zA-Z0-9_-]+)" style="display:\s*contents">[\s\S]*?<\/ssr-fragment>/g;

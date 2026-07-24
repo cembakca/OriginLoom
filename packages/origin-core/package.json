@@ -18,6 +18,8 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -39,5 +41,48 @@
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
-  }
+  },
+  "publishConfig": {
+    "exports": {
+      "./document": {
+        "types": "./dist/document.d.ts",
+        "default": "./dist/document.js"
+      },
+      "./error": {
+        "types": "./dist/error.d.ts",
+        "default": "./dist/error.js"
+      },
+      "./route-boundary": {
+        "types": "./dist/route-boundary.d.ts",
+        "default": "./dist/route-boundary.js"
+      },
+      "./cache/fragment": {
+        "types": "./dist/cache/fragment.d.ts",
+        "default": "./dist/cache/fragment.js"
+      },
+      "./cache": {
+        "types": "./dist/cache/index.d.ts",
+        "default": "./dist/cache/index.js"
+      },
+      "./middleware/steps/auth": {
+        "types": "./dist/middleware/steps/auth/index.d.ts",
+        "default": "./dist/middleware/steps/auth/index.js"
+      },
+      "./middleware/steps/redirection": {
+        "types": "./dist/middleware/steps/redirection/index.d.ts",
+        "default": "./dist/middleware/steps/redirection/index.js"
+      },
+      "./middleware/steps/session": {
+        "types": "./dist/middleware/steps/session/index.d.ts",
+        "default": "./dist/middleware/steps/session/index.js"
+      },
+      "./*": {
+        "types": "./dist/*.d.ts",
+        "default": "./dist/*.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ]
 }

@@ -1,8 +1,8 @@
 import type { CachePolicy } from "@originloom/react/lib/types";
 
-import { config } from "../config";
-import { observeCacheFill, observeCoalescedWait, observeColdMissLockTimeout } from "../metrics";
-import * as cache from "./index";
+import { config } from "../config.js";
+import { observeCacheFill, observeCoalescedWait, observeColdMissLockTimeout } from "../metrics.js";
+import * as cache from "./index.js";
 
 export type ColdFillWork<T> = {
   value: T;

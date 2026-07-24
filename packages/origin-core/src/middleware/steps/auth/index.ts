@@ -1,6 +1,6 @@
-import { cloneRequestWithHeaders } from "../../sequential";
-import type { MiddlewareStep } from "../../types";
-import { runAuthCore } from "./core";
+import { cloneRequestWithHeaders } from "../../sequential.js";
+import type { MiddlewareStep } from "../../types.js";
+import { runAuthCore } from "./core.js";
 
 export const authStep: MiddlewareStep = async (ctx, acc) => {
   const outcome = await runAuthCore(acc.request, acc.cookies);

@@ -1,8 +1,8 @@
 import type { Ctx } from "@originloom/react/lib/types";
 
-import { config } from "../config";
-import { isRequestDeadlineError } from "../middleware/request-deadline";
-import type { HandleContext } from "./types";
+import { config } from "../config.js";
+import { isRequestDeadlineError } from "../middleware/request-deadline.js";
+import type { HandleContext } from "./types.js";
 
 export function createRouteContext(
   request: Request,

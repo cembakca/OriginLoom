@@ -1,10 +1,10 @@
-import { applyCookies, mergeResponseHeaders } from "./cookie-jar";
-import { shouldRunPipeline } from "./matcher";
-import { createInitialResult, runSequential } from "./sequential";
-import { authStep } from "./steps/auth";
-import { redirectionStep } from "./steps/redirection";
-import { sessionStep } from "./steps/session";
-import type { MiddlewareStep, PipelineResult } from "./types";
+import { applyCookies, mergeResponseHeaders } from "./cookie-jar.js";
+import { shouldRunPipeline } from "./matcher.js";
+import { createInitialResult, runSequential } from "./sequential.js";
+import { authStep } from "./steps/auth/index.js";
+import { redirectionStep } from "./steps/redirection/index.js";
+import { sessionStep } from "./steps/session/index.js";
+import type { MiddlewareStep, PipelineResult } from "./types.js";
 
 const pipelineSteps: MiddlewareStep[] = [authStep, sessionStep, redirectionStep];
 

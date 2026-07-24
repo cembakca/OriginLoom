@@ -1,7 +1,7 @@
 import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib";
 
-import { logger } from "../logger";
-import type { CacheEntry } from "./types";
+import { logger } from "../logger.js";
+import type { CacheEntry } from "./types.js";
 
 /**
  * Wire format for a cached HTML entry:

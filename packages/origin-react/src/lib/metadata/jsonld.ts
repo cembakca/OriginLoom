@@ -1,5 +1,5 @@
-import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url";
-import type { ResolvedMetadata } from "./types";
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url.js";
+import type { ResolvedMetadata } from "./types.js";
 
 export type JsonLdPrimitive = string | number | boolean | null;
 export type JsonLdValue = JsonLdPrimitive | JsonLdObject | JsonLdValue[];

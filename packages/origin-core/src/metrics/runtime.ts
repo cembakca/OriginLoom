@@ -1,6 +1,6 @@
 import { monitorEventLoopDelay } from "node:perf_hooks";
 
-import { counter, escapeLabel, gauge } from "./primitives";
+import { counter, escapeLabel, gauge } from "./primitives.js";
 
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 eventLoopDelay.enable();

@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
-import { isCacheInitialized, takeDistributedRateLimit } from "../cache";
-import { config } from "../config";
-import { BoundedIpRateLimiter, FixedWindowRateLimiter } from "./rate-limit";
+import { isCacheInitialized, takeDistributedRateLimit } from "../cache/index.js";
+import { config } from "../config.js";
+import { BoundedIpRateLimiter, FixedWindowRateLimiter } from "./rate-limit.js";
 
 const DEFAULT_IP_MAX_ENTRIES = 10_000;
 const DEFAULT_IP_TTL_MS = 300_000;

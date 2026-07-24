@@ -1,10 +1,10 @@
-import { readCookie } from "../client/cookies";
-import { Cookie } from "../cookies";
-import { getOriginalLocation, setOriginalLocation } from "../stores/session-store";
-import { getUserInfo } from "../stores/user-info-store";
-import { stripUndefined } from "../strip-undefined";
-import { pushDataLayer, signalReactReady } from "./data-layer";
-import type { PageAnalyticsMeta, PageDetails } from "./types";
+import { readCookie } from "../client/cookies.js";
+import { Cookie } from "../cookies.js";
+import { getOriginalLocation, setOriginalLocation } from "../stores/session-store.js";
+import { getUserInfo } from "../stores/user-info-store.js";
+import { stripUndefined } from "../strip-undefined.js";
+import { pushDataLayer, signalReactReady } from "./data-layer.js";
+import type { PageAnalyticsMeta, PageDetails } from "./types.js";
 
 export function buildVirtualPageUrl(meta: PageAnalyticsMeta): string {
   if (typeof window !== "undefined") {

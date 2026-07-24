@@ -1,12 +1,12 @@
 import type { Ctx, Route } from "@originloom/react/lib/types";
 
-import type { Assets } from "../assets";
-import { config } from "../config";
-import { logError } from "../logger";
-import { observeRevalidation } from "../metrics";
-import { SpanKind, SpanStatusCode, withSpan } from "../observability";
-import { runLoader, runRender } from "../ssr/execute-route";
-import * as cache from "./index";
+import type { Assets } from "../assets.js";
+import { config } from "../config.js";
+import { logError } from "../logger.js";
+import { observeRevalidation } from "../metrics.js";
+import { SpanKind, SpanStatusCode, withSpan } from "../observability.js";
+import { runLoader, runRender } from "../ssr/execute-route.js";
+import * as cache from "./index.js";
 
 type SharedPolicy = ReturnType<NonNullable<Route["cache"]>>;
 

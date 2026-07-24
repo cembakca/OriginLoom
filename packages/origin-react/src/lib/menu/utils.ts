@@ -1,5 +1,5 @@
-import type { DeviceShell } from "../device";
-import { type MenuItem, MenuItemType } from "./types";
+import type { DeviceShell } from "../device.js";
+import { type MenuItem, MenuItemType } from "./types.js";
 
 export function navLabel(item: MenuItem, shell: DeviceShell): string {
   return shell === "mobile" && item.hamburgerName ? item.hamburgerName : item.name;

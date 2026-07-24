@@ -4,16 +4,21 @@ import { match } from "@originloom/react/lib/match";
 import type { Route } from "@originloom/react/lib/types";
 import { normalizePublicUrl, resolveRoute } from "@originloom/react/routing";
 
-import * as cache from "../cache";
-import { config } from "../config";
-import { logError, logger } from "../logger";
-import { setActiveHttpRoute } from "../observability";
-import { proxyRequest } from "../proxy";
-import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url";
-import { createRouteContext, rethrowRequestDeadline } from "./context";
-import { runLoader } from "./execute-route";
-import { headResponse, loaderRedirectResponse, logRequest, normalizeErrorStatus } from "./response";
-import type { HandleContext } from "./types";
+import * as cache from "../cache/index.js";
+import { config } from "../config.js";
+import { logError, logger } from "../logger.js";
+import { setActiveHttpRoute } from "../observability.js";
+import { proxyRequest } from "../proxy.js";
+import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url.js";
+import { createRouteContext, rethrowRequestDeadline } from "./context.js";
+import { runLoader } from "./execute-route.js";
+import {
+  headResponse,
+  loaderRedirectResponse,
+  logRequest,
+  normalizeErrorStatus,
+} from "./response.js";
+import type { HandleContext } from "./types.js";
 
 /** Resolve the same route outcome as GET without rendering React or filling the HTML cache. */
 export async function handleHead(

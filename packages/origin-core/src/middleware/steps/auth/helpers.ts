@@ -4,21 +4,21 @@ import { cookie } from "@originloom/react/lib/request";
 import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
 import { stripUndefined } from "@originloom/react/lib/strip-undefined";
 
-import { gatewayFetch } from "../../../adapters/gateway";
+import { gatewayFetch } from "../../../adapters/gateway.js";
 import {
   acquireCoordinationLock,
   readCoordinationValue,
   releaseCoordinationLock,
   writeCoordinationValue,
-} from "../../../cache";
-import { config } from "../../../config";
-import { readGatewayJson, requireGatewayPayload } from "../../../gateway-payload";
-import type { CookieJar } from "../../cookie-jar";
-import { Cookie } from "../../types";
-import { createRefreshCoordinationCodec } from "./refresh-coordination-crypto";
-import type { RefreshResult } from "./refresh-result";
+} from "../../../cache/index.js";
+import { config } from "../../../config.js";
+import { readGatewayJson, requireGatewayPayload } from "../../../gateway-payload.js";
+import type { CookieJar } from "../../cookie-jar.js";
+import { Cookie } from "../../types.js";
+import { createRefreshCoordinationCodec } from "./refresh-coordination-crypto.js";
+import type { RefreshResult } from "./refresh-result.js";
 
-export type { RefreshResult } from "./refresh-result";
+export type { RefreshResult } from "./refresh-result.js";
 type RefreshEntry = {
   promise: Promise<RefreshResult>;
   controller: AbortController;

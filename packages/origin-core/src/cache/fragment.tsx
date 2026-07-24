@@ -2,9 +2,9 @@
 import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
 import { renderToString } from "react-dom/server";
 
-import { isRequestDeadlineError } from "../middleware/request-deadline";
-import { type FragmentDefinition, getRuntime } from "../runtime";
-import { coalesceColdMiss } from "./cold-fill";
+import { isRequestDeadlineError } from "../middleware/request-deadline.js";
+import { type FragmentDefinition, getRuntime } from "../runtime.js";
+import { coalesceColdMiss } from "./cold-fill.js";
 
 function fragmentDefinition(name: string): FragmentDefinition | undefined {
   return getRuntime().fragments[name];

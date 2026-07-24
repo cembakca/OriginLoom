@@ -4,7 +4,7 @@ import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
 import type { Ctx } from "@originloom/react/lib/types";
 import type { ReactElement } from "react";
 
-import type { Assets } from "../assets";
+import type { Assets } from "../assets.js";
 
 export type DocumentContext = { routeCtx: Ctx };
 

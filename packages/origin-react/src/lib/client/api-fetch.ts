@@ -1,4 +1,4 @@
-import { seedUserInfo } from "../stores/user-info-store";
+import { seedUserInfo } from "../stores/user-info-store.js";
 
 const REFRESH_PATH = "/api/internal/refresh";
 

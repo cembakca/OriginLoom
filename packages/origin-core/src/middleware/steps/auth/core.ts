@@ -1,4 +1,4 @@
-import type { CookieJar } from "../../cookie-jar";
+import type { CookieJar } from "../../cookie-jar.js";
 import {
   clearTokenCookies,
   displayNameFromAccess,
@@ -7,7 +7,7 @@ import {
   refreshTokens,
   setSessionCookies,
   setTokenCookies,
-} from "./helpers";
+} from "./helpers.js";
 
 export type AuthOutcome = {
   kind: "authorized" | "anonymous" | "unavailable";

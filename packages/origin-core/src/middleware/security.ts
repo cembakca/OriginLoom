@@ -3,9 +3,9 @@ import crypto, { randomBytes } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 
-import { config } from "../config";
-import { resolveCspSourceOrigins } from "../csp-origins";
-import type { AppVariables } from "./request-id";
+import { config } from "../config.js";
+import { resolveCspSourceOrigins } from "../csp-origins.js";
+import type { AppVariables } from "./request-id.js";
 
 /** CSP hash source for an inline script body: 'sha256-…'. */
 export function cspScriptHash(content: string): string {

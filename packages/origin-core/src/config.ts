@@ -1,6 +1,6 @@
 type CacheBackend = "memory" | "redis";
 
-import { validateAppConfig } from "./config-validation";
+import { validateAppConfig } from "./config-validation.js";
 
 export function numberEnv(name: string, fallback: number): number {
   const value = process.env[name];

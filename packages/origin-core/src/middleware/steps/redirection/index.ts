@@ -1,8 +1,8 @@
 import { mergeSearchParams } from "@originloom/react/routing";
 
-import { lookupRedirect } from "../../api/redirect-map";
-import type { MiddlewareStep } from "../../types";
-import { renderGonePage } from "./gone";
+import { lookupRedirect } from "../../api/redirect-map.js";
+import type { MiddlewareStep } from "../../types.js";
+import { renderGonePage } from "./gone.js";
 
 export const redirectionStep: MiddlewareStep = async (ctx, acc) => {
   const rule = await lookupRedirect(ctx.publicPath, acc.request.signal);

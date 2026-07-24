@@ -1,9 +1,9 @@
 /** Central cookie names — re-export from shared lib. */
 export { Cookie } from "@originloom/react/lib/cookies";
 
-import type { CookieJar } from "./cookie-jar";
+import type { CookieJar } from "./cookie-jar.js";
 
-export type { CookieOptions } from "./cookie-jar";
+export type { CookieOptions } from "./cookie-jar.js";
 
 export type PipelineContext = {
   url: URL;

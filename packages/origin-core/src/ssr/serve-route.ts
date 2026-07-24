@@ -2,18 +2,23 @@ import { randomUUID } from "node:crypto";
 
 import type { CachePolicy, Ctx, LoaderResult, Route } from "@originloom/react/lib/types";
 
-import type { Assets } from "../assets";
-import * as cache from "../cache";
-import { coalesceColdMiss } from "../cache/cold-fill";
-import { scheduleRevalidation } from "../cache/revalidation";
-import { stitchCachedHtml } from "../cache/stitch-fragments";
-import { logError, logger } from "../logger";
-import { SpanKind, withSpan } from "../observability";
-import { renderNotFoundDocument, renderRouteErrorDocument } from "../route-boundary";
-import { rethrowRequestDeadline } from "./context";
-import { CacheFillTimeoutError, executeRoute, executeRouteWithBudget } from "./execute-route";
-import { htmlResponse, loaderRedirectResponse, logRequest, normalizeErrorStatus } from "./response";
-import type { RouteExecution } from "./types";
+import type { Assets } from "../assets.js";
+import { coalesceColdMiss } from "../cache/cold-fill.js";
+import * as cache from "../cache/index.js";
+import { scheduleRevalidation } from "../cache/revalidation.js";
+import { stitchCachedHtml } from "../cache/stitch-fragments.js";
+import { logError, logger } from "../logger.js";
+import { SpanKind, withSpan } from "../observability.js";
+import { renderNotFoundDocument, renderRouteErrorDocument } from "../route-boundary.js";
+import { rethrowRequestDeadline } from "./context.js";
+import { CacheFillTimeoutError, executeRoute, executeRouteWithBudget } from "./execute-route.js";
+import {
+  htmlResponse,
+  loaderRedirectResponse,
+  logRequest,
+  normalizeErrorStatus,
+} from "./response.js";
+import type { RouteExecution } from "./types.js";
 
 type ServeRouteOptions = {
   request: Request;

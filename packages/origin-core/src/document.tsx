@@ -9,13 +9,13 @@ import type { Ctx, Route } from "@originloom/react/lib/types";
 import type { ReactElement } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
 
-import type { Assets } from "./assets";
-import { resolveDocumentHeadAssets } from "./document/head-assets";
-import { DocumentLayout } from "./document/layout";
-import type { DocumentContext, StreamResult } from "./document/types";
-import { getRuntime } from "./runtime";
+import type { Assets } from "./assets.js";
+import { resolveDocumentHeadAssets } from "./document/head-assets.js";
+import { DocumentLayout } from "./document/layout.js";
+import type { DocumentContext, StreamResult } from "./document/types.js";
+import { getRuntime } from "./runtime.js";
 
-export type { DocumentContext, StreamResult } from "./document/types";
+export type { DocumentContext, StreamResult } from "./document/types.js";
 
 export async function renderDocument<T>(
   route: Route<T>,

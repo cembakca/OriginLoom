@@ -1,6 +1,6 @@
-import { Cookie } from "./cookies";
-import { cookie } from "./request";
-import type { CachePolicy, Ctx } from "./types";
+import { Cookie } from "./cookies.js";
+import { cookie } from "./request.js";
+import type { CachePolicy, Ctx } from "./types.js";
 
 /**
  * Return true → HTML cache BYPASS (loader runs every time).

@@ -1,4 +1,4 @@
-import { cacheRouteLabel } from "./metrics/cache-label";
+import { cacheRouteLabel } from "./metrics/cache-label.js";
 import {
   counterLines,
   type CounterMap,
@@ -6,9 +6,9 @@ import {
   gauge,
   Histogram,
   increment,
-} from "./metrics/primitives";
-import { runtimeMetricLines } from "./metrics/runtime";
-import { tryGetRuntime } from "./runtime";
+} from "./metrics/primitives.js";
+import { runtimeMetricLines } from "./metrics/runtime.js";
+import { tryGetRuntime } from "./runtime.js";
 
 type GatewayOutcome = "success" | "client_error" | "server_error" | "timeout" | "network_error";
 type OperationOutcome = "success" | "error";

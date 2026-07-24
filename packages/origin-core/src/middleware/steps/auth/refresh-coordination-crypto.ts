@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 
 import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
 
-import type { RefreshResult } from "./refresh-result";
+import type { RefreshResult } from "./refresh-result.js";
 
 export type RefreshCoordinationCodec = {
   seal(result: RefreshResult): string;

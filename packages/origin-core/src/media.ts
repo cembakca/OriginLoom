@@ -10,7 +10,7 @@ import {
   type UnoptimizedImageData,
 } from "@originloom/react/lib/media";
 
-import { config } from "./config";
+import { config } from "./config.js";
 
 function mediaManifestPath(): string {
   return join(config.clientDistDir, "asset-pipeline.json");

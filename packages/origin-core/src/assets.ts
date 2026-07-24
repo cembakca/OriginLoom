@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { config } from "./config";
-import { type FontAsset, readFontAssets } from "./media";
+import { config } from "./config.js";
+import { type FontAsset, readFontAssets } from "./media.js";
 
 export type Assets = {
   js: string;

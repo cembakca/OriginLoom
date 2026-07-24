@@ -1,4 +1,4 @@
-import type { Ctx } from "./types";
+import type { Ctx } from "./types.js";
 
 /**
  * SSR HTML'i etkilemeyen query parametreleri — cache key'e asla girmez.

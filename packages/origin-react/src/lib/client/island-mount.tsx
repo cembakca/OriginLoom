@@ -2,9 +2,13 @@
 import { type ComponentType, type ReactNode, useEffect } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
-import { parseEmbeddedJson } from "../embedded-json";
-import { reportClientError } from "./error-telemetry";
-import { createIslandMountWatchdog, IslandRuntimeError, loadIslandModule } from "./island-runtime";
+import { parseEmbeddedJson } from "../embedded-json.js";
+import { reportClientError } from "./error-telemetry.js";
+import {
+  createIslandMountWatchdog,
+  IslandRuntimeError,
+  loadIslandModule,
+} from "./island-runtime.js";
 
 export type IslandModule = { default: ComponentType<Record<string, unknown>> };
 

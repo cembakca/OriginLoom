@@ -1,5 +1,9 @@
-import { config } from "./config";
-import { observeSsrCapacityRejection, observeSsrQueueWait, setSsrCapacityState } from "./metrics";
+import { config } from "./config.js";
+import {
+  observeSsrCapacityRejection,
+  observeSsrQueueWait,
+  setSsrCapacityState,
+} from "./metrics.js";
 
 export type SsrCapacityRejectionReason = "queue_full" | "wait_timeout" | "request_aborted";
 

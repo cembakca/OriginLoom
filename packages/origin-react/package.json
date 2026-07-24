@@ -14,10 +14,11 @@
     "./lib/*": "./src/lib/*.ts",
     "./routing": "./src/routing/index.ts",
     "./routing/*": "./src/routing/*.ts",
-    "./vite": "./src/vite/preset.ts",
-    "./vite/*": "./src/vite/*.ts"
+    "./vite": "./src/vite/preset.ts"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -34,7 +35,60 @@
     "vite": "^8.1.5"
   },
   "peerDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@vitejs/plugin-react": "^5.2.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "vite": "^8.1.5"
+  },
+  "publishConfig": {
+    "exports": {
+      "./lib/island": {
+        "types": "./dist/lib/island.d.ts",
+        "default": "./dist/lib/island.js"
+      },
+      "./lib/query/provider": {
+        "types": "./dist/lib/query/provider.d.ts",
+        "default": "./dist/lib/query/provider.js"
+      },
+      "./lib/client/island-mount": {
+        "types": "./dist/lib/client/island-mount.d.ts",
+        "default": "./dist/lib/client/island-mount.js"
+      },
+      "./lib/metadata/metadata-head": {
+        "types": "./dist/lib/metadata/metadata-head.d.ts",
+        "default": "./dist/lib/metadata/metadata-head.js"
+      },
+      "./lib/*": {
+        "types": "./dist/lib/*.d.ts",
+        "default": "./dist/lib/*.js"
+      },
+      "./routing": {
+        "types": "./dist/routing/index.d.ts",
+        "default": "./dist/routing/index.js"
+      },
+      "./routing/*": {
+        "types": "./dist/routing/*.d.ts",
+        "default": "./dist/routing/*.js"
+      },
+      "./vite": {
+        "types": "./dist/vite/preset.d.ts",
+        "default": "./dist/vite/preset.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependenciesMeta": {
+    "@tailwindcss/vite": {
+      "optional": true
+    },
+    "@vitejs/plugin-react": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    }
   }
 }

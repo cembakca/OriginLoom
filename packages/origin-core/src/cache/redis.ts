@@ -1,8 +1,8 @@
 import type { CachePolicy } from "@originloom/react/lib/types";
 import Redis from "ioredis";
 
-import { logger } from "../logger";
-import { decodeCacheEntry, encodeCacheEntry } from "./codec";
+import { logger } from "../logger.js";
+import { decodeCacheEntry, encodeCacheEntry } from "./codec.js";
 import {
   buildCacheEntry,
   type CacheEntry,
@@ -10,7 +10,7 @@ import {
   type ListKeysOptions,
   type ListKeysResult,
   type RateLimitResult,
-} from "./types";
+} from "./types.js";
 
 export class RedisStore implements CacheStore {
   private redis: Redis;

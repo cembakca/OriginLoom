@@ -1,4 +1,4 @@
-import { MAX_PAGE } from "./content-values";
+import { MAX_PAGE } from "./content-values.js";
 
 export type PaginationItem = { kind: "page"; page: number } | { kind: "ellipsis"; key: string };
 

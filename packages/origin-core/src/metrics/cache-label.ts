@@ -1,5 +1,5 @@
-import { parseCacheKey } from "../cache/key-codec";
-import { tryGetRuntime } from "../runtime";
+import { parseCacheKey } from "../cache/key-codec.js";
+import { tryGetRuntime } from "../runtime.js";
 
 export function cacheRouteLabel(key: string): string {
   const prefix = parseCacheKey(key)[0] ?? "other";

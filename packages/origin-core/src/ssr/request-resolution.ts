@@ -2,16 +2,16 @@ import { match } from "@originloom/react/lib/match";
 import type { CachePolicy, Ctx, Route } from "@originloom/react/lib/types";
 import { normalizePublicUrl, resolveRoute } from "@originloom/react/routing";
 
-import type { Assets } from "../assets";
-import * as cache from "../cache";
-import { config } from "../config";
-import { setActiveHttpRoute, SpanKind, withSpan } from "../observability";
-import { proxyRequest } from "../proxy";
-import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url";
-import { renderNotFoundDocument } from "../route-boundary";
-import { createRouteContext } from "./context";
-import { htmlResponse, logRequest } from "./response";
-import type { HandleContext } from "./types";
+import type { Assets } from "../assets.js";
+import * as cache from "../cache/index.js";
+import { config } from "../config.js";
+import { setActiveHttpRoute, SpanKind, withSpan } from "../observability.js";
+import { proxyRequest } from "../proxy.js";
+import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url.js";
+import { renderNotFoundDocument } from "../route-boundary.js";
+import { createRouteContext } from "./context.js";
+import { htmlResponse, logRequest } from "./response.js";
+import type { HandleContext } from "./types.js";
 
 export type ResolvedSsrRequest =
   | { kind: "response"; response: Response }

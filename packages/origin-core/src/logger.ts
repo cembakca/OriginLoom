@@ -1,4 +1,4 @@
-import { activeTraceFields } from "./observability";
+import { activeTraceFields } from "./observability.js";
 
 type LogLevel = "info" | "warn" | "error" | "debug";
 

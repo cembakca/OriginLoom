@@ -1,8 +1,8 @@
-import type { Ctx, Route } from "../types";
-import { metadataFromTitle } from "./generate";
-import { mergeMetadata } from "./merge";
-import { fallbackPageMetadata } from "./site-config";
-import type { PageMetadata, ResolvedMetadata } from "./types";
+import type { Ctx, Route } from "../types.js";
+import { metadataFromTitle } from "./generate.js";
+import { mergeMetadata } from "./merge.js";
+import { fallbackPageMetadata } from "./site-config.js";
+import type { PageMetadata, ResolvedMetadata } from "./types.js";
 
 /** Resolve final <head> SEO from site defaults + route generateMetadata. */
 export function resolveDocumentMetadata<T>(route: Route<T>, data: T, ctx: Ctx): ResolvedMetadata {

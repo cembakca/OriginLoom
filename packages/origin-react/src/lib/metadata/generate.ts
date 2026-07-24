@@ -1,7 +1,7 @@
-import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url";
-import { stripUndefined } from "../strip-undefined";
-import type { Ctx } from "../types";
-import type { PageMetadata, SeoInfo } from "./types";
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url.js";
+import { stripUndefined } from "../strip-undefined.js";
+import type { Ctx } from "../types.js";
+import type { PageMetadata, SeoInfo } from "./types.js";
 
 /** Public absolute URL from browser-visible path. */
 export function publicAbsoluteUrl(ctx: Ctx, path?: string): string {

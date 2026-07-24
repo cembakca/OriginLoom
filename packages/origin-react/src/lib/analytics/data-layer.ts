@@ -1,4 +1,4 @@
-import type { DataLayerPushPriority } from "./types";
+import type { DataLayerPushPriority } from "./types.js";
 
 declare global {
   interface Window {

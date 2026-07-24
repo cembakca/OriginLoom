@@ -5,11 +5,11 @@ import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { timeout } from "hono/timeout";
 
-import { config } from "../config";
-import { observeRequestTimeout } from "../metrics";
-import type { AppVariables, RequestClass } from "./context";
+import { config } from "../config.js";
+import { observeRequestTimeout } from "../metrics.js";
+import type { AppVariables, RequestClass } from "./context.js";
 
-export type { RequestClass } from "./context";
+export type { RequestClass } from "./context.js";
 type DeadlineOptions = Partial<Record<RequestClass, number>>;
 
 const KNOWN_API_ROUTES = new Set([

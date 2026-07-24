@@ -1,14 +1,14 @@
 import type { Ctx, Route } from "@originloom/react/lib/types";
 
-import type { Assets } from "../assets";
-import { config } from "../config";
-import { renderDocument, renderDocumentToStream, streamToString } from "../document";
-import { logError } from "../logger";
-import { SpanKind, withSpan } from "../observability";
-import { renderRouteErrorDocument } from "../route-boundary";
-import { getRuntime } from "../runtime";
-import { rethrowRequestDeadline } from "./context";
-import type { RenderPhase, RouteExecution } from "./types";
+import type { Assets } from "../assets.js";
+import { config } from "../config.js";
+import { renderDocument, renderDocumentToStream, streamToString } from "../document.js";
+import { logError } from "../logger.js";
+import { SpanKind, withSpan } from "../observability.js";
+import { renderRouteErrorDocument } from "../route-boundary.js";
+import { getRuntime } from "../runtime.js";
+import { rethrowRequestDeadline } from "./context.js";
+import type { RenderPhase, RouteExecution } from "./types.js";
 
 export class CacheFillTimeoutError extends Error {
   constructor() {

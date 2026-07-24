@@ -1,10 +1,10 @@
 import { isRecord } from "@originloom/react/lib/runtime-schema";
 
-import { gatewayFetch } from "../../adapters/gateway";
-import { config } from "../../config";
-import { parseGatewayPayload, readGatewayJson } from "../../gateway-payload";
-import { logger } from "../../logger";
-import { isRequestDeadlineError } from "../request-deadline";
+import { gatewayFetch } from "../../adapters/gateway.js";
+import { config } from "../../config.js";
+import { parseGatewayPayload, readGatewayJson } from "../../gateway-payload.js";
+import { logger } from "../../logger.js";
+import { isRequestDeadlineError } from "../request-deadline.js";
 
 export type CmsRedirectRule =
   { kind: "redirect"; destination: string; status: 301 | 302 | 307 | 308 } | { kind: "gone" };

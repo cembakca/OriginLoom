@@ -1,8 +1,8 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { renderToString } from "react-dom/server";
 
-import type { Assets } from "./assets";
-import { tryGetRuntime } from "./runtime";
+import type { Assets } from "./assets.js";
+import { tryGetRuntime } from "./runtime.js";
 
 export function renderErrorPage(assets: Assets): string {
   const doc = tryGetRuntime()?.document;

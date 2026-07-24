@@ -2,18 +2,18 @@ import { stripUndefined } from "@originloom/react/lib/strip-undefined";
 import type { Route } from "@originloom/react/lib/types";
 import type { Handler } from "hono";
 
-import type { Assets } from "../assets";
-import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from "../handler";
+import type { Assets } from "../assets.js";
+import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from "../handler.js";
 import {
   finalizePipelineResponse,
   finalizeSsrResponse,
   runPipeline,
   shouldUsePipeline,
-} from "../middleware/pipeline";
-import { contextRequest } from "../middleware/request-deadline";
-import type { AppVariables } from "../middleware/request-id";
-import { setActiveHttpRoute } from "../observability";
-import { SsrCapacityError, ssrCapacityResponse } from "../ssr-capacity";
+} from "../middleware/pipeline.js";
+import { contextRequest } from "../middleware/request-deadline.js";
+import type { AppVariables } from "../middleware/request-id.js";
+import { setActiveHttpRoute } from "../observability.js";
+import { SsrCapacityError, ssrCapacityResponse } from "../ssr-capacity.js";
 
 export type Capacity = {
   run<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T>;

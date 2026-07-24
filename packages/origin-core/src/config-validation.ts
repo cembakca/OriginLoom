@@ -1,6 +1,6 @@
 import { isIP } from "node:net";
 
-import type { AppConfig } from "./config";
+import type { AppConfig } from "./config.js";
 
 export function assertPositiveInteger(name: string, value: number): void {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`Invalid ${name}: ${value}`);

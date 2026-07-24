@@ -4,19 +4,19 @@ import { match } from "@originloom/react/lib/match";
 import type { Route } from "@originloom/react/lib/types";
 import { resolveRoute } from "@originloom/react/routing";
 
-import type { Assets } from "./assets";
-import { config } from "./config";
-import { errorResponse } from "./error";
-import { logError } from "./logger";
-import { rethrowRequestDeadline } from "./ssr/context";
-import { resolveSsrRequest } from "./ssr/request-resolution";
-import { logRequest } from "./ssr/response";
-import { serveRoute } from "./ssr/serve-route";
-import type { HandleContext } from "./ssr/types";
+import type { Assets } from "./assets.js";
+import { config } from "./config.js";
+import { errorResponse } from "./error.js";
+import { logError } from "./logger.js";
+import { rethrowRequestDeadline } from "./ssr/context.js";
+import { resolveSsrRequest } from "./ssr/request-resolution.js";
+import { logRequest } from "./ssr/response.js";
+import { serveRoute } from "./ssr/serve-route.js";
+import type { HandleContext } from "./ssr/types.js";
 
-export { drainRevalidations } from "./cache/revalidation";
-export { handleHead } from "./ssr/head";
-export type { HandleContext } from "./ssr/types";
+export { drainRevalidations } from "./cache/revalidation.js";
+export { handleHead } from "./ssr/head.js";
+export type { HandleContext } from "./ssr/types.js";
 
 export function isSsrRouteRequest(request: Request, routeTable: Route[]): boolean {
   const resolution = resolveRoute(new URL(request.url), config.gatewayUrl);

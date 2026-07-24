@@ -1,4 +1,4 @@
-import { observeInvalidGatewayPayload } from "./metrics";
+import { observeInvalidGatewayPayload } from "./metrics.js";
 
 export type GatewayPayloadContract =
   | "account"

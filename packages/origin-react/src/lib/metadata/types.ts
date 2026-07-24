@@ -1,4 +1,4 @@
-import type { JsonLdObject } from "./jsonld";
+import type { JsonLdObject } from "./jsonld.js";
 
 /** Backend / CMS SEO payload (ISeoInfo subset). */
 export type SeoInfo = {

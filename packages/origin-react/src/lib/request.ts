@@ -17,7 +17,7 @@ export function cookie(request: Request, name: string): string | undefined {
 }
 
 /** Collapse the User-Agent into a small closed set so the cache key stays small. */
-export { device } from "./device";
+export { device } from "./device.js";
 
 export function locale(request: Request): string {
   const al = request.headers.get("accept-language") ?? "";

@@ -7,7 +7,7 @@ import {
   type ListKeysOptions,
   type ListKeysResult,
   type RateLimitResult,
-} from "./types";
+} from "./types.js";
 
 export class MemoryStore implements CacheStore {
   private store = new Map<string, CacheEntry>();

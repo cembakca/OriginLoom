@@ -1,9 +1,9 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
 import type { Ctx, Route, RouteError } from "@originloom/react/lib/types";
 
-import type { Assets } from "./assets";
-import { renderDocumentView } from "./document";
-import { getRuntime } from "./runtime";
+import type { Assets } from "./assets.js";
+import { renderDocumentView } from "./document.js";
+import { getRuntime } from "./runtime.js";
 
 export async function renderNotFoundDocument(
   assets: Assets,

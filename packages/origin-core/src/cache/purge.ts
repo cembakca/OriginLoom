@@ -1,7 +1,7 @@
-import { getRuntime } from "../runtime";
-import { cacheTopology, getCache } from "./index";
-import { type CacheKeyApiEntry, decodeCacheKeyFromApi, toCacheKeyApiEntry } from "./key-codec";
-import type { ListKeysOptions, ListKeysResult } from "./types";
+import { getRuntime } from "../runtime.js";
+import { cacheTopology, getCache } from "./index.js";
+import { type CacheKeyApiEntry, decodeCacheKeyFromApi, toCacheKeyApiEntry } from "./key-codec.js";
+import type { ListKeysOptions, ListKeysResult } from "./types.js";
 
 export type { CacheKeyApiEntry };
 

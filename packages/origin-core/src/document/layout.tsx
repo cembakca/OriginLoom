@@ -1,7 +1,7 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import type { FontAsset } from "../media";
-import { getRuntime } from "../runtime";
-import type { DocumentLayoutProps } from "./types";
+import type { FontAsset } from "../media.js";
+import { getRuntime } from "../runtime.js";
+import type { DocumentLayoutProps } from "./types.js";
 
 export function DocumentLayout({
   seo,

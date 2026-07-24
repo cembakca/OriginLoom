@@ -1,8 +1,8 @@
 import type Redis from "ioredis";
 
-import { logger } from "../logger";
-import type { MemoryStore } from "./memory";
-import type { TieredStore } from "./tiered";
+import { logger } from "../logger.js";
+import type { MemoryStore } from "./memory.js";
+import type { TieredStore } from "./tiered.js";
 
 export type InvalidationMessage =
   | { type: "key"; key: string }

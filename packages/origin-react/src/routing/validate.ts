@@ -1,5 +1,5 @@
-import { isExternalUrl } from "./pattern";
-import type { RedirectRule, RewriteRule } from "./types";
+import { isExternalUrl } from "./pattern.js";
+import type { RedirectRule, RewriteRule } from "./types.js";
 
 type Rule = RedirectRule | RewriteRule;
 type RuleKind = "redirect" | "rewrite";

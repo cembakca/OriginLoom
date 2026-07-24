@@ -1,10 +1,10 @@
 import type { CachePolicy } from "@originloom/react/lib/types";
 
-import { logError } from "../logger";
-import { observeCachePromotion } from "../metrics";
-import type { CacheInvalidationPublisher } from "./invalidation";
-import type { MemoryStore } from "./memory";
-import type { RedisStore } from "./redis";
+import { logError } from "../logger.js";
+import { observeCachePromotion } from "../metrics.js";
+import type { CacheInvalidationPublisher } from "./invalidation.js";
+import type { MemoryStore } from "./memory.js";
+import type { RedisStore } from "./redis.js";
 import {
   buildCacheEntry,
   type CacheEntry,
@@ -12,7 +12,7 @@ import {
   type ListKeysOptions,
   type ListKeysResult,
   type RateLimitResult,
-} from "./types";
+} from "./types.js";
 
 export type TieredStoreOptions = {
   l1: MemoryStore;

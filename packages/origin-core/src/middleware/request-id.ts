@@ -1,8 +1,8 @@
 import type { MiddlewareHandler } from "hono";
 
-import type { AppVariables } from "./context";
+import type { AppVariables } from "./context.js";
 
-export type { AppVariables } from "./context";
+export type { AppVariables } from "./context.js";
 
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 

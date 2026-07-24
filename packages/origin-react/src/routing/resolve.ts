@@ -1,6 +1,6 @@
-import { applyPattern, buildExternalUrl, isExternalUrl, matchPattern } from "./pattern";
-import { mergeSearchParams } from "./query";
-import type { RedirectRule, RewriteRule, RouteResolution } from "./types";
+import { applyPattern, buildExternalUrl, isExternalUrl, matchPattern } from "./pattern.js";
+import { mergeSearchParams } from "./query.js";
+import type { RedirectRule, RewriteRule, RouteResolution } from "./types.js";
 
 export type RoutingRulesConfig = {
   redirects: readonly RedirectRule[];

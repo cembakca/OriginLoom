@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 
-import { renderMetrics } from "./metrics";
-import type { AppVariables } from "./middleware/request-id";
+import { renderMetrics } from "./metrics.js";
+import type { AppVariables } from "./middleware/request-id.js";
 
 export type MetricsAppOptions = {
   /** Product-side internal BFF mounts (cache purge, ops endpoints). */

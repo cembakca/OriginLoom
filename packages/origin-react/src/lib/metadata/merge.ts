@@ -1,9 +1,9 @@
-import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url";
-import { stripUndefined } from "../strip-undefined";
-import type { Ctx } from "../types";
-import { baseStructuredData } from "./jsonld";
-import { siteMetadataConfig } from "./site-config";
-import type { PageMetadata, ResolvedMetadata, SiteMetadataConfig } from "./types";
+import { normalizeCanonicalUrl, normalizeMetadataImageUrl } from "../content-url.js";
+import { stripUndefined } from "../strip-undefined.js";
+import type { Ctx } from "../types.js";
+import { baseStructuredData } from "./jsonld.js";
+import { siteMetadataConfig } from "./site-config.js";
+import type { PageMetadata, ResolvedMetadata, SiteMetadataConfig } from "./types.js";
 
 function formatTitle(pageTitle: string | undefined, site: SiteMetadataConfig): string {
   if (!pageTitle || pageTitle === site.title.default) return site.title.default;
