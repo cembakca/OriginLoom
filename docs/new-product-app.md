@@ -26,13 +26,13 @@ pnpm create-app investment-web --version "^1.2.0"      # paket sürüm aralığ�
 pnpm create-app knowledge-web --workspace              # bu monorepo içinde apps/ altına
 ```
 
-| Bayrak               | Anlamı                                                                                                            |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `--workspace`        | Uygulamayı monorepo içinde `apps/<ad>` altına, `workspace:*` bağımlılıklarıyla kurar. Bayrak yoksa standalone.   |
-| `--target-dir <yol>` | Standalone uygulamanın oluşturulacağı üst dizin. Varsayılan: içinde bulunduğunuz dizin.                          |
-| `--version <aralık>` | Standalone modda `@originloom/*` bağımlılıklarının sürüm aralığı. Varsayılan `^0.1.0`.                           |
-| `--port <n>`         | Uygulamanın portu (metrics portu `n + 6000`). Varsayılan `3010`.                                                 |
-| `--title "..."`      | Görünen ad; site metadata, layout ve README'de kullanılır.                                                       |
+| Bayrak               | Anlamı                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--workspace`        | Uygulamayı monorepo içinde `apps/<ad>` altına, `workspace:*` bağımlılıklarıyla kurar. Bayrak yoksa standalone. |
+| `--target-dir <yol>` | Standalone uygulamanın oluşturulacağı üst dizin. Varsayılan: içinde bulunduğunuz dizin.                        |
+| `--version <aralık>` | Standalone modda `@originloom/*` bağımlılıklarının sürüm aralığı. Varsayılan `^0.1.0`.                         |
+| `--port <n>`         | Uygulamanın portu (metrics portu `n + 6000`). Varsayılan `3010`.                                               |
+| `--title "..."`      | Görünen ad; site metadata, layout ve README'de kullanılır.                                                     |
 
 Üretilen uygulama çalışır durumdadır: SSR sayfası, hydrate olan örnek bir island, cache'li HTML,
 `/healthz` ve `/readyz` hazır gelir. Standalone modda `pnpm install && pnpm dev`, workspace modda
