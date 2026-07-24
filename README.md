@@ -67,7 +67,7 @@ pnpm dev            # apps/showroom dev stack (Vite + mock gateway + SSR server)
 pnpm build          # apps/showroom production build
 pnpm test           # tüm projeler (vitest projects)
 pnpm ci             # typecheck + cycles + lint + format + coverage + build + smoke
-pnpm create-app     # yeni ürün uygulaması üretir (apps/<ad>)
+pnpm create-app     # yeni ürün uygulaması üretir (standalone; --workspace ile apps/<ad>)
 ```
 
 Aşağıdaki tablodaki uygulama komutları showroom kapsamındadır; kökten

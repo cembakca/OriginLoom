@@ -6,18 +6,32 @@
  * @originloom/react and is consumed, never copied.
  */
 
-/** @param {{ name: string; title: string; port: number; metricsPort: number }} vars */
-export function renderTemplates({ name, title, port, metricsPort }) {
+/**
+ * @param {{
+ *   name: string;
+ *   title: string;
+ *   port: number;
+ *   metricsPort: number;
+ *   mode: "workspace" | "standalone";
+ *   version: string;
+ * }} vars
+ */
+export function renderTemplates({ name, title, port, metricsPort, mode, version }) {
+  // Standalone apps live in their own repo and depend on the published
+  // @originloom/* packages; workspace apps sit in apps/<name> and link them
+  // via workspace:*. The two modes differ only in how they reach the packages
+  // and how they build — the app source they generate is identical.
+  const standalone = mode === "standalone";
   return {
-    "package.json": packageJson(name),
-    "tsconfig.json": tsconfig(),
+    "package.json": packageJson(name, { standalone, version }),
+    "tsconfig.json": tsconfig(standalone),
     "vite.config.ts": viteConfig(),
     "vite.server.config.ts": viteServerConfig(),
     "vitest.config.ts": vitestConfig(name),
     ".env.development": envDevelopment(port, metricsPort),
     ".env.production": envProduction(port, metricsPort),
-    "README.md": readme(name, title, port),
-    Dockerfile: dockerfile(name, port),
+    "README.md": readme(name, title, port, standalone),
+    Dockerfile: dockerfile(name, port, standalone),
 
     "server/index.ts": serverIndex(),
     "server/routes/index.ts": routesIndex(),
@@ -36,12 +50,16 @@ export function renderTemplates({ name, title, port, metricsPort }) {
     "src/lib/cache-keys.ts": cacheKeys(),
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
     "src/routing/rules.ts": routingRules(),
-    "src/styles/globals.css": globalsCss(),
+    "src/styles/globals.css": globalsCss(standalone),
   };
 }
 
-const packageJson = (name) =>
-  `${JSON.stringify(
+/** @param {{ standalone: boolean; version: string }} opts */
+const packageJson = (name, { standalone, version }) => {
+  // workspace apps link the packages by workspace:*; standalone apps pin the
+  // published version range passed via --version.
+  const originloom = standalone ? version : "workspace:*";
+  return `${JSON.stringify(
     {
       name,
       private: true,
@@ -59,8 +77,8 @@ const packageJson = (name) =>
       },
       dependencies: {
         "@hono/node-server": "^1.13.7",
-        "@originloom/core": "workspace:*",
-        "@originloom/react": "workspace:*",
+        "@originloom/core": originloom,
+        "@originloom/react": originloom,
         "@tailwindcss/vite": "^4.3.2",
         clsx: "^2.1.1",
         hono: "^4.6.14",
@@ -70,7 +88,7 @@ const packageJson = (name) =>
         tsx: "^4.19.2",
       },
       devDependencies: {
-        "@originloom/tooling": "workspace:*",
+        "@originloom/tooling": originloom,
         "@types/node": "^22.10.2",
         "@types/react": "^19.0.2",
         "@types/react-dom": "^19.0.2",
@@ -83,21 +101,50 @@ const packageJson = (name) =>
     null,
     2,
   )}\n`;
+};
 
-const tsconfig = () =>
-  `${JSON.stringify(
+// The compiler options the monorepo keeps in tsconfig.base.json. A standalone
+// app has no parent to extend, so it carries them inline.
+const BASE_COMPILER_OPTIONS = {
+  target: "ES2022",
+  lib: ["ES2022", "DOM", "DOM.Iterable"],
+  module: "ESNext",
+  moduleResolution: "bundler",
+  moduleDetection: "force",
+  jsx: "react-jsx",
+  strict: true,
+  noEmit: true,
+  esModuleInterop: true,
+  skipLibCheck: true,
+  isolatedModules: true,
+  verbatimModuleSyntax: true,
+  noUncheckedIndexedAccess: true,
+  noImplicitOverride: true,
+  forceConsistentCasingInFileNames: true,
+  noFallthroughCasesInSwitch: true,
+  exactOptionalPropertyTypes: true,
+  resolveJsonModule: true,
+  allowImportingTsExtensions: true,
+};
+
+const tsconfig = (standalone) => {
+  const appCompilerOptions = {
+    types: ["node", "vite/client"],
+    baseUrl: ".",
+    paths: { "~/*": ["./src/*"], "@server/*": ["./server/*"] },
+  };
+  const config = standalone
+    ? { compilerOptions: { ...BASE_COMPILER_OPTIONS, ...appCompilerOptions } }
+    : { extends: "../../tsconfig.base.json", compilerOptions: appCompilerOptions };
+  return `${JSON.stringify(
     {
-      extends: "../../tsconfig.base.json",
-      compilerOptions: {
-        types: ["node", "vite/client"],
-        baseUrl: ".",
-        paths: { "~/*": ["./src/*"], "@server/*": ["./server/*"] },
-      },
+      ...config,
       include: ["src", "server", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts"],
     },
     null,
     2,
   )}\n`;
+};
 
 const viteConfig = () => `import { resolve } from "node:path";
 
@@ -704,10 +751,11 @@ export function createRewrites(_gatewayUrl: string): RewriteRule[] {
 }
 `;
 
-const globalsCss = () => `@import "tailwindcss";
+const globalsCss = (standalone) => `@import "tailwindcss";
 
-/* Workspace packages live outside this app's root — scan them for utility classes. */
-@source "../../../../packages/origin-react/src";
+/* The React package renders utility classes outside this app's own source, so
+   Tailwind must scan it too — as workspace source, or as installed dist. */
+@source "${standalone ? "../../node_modules/@originloom/react/dist" : "../../../../packages/origin-react/src"}";
 
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif;
@@ -718,7 +766,10 @@ body {
 }
 `;
 
-const dockerfile = (name, port) => `# Build context is the repository root:
+const dockerfile = (name, port, standalone) =>
+  standalone ? standaloneDockerfile(name, port) : workspaceDockerfile(name, port);
+
+const workspaceDockerfile = (name, port) => `# Build context is the repository root:
 #   docker build -f apps/${name}/Dockerfile -t ${name} .
 FROM node:22-alpine AS builder
 
@@ -733,7 +784,27 @@ COPY . .
 RUN pnpm install --frozen-lockfile --offline
 RUN pnpm --filter ${name} typecheck && pnpm --filter ${name} build
 
-FROM node:22-alpine AS runner
+${dockerfileRunner(name, port, "/repo/apps/" + name + "/dist")}`;
+
+// Standalone build context is the app itself; installing pulls @originloom/*
+// from the registry, so the build host needs registry access.
+const standaloneDockerfile = (name, port) => `# Build context is this app's root:
+#   docker build -t ${name} .
+FROM node:22-alpine AS builder
+
+RUN corepack enable
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+RUN pnpm typecheck && pnpm build
+
+${dockerfileRunner(name, port, "/app/dist")}`;
+
+const dockerfileRunner = (name, port, distPath) => `FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -743,7 +814,7 @@ ENV PORT=${port}
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
 # The server bundle is self-contained (ssr.noExternal: true) — no node_modules needed.
-COPY --from=builder --chown=nodejs:nodejs /repo/apps/${name}/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs ${distPath} ./dist
 RUN printf '{"type":"module"}\\n' > package.json
 
 USER nodejs
@@ -756,7 +827,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
 CMD ["node", "--enable-source-maps", "dist/server/index.js"]
 `;
 
-const readme = (name, title, port) => `# ${title}
+const readme = (name, title, port, standalone) => `# ${title}
 
 OriginLoom ürün uygulaması. Platform runtime'ı \`@originloom/core\` ve \`@originloom/react\`
 paketlerinden gelir; bu repo yalnız route tablosunu, ürün kontratını ve kendi chrome'unu içerir.
@@ -764,11 +835,20 @@ paketlerinden gelir; bu repo yalnız route tablosunu, ürün kontratını ve ken
 ## Geliştirme
 
 \`\`\`bash
-pnpm install                 # repo kökünden, bir kez
-pnpm --filter ${name} dev
+${
+  standalone
+    ? `pnpm install                 # @originloom/* registry erişimi gerektirir
+pnpm dev`
+    : `pnpm install                 # repo kökünden, bir kez
+pnpm --filter ${name} dev`
+}
 \`\`\`
 
-Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`:5174\`) gelir.
+Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`:5174\`) gelir.${
+  standalone
+    ? `\nUpstream gateway'i \`.env.development\` içindeki \`GATEWAY_URL\` ile ayarlayın.`
+    : ""
+}
 
 ## Yapı
 
@@ -793,8 +873,13 @@ Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`
 ## Deploy
 
 \`\`\`bash
-pnpm --filter ${name} build          # dist/client + dist/server/index.js
-docker build -f apps/${name}/Dockerfile -t ${name} .
+${
+  standalone
+    ? `pnpm build                           # dist/client + dist/server/index.js
+docker build -t ${name} .`
+    : `pnpm --filter ${name} build          # dist/client + dist/server/index.js
+docker build -f apps/${name}/Dockerfile -t ${name} .`
+}
 \`\`\`
 
 Production'da \`SITE_URL\`, \`GATEWAY_URL\`, \`RELEASE_ID\` ve

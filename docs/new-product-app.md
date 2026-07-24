@@ -11,23 +11,34 @@ route tablosu + ürün kontratı yazarak yeni bir deployable üretmek.
 
 ## 0. Hızlı yol: generator
 
-Elle kurmak yerine CLI kullanın — aşağıdaki bölümlerin tamamını üretir:
+Elle kurmak yerine CLI kullanın — aşağıdaki bölümlerin tamamını üretir. İki mod vardır:
+
+- **standalone** (varsayılan): kendi reposunda duran, yayınlanmış `@originloom/*` paketlerine
+  bağımlı bağımsız bir uygulama. Ayrı bir ekip/repo bunu kullanır ([multi-repo modeli](./multi-product-adoption.md#4-15-proje-tek-repo--15-proje-tek-deploy)).
+- **`--workspace`**: bu monorepo içinde `apps/<ad>` altında, paketleri `workspace:*` ile bağlayan
+  uygulama. Platform ekibinin pilot app'leri için.
 
 ```bash
-pnpm create-app                                     # interaktif: isim ve başlık sorar
-pnpm create-app investment-web --port 3010          # doğrudan
-pnpm create-app investment-web --title "Yatırım" --install
+pnpm create-app                                        # interaktif, standalone
+pnpm create-app investment-web --title "Yatırım"       # standalone, cwd altına
+pnpm create-app investment-web --target-dir ~/projects # başka bir üst dizine
+pnpm create-app investment-web --version "^1.2.0"      # paket sürüm aralığını sabitle
+pnpm create-app knowledge-web --workspace              # bu monorepo içinde apps/ altına
 ```
 
-| Bayrak          | Anlamı                                                           |
-| --------------- | ---------------------------------------------------------------- |
-| `--port <n>`    | Uygulamanın portu (metrics portu `n + 6000`). Varsayılan `3010`. |
-| `--title "..."` | Görünen ad; site metadata, layout ve README'de kullanılır.       |
-| `--install`     | Üretimden sonra `pnpm install` çalıştırır.                       |
+| Bayrak               | Anlamı                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--workspace`        | Uygulamayı monorepo içinde `apps/<ad>` altına, `workspace:*` bağımlılıklarıyla kurar. Bayrak yoksa standalone.   |
+| `--target-dir <yol>` | Standalone uygulamanın oluşturulacağı üst dizin. Varsayılan: içinde bulunduğunuz dizin.                          |
+| `--version <aralık>` | Standalone modda `@originloom/*` bağımlılıklarının sürüm aralığı. Varsayılan `^0.1.0`.                           |
+| `--port <n>`         | Uygulamanın portu (metrics portu `n + 6000`). Varsayılan `3010`.                                                 |
+| `--title "..."`      | Görünen ad; site metadata, layout ve README'de kullanılır.                                                       |
 
-Üretilen uygulama çalışır durumdadır: `pnpm --filter <ad> dev` ile SSR sayfası, hydrate olan örnek
-bir island, cache'li HTML, `/healthz` ve `/readyz` hazır gelir. Sonraki bölümler generator'ın ne
-ürettiğini ve neden öyle ürettiğini açıklar — elle kurmak veya üretileni değiştirmek isteyenler için.
+Üretilen uygulama çalışır durumdadır: SSR sayfası, hydrate olan örnek bir island, cache'li HTML,
+`/healthz` ve `/readyz` hazır gelir. Standalone modda `pnpm install && pnpm dev`, workspace modda
+repo kökünden `pnpm install` sonrası `pnpm --filter <ad> dev` ile ayağa kalkar. Sonraki bölümler
+generator'ın ne ürettiğini ve neden öyle ürettiğini açıklar — elle kurmak veya üretileni değiştirmek
+isteyenler için.
 
 ---
 
@@ -59,6 +70,11 @@ apps/<product>-web/
 ```
 
 `pnpm-workspace.yaml` zaten `apps/*` kapsıyor; yeni klasör otomatik workspace üyesi olur.
+
+> **Standalone modda fark:** `package.json` paketleri `workspace:*` yerine sabit sürüm aralığıyla
+> (`--version`) referanslar, `tsconfig.json` ise `../../tsconfig.base.json`'a extends etmez —
+> base derleyici seçenekleri inline gelir. Yukarıdaki `apps/<product>-web/` ağacı yerine uygulama
+> kendi reposunun kökünde durur. Kalan dosya yapısı iki modda da aynıdır.
 
 ---
 
@@ -151,10 +167,14 @@ runIslandBootstrap((el) => {
 });
 ```
 
-Tailwind kullanıyorsanız `globals.css` içinde paylaşılan paketleri taramayı unutmayın:
+Tailwind kullanıyorsanız `globals.css` içinde paylaşılan paketleri taramayı unutmayın — workspace
+modda paketin kaynağı, standalone modda kurulu `dist`'i:
 
 ```css
+/* workspace */
 @source "../../../../packages/origin-react/src";
+/* standalone */
+@source "../../node_modules/@originloom/react/dist";
 ```
 
 ---
@@ -190,9 +210,11 @@ ile platforma tanıtılır — böylece purge API bilinmeyen pageId'yi reddeder.
 }
 ```
 
-Dockerfile `apps/showroom/Dockerfile`'ı kopyalayıp `--filter <product>-web` yapmak yeterlidir;
-build context repo köküdür ve server bundle'ı self-contained üretildiği için runner imajı yalnız
-`dist/` taşır.
+Workspace modda Dockerfile `apps/showroom/Dockerfile`'ı kopyalayıp `--filter <product>-web` yapmak
+yeterlidir; build context repo köküdür. Standalone modda ise generator'ın ürettiği Dockerfile
+kendi kökünden build alır (`docker build -t <ad> .`) ve `pnpm install` sırasında `@originloom/*`
+paketlerini registry'den çeker. Her iki durumda da server bundle'ı self-contained üretildiği için
+runner imajı yalnız `dist/` taşır.
 
 Her app kendi image'ını, kendi Deployment'ını ve kendi domain'ini alır. Biri deploy olurken
 diğeri etkilenmez.

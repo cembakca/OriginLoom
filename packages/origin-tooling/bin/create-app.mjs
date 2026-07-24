@@ -1,21 +1,28 @@
 #!/usr/bin/env node
 /**
- * Scaffolds a new OriginLoom product application under apps/<name>.
+ * Scaffolds a new OriginLoom product application.
+ *
+ * Two modes:
+ *   standalone (default) — a self-contained repo that depends on the published
+ *     @originloom/* packages. This is what a separate squad/repo uses.
+ *   --workspace          — an app inside this monorepo (apps/<name>), depending
+ *     on the packages via workspace:*. For the platform team's pilot apps.
  *
  * The generated app is intentionally thin: cache, auth, middleware, SSR pipeline
- * and the metadata engine come from @originloom/core and @originloom/react. What
- * it owns is a route table, the OriginRuntime implementation and its own chrome.
+ * and the metadata engine come from the packages. It owns a route table, the
+ * OriginRuntime implementation and its own chrome.
  *
  * Usage:
- *   origin-create-app                 # interactive
- *   origin-create-app investment-web
- *   origin-create-app investment-web --port 3010 --title "Yatırım" --install
+ *   origin-create-app                              # interactive, standalone
+ *   origin-create-app investment-web --title "Yatırım"
+ *   origin-create-app investment-web --target-dir ~/projects
+ *   origin-create-app investment-web --version "^1.2.0"
+ *   origin-create-app knowledge-web --workspace    # inside this monorepo
  */
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { createInterface } from "node:readline/promises";
 import { dirname, join, resolve } from "node:path";
-import { spawn } from "node:child_process";
+import { createInterface } from "node:readline/promises";
 
 import { renderTemplates } from "./create-app/templates.mjs";
 
@@ -23,22 +30,27 @@ const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const workspaceRoot = findWorkspaceRoot(process.cwd());
-  if (!workspaceRoot) {
-    fail("Not inside an OriginLoom workspace (no pnpm-workspace.yaml found).");
+
+  let workspaceRoot = null;
+  if (options.workspace) {
+    workspaceRoot = findWorkspaceRoot(process.cwd());
+    if (!workspaceRoot) {
+      fail("--workspace requires running inside an OriginLoom workspace (no pnpm-workspace.yaml).");
+    }
   }
 
   const prompt = await createPrompter(options);
-
   let name;
   let title;
   try {
     name = options.name ?? (await prompt("Project name (kebab-case, e.g. investment-web): "));
     assertValidName(name);
 
-    if (existsSync(join(workspaceRoot, "apps", name))) {
-      fail(`apps/${name} already exists.`);
-    }
+    const appDir = options.workspace
+      ? join(workspaceRoot, "apps", name)
+      : join(resolve(options.targetDir ?? process.cwd()), name);
+    if (existsSync(appDir)) fail(`${appDir} already exists.`);
+    options.appDir = appDir;
 
     const suggested = titleCase(name);
     title = options.title ?? (await prompt(`Display title [${suggested}]: `));
@@ -47,39 +59,52 @@ async function main() {
     prompt.close();
   }
 
-  const appDir = join(workspaceRoot, "apps", name);
   const port = options.port ?? 3010;
-  const metricsPort = port + 6000;
-
-  const files = renderTemplates({ name, title, port, metricsPort });
+  const files = renderTemplates({
+    name,
+    title,
+    port,
+    metricsPort: port + 6000,
+    mode: options.workspace ? "workspace" : "standalone",
+    version: options.version ?? "^0.1.0",
+  });
 
   for (const [relativePath, contents] of Object.entries(files)) {
-    const target = join(appDir, relativePath);
+    const target = join(options.appDir, relativePath);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, contents, "utf8");
   }
 
-  console.log(`\n✓ apps/${name} created (${Object.keys(files).length} files)\n`);
+  report({ ...options, name, port, appDir: options.appDir });
+}
 
-  if (options.install) {
-    console.log("Installing workspace dependencies…\n");
-    await run("pnpm", ["install"], workspaceRoot);
-    console.log(`\nNext: pnpm --filter ${name} dev  →  http://127.0.0.1:${port}\n`);
-  } else {
+function report(o) {
+  console.log(`\n✓ ${o.appDir} created (standalone: ${!o.workspace})\n`);
+  if (o.workspace) {
     console.log("Next steps:\n");
     console.log("  pnpm install");
-    console.log(`  pnpm --filter ${name} dev`);
-    console.log(`\nThe app will serve on http://127.0.0.1:${port}.\n`);
+    console.log(`  pnpm --filter ${o.name} dev\n`);
+    console.log(`The app will serve on http://127.0.0.1:${o.port}.\n`);
+    return;
   }
+  console.log("Next steps:\n");
+  console.log(`  cd ${o.appDir}`);
+  console.log("  git init");
+  console.log("  pnpm install        # needs access to the @originloom/* registry");
+  console.log("  pnpm dev\n");
+  console.log(`The app will serve on http://127.0.0.1:${o.port}.`);
+  console.log("Set GATEWAY_URL in .env.development to point at your gateway.\n");
 }
 
 function parseArgs(argv) {
-  const options = { install: false };
+  const options = { workspace: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--install") options.install = true;
+    if (arg === "--workspace") options.workspace = true;
     else if (arg === "--port") options.port = Number(argv[++i]);
     else if (arg === "--title") options.title = argv[++i];
+    else if (arg === "--target-dir") options.targetDir = argv[++i];
+    else if (arg === "--version") options.version = argv[++i];
     else if (arg.startsWith("--")) fail(`Unknown option: ${arg}`);
     else if (options.name === undefined) options.name = arg;
     else fail(`Unexpected argument: ${arg}`);
@@ -100,14 +125,12 @@ async function createPrompter(options) {
     noop.close = () => {};
     return noop;
   }
-
   if (process.stdin.isTTY) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     const ask = async (question) => (await rl.question(question)).trim();
     ask.close = () => rl.close();
     return ask;
   }
-
   const piped = (await readStdin()).split("\n");
   let index = 0;
   const ask = async (question) => {
@@ -151,17 +174,6 @@ function findWorkspaceRoot(start) {
     if (parent === current) return null;
     current = parent;
   }
-}
-
-function run(command, args, cwd) {
-  return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { cwd, stdio: "inherit" });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (code === 0) resolvePromise();
-      else reject(new Error(`${command} exited with code ${code}`));
-    });
-  });
 }
 
 function fail(message) {

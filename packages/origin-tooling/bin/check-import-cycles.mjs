@@ -5,10 +5,15 @@ import ts from "typescript";
 
 const root = process.cwd();
 const workspaceRoot = findWorkspaceRoot(root);
-const packageRoots = {
-  "@originloom/core": join(workspaceRoot, "packages/origin-core/src"),
-  "@originloom/react": join(workspaceRoot, "packages/origin-react/src"),
-};
+// In a workspace the platform packages are source dirs we also walk (and enforce
+// layering across). Standalone, they are external node_modules — checked only for
+// the app's own cycles.
+const packageRoots = workspaceRoot
+  ? {
+      "@originloom/core": join(workspaceRoot, "packages/origin-core/src"),
+      "@originloom/react": join(workspaceRoot, "packages/origin-react/src"),
+    }
+  : {};
 const sourceRoots = [join(root, "server"), join(root, "src"), ...Object.values(packageRoots)];
 const extensions = [".ts", ".tsx", ".js", ".mjs"];
 const files = (await Promise.all(sourceRoots.map(walk))).flat();
@@ -134,6 +139,7 @@ function scriptKind(file) {
 }
 
 async function walk(directory) {
+  if (!fsExistsSync(directory)) return [];
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(
     entries.map((entry) => {
@@ -149,6 +155,7 @@ async function walk(directory) {
 function assertLayering(importer, dependency) {
   const reactRoot = packageRoots["@originloom/react"];
   const coreRoot = packageRoots["@originloom/core"];
+  if (!reactRoot || !coreRoot) return; // standalone: packages are external, not walked
   if (importer.startsWith(reactRoot) && dependency.startsWith(coreRoot)) {
     throw new Error(
       `Layering violation: @originloom/react must not import @originloom/core (${relative(workspaceRoot, importer)} -> ${relative(workspaceRoot, dependency)})`,
@@ -156,12 +163,13 @@ function assertLayering(importer, dependency) {
   }
 }
 
+/** Returns the workspace root, or null when run in a standalone (single-app) repo. */
 function findWorkspaceRoot(start) {
   let current = start;
   for (;;) {
     if (fsExistsSync(join(current, "pnpm-workspace.yaml"))) return current;
     const parent = dirname(current);
-    if (parent === current) return start;
+    if (parent === current) return null;
     current = parent;
   }
 }
