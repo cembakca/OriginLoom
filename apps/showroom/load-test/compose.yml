@@ -5,10 +5,16 @@ name: origin-loom-loadtest
 
 services:
   mock-gw:
-    build: ../../../tools/mock-gw
+    # The gateway test fixture, run under a plain Node image (bind-mounted, no build).
+    image: node:22-alpine
+    working_dir: /gw
+    command: ["node", "server.js"]
+    volumes:
+      - ../tests/fixtures/gateway:/gw:ro
     cpus: 0.5
     mem_limit: 256m
     environment:
+      PORT: "4002"
       MARKET_STREAM_TOKEN: loadtest-market-stream-token
       MOCK_GW_QUIET: "1"
     healthcheck:

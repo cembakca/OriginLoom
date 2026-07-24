@@ -163,7 +163,7 @@ export default tseslint.config(
   },
   {
     files: [
-      "tools/mock-gw/**/*.js",
+      "apps/showroom/tests/fixtures/gateway/**/*.js",
       "packages/origin-tooling/bin/**/*.mjs",
       "apps/showroom/scripts/**/*.mjs",
       "apps/showroom/load-test/**/*.mjs",

@@ -15,9 +15,9 @@ function run(command, args, options = {}) {
 }
 
 async function prepareRedis() {
-  // app/mock-gw only exist as Docker services in the base compose file; stopping them here is
-  // harmless if they were never started and avoids port clashes with the host-run `npm run dev`.
-  await run("docker", ["compose", "stop", "app", "mock-gw"]);
+  // The app only exists as a Docker service in the base compose file; stopping it here is
+  // harmless if it was never started and avoids a port clash with the host-run `pnpm dev`.
+  await run("docker", ["compose", "stop", "app"]);
   await ensureLocalRedis();
 }
 

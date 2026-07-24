@@ -8,7 +8,7 @@ export default async function setup() {
   process.env.CLIENT_DIST_DIR = `${appRoot}/dist/client`;
   await import("@originloom/tooling/bin/build-media.mjs");
   process.env.MOCK_GW_QUIET = "1";
-  const { createMockGatewayServer } = await import("../../../tools/mock-gw/server.js");
+  const { createMockGatewayServer } = await import("./fixtures/gateway/server.js");
   const server = createMockGatewayServer();
   server.listen(0, "127.0.0.1");
   await once(server, "listening");

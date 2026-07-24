@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const root = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
 const loadTestDir = resolve(root, "load-test");
 
-/** Base stack: mock-gw + app (L1-only). */
+/** Base stack: app (L1-only). Gateway runs separately. */
 export const COMPOSE_BASE = ["-f", "docker-compose.yml"];
 
 /** Redis overlay — `redis` servisi yalnızca bu dosyayla tanımlı. */
@@ -33,7 +33,7 @@ export async function removeLocalRedis() {
 
 /**
  * @param {{ redis?: boolean, volumes?: boolean, removeOrphans?: boolean }} [options]
- * redis=true → overlay dosyalarıyla down (app + mock-gw + redis)
+ * redis=true → overlay dosyalarıyla down (app + redis)
  */
 export async function downDevStack(options = {}) {
   const { redis = false, volumes = false, removeOrphans = true } = options;

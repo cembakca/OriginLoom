@@ -7,7 +7,7 @@ function usage() {
 
 Options (default: --all without --volumes):
   --redis       Remove only the local Redis container (dev overlay)
-  --stack       Remove base compose stack (app + mock-gw)
+  --stack       Remove base compose stack (app)
   --loadtest    Remove load-test compose project
   --all         --stack + --redis + --loadtest (default when no target flag)
   --volumes     Also remove named/anonymous volumes on \`down\`

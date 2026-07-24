@@ -19,12 +19,12 @@ if (!existsSync("dist/server/index.js")) {
 
 loadEnv(appEnv);
 
-// Local dry run only: always talk to the host-run mock gateway, never the real
-// staging/production infrastructure `.env.${appEnv}` points at. Real deployments invoke
-// `npm run start`/`start:staging`/`start:memory` directly, without this override layer.
-const gatewayPort = 4002;
+// Local dry run only: talk to a locally-run gateway, never the real
+// staging/production infrastructure `.env.${appEnv}` points at. Start the gateway
+// yourself (GATEWAY_URL) — real deployments invoke `start`/`start:staging`/
+// `start:memory` directly, without this override layer.
 const appPort = Number(process.env.PORT ?? 3005);
-process.env.GATEWAY_URL = `http://127.0.0.1:${gatewayPort}`;
+process.env.GATEWAY_URL ??= "http://127.0.0.1:4002";
 process.env.SITE_URL = `http://127.0.0.1:${appPort}`;
 
 if (useRedis) {
@@ -110,5 +110,4 @@ function shutdown(signal, exitCode) {
 process.once("SIGINT", () => shutdown("SIGINT", 0));
 process.once("SIGTERM", () => shutdown("SIGTERM", 0));
 
-start("gateway", ["../../tools/mock-gw/server.js"], { PORT: String(gatewayPort) });
 start("server", ["--enable-source-maps", "dist/server/index.js"]);

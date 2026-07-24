@@ -1,11 +1,4 @@
 services:
-  mock-gw:
-    build: ../../tools/mock-gw
-    ports:
-      - "4002:4002"
-    environment:
-      MARKET_STREAM_TOKEN: dev-market-stream-token
-
   app:
     build:
       context: ../..
@@ -15,9 +8,11 @@ services:
     env_file:
       - .env.production
     environment:
-      # Override cluster-internal hostnames and secrets for local Docker simulation
+      # Override cluster-internal hostnames and secrets for local Docker simulation.
       CACHE_BACKEND: memory
-      GATEWAY_URL: http://mock-gw:4002
+      # Point at a gateway you run yourself. host.docker.internal reaches a gateway
+      # started on the host (e.g. the mock gateway: `pnpm --prefix ../mock-gw dev`).
+      GATEWAY_URL: ${GATEWAY_URL:-http://host.docker.internal:4002}
       RELEASE_ID: docker-compose
       SITE_URL: http://localhost:3005
       CACHE_PURGE_SECRET: dev-purge-secret
@@ -26,6 +21,5 @@ services:
       ALLOW_INSECURE_GATEWAY: "true"
       TRUSTED_PROXY_HOPS: "1"
       TRUSTED_PROXY_CIDRS: "172.16.0.0/12"
-    depends_on:
-      mock-gw:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

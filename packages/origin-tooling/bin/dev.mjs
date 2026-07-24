@@ -58,7 +58,7 @@ process.once("SIGTERM", () => shutdown("SIGTERM", 0));
 console.log(`[dev] env: ${process.env.APP_ENV} · cache: ${process.env.CACHE_BACKEND ?? "memory"}`);
 console.log(`[dev] Hono: ${appUrl.origin}`);
 console.log(`[dev] Vite: ${viteUrl.origin}`);
-console.log(`[dev] Gateway: ${gatewayUrl.origin}`);
+console.log(`[dev] Gateway: ${gatewayUrl.origin} (start it yourself; see GATEWAY_URL)`);
 
 start(
   "vite",
@@ -72,10 +72,8 @@ start(
   ],
   { SITE_URL: appUrl.origin },
 );
-start("gateway", [resolve(root, "../../tools/mock-gw/server.js")], {
-  HOST: gatewayUrl.hostname,
-  PORT: gatewayUrl.port || "4002",
-});
+// The gateway is not spawned here. Point GATEWAY_URL at a running upstream — a
+// shared dev/staging gateway, or a local mock started separately.
 start("server", [resolve(root, "node_modules/tsx/dist/cli.mjs"), "watch", "server/index.ts"], {
   NODE_ENV: "development",
   APP_ENV: "development",
