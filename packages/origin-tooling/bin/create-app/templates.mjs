@@ -49,10 +49,16 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
     ".editorconfig": asset("editorconfig"),
 
     "server/index.ts": serverIndex(),
+    "server/api/index.ts": apiIndex(),
     "server/routes/index.ts": routesIndex(),
     "server/routes/home.tsx": homeRoute(title),
     "server/routes/showcase.tsx": showcaseRoute(),
+    "server/routes/catalog.tsx": catalogRoute(),
+    "server/routes/item-detail.tsx": itemDetailRoute(),
+    "server/routes/account.tsx": accountRoute(),
+    "server/routes/live.tsx": liveRoute(),
     "server/services/shell-data.ts": serverShellData(),
+    "server/services/items.ts": itemsService(),
     "server/product/runtime.ts": productRuntime(),
     "server/product/document-shell.tsx": productDocumentShell(title),
     "server/product/boundary-pages.tsx": boundaryPages(),
@@ -61,12 +67,18 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
     "src/entry.client.tsx": entryClient(),
     "src/hydrate.client.tsx": hydrateClient(),
     "src/islands/counter.tsx": counterIsland(),
+    "src/islands/account-panel.tsx": accountPanelIsland(),
+    "src/islands/live-ticks.tsx": liveTicksIsland(),
     "src/features/home/home-page.tsx": homePage(),
     "src/features/showcase/showcase-page.tsx": showcasePage(),
     "src/features/showcase/server-time-fragment.tsx": serverTimeFragment(),
+    "src/features/catalog/catalog-page.tsx": catalogPage(),
+    "src/features/items/item-detail-page.tsx": itemDetailPage(),
+    "src/features/live/live-page.tsx": livePage(),
     "src/components/layout/root-layout.tsx": rootLayout(title),
     "src/lib/shell-data.ts": libShellData(),
     "src/lib/cache-keys.ts": cacheKeys(),
+    "src/lib/pagination.ts": paginationLib(),
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
     "src/routing/rules.ts": routingRules(),
     "src/styles/globals.css": globalsCss(standalone),
@@ -355,6 +367,7 @@ import { validateRoutingRules } from "@originloom/react/routing/validate";
 
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
+import { mountApi } from "./api";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
 
@@ -371,7 +384,12 @@ async function main() {
   await initCache();
 
   const assets = readAssets({ eagerIslands: [] });
-  const app = createApp({ assets, routes, isShuttingDown: () => shuttingDown });
+  const app = createApp({
+    assets,
+    routes,
+    mounts: { api: mountApi },
+    isShuttingDown: () => shuttingDown,
+  });
 
   httpServer = serve({ fetch: app.fetch, port: config.port }, (info) => {
     logger.info("server started", {
@@ -430,11 +448,15 @@ main().catch((err) => {
 
 const routesIndex = () => `import type { Route } from "@originloom/react/lib/types";
 
+import account from "./account";
+import catalog from "./catalog";
 import home from "./home";
+import itemDetail from "./item-detail";
+import live from "./live";
 import showcase from "./showcase";
 
 /** The route table. Order matters: the first match wins. */
-export const routes: Route[] = [home, showcase];
+export const routes: Route[] = [home, catalog, itemDetail, account, live, showcase];
 `;
 
 const homeRoute = (title) => `import { defineRoute } from "@originloom/react/lib/types";
@@ -571,6 +593,326 @@ describe("page cache registry", () => {
     }
   });
 });
+`;
+
+const itemsService =
+  () => `/** Stand-in for gateway data. Replace these with real calls in server/services/. */
+export type Item = { slug: string; name: string; blurb: string };
+
+const ITEMS: Item[] = [
+  { slug: "alpha", name: "Alpha", blurb: "İlk örnek kayıt." },
+  { slug: "beta", name: "Beta", blurb: "İkinci örnek kayıt." },
+  { slug: "gamma", name: "Gamma", blurb: "Üçüncü örnek kayıt." },
+  { slug: "delta", name: "Delta", blurb: "Dördüncü örnek kayıt." },
+  { slug: "epsilon", name: "Epsilon", blurb: "Beşinci örnek kayıt." },
+  { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt." },
+  { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt." },
+];
+
+export function getItem(slug: string): Item | undefined {
+  return ITEMS.find((item) => item.slug === slug);
+}
+
+export function listItems(page: number, perPage: number): { items: Item[]; total: number } {
+  const start = (page - 1) * perPage;
+  return { items: ITEMS.slice(start, start + perPage), total: ITEMS.length };
+}
+`;
+
+const apiIndex = () => `import type { AppVariables } from "@originloom/core/middleware/request-id";
+import type { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+
+/**
+ * Product BFF / API routes. Mounted before SSR dispatch, so anything under /api/*
+ * is handled here and never reaches a page route.
+ */
+export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
+  // Demo Server-Sent Events stream: emits the server time once a second until the
+  // client disconnects. The /live island consumes it with EventSource.
+  app.get("/api/ticks", (c) =>
+    streamSSE(c, async (stream) => {
+      while (!c.req.raw.signal.aborted) {
+        await stream.writeSSE({ event: "tick", data: new Date().toISOString() });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }),
+  );
+}
+`;
+
+const itemDetailRoute =
+  () => `import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { getItem, type Item } from "@server/services/items";
+
+import { ItemDetailPage } from "~/features/items/item-detail-page";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+type Data = { item: Item };
+
+export default defineRoute<Data>({
+  path: "/items/:slug",
+  // Reject unbounded / garbage slugs before any cache lookup or render.
+  validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
+  // The slug is part of the cache key (see cache-keys.ts), so each item caches on its own.
+  cache: (ctx) => pageCachePolicy(PageCacheId.itemDetail, ctx),
+  loader: async (ctx) => {
+    const item = getItem(ctx.params.slug ?? "");
+    // Terminal result, not a thrown error — an unknown slug is a 404, never cached.
+    return item ? { data: { item } } : notFound();
+  },
+  generateMetadata: (data, ctx) => ({
+    title: data.item.name,
+    description: data.item.blurb,
+    canonical: (ctx.siteUrl ?? ctx.url.origin) + "/items/" + data.item.slug,
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "item-detail"),
+  Component: ItemDetailPage,
+});
+`;
+
+const itemDetailPage = () => `import type { Item } from "@server/services/items";
+
+export function ItemDetailPage({ data }: { data: { item: Item } }) {
+  return (
+    <div className="space-y-4">
+      <a className="text-sm text-slate-500 hover:underline" href="/catalog">
+        ← Kataloğa dön
+      </a>
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{data.item.name}</h1>
+      <p className="max-w-2xl text-slate-600">{data.item.blurb}</p>
+      <p className="text-sm text-slate-500">
+        Bu sayfa dinamik bir route (<code>/items/:slug</code>). Slug cache key'e girer, bilinmeyen
+        slug <code>validateParams</code> + <code>notFound()</code> ile 404 olur.
+      </p>
+    </div>
+  );
+}
+`;
+
+const accountRoute = () => `import { Island } from "@originloom/react/lib/island";
+import { defineRoute } from "@originloom/react/lib/types";
+
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+/**
+ * Personal page: the document is never cached (registry strategy "never"), and the
+ * per-user content comes from a defer island that fetches client-side. This is the
+ * cache-safe personalization pattern — see the caching and islands skills.
+ */
+export default defineRoute({
+  path: "/account",
+  cache: (ctx) => pageCachePolicy(PageCacheId.account, ctx),
+  loader: async () => ({ data: {} }),
+  generateMetadata: () => ({
+    title: "Hesabım",
+    robots: { index: false, follow: false },
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "account"),
+  Component: () => (
+    <div className="space-y-4">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Hesabım</h1>
+      <Island name="account-panel" mode="defer">
+        <p className="text-slate-400">Kişisel bilgiler yükleniyor…</p>
+      </Island>
+    </div>
+  ),
+});
+`;
+
+const accountPanelIsland = () => `import { useEffect, useState } from "react";
+
+/**
+ * Defer island: the server renders only the fallback; the client mounts this and
+ * loads its own per-user data. Nothing here ever enters the shared page cache.
+ */
+export default function AccountPanel() {
+  const [now, setNow] = useState<string | null>(null);
+  useEffect(() => {
+    // Stand-in for a per-user BFF fetch — runs only in the browser.
+    setNow(new Date().toLocaleString());
+  }, []);
+  return (
+    <div className="rounded-md border border-slate-200 p-4">
+      <p className="font-medium text-slate-900">Merhaba 👋</p>
+      <p className="text-sm text-slate-600">
+        Bu blok yalnızca tarayıcıda render edildi{now ? <> — {now}</> : null}. Kişisel veri buraya
+        gelir ve hiçbir zaman paylaşılan cache'e girmez.
+      </p>
+    </div>
+  );
+}
+`;
+
+const catalogRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { type Item, listItems } from "@server/services/items";
+
+import { CatalogPage } from "~/features/catalog/catalog-page";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageParam } from "~/lib/pagination";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+const PER_PAGE = 3;
+
+type Data = { items: Item[]; page: number; totalPages: number };
+
+export default defineRoute<Data>({
+  path: "/catalog",
+  // Only the normalized ?page value changes the HTML, so only it enters the key.
+  cache: (ctx) => pageCachePolicy(PageCacheId.catalog, ctx),
+  loader: async (ctx) => {
+    const page = pageParam(ctx.url);
+    const { items, total } = listItems(page, PER_PAGE);
+    return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / PER_PAGE)) } };
+  },
+  title: () => "Katalog",
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "catalog"),
+  Component: CatalogPage,
+});
+`;
+
+const catalogPage = () => `import type { Item } from "@server/services/items";
+
+type Props = { data: { items: Item[]; page: number; totalPages: number } };
+
+export function CatalogPage({ data }: Props) {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Katalog</h1>
+      <ul className="divide-y divide-slate-100">
+        {data.items.map((item) => (
+          <li key={item.slug} className="py-3">
+            <a className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
+              {item.name}
+            </a>
+            <p className="text-sm text-slate-500">{item.blurb}</p>
+          </li>
+        ))}
+      </ul>
+      <nav className="flex items-center gap-4 text-sm">
+        {data.page > 1 ? (
+          <a className="text-slate-700 hover:underline" href={"?page=" + (data.page - 1)}>
+            ← Önceki
+          </a>
+        ) : (
+          <span className="text-slate-300">← Önceki</span>
+        )}
+        <span aria-current="page" className="text-slate-500">
+          Sayfa {data.page} / {data.totalPages}
+        </span>
+        {data.page < data.totalPages ? (
+          <a className="text-slate-700 hover:underline" href={"?page=" + (data.page + 1)}>
+            Sonraki →
+          </a>
+        ) : (
+          <span className="text-slate-300">Sonraki →</span>
+        )}
+      </nav>
+      <p className="text-sm text-slate-500">
+        Query param (<code>?page</code>) allowlist ile cache key'e girer; tracking param'ları
+        girmez.
+      </p>
+    </div>
+  );
+}
+`;
+
+const liveRoute = () => `import { neverCache } from "@originloom/react/lib/cache-policy";
+import { defineRoute } from "@originloom/react/lib/types";
+
+import { LivePage } from "~/features/live/live-page";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+type Data = { slowMessage: Promise<string> };
+
+export default defineRoute<Data>({
+  path: "/live",
+  // Progressive HTML: the shell streams first, Suspense boundaries fill in later.
+  streaming: true,
+  cache: () => neverCache(),
+  loader: async () => ({
+    data: {
+      // Resolves after the shell has already streamed — Suspense fills it in.
+      slowMessage: new Promise<string>((resolve) => {
+        setTimeout(() => resolve(new Date().toISOString()), 600);
+      }),
+    },
+  }),
+  title: () => "Canlı veri",
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "live"),
+  Component: LivePage,
+});
+`;
+
+const livePage = () => `import { Island } from "@originloom/react/lib/island";
+import { Suspense, use } from "react";
+
+export function LivePage({ data }: { data: { slowMessage: Promise<string> } }) {
+  return (
+    <div className="space-y-8">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Canlı veri</h1>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold text-slate-800">1) Sunucu streaming (Suspense)</h2>
+        <p className="text-sm text-slate-500">
+          Sayfa hemen döner; aşağıdaki değer sunucuda geç hazır olunca stream edilir.
+        </p>
+        <Suspense fallback={<p className="text-slate-400">Yükleniyor…</p>}>
+          <SlowMessage promise={data.slowMessage} />
+        </Suspense>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold text-slate-800">2) SSE (client island)</h2>
+        <p className="text-sm text-slate-500">
+          Defer island tarayıcıda <code>/api/ticks</code> SSE akışına bağlanır.
+        </p>
+        <Island name="live-ticks" mode="defer">
+          <p className="text-slate-400">Bağlanıyor…</p>
+        </Island>
+      </section>
+    </div>
+  );
+}
+
+function SlowMessage({ promise }: { promise: Promise<string> }) {
+  const message = use(promise);
+  return (
+    <p className="text-slate-700">
+      Sunucudan geç gelen değer: <code>{message}</code>
+    </p>
+  );
+}
+`;
+
+const liveTicksIsland = () => `import { useEffect, useState } from "react";
+
+/** Defer island: subscribes to the /api/ticks SSE stream in the browser. */
+export default function LiveTicks() {
+  const [tick, setTick] = useState("bağlanıyor…");
+  useEffect(() => {
+    const source = new EventSource("/api/ticks");
+    source.addEventListener("tick", (event) => setTick((event as MessageEvent).data));
+    source.onerror = () => source.close();
+    return () => source.close();
+  }, []);
+  return (
+    <p className="text-slate-700">
+      Son tick: <code>{tick}</code>
+    </p>
+  );
+}
+`;
+
+const paginationLib =
+  () => `/** Reads a 1-based page number from ?page, clamped to a sane minimum. */
+export function pageParam(url: URL): number {
+  const raw = Number(url.searchParams.get("page"));
+  return Number.isInteger(raw) && raw >= 1 ? raw : 1;
+}
 `;
 
 const serverShellData = () => `import type { Ctx } from "@originloom/react/lib/types";
@@ -763,10 +1105,43 @@ export function HomePage({ data }: { data: { greeting: string } }) {
           Tıklandı: 0
         </button>
       </Island>
-      <p className="text-sm text-slate-500">
-        Sonraki adım: <code>server/routes/</code> altına route ekle, <code>src/features/</code>{" "}
-        altında bileşenini yaz.
-      </p>
+
+      <section className="space-y-2 border-t border-slate-100 pt-6">
+        <h2 className="font-semibold text-slate-800">Örnek route'lar</h2>
+        <p className="text-sm text-slate-500">Her biri farklı bir platform yeteneğini gösterir:</p>
+        <ul className="space-y-1 text-slate-700">
+          <li>
+            <a className="hover:underline" href="/catalog">
+              /catalog
+            </a>{" "}
+            — sayfalı liste (query param cache key'de)
+          </li>
+          <li>
+            <a className="hover:underline" href="/items/alpha">
+              /items/:slug
+            </a>{" "}
+            — dinamik route, <code>validateParams</code> + <code>notFound()</code> + SEO
+          </li>
+          <li>
+            <a className="hover:underline" href="/account">
+              /account
+            </a>{" "}
+            — kişisel sayfa: <code>neverCache</code> + defer island
+          </li>
+          <li>
+            <a className="hover:underline" href="/live">
+              /live
+            </a>{" "}
+            — sunucu streaming (Suspense) + SSE island
+          </li>
+          <li>
+            <a className="hover:underline" href="/showcase">
+              /showcase
+            </a>{" "}
+            — bağımsız cache'lenen fragment
+          </li>
+        </ul>
+      </section>
     </div>
   );
 }
@@ -866,6 +1241,7 @@ const cacheKeys =
 import { locale } from "@originloom/react/lib/request";
 import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
 
+import { pageParam } from "~/lib/pagination";
 import { layoutCacheFragment } from "~/lib/shell-data";
 
 /**
@@ -874,6 +1250,9 @@ import { layoutCacheFragment } from "~/lib/shell-data";
  */
 export const PageCacheId = {
   home: "home",
+  catalog: "catalog",
+  itemDetail: "item-detail",
+  account: "account",
   showcase: "showcase",
 } as const;
 
@@ -903,6 +1282,40 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     ttl: 3600,
     // Only normalized values that actually change the HTML belong in the key.
     buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
+  },
+  [PageCacheId.catalog]: {
+    id: PageCacheId.catalog,
+    description: "Katalog (sayfalı)",
+    path: "/catalog",
+    strategy: "shared",
+    // Only the normalized page number changes the HTML, so only it enters the key.
+    buildKey: (ctx) => [
+      "catalog",
+      String(pageParam(ctx.url)),
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
+    ],
+  },
+  [PageCacheId.itemDetail]: {
+    id: PageCacheId.itemDetail,
+    description: "Ürün detayı",
+    path: "/items/:slug",
+    strategy: "shared",
+    // The slug fragments the cache — each item gets its own entry.
+    buildKey: (ctx) => [
+      "item-detail",
+      ctx.params.slug ?? "",
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
+    ],
+  },
+  [PageCacheId.account]: {
+    id: PageCacheId.account,
+    description: "Hesabım (kişisel — cache'lenmez)",
+    path: "/account",
+    // Personal page: never written to the shared HTML cache.
+    strategy: "never",
+    buildKey: () => ["account"],
   },
   [PageCacheId.showcase]: {
     id: PageCacheId.showcase,

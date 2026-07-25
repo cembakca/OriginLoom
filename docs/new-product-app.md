@@ -48,8 +48,16 @@ isteyenler için.
   (`pnpm lint`, `pnpm format`). Üretilen kod kendi lint/format kapısından temiz geçer.
 - **Örnek test:** `tests/home.test.ts` — geçen bir vitest testi; harness çalışır ve kopyalanacak bir
   kalıp bırakır.
-- **Fragment örneği:** `/showcase` route'u, bağımsız cache'lenen bir fragment'ı (`<ssr-fragment>`)
-  gösterir — sayfa 1 saat, içindeki blok kendi 15 sn TTL'i ile cache'lenir.
+- **Örnek route'lar** — her biri farklı bir platform yeteneğini gösterir; ana sayfa hepsine link verir:
+
+  | Route          | Gösterdiği yetenek                                                              |
+  | -------------- | ------------------------------------------------------------------------------- |
+  | `/` (home)     | Hydrate island + shared cache                                                   |
+  | `/catalog`     | Sayfalama — normalize `?page` cache key'de, SSR sayfa linkleri                  |
+  | `/items/:slug` | Dinamik route — `validateParams`, `notFound()`, slug cache key'de, SEO metadata |
+  | `/account`     | Kişisel sayfa — `neverCache` + `mode="defer"` island (cache-safe)               |
+  | `/live`        | Sunucu streaming (Suspense) + SSE island (`/api/ticks` mount)                   |
+  | `/showcase`    | Bağımsız cache'lenen fragment (`<ssr-fragment>`, kendi 15 sn TTL'i)             |
 
 ### Claude Code entegrasyonu
 

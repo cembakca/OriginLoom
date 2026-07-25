@@ -260,3 +260,53 @@ describe("renderTemplates — project features", () => {
     );
   });
 });
+
+describe("renderTemplates — example routes", () => {
+  it("ships all example route files and registers them", () => {
+    const files = standalone();
+    for (const path of [
+      "server/routes/catalog.tsx",
+      "server/routes/item-detail.tsx",
+      "server/routes/account.tsx",
+      "server/routes/live.tsx",
+      "server/services/items.ts",
+      "server/api/index.ts",
+      "src/features/catalog/catalog-page.tsx",
+      "src/features/items/item-detail-page.tsx",
+      "src/features/live/live-page.tsx",
+      "src/islands/account-panel.tsx",
+      "src/islands/live-ticks.tsx",
+      "src/lib/pagination.ts",
+    ]) {
+      expect(files, `missing ${path}`).toHaveProperty([path]);
+    }
+    const routeTable = files["server/routes/index.ts"];
+    for (const id of ["catalog", "itemDetail", "account", "live"]) {
+      expect(routeTable, `route ${id} not registered`).toContain(id);
+    }
+  });
+
+  it("demonstrates a dynamic route with validateParams + notFound + a slug cache key", () => {
+    const route = standalone()["server/routes/item-detail.tsx"];
+    expect(route).toContain('path: "/items/:slug"');
+    expect(route).toContain("validateParams");
+    expect(route).toContain("notFound()");
+    expect(route).toContain("generateMetadata");
+    expect(standalone()["src/lib/cache-keys.ts"]).toContain("ctx.params.slug");
+  });
+
+  it("makes the personal route never-cached (registry strategy) with a defer island", () => {
+    const cacheKeys = standalone()["src/lib/cache-keys.ts"];
+    expect(cacheKeys).toMatch(/account[\s\S]*?strategy: "never"/);
+    expect(standalone()["server/routes/account.tsx"]).toContain('mode="defer"');
+  });
+
+  it("wires streaming + SSE: streaming route, Suspense, EventSource island, /api/ticks mount", () => {
+    const files = standalone();
+    expect(files["server/routes/live.tsx"]).toContain("streaming: true");
+    expect(files["src/features/live/live-page.tsx"]).toContain("Suspense");
+    expect(files["src/islands/live-ticks.tsx"]).toContain("new EventSource");
+    expect(files["server/api/index.ts"]).toContain('"/api/ticks"');
+    expect(files["server/index.ts"]).toContain("mounts: { api: mountApi }");
+  });
+});
