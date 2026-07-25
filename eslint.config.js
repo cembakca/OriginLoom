@@ -165,6 +165,7 @@ export default tseslint.config(
     files: [
       "apps/showroom/tests/fixtures/gateway/**/*.js",
       "packages/origin-tooling/bin/**/*.mjs",
+      "packages/origin-tooling/tests/**/*.mjs",
       "apps/showroom/scripts/**/*.mjs",
       "apps/showroom/load-test/**/*.mjs",
       "apps/showroom/tests/**/*.mjs",
