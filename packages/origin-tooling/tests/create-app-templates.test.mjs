@@ -155,14 +155,18 @@ describe("renderTemplates — workspace mode", () => {
   });
 });
 
-describe("renderTemplates — Claude skills", () => {
+describe("renderTemplates — Claude Code integration", () => {
   const EXPECTED = [
     "originloom-overview",
     "add-page",
     "caching",
+    "data-loading",
     "islands",
+    "metadata-seo",
     "tailwind-styling",
     "code-conventions",
+    "testing",
+    "check",
   ];
 
   it("ships every skill under .claude/skills/<name>/SKILL.md in both modes", () => {
@@ -181,5 +185,25 @@ describe("renderTemplates — Claude skills", () => {
       expect(body).toMatch(new RegExp(`^name:\\s*${name}\\s*$`, "m"));
       expect(body).toMatch(/^description:\s*\S/m);
     }
+  });
+
+  it("marks /check as manual-only (never auto-invoked)", () => {
+    const body = standalone()[".claude/skills/check/SKILL.md"];
+    expect(body).toMatch(/^disable-model-invocation:\s*true\s*$/m);
+  });
+
+  it("ships an always-loaded CLAUDE.md that points at the skills", () => {
+    const claudeMd = standalone()["CLAUDE.md"];
+    expect(claudeMd).toContain("OriginLoom");
+    expect(claudeMd).toContain(".claude/skills/");
+    expect(claudeMd).not.toMatch(/^---\n/); // CLAUDE.md takes no frontmatter
+  });
+
+  it("pre-approves only safe commands and never publish/push", () => {
+    const settings = JSON.parse(standalone()[".claude/settings.json"]);
+    expect(settings.permissions.allow).toContain("Bash(pnpm test)");
+    expect(settings.permissions.allow).toContain("Bash(pnpm typecheck)");
+    const joined = settings.permissions.allow.join(" ");
+    expect(joined).not.toMatch(/publish|push|Bash\(\*\)/);
   });
 });

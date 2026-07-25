@@ -29,15 +29,15 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
 - Reach the platform through `@originloom/core/*` and `@originloom/react/*`.
 - Inside the app use the aliases: `~/` → `src`, `@server/` → `server`. Don't write
   long relative `../../..` chains.
-- Imports are sorted (eslint `simple-import-sort`) — run `pnpm lint` / let the
-  formatter fix ordering.
-- Type-only imports are separated: `import type { Ctx } from "…"`.
+- Keep imports grouped and sorted: node/external first, then `@originloom/*`, then
+  `~/`/`@server/`. Separate type-only imports: `import type { Ctx } from "…"`.
+  (A fresh app ships no linter; the platform repo enforces this ordering with
+  eslint's `simple-import-sort` — follow it by hand, or add eslint.)
 
 ## TypeScript
 
-- `strict` is on and `any` is a lint error. Model gateway JSON with real types and
-  validate it in `server/services/` — a TypeScript cast does not make untrusted
-  JSON safe.
+- `strict` is on. Avoid `any`. Model gateway JSON with real types and validate it
+  in `server/services/` — a TypeScript cast does not make untrusted JSON safe.
 - Prefer explicit return values over thrown control flow in loaders
   (`notFound()`, `redirect()`, `routeError()`).
 
@@ -54,7 +54,8 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
 
 ```bash
 pnpm typecheck
-pnpm lint
-pnpm test
 pnpm check:cycles   # no import cycles; @originloom/react must not import core
+pnpm test
 ```
+
+Or just run `/check`.

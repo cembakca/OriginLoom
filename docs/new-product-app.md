@@ -40,22 +40,33 @@ repo kökünden `pnpm install` sonrası `pnpm --filter <ad> dev` ile ayağa kalk
 generator'ın ne ürettiğini ve neden öyle ürettiğini açıklar — elle kurmak veya üretileni değiştirmek
 isteyenler için.
 
-### Claude Code skill'leri
+### Claude Code entegrasyonu
 
-Üretilen her uygulama `.claude/skills/` altında bu kod tabanının kalıplarını anlatan bir skill seti
-ile gelir — Claude Code onları otomatik keşfeder ve ilgili işte devreye sokar:
+Üretilen her uygulama, Claude Code'un bu kod tabanını otomatik anlaması için hazır gelir:
 
-| Skill                 | Ne zaman                                                            |
-| --------------------- | ------------------------------------------------------------------- |
-| `originloom-overview` | Platform/ürün ayrımı ve enjeksiyon kontratı — önce bu               |
-| `add-page`            | Yeni route/sayfa ekleme (cache-key → defineRoute → tablo → bileşen) |
-| `caching`             | Cache katmanı: registry, key kuralları, TTL/SWR, bypass             |
-| `islands`             | Client etkileşimi / hydration (hydrate vs defer)                    |
-| `tailwind-styling`    | Tailwind v4 kullanımı ve `@source` tarama tuzağı                    |
-| `code-conventions`    | Klasör yapısı, isimlendirme, import kuralları, TS                   |
+- **`CLAUDE.md`** — her oturumda yüklenen kısa proje kılavuzu (platform/ürün ayrımı, sert kurallar,
+  komutlar, skill'lere yönlendirme).
+- **`.claude/settings.json`** — güvenli, günlük komutları (test, typecheck, build, dev, cycles, smoke,
+  git read'leri) ön-onaylar; `publish`/`push`/wildcard yok, izin sorusu azalır.
+- **`.claude/skills/`** — göreve özel skill seti. Claude Code bunları açıklamalarına göre otomatik
+  keşfeder; `/<ad>` ile de doğrudan çağrılır.
 
-Kaynakları `packages/origin-tooling/bin/create-app/skills/*.md` altındadır; skill eklemek/güncellemek
-için oraya bir `.md` dosyası düşürmek yeterli — generator hepsini otomatik kopyalar.
+| Skill                 | Ne zaman                                                               |
+| --------------------- | ---------------------------------------------------------------------- |
+| `originloom-overview` | Platform/ürün ayrımı ve enjeksiyon kontratı — önce bu                  |
+| `add-page`            | Yeni route/sayfa ekleme (cache-key → defineRoute → tablo → bileşen)    |
+| `caching`             | Cache katmanı: registry, key kuralları, TTL/SWR, bypass                |
+| `data-loading`        | Loader'lar, `server/services/`, gateway çağrıları, cache-safety        |
+| `islands`             | Client etkileşimi / hydration (hydrate vs defer)                       |
+| `metadata-seo`        | Başlık, canonical, OG/Twitter, robots, JSON-LD                         |
+| `tailwind-styling`    | Tailwind v4 kullanımı ve `@source` tarama tuzağı                       |
+| `code-conventions`    | Klasör yapısı, isimlendirme, import kuralları, TS                      |
+| `testing`             | Vitest kurulumu ve ne test edilmeli                                    |
+| `/check`              | Yerel kalite kapısı (typecheck + cycles + test) — sadece elle çağrılır |
+
+Skill kaynakları `packages/origin-tooling/bin/create-app/skills/*.md`, `CLAUDE.md` ise
+`bin/create-app/assets/` altındadır; yeni skill eklemek için `skills/` içine bir `.md` düşürmek
+yeterli — generator hepsini otomatik kopyalar.
 
 ---
 

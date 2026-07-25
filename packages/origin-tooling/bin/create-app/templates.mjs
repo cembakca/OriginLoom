@@ -5,7 +5,14 @@
  * SSR pipeline, island runtime, metadata engine — stays in @originloom/core and
  * @originloom/react and is consumed, never copied.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { renderSkills } from "./skills.mjs";
+
+/** Reads a verbatim asset shipped alongside the generator (packed via files: ["bin"]). */
+const asset = (name) =>
+  readFileSync(fileURLToPath(new URL(`./assets/${name}`, import.meta.url)), "utf8");
 
 /**
  * @param {{
@@ -53,11 +60,40 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
     "src/routing/rules.ts": routingRules(),
     "src/styles/globals.css": globalsCss(standalone),
 
-    // Claude Code skills — teach Claude this codebase's patterns automatically.
-    // Identical in both modes; the generated app source they describe is too.
+    // Claude Code integration — an always-loaded project guide, a pre-approved
+    // permission allowlist, and the skill set. Identical in both modes; the
+    // generated app source they describe is too.
+    "CLAUDE.md": asset("generated-claude.md"),
+    ".claude/settings.json": claudeSettings(),
     ...renderSkills(),
   };
 }
+
+// Pre-approve the safe, everyday commands this app actually ships, so Claude Code
+// runs them without a permission prompt. Deliberately conservative — no publish,
+// no push, no wildcards.
+const claudeSettings = () =>
+  `${JSON.stringify(
+    {
+      permissions: {
+        allow: [
+          "Bash(pnpm install)",
+          "Bash(pnpm dev)",
+          "Bash(pnpm build)",
+          "Bash(pnpm typecheck)",
+          "Bash(pnpm check:cycles)",
+          "Bash(pnpm test)",
+          "Bash(pnpm test:*)",
+          "Bash(pnpm smoke)",
+          "Bash(git status)",
+          "Bash(git diff:*)",
+          "Bash(git log:*)",
+        ],
+      },
+    },
+    null,
+    2,
+  )}\n`;
 
 /** @param {{ standalone: boolean; version: string }} opts */
 const packageJson = (name, { standalone, version }) => {
