@@ -5,6 +5,7 @@
  * SSR pipeline, island runtime, metadata engine — stays in @originloom/core and
  * @originloom/react and is consumed, never copied.
  */
+import { renderSkills } from "./skills.mjs";
 
 /**
  * @param {{
@@ -51,6 +52,10 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
     "src/routing/rules.ts": routingRules(),
     "src/styles/globals.css": globalsCss(standalone),
+
+    // Claude Code skills — teach Claude this codebase's patterns automatically.
+    // Identical in both modes; the generated app source they describe is too.
+    ...renderSkills(),
   };
 }
 

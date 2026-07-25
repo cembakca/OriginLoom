@@ -154,3 +154,32 @@ describe("renderTemplates — workspace mode", () => {
     expect(readme).toContain("pnpm --filter demo-web dev");
   });
 });
+
+describe("renderTemplates — Claude skills", () => {
+  const EXPECTED = [
+    "originloom-overview",
+    "add-page",
+    "caching",
+    "islands",
+    "tailwind-styling",
+    "code-conventions",
+  ];
+
+  it("ships every skill under .claude/skills/<name>/SKILL.md in both modes", () => {
+    for (const files of [standalone(), workspace()]) {
+      for (const name of EXPECTED) {
+        expect(files, `missing skill ${name}`).toHaveProperty([`.claude/skills/${name}/SKILL.md`]);
+      }
+    }
+  });
+
+  it("gives each skill frontmatter whose name matches its directory", () => {
+    const files = standalone();
+    for (const name of EXPECTED) {
+      const body = files[`.claude/skills/${name}/SKILL.md`];
+      expect(body.startsWith("---\n")).toBe(true);
+      expect(body).toMatch(new RegExp(`^name:\\s*${name}\\s*$`, "m"));
+      expect(body).toMatch(/^description:\s*\S/m);
+    }
+  });
+});

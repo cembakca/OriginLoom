@@ -40,6 +40,23 @@ repo kökünden `pnpm install` sonrası `pnpm --filter <ad> dev` ile ayağa kalk
 generator'ın ne ürettiğini ve neden öyle ürettiğini açıklar — elle kurmak veya üretileni değiştirmek
 isteyenler için.
 
+### Claude Code skill'leri
+
+Üretilen her uygulama `.claude/skills/` altında bu kod tabanının kalıplarını anlatan bir skill seti
+ile gelir — Claude Code onları otomatik keşfeder ve ilgili işte devreye sokar:
+
+| Skill                 | Ne zaman                                                            |
+| --------------------- | ------------------------------------------------------------------- |
+| `originloom-overview` | Platform/ürün ayrımı ve enjeksiyon kontratı — önce bu               |
+| `add-page`            | Yeni route/sayfa ekleme (cache-key → defineRoute → tablo → bileşen) |
+| `caching`             | Cache katmanı: registry, key kuralları, TTL/SWR, bypass             |
+| `islands`             | Client etkileşimi / hydration (hydrate vs defer)                    |
+| `tailwind-styling`    | Tailwind v4 kullanımı ve `@source` tarama tuzağı                    |
+| `code-conventions`    | Klasör yapısı, isimlendirme, import kuralları, TS                   |
+
+Kaynakları `packages/origin-tooling/bin/create-app/skills/*.md` altındadır; skill eklemek/güncellemek
+için oraya bir `.md` dosyası düşürmek yeterli — generator hepsini otomatik kopyalar.
+
 ---
 
 ## 1. İskelet
