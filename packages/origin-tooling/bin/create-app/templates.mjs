@@ -59,6 +59,13 @@ const packageJson = (name, { standalone, version }) => {
   // workspace apps link the packages by workspace:*; standalone apps pin the
   // published version range passed via --version.
   const originloom = standalone ? version : "workspace:*";
+  // In a workspace, native build scripts are approved once at the repo root
+  // (pnpm-workspace.yaml). A standalone repo is its own root, so it must approve
+  // the ones its dependency tree pulls in — otherwise pnpm install prints an
+  // "Ignored build scripts" warning. Mirrors the platform's trusted set.
+  const pnpm = standalone
+    ? { onlyBuiltDependencies: ["@tailwindcss/oxide", "esbuild", "protobufjs", "sharp"] }
+    : undefined;
   return `${JSON.stringify(
     {
       name,
@@ -97,6 +104,7 @@ const packageJson = (name, { standalone, version }) => {
         vite: "^8.1.5",
         vitest: "^4.1.10",
       },
+      ...(pnpm ? { pnpm } : {}),
     },
     null,
     2,

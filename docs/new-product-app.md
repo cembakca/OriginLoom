@@ -73,8 +73,11 @@ apps/<product>-web/
 
 > **Standalone modda fark:** `package.json` paketleri `workspace:*` yerine sabit sürüm aralığıyla
 > (`--version`) referanslar, `tsconfig.json` ise `../../tsconfig.base.json`'a extends etmez —
-> base derleyici seçenekleri inline gelir. Yukarıdaki `apps/<product>-web/` ağacı yerine uygulama
-> kendi reposunun kökünde durur. Kalan dosya yapısı iki modda da aynıdır.
+> base derleyici seçenekleri inline gelir. `package.json` ayrıca kendi
+> `pnpm.onlyBuiltDependencies` listesini taşır (monorepo'da bu kök `pnpm-workspace.yaml`'dan
+> gelir), böylece `pnpm install` yerel native build script'lerini uyarısız çalıştırır. Yukarıdaki
+> `apps/<product>-web/` ağacı yerine uygulama kendi reposunun kökünde durur. Kalan dosya yapısı iki
+> modda da aynıdır.
 
 ---
 

@@ -70,6 +70,15 @@ describe("renderTemplates — standalone mode", () => {
     expect(specs).not.toContain("workspace:*");
   });
 
+  it("approves the native build scripts its dep tree pulls in", () => {
+    // A standalone repo is its own pnpm root, so it must list these itself —
+    // otherwise `pnpm install` warns about ignored build scripts.
+    const pkg = JSON.parse(standalone()["package.json"]);
+    expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
+      expect.arrayContaining(["esbuild", "sharp", "@tailwindcss/oxide", "protobufjs"]),
+    );
+  });
+
   it("carries the base compiler options inline (no monorepo extends)", () => {
     const ts = JSON.parse(standalone()["tsconfig.json"]);
     expect(ts.extends).toBeUndefined();
@@ -110,6 +119,11 @@ describe("renderTemplates — workspace mode", () => {
     expect(pkg.dependencies["@originloom/core"]).toBe("workspace:*");
     expect(pkg.dependencies["@originloom/react"]).toBe("workspace:*");
     expect(pkg.devDependencies["@originloom/tooling"]).toBe("workspace:*");
+  });
+
+  it("defers native build approval to the workspace root (no pnpm field)", () => {
+    const pkg = JSON.parse(workspace()["package.json"]);
+    expect(pkg.pnpm).toBeUndefined();
   });
 
   it("extends the monorepo tsconfig base", () => {
