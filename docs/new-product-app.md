@@ -40,6 +40,17 @@ repo kökünden `pnpm install` sonrası `pnpm --filter <ad> dev` ile ayağa kalk
 generator'ın ne ürettiğini ve neden öyle ürettiğini açıklar — elle kurmak veya üretileni değiştirmek
 isteyenler için.
 
+### Kutudan çıkan özellikler
+
+- **Repo hijyeni:** `.gitignore`, `.dockerignore`, `.nvmrc`, `.editorconfig` — `git init` ve Docker
+  build ilk günden doğru.
+- **Lint + format:** eslint (typescript-eslint + `simple-import-sort`) ve prettier, script'leriyle
+  (`pnpm lint`, `pnpm format`). Üretilen kod kendi lint/format kapısından temiz geçer.
+- **Örnek test:** `tests/home.test.ts` — geçen bir vitest testi; harness çalışır ve kopyalanacak bir
+  kalıp bırakır.
+- **Fragment örneği:** `/showcase` route'u, bağımsız cache'lenen bir fragment'ı (`<ssr-fragment>`)
+  gösterir — sayfa 1 saat, içindeki blok kendi 15 sn TTL'i ile cache'lenir.
+
 ### Claude Code entegrasyonu
 
 Üretilen her uygulama, Claude Code'un bu kod tabanını otomatik anlaması için hazır gelir:

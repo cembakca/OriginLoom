@@ -31,8 +31,8 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
   long relative `../../..` chains.
 - Keep imports grouped and sorted: node/external first, then `@originloom/*`, then
   `~/`/`@server/`. Separate type-only imports: `import type { Ctx } from "…"`.
-  (A fresh app ships no linter; the platform repo enforces this ordering with
-  eslint's `simple-import-sort` — follow it by hand, or add eslint.)
+  eslint (`simple-import-sort` + `consistent-type-imports`) enforces both — run
+  `pnpm lint:fix` to sort/fix automatically.
 
 ## TypeScript
 
@@ -55,6 +55,7 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
 ```bash
 pnpm typecheck
 pnpm check:cycles   # no import cycles; @originloom/react must not import core
+pnpm lint          # eslint (pnpm lint:fix to autofix); pnpm format for prettier
 pnpm test
 ```
 

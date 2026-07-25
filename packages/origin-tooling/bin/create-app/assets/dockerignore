@@ -1,0 +1,10 @@
+# The image builds from source inside the container — keep the context small
+# and never ship host state into it.
+node_modules/
+dist/
+.git/
+coverage/
+.env.local
+.env.*.local
+*.log
+.DS_Store

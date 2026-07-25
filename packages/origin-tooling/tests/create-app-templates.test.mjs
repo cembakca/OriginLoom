@@ -203,7 +203,60 @@ describe("renderTemplates — Claude Code integration", () => {
     const settings = JSON.parse(standalone()[".claude/settings.json"]);
     expect(settings.permissions.allow).toContain("Bash(pnpm test)");
     expect(settings.permissions.allow).toContain("Bash(pnpm typecheck)");
+    expect(settings.permissions.allow).toContain("Bash(pnpm lint)");
     const joined = settings.permissions.allow.join(" ");
     expect(joined).not.toMatch(/publish|push|Bash\(\*\)/);
+  });
+});
+
+describe("renderTemplates — project features", () => {
+  it("ships repo hygiene files in both modes", () => {
+    for (const files of [standalone(), workspace()]) {
+      for (const path of [".gitignore", ".dockerignore", ".nvmrc", ".editorconfig"]) {
+        expect(files, `missing ${path}`).toHaveProperty([path]);
+      }
+    }
+    expect(standalone()[".gitignore"]).toContain("node_modules");
+    expect(standalone()[".dockerignore"]).toContain(".git");
+  });
+
+  it("ships eslint + prettier config and scripts", () => {
+    const files = standalone();
+    expect(files).toHaveProperty(["eslint.config.js"]);
+    expect(files).toHaveProperty([".prettierrc.json"]);
+    expect(files).toHaveProperty([".prettierignore"]);
+    const pkg = JSON.parse(files["package.json"]);
+    expect(pkg.scripts.lint).toBe("eslint .");
+    expect(pkg.scripts.format).toBe("prettier --write .");
+    expect(pkg.devDependencies).toHaveProperty("eslint");
+    expect(pkg.devDependencies).toHaveProperty("typescript-eslint");
+    expect(pkg.devDependencies).toHaveProperty("prettier");
+  });
+
+  it("ships a passing example test", () => {
+    expect(standalone()).toHaveProperty(["tests/home.test.ts"]);
+    expect(standalone()["tests/home.test.ts"]).toContain('from "vitest"');
+  });
+
+  it("ships the fragment showcase route wired end to end", () => {
+    const files = standalone();
+    // Route, page, fragment definition, and the JSX typing for <ssr-fragment>.
+    for (const path of [
+      "server/routes/showcase.tsx",
+      "src/features/showcase/showcase-page.tsx",
+      "src/features/showcase/server-time-fragment.tsx",
+      "server/product/fragments.tsx",
+      "src/global.d.ts",
+    ]) {
+      expect(files, `missing ${path}`).toHaveProperty([path]);
+    }
+    // Registered in the route table and the cache registry, and the runtime uses it.
+    expect(files["server/routes/index.ts"]).toContain("showcase");
+    expect(files["src/lib/cache-keys.ts"]).toContain("showcase");
+    expect(files["server/product/runtime.ts"]).toContain("productFragments");
+    // The page carries the placeholder the stitcher targets.
+    expect(files["src/features/showcase/showcase-page.tsx"]).toContain(
+      '<ssr-fragment name="server-time"',
+    );
   });
 });

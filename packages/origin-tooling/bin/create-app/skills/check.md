@@ -13,6 +13,7 @@ failure — get the whole gate green.
 ```bash
 pnpm typecheck
 pnpm check:cycles
+pnpm lint
 pnpm test
 ```
 
@@ -20,8 +21,10 @@ pnpm test
   `@ts-ignore`.
 - `check:cycles` — no import cycles, and `@originloom/react` must not import
   `@originloom/core`. A failure usually means an import points the wrong way.
+- `lint` — `eslint .`. Auto-fixable issues (import order, type imports): run
+  `pnpm lint:fix`. Formatting is separate: `pnpm format`.
 - `test` — `vitest run`. Fix the code or the test, whichever is actually wrong;
   don't delete assertions to go green.
 
 When everything passes, give a one-line summary (e.g. "typecheck ✓ · cycles ✓ ·
-tests 42 ✓") so the state is clear before committing.
+lint ✓ · tests 42 ✓") so the state is clear before committing.

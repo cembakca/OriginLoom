@@ -37,6 +37,8 @@ before working; don't re-derive these patterns from scratch:
 pnpm dev          # SSR + Vite dev server
 pnpm typecheck    # tsc --noEmit
 pnpm check:cycles # import-cycle / layering guard
+pnpm lint         # eslint (pnpm lint:fix to autofix)
+pnpm format       # prettier --write
 pnpm test         # vitest run
 pnpm build        # dist/client + dist/server/index.js
 pnpm smoke        # boot the built server and probe /healthz

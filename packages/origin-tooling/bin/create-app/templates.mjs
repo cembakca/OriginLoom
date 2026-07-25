@@ -33,6 +33,9 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
   return {
     "package.json": packageJson(name, { standalone, version }),
     "tsconfig.json": tsconfig(standalone),
+    "eslint.config.js": eslintConfig(),
+    ".prettierrc.json": asset("prettierrc.json"),
+    ".prettierignore": prettierIgnore(),
     "vite.config.ts": viteConfig(),
     "vite.server.config.ts": viteServerConfig(),
     "vitest.config.ts": vitestConfig(name),
@@ -40,25 +43,36 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
     ".env.production": envProduction(port, metricsPort),
     "README.md": readme(name, title, port, standalone),
     Dockerfile: dockerfile(name, port, standalone),
+    ".dockerignore": asset("dockerignore"),
+    ".gitignore": asset("gitignore"),
+    ".nvmrc": asset("nvmrc"),
+    ".editorconfig": asset("editorconfig"),
 
     "server/index.ts": serverIndex(),
     "server/routes/index.ts": routesIndex(),
     "server/routes/home.tsx": homeRoute(title),
+    "server/routes/showcase.tsx": showcaseRoute(),
     "server/services/shell-data.ts": serverShellData(),
     "server/product/runtime.ts": productRuntime(),
     "server/product/document-shell.tsx": productDocumentShell(title),
     "server/product/boundary-pages.tsx": boundaryPages(),
+    "server/product/fragments.tsx": fragmentsFile(),
 
     "src/entry.client.tsx": entryClient(),
     "src/hydrate.client.tsx": hydrateClient(),
     "src/islands/counter.tsx": counterIsland(),
     "src/features/home/home-page.tsx": homePage(),
+    "src/features/showcase/showcase-page.tsx": showcasePage(),
+    "src/features/showcase/server-time-fragment.tsx": serverTimeFragment(),
     "src/components/layout/root-layout.tsx": rootLayout(title),
     "src/lib/shell-data.ts": libShellData(),
     "src/lib/cache-keys.ts": cacheKeys(),
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
     "src/routing/rules.ts": routingRules(),
     "src/styles/globals.css": globalsCss(standalone),
+    "src/global.d.ts": globalDts(),
+
+    "tests/home.test.ts": homeTest(),
 
     // Claude Code integration — an always-loaded project guide, a pre-approved
     // permission allowlist, and the skill set. Identical in both modes; the
@@ -82,6 +96,10 @@ const claudeSettings = () =>
           "Bash(pnpm build)",
           "Bash(pnpm typecheck)",
           "Bash(pnpm check:cycles)",
+          "Bash(pnpm lint)",
+          "Bash(pnpm lint:fix)",
+          "Bash(pnpm format)",
+          "Bash(pnpm format:check)",
           "Bash(pnpm test)",
           "Bash(pnpm test:*)",
           "Bash(pnpm smoke)",
@@ -121,6 +139,10 @@ const packageJson = (name, { standalone, version }) => {
         smoke: "origin-smoke",
         typecheck: "tsc --noEmit",
         "check:cycles": "origin-check-cycles",
+        lint: "eslint .",
+        "lint:fix": "eslint . --fix",
+        format: "prettier --write .",
+        "format:check": "prettier --check .",
         test: "vitest run",
       },
       dependencies: {
@@ -136,12 +158,18 @@ const packageJson = (name, { standalone, version }) => {
         tsx: "^4.19.2",
       },
       devDependencies: {
+        "@eslint/js": "^9.39.5",
         "@originloom/tooling": originloom,
         "@types/node": "^22.10.2",
         "@types/react": "^19.0.2",
         "@types/react-dom": "^19.0.2",
         "@vitejs/plugin-react": "^5.2.0",
+        eslint: "^9.39.5",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-simple-import-sort": "^13.0.0",
+        prettier: "^3.9.5",
         typescript: "^5.7.2",
+        "typescript-eslint": "^8.64.0",
         vite: "^8.1.5",
         vitest: "^4.1.10",
       },
@@ -152,48 +180,80 @@ const packageJson = (name, { standalone, version }) => {
   )}\n`;
 };
 
-// The compiler options the monorepo keeps in tsconfig.base.json. A standalone
-// app has no parent to extend, so it carries them inline.
-const BASE_COMPILER_OPTIONS = {
-  target: "ES2022",
-  lib: ["ES2022", "DOM", "DOM.Iterable"],
-  module: "ESNext",
-  moduleResolution: "bundler",
-  moduleDetection: "force",
-  jsx: "react-jsx",
-  strict: true,
-  noEmit: true,
-  esModuleInterop: true,
-  skipLibCheck: true,
-  isolatedModules: true,
-  verbatimModuleSyntax: true,
-  noUncheckedIndexedAccess: true,
-  noImplicitOverride: true,
-  forceConsistentCasingInFileNames: true,
-  noFallthroughCasesInSwitch: true,
-  exactOptionalPropertyTypes: true,
-  resolveJsonModule: true,
-  allowImportingTsExtensions: true,
-};
+// The compiler options the monorepo keeps in tsconfig.base.json. A standalone app
+// has no parent to extend, so it carries them inline. Hand-formatted to match
+// Prettier (short arrays inlined) so a fresh app passes its own format:check.
+const BASE_COMPILER_OPTIONS = `    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+`;
+
+const APP_COMPILER_OPTIONS = `    "types": ["node", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"],
+      "@server/*": ["./server/*"]
+    }`;
 
 const tsconfig = (standalone) => {
-  const appCompilerOptions = {
-    types: ["node", "vite/client"],
-    baseUrl: ".",
-    paths: { "~/*": ["./src/*"], "@server/*": ["./server/*"] },
-  };
-  const config = standalone
-    ? { compilerOptions: { ...BASE_COMPILER_OPTIONS, ...appCompilerOptions } }
-    : { extends: "../../tsconfig.base.json", compilerOptions: appCompilerOptions };
-  return `${JSON.stringify(
-    {
-      ...config,
-      include: ["src", "server", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts"],
-    },
-    null,
-    2,
-  )}\n`;
+  const extendsLine = standalone ? "" : `  "extends": "../../tsconfig.base.json",\n`;
+  const options = standalone ? BASE_COMPILER_OPTIONS + APP_COMPILER_OPTIONS : APP_COMPILER_OPTIONS;
+  return `{
+${extendsLine}  "compilerOptions": {
+${options}
+  },
+  "include": ["src", "server", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts"]
+}
+`;
 };
+
+const eslintConfig = () => `import js from "@eslint/js";
+import prettier from "eslint-config-prettier";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  { ignores: ["dist/**", "node_modules/**"] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ["**/*.{ts,tsx}"],
+    plugins: { "simple-import-sort": simpleImportSort },
+    rules: {
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
+      // Ambient module augmentation (e.g. the ssr-fragment JSX typing) needs a namespace.
+      "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  prettier,
+);
+`;
+
+const prettierIgnore = () => `dist
+coverage
+pnpm-lock.yaml
+`;
 
 const viteConfig = () => `import { resolve } from "node:path";
 
@@ -371,9 +431,10 @@ main().catch((err) => {
 const routesIndex = () => `import type { Route } from "@originloom/react/lib/types";
 
 import home from "./home";
+import showcase from "./showcase";
 
 /** The route table. Order matters: the first match wins. */
-export const routes: Route[] = [home];
+export const routes: Route[] = [home, showcase];
 `;
 
 const homeRoute = (title) => `import { defineRoute } from "@originloom/react/lib/types";
@@ -391,6 +452,124 @@ export default defineRoute<Data>({
   title: () => "${title}",
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "home"),
   Component: HomePage,
+});
+`;
+
+const showcaseRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+
+import { ShowcasePage } from "~/features/showcase/showcase-page";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+type Data = { renderedAt: string };
+
+export default defineRoute<Data>({
+  path: "/showcase",
+  cache: (ctx) => pageCachePolicy(PageCacheId.showcase, ctx),
+  loader: async () => ({ data: { renderedAt: new Date().toISOString() } }),
+  title: () => "Fragment örneği",
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "showcase"),
+  Component: ShowcasePage,
+});
+`;
+
+const fragmentsFile = () => `import type { FragmentDefinition } from "@originloom/core/runtime";
+
+import { ServerTimeFragment } from "~/features/showcase/server-time-fragment";
+import type { ShellData } from "~/lib/shell-data";
+
+/**
+ * Fragments are cached HTML blocks resolved independently of the page — each with
+ * its own cache key and TTL. At serve time the platform stitches the resolved HTML
+ * into the matching <ssr-fragment> placeholder, so a page cached for an hour can
+ * carry a block refreshed every few seconds. Header/footer with their own cache
+ * lifetime are the classic use; this one just stamps the server time so the
+ * independent TTL is visible.
+ */
+export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
+  "server-time": {
+    // Doesn't depend on the layout shell (menu/device), so it resolves even when
+    // the shell is unavailable.
+    requiresShell: false,
+    // Resolve on a fresh render too, not only on cached-document hits.
+    resolveOnFreshDocument: true,
+    ttl: 15,
+    key: () => "fragment:server-time:v1",
+    resolve: () => <ServerTimeFragment renderedAt={new Date().toISOString()} />,
+  },
+};
+`;
+
+const showcasePage = () => `import { ServerTimeFragment } from "./server-time-fragment";
+
+export function ShowcasePage({ data }: { data: { renderedAt: string } }) {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Fragment örneği</h1>
+      <p className="max-w-2xl text-slate-600">
+        Bu sayfanın HTML'i 1 saat cache'lenir. İçindeki blok ise bağımsız bir fragment: platform onu
+        sayfadan ayrı, kendi TTL'i ile cache'ler ve her istekte aşağıdaki{" "}
+        <code>&lt;ssr-fragment&gt;</code> yer tutucusuna yerleştirir.
+      </p>
+      <ssr-fragment name="server-time" style={{ display: "contents" }}>
+        <ServerTimeFragment renderedAt={data.renderedAt} />
+      </ssr-fragment>
+      <p className="text-sm text-slate-500">
+        Sayfayı birkaç saniye arayla yenileyin: sayfa gövdesi aynı kalırken fragment içindeki zaman,
+        kendi TTL'i dolunca değişir.
+      </p>
+    </div>
+  );
+}
+`;
+
+const serverTimeFragment =
+  () => `export function ServerTimeFragment({ renderedAt }: { renderedAt: string }) {
+  return (
+    <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+      Bağımsız fragment — sunucu zamanı: <code>{renderedAt}</code>
+    </p>
+  );
+}
+`;
+
+const globalDts = () => `import type React from "react";
+
+// Lets JSX accept the platform's <ssr-fragment> placeholder element.
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "ssr-fragment": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & { name: string },
+        HTMLElement
+      >;
+    }
+  }
+}
+`;
+
+const homeTest = () => `import { routes } from "@server/routes";
+import { describe, expect, it } from "vitest";
+
+import { isKnownPageCachePrefix, PageCacheId, pageCacheRegistry } from "~/lib/cache-keys";
+
+describe("route table", () => {
+  it("registers the home route at /", () => {
+    expect(routes.some((route) => route.path === "/")).toBe(true);
+  });
+});
+
+describe("page cache registry", () => {
+  it("recognises its own page ids and rejects unknown prefixes", () => {
+    expect(isKnownPageCachePrefix(PageCacheId.home)).toBe(true);
+    expect(isKnownPageCachePrefix("definitely-not-a-page")).toBe(false);
+  });
+
+  it("keeps every entry's id in sync with its registry key", () => {
+    for (const [key, definition] of Object.entries(pageCacheRegistry)) {
+      expect(definition.id).toBe(key);
+    }
+  });
 });
 `;
 
@@ -421,6 +600,7 @@ import { siteMetadata } from "~/lib/metadata/site-defaults";
 import type { ShellData } from "~/lib/shell-data";
 
 import { productDocumentShell } from "./document-shell";
+import { productFragments } from "./fragments";
 
 /**
  * The product side of the platform contract. @originloom/core reads this instead
@@ -428,7 +608,7 @@ import { productDocumentShell } from "./document-shell";
  */
 export const productRuntime: OriginRuntime<ShellData> = {
   // Cached HTML fragments resolved independently of the page (header, footer, …).
-  fragments: {},
+  fragments: productFragments,
   buildShellData,
   isShellUsableForFragments: () => true,
   document: productDocumentShell,
@@ -541,10 +721,8 @@ runIslandBootstrap(
 );
 `;
 
-const hydrateClient = () => `import {
-  createIslandMounter,
-  type IslandModule,
-} from "@originloom/react/lib/client/island-mount";
+const hydrateClient =
+  () => `import { createIslandMounter, type IslandModule } from "@originloom/react/lib/client/island-mount";
 
 // import.meta.glob resolves relative to this file, so the island registry is
 // app-owned by design. Every src/islands/*.tsx becomes an island named after it.
@@ -581,16 +759,13 @@ export function HomePage({ data }: { data: { greeting: string } }) {
         sayfanın geri kalanı statik HTML kalır.
       </p>
       <Island name="counter" props={{ start: 0 }}>
-        <button
-          type="button"
-          className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white"
-        >
+        <button type="button" className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white">
           Tıklandı: 0
         </button>
       </Island>
       <p className="text-sm text-slate-500">
-        Sonraki adım: <code>server/routes/</code> altına route ekle,{" "}
-        <code>src/features/</code> altında bileşenini yaz.
+        Sonraki adım: <code>server/routes/</code> altına route ekle, <code>src/features/</code>{" "}
+        altında bileşenini yaz.
       </p>
     </div>
   );
@@ -630,9 +805,7 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
 
       {shell.minimalChrome ? null : (
         <footer className="border-t border-slate-200 py-6">
-          <div className="mx-auto max-w-5xl px-4 text-sm text-slate-500">
-            ${title} — OriginLoom
-          </div>
+          <div className="mx-auto max-w-5xl px-4 text-sm text-slate-500">${title} — OriginLoom</div>
         </footer>
       )}
     </div>
@@ -701,6 +874,7 @@ import { layoutCacheFragment } from "~/lib/shell-data";
  */
 export const PageCacheId = {
   home: "home",
+  showcase: "showcase",
 } as const;
 
 export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
@@ -729,6 +903,15 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     ttl: 3600,
     // Only normalized values that actually change the HTML belong in the key.
     buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
+  },
+  [PageCacheId.showcase]: {
+    id: PageCacheId.showcase,
+    description: "Fragment örneği",
+    path: "/showcase",
+    strategy: "shared",
+    // Page cached for an hour; the fragment it embeds has its own 15s TTL.
+    ttl: 3600,
+    buildKey: (ctx) => ["showcase", locale(ctx.request), layoutCacheFragment(ctx)],
   },
 };
 
@@ -901,16 +1084,16 @@ Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`
 
 ## Yapı
 
-| Yol | Sorumluluk |
-| --- | ---------- |
-| \`server/index.ts\` | Composition root — runtime, routing ve app burada kurulur |
-| \`server/routes/\` | Route tanımları (loader + cache + Component) |
-| \`server/product/\` | Platforma verilen kontrat: runtime, document shell, boundary sayfaları |
-| \`server/services/\` | Server-only veri orkestrasyonu (gateway çağrıları buraya) |
-| \`src/features/\` | Sayfa bileşenleri |
-| \`src/islands/\` | Client etkileşim noktaları — dosya adı island adıdır |
-| \`src/lib/cache-keys.ts\` | Sayfa cache registry'si — cache'lenen her sayfa buraya girer |
-| \`src/routing/rules.ts\` | Redirect / rewrite kuralları |
+| Yol                     | Sorumluluk                                                             |
+| ----------------------- | ---------------------------------------------------------------------- |
+| \`server/index.ts\`       | Composition root — runtime, routing ve app burada kurulur              |
+| \`server/routes/\`        | Route tanımları (loader + cache + Component)                           |
+| \`server/product/\`       | Platforma verilen kontrat: runtime, document shell, boundary sayfaları |
+| \`server/services/\`      | Server-only veri orkestrasyonu (gateway çağrıları buraya)              |
+| \`src/features/\`         | Sayfa bileşenleri                                                      |
+| \`src/islands/\`          | Client etkileşim noktaları — dosya adı island adıdır                   |
+| \`src/lib/cache-keys.ts\` | Sayfa cache registry'si — cache'lenen her sayfa buraya girer           |
+| \`src/routing/rules.ts\`  | Redirect / rewrite kuralları                                           |
 
 ## Yeni sayfa ekleme
 
