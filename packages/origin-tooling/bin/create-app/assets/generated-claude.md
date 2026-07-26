@@ -2,8 +2,13 @@
 
 This is a **thin OriginLoom product app**. The platform — cache, auth, middleware,
 the SSR request pipeline, the island runtime and the metadata engine — comes from
-`@originloom/core` and `@originloom/react` and is **consumed, never copied**. This
-app owns its route table, its product contract, its pages and its chrome.
+`@originloom/shared`, `@originloom/core` and `@originloom/react` and is **consumed,
+never copied**. This app owns its route table, its product contract, its pages and
+its chrome.
+
+The server core is framework-free: it renders through the `OriginRenderer` contract
+in `@originloom/shared/render`, and this app's React views are registered once via
+`createReactRenderer` in `server/product/renderer.tsx`.
 
 ## Skills — use them
 
@@ -26,8 +31,9 @@ before working; don't re-derive these patterns from scratch:
 1. Never copy platform code into this app. Missing capability = a platform change.
 2. The platform never imports app code; everything is injected once via the
    `OriginRuntime` in `server/product/runtime.ts`.
-3. App → platform imports use `@originloom/core/*` and `@originloom/react/*`.
-   Inside the app use the `~/` (→ `src`) and `@server/` (→ `server`) aliases.
+3. App → platform imports use `@originloom/core/*`, `@originloom/react/*` and
+   `@originloom/shared/*`. Inside the app use the `~/` (→ `src`) and `@server/`
+   (→ `server`) aliases.
 4. Cached HTML is shared across all visitors — never put per-user data in it. Use a
    `defer` island for anything personal.
 

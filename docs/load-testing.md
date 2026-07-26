@@ -167,5 +167,5 @@ senaryosu (`stress-recovery`) sonrası hata oranı <%1 olmalıdır.
 
 Sonuçlar: `load-test/results/<timestamp>-stress-<profile>/`
 
-İlgili: [load-test/README.md](../load-test/README.md), [production-security.md](./production-security.md),
+İlgili: [load-test/README.md](../apps/showroom/load-test/README.md), [production-security.md](./production-security.md),
 [pentest-prep.md](./pentest-prep.md)

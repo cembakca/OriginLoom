@@ -7,15 +7,15 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
 
 ## Folder layout
 
-| Directory              | Holds                                                                             |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `server/routes/`       | Route definitions (loader + cache + metadata + Component)                         |
-| `server/services/`     | Server-only data orchestration — gateway/API calls live here                      |
-| `server/product/`      | The contract injected into the platform (runtime, document shell, boundary pages) |
-| `src/features/<name>/` | Page components — task-focused, SSR-safe                                          |
-| `src/islands/`         | Client widgets only — auto-discovered by Vite glob                                |
-| `src/components/`      | Shared SSR-safe UI (no hooks, no browser APIs)                                    |
-| `src/lib/`             | Product helpers, contracts, and the cache-key registry                            |
+| Directory              | Holds                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `server/routes/`       | Route definitions (loader + cache + metadata + Component)                                   |
+| `server/services/`     | Server-only data orchestration — gateway/API calls live here                                |
+| `server/product/`      | The contract injected into the platform (runtime, renderer, document shell, boundary pages) |
+| `src/features/<name>/` | Page components — task-focused, SSR-safe                                                    |
+| `src/islands/`         | Client widgets only — auto-discovered by Vite glob                                          |
+| `src/components/`      | Shared SSR-safe UI (no hooks, no browser APIs)                                              |
+| `src/lib/`             | Product helpers, contracts, and the cache-key registry                                      |
 
 ## Naming
 
@@ -26,7 +26,9 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
 
 ## Imports
 
-- Reach the platform through `@originloom/core/*` and `@originloom/react/*`.
+- Reach the platform through `@originloom/core/*` (server runtime),
+  `@originloom/react/*` (React: islands, views) and `@originloom/shared/*`
+  (framework-neutral types, routing, metadata helpers).
 - Inside the app use the aliases: `~/` → `src`, `@server/` → `server`. Don't write
   long relative `../../..` chains.
 - Keep imports grouped and sorted: node/external first, then `@originloom/*`, then
@@ -54,7 +56,7 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
 
 ```bash
 pnpm typecheck
-pnpm check:cycles   # no import cycles; @originloom/react must not import core
+pnpm check:cycles   # no import cycles; core and react must not import each other
 pnpm lint          # eslint (pnpm lint:fix to autofix); pnpm format for prettier
 pnpm test
 ```

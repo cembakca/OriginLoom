@@ -19,8 +19,9 @@ pnpm test
 
 - `typecheck` — `tsc --noEmit`. Fix type errors at the source, not with `any` or
   `@ts-ignore`.
-- `check:cycles` — no import cycles, and `@originloom/react` must not import
-  `@originloom/core`. A failure usually means an import points the wrong way.
+- `check:cycles` — no import cycles, and the platform layering holds: `core` and
+  `react` never import each other, and neither `core` nor `shared` may import a UI
+  framework. A failure usually means an import points the wrong way.
 - `lint` — `eslint .`. Auto-fixable issues (import order, type imports): run
   `pnpm lint:fix`. Formatting is separate: `pnpm format`.
 - `test` — `vitest run`. Fix the code or the test, whichever is actually wrong;

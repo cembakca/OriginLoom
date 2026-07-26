@@ -1,6 +1,7 @@
 # OriginLoom
 
-Hono ve React 19 üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı.
+Hono üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı. Sunucu çekirdeği UI
+framework'ünden bağımsızdır; React 19 desteği takılabilir bir render adaptörü olarak gelir.
 
 Mimari kararların gerekçesi ve Next.js’ten geçişin teknik hikâyesi için
 [makale serisi indeksine](docs/articles/README.md) bakın. **15+ ürün / Next migration organizasyonu**
@@ -17,7 +18,7 @@ Bir sayfa isteği sırasıyla şu katmanlardan geçer:
 3. Routing katmanı redirect, internal rewrite veya explicit external rewrite kararı verir; gateway
    browser yüzeyi wildcard proxy yerine BFF handler'larıyla açılır.
 4. Route cache policy hesaplanır; uygun GET isteğinde HTML cache okunur.
-5. MISS durumunda loader çalışır ve React document render edilir.
+5. MISS durumunda loader çalışır ve kurulu renderer document'ı üretir (showroom'da React).
 6. Etkileşimli alanlar bağımsız island chunk'ları olarak hydrate/mount edilir.
 
 ## Dizinler

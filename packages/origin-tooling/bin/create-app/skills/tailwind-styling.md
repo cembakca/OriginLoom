@@ -34,7 +34,8 @@ Styling is Tailwind CSS v4 via `@tailwindcss/vite`. Utility classes go directly 
 ### The @source gotcha
 
 Tailwind only auto-scans this app's own files. Any classes that live **outside**
-`src/` — the `@originloom/react` components, or a new top-level directory you add —
+`src/` — the `@originloom/react` / `@originloom/shared` components, or a new
+top-level directory you add —
 will be missing from the CSS unless you add an explicit `@source` for them. If a
 class silently has no effect, this is the first thing to check.
 

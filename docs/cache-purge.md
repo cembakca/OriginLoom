@@ -85,7 +85,7 @@ entry'ler listelenir.
 
 Purge yanıtı `backend` alanı topolojiyi gösterir: `memory` veya `memory+redis`.
 
-Registry referansı (hangi prefix'lerin olması beklendiği): [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) → `listPageCachePrefixes()`.
+Registry referansı (hangi prefix'lerin olması beklendiği): [`src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts) → `listPageCachePrefixes()`.
 
 ---
 
@@ -255,7 +255,7 @@ Yaygın prefix'ler (`pageCacheRegistry` ilk segment):
 | `remote-customer-obtain` | Uzaktan müşteri edinimi    |
 | `recourse-redirect`      | Başvuru yönlendirme        |
 
-Tam liste: `listPageCachePrefixes()` — [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts).
+Tam liste: `listPageCachePrefixes()` — [`src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts).
 
 #### Mod 4 — Tüm cache'i sil
 
@@ -328,7 +328,7 @@ Sonraki anonim istek menüyü GW'den tekrar çeker.
 
 ### Belirli sayfa yayınlandı
 
-Route cache key tanımı [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) registry'sindedir — örneğin ana sayfa:
+Route cache key tanımı [`src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts) registry'sindedir — örneğin ana sayfa:
 
 ```ts
 pageCachePolicy(PageCacheId.home, ctx);

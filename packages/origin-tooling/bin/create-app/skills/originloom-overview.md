@@ -7,8 +7,8 @@ description: Read this first when working in this OriginLoom product app. Explai
 
 This repository is a **thin product app** on top of the OriginLoom platform. The
 platform — cache, auth, middleware, the SSR request pipeline and the metadata
-engine — lives in `@originloom/core` and `@originloom/react`. This app is
-**consumed, never copied**.
+engine — lives in `@originloom/shared`, `@originloom/core` and
+`@originloom/react`. This app is **consumed, never copied**.
 
 ## What comes from the platform (never edit here, never copy in)
 
@@ -23,18 +23,18 @@ The core is framework-free: it renders through the `OriginRenderer` contract in
 
 ## What this app owns
 
-| Area                                                  | Where                                                                                                    |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Route table                                           | `server/routes/`                                                                                         |
-| Product contract given to the platform                | `server/product/runtime.ts` (`OriginRuntime`), `renderer.tsx`, `document-shell.ts`, `boundary-pages.tsx` |
-| Server-only data orchestration (gateway calls)        | `server/services/`                                                                                       |
-| Composition root — wires runtime, routing, cache, app | `server/index.ts`                                                                                        |
-| Page cache registry                                   | `src/lib/cache-keys.ts`                                                                                  |
-| Page components                                       | `src/features/`                                                                                          |
-| Client interactivity                                  | `src/islands/`                                                                                           |
-| Chrome / layout                                       | `src/components/`, `src/styles/`                                                                         |
-| Site identity / SEO defaults                          | `src/lib/metadata/site-defaults.ts`                                                                      |
-| Redirect / rewrite rules                              | `src/routing/rules.ts`                                                                                   |
+| Area                                                  | Where                                                                                                                                    |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Route table                                           | `server/routes/`                                                                                                                         |
+| Product contract given to the platform                | `server/product/runtime.ts` (`OriginRuntime`), `renderer.tsx` (React views), `document-shell.ts` (metadata policy), `boundary-pages.tsx` |
+| Server-only data orchestration (gateway calls)        | `server/services/`                                                                                                                       |
+| Composition root — wires runtime, routing, cache, app | `server/index.ts`                                                                                                                        |
+| Page cache registry                                   | `src/lib/cache-keys.ts`                                                                                                                  |
+| Page components                                       | `src/features/`                                                                                                                          |
+| Client interactivity                                  | `src/islands/`                                                                                                                           |
+| Chrome / layout                                       | `src/components/`, `src/styles/`                                                                                                         |
+| Site identity / SEO defaults                          | `src/lib/metadata/site-defaults.ts`                                                                                                      |
+| Redirect / rewrite rules                              | `src/routing/rules.ts`                                                                                                                   |
 
 ## Hard rules
 
@@ -44,9 +44,11 @@ The core is framework-free: it renders through the `OriginRenderer` contract in
    in `server/product/runtime.ts`, via the `OriginRuntime` contract. If you find
    yourself wanting the platform to know about a product concept, expose it
    through the runtime instead.
-3. **Import boundaries:** the app reaches the platform through `@originloom/core/*`
-   and `@originloom/react/*`. Inside the app use the `~/` (→ `src`) and `@server/`
-   (→ `server`) aliases. `@originloom/react` must not depend on `@originloom/core`.
+3. **Import boundaries:** the app reaches the platform through `@originloom/core/*`,
+   `@originloom/react/*` and `@originloom/shared/*`. Inside the app use the `~/`
+   (→ `src`) and `@server/` (→ `server`) aliases. The platform layering is
+   `{core, react} → shared`: core and react never import each other, and neither
+   core nor shared may touch React at all.
 
 ## Then use the focused skills
 

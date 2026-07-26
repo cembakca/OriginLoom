@@ -87,7 +87,7 @@ Release öncesi döngü:
 4. Staging'de (gerçek gateway, gerçek Redis cluster) aynı senaryo URL'leriyle tekrarla — mutlak sayılar
    ancak o ortamda anlam kazanır.
 
-Detaylı metodoloji: [docs/load-testing.md](../docs/load-testing.md)
+Detaylı metodoloji: [docs/load-testing.md](../../../docs/load-testing.md)
 
 ## Stres testi (ciddi)
 

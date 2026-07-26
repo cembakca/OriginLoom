@@ -7,6 +7,15 @@ anlatır.
 Okuyucu: teknik lider / mimari karar veren; “monorepo”, “semver” gibi kelimeleri biliyor olmak
 şart değil — her kavram ilk geçtiği yerde açıklanır.
 
+> **Durum: Faz 0-1 uygulandı.** Repo pnpm workspace'e dönüştü ve platform dört pakete ayrıldı:
+> `@originloom/shared` (framework-nötr taban + render kontratı), `@originloom/core` (sunucu
+> runtime, React bağımlılığı yok), `@originloom/react` (React adaptörü + island runtime),
+> `@originloom/tooling` (bin'ler). Referans ürün `apps/showroom` altındadır ve yeni app'ler
+> `pnpm create-app` ile üretilir. Güncel kontrat için
+> [ARCHITECTURE.md](../ARCHITECTURE.md#workspace-platform-ve-ürün-ayrımı) ve
+> [new-product-app.md](./new-product-app.md); aşağıdaki fazlar kararın gerekçesini ve kalan
+> adımları (ürün app'lerinin migrasyonu) anlatır.
+
 ---
 
 ## 1. Sorun ne?
@@ -117,8 +126,9 @@ Karıştırılan iki kavram:
 
 ```
 origin-platform/
-  packages/origin-core/     ← motor
-  packages/origin-react/    ← React SSR + islands
+  packages/origin-shared/   ← framework-nötr taban (tipler, routing, render kontratı)
+  packages/origin-core/     ← motor (React bilmez)
+  packages/origin-react/    ← React adaptörü + islands
   apps/investment-web/      ← yatırım sayfaları
   apps/knowledge-web/       ← bilgi merkezi sayfaları
   apps/credit-cards-web/
@@ -233,8 +243,9 @@ Gateway **ortak** kalır; her app kendi loader’ında aynı GW URL’ine gider.
 
 ```
 packages/
-  origin-core/       server/cache, handler, middleware, config, metrics
-  origin-react/      document, islands, vite preset
+  origin-shared/     tipler, routing engine, metadata, render kontratı
+  origin-core/       cache, handler, middleware, config, metrics, document orkestrasyonu
+  origin-react/      island runtime, server/ render adaptörü, vite preset
   origin-tooling/    build, dev, smoke
 ```
 

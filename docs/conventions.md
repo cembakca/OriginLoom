@@ -29,6 +29,10 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 üzerinden import eder;
 uygulama içi importlar `~/` (src) ve `@server/` alias'larını kullanmaya devam eder. Platform paketleri
 ürün koduna **asla** import edemez — gereken her şey `OriginRuntime` üzerinden enjekte edilir.
+`@originloom/core` ayrıca hiçbir UI framework'üne bağlı değildir: render, `@originloom/shared`'daki
+`OriginRenderer` kontratından geçer ve ürünün React görünümleri
+`apps/showroom/server/product/renderer.tsx` içinde `createReactRenderer` ile tek yerde toplanır
+(detay: [ARCHITECTURE.md](../ARCHITECTURE.md#render-kontratı--core-neden-react-bilmiyor)).
 
 ## İsimlendirme
 
@@ -142,9 +146,9 @@ endpoint'i şu kuralları uygular:
 
 1. `packages/origin-core/src/gateway-payload.ts` içindeki kapalı contract listesine endpoint ve byte bütçesi eklenir.
 2. Response yalnız `readGatewayJson()` ile okunur; doğrudan `response.json()` kullanılmaz.
-3. Guard/parser girdisi `unknown` kalır. `apps/showroom/src/lib/runtime-schema.ts` ile string uzunluğu, collection
+3. Guard/parser girdisi `unknown` kalır. `packages/origin-shared/src/lib/runtime-schema.ts` ile string uzunluğu, collection
    item sayısı, finite/integer sayı ve nested depth sınırlandırılır.
-4. URL alanları ayrıca `apps/showroom/src/lib/content-url.ts` veya metadata URL policy'sinden geçer.
+4. URL alanları ayrıca `packages/origin-shared/src/lib/content-url.ts` veya metadata URL policy'sinden geçer.
 5. Kritik route verisi invalid payload'da hata üretir. Yalnız önceden non-critical ilan edilmiş shell
    verisi servis sınırının üstünde kontrollü, shape-valid fallback'e düşebilir.
 6. Yeni kontrata happy-path fixture, limit testleri, malformed/oversized body ve mutation-fuzz corpus'u
@@ -301,7 +305,7 @@ Menü key'leri (`menu:Desktop` vb.) layout render sırasında oluşur; sayfa HTM
 
 ### Cache key registry
 
-Tüm mantıksal cache key tanımları merkezi config'te tutulur: [`apps/showroom/src/lib/cache-keys.ts`](../src/lib/cache-keys.ts)
+Tüm mantıksal cache key tanımları merkezi config'te tutulur: [`apps/showroom/src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts)
 
 **Mimari:**
 
@@ -418,19 +422,19 @@ Mantıksal key = escape edilmiş parçaların `\0` (null) ile birleşimi. Örnek
 | `menu:Tablet`  | GW menü JSON (tablet)                | `MENU_CACHE_TTL` |
 | `menu:Mobile`  | GW menü JSON (mobile)                | `MENU_CACHE_TTL` |
 
-Menü fetch: [`apps/showroom/server/services/menu.ts`](../server/services/menu.ts) — `menuCacheKey()` import eder, key tanımını tekrarlamaz.
+Menü fetch: [`apps/showroom/server/services/menu.ts`](../apps/showroom/server/services/menu.ts) — `menuCacheKey()` import eder, key tanımını tekrarlamaz.
 
 #### Key parçası kuralları
 
-| Parça                              | Ne zaman ekle                 | Fonksiyon                                                                                    |
-| ---------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| Sayfa kimliği                      | Her zaman (ilk segment)       | registry `id` veya sabit string                                                              |
-| `ctx.publicPath`                   | Canonical / rewrite farklıysa | route ctx                                                                                    |
-| `locale(ctx.request)`              | Çok dilli sayfa               | `~/lib/request`                                                                              |
-| `layoutCacheFragment(ctx)`         | Header/footer shell farklıysa | `~/lib/device` — **layout'lu sayfalarda zorunlu**                                            |
-| `deviceCacheFragment(ctx.request)` | Cihaza göre farklı HTML       | loan compare gibi                                                                            |
-| Query param                        | URL varyantı (page, amount…)  | `contentQueryParams` allowlist — [`cache-query-params.ts`](../src/lib/cache-query-params.ts) |
-| Cookie (theme vb.)                 | Tema/layout etkisi            | `cookie(ctx, Cookie.theme)`                                                                  |
+| Parça                              | Ne zaman ekle                 | Fonksiyon                                                                                                           |
+| ---------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Sayfa kimliği                      | Her zaman (ilk segment)       | registry `id` veya sabit string                                                                                     |
+| `ctx.publicPath`                   | Canonical / rewrite farklıysa | route ctx                                                                                                           |
+| `locale(ctx.request)`              | Çok dilli sayfa               | `~/lib/request`                                                                                                     |
+| `layoutCacheFragment(ctx)`         | Header/footer shell farklıysa | `~/lib/device` — **layout'lu sayfalarda zorunlu**                                                                   |
+| `deviceCacheFragment(ctx.request)` | Cihaza göre farklı HTML       | loan compare gibi                                                                                                   |
+| Query param                        | URL varyantı (page, amount…)  | `contentQueryParams` allowlist — [`cache-query-params.ts`](../packages/origin-shared/src/lib/cache-query-params.ts) |
+| Cookie (theme vb.)                 | Tema/layout etkisi            | `cookie(ctx, Cookie.theme)`                                                                                         |
 
 Kişisel veya oturumlu içerik key'e **girmez** — bypass registry ile cache atlanır.
 
@@ -456,16 +460,16 @@ Yani TTL dolunca cache anında “kırılmaz”; önce stale servis, arka planda
 
 ### Dosyalar
 
-| Dosya                                         | Rol                                                            |
-| --------------------------------------------- | -------------------------------------------------------------- |
-| `packages/origin-core/src/cache/index.ts`     | Store seçimi (memory / redis), read / write / cacheKey         |
-| `packages/origin-core/src/cache/cold-fill.ts` | Process/Redis cold-miss coalescing ve polling                  |
-| `packages/origin-core/src/cache/redis.ts`     | ioredis adapter, release bazlı `ssr:<release-id>:` namespace'i |
-| `packages/origin-core/src/cache/memory.ts`    | Geliştirme için in-memory adapter                              |
-| `apps/showroom/src/lib/cache-keys.ts`         | Merkezi cache key registry + `pageCachePolicy`                 |
-| `apps/showroom/src/lib/cache-policy.ts`       | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)          |
-| `apps/showroom/server/services/menu.ts`       | Menü fetch + aynı cache store kullanımı                        |
-| `packages/origin-core/src/handler.ts`         | Cache okuma, cold-fill coalescing, SWR revalidate ve render    |
+| Dosya                                            | Rol                                                            |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| `packages/origin-core/src/cache/index.ts`        | Store seçimi (memory / redis), read / write / cacheKey         |
+| `packages/origin-core/src/cache/cold-fill.ts`    | Process/Redis cold-miss coalescing ve polling                  |
+| `packages/origin-core/src/cache/redis.ts`        | ioredis adapter, release bazlı `ssr:<release-id>:` namespace'i |
+| `packages/origin-core/src/cache/memory.ts`       | Geliştirme için in-memory adapter                              |
+| `apps/showroom/src/lib/cache-keys.ts`            | Merkezi cache key registry + `pageCachePolicy`                 |
+| `packages/origin-shared/src/lib/cache-policy.ts` | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)          |
+| `apps/showroom/server/services/menu.ts`          | Menü fetch + aynı cache store kullanımı                        |
+| `packages/origin-core/src/handler.ts`            | Cache okuma, cold-fill coalescing, SWR revalidate ve render    |
 
 ---
 
@@ -556,7 +560,7 @@ Bellek backend'de (`CACHE_BACKEND=memory`): uygulamayı restart etmek cache'i s�
 
 ### 4. Belirli sayfa HTML'ini kırmak
 
-HTML cache key tanımı [`apps/showroom/src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) içindeki `pageCacheRegistry`'dedir. Örneğin ana sayfa:
+HTML cache key tanımı [`apps/showroom/src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts) içindeki `pageCacheRegistry`'dedir. Örneğin ana sayfa:
 
 ```ts
 // pageCacheRegistry[PageCacheId.home].buildKey
@@ -564,7 +568,7 @@ HTML cache key tanımı [`apps/showroom/src/lib/cache-keys.ts`](../src/lib/cache
 // → mantıksal key ≈ "home\0tr\0desktop"
 ```
 
-Yayın sonrası o sayfayı hemen tazelemek için purge API ile prefix veya tam key kullan. Prefix için ilk segment (`home`, `loan`, `menu:` …) yeterlidir; [`listPageCachePrefixes()`](../src/lib/cache-keys.ts) operasyon referansıdır.
+Yayın sonrası o sayfayı hemen tazelemek için purge API ile prefix veya tam key kullan. Prefix için ilk segment (`home`, `loan`, `menu:` …) yeterlidir; [`listPageCachePrefixes()`](../apps/showroom/src/lib/cache-keys.ts) operasyon referansıdır.
 
 ```bash
 docker compose exec redis redis-cli DEL "ssr:docker-compose:menu:Desktop" "ssr:docker-compose:menu:Tablet" "ssr:docker-compose:menu:Mobile"
@@ -612,7 +616,7 @@ Detaylı kullanım, örnekler ve operasyon senaryoları: **[`docs/cache-purge.md
 
 ## HTML cache — `pageCachePolicy`
 
-Detay: [`apps/showroom/src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) (registry) + [`apps/showroom/src/lib/cache-policy.ts`](../src/lib/cache-policy.ts) (bypass)
+Detay: [`apps/showroom/src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts) (registry) + [`packages/origin-shared/src/lib/cache-policy.ts`](../packages/origin-shared/src/lib/cache-policy.ts) (bypass)
 
 ```ts
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
@@ -629,18 +633,18 @@ cache: (ctx) => pageCachePolicy(PageCacheId.housingLoans, ctx),
 - Key parçalarını route dosyasında **inline yazma** — registry'ye ekle
 - Bypass check'ler cache **key'e girmez** — yalnızca cache'e girip girmeme kararı verir
 - Kişisel veri cached HTML'de olmamalı; kişisel route'u `never` yap veya veriyi defer island'a taşı
-- Cookie isimleri: [`apps/showroom/src/lib/cookies.ts`](../src/lib/cookies.ts)
+- Cookie isimleri: [`packages/origin-shared/src/lib/cookies.ts`](../packages/origin-shared/src/lib/cookies.ts)
 
 ---
 
 ## UI — Tailwind + Radix
 
-| Katman     | Teknoloji                                 | Not                                                                       |
-| ---------- | ----------------------------------------- | ------------------------------------------------------------------------- |
-| Stil       | Tailwind CSS v4 (`@tailwindcss/vite`)     | `apps/showroom/src/styles/globals.css` — Vite build → SSR HTML class'ları |
-| Primitives | Radix UI                                  | Sheet, Accordion, DropdownMenu                                            |
-| UI kit     | `apps/showroom/src/components/ui/`        | Button, Card, Badge, Sheet, Accordion, DropdownMenu                       |
-| Utils      | `cn()` — `apps/showroom/src/lib/utils.ts` | clsx + tailwind-merge                                                     |
+| Katman     | Teknoloji                                         | Not                                                                       |
+| ---------- | ------------------------------------------------- | ------------------------------------------------------------------------- |
+| Stil       | Tailwind CSS v4 (`@tailwindcss/vite`)             | `apps/showroom/src/styles/globals.css` — Vite build → SSR HTML class'ları |
+| Primitives | Radix UI                                          | Sheet, Accordion, DropdownMenu                                            |
+| UI kit     | `apps/showroom/src/components/ui/`                | Button, Card, Badge, Sheet, Accordion, DropdownMenu                       |
+| Utils      | `cn()` — `packages/origin-react/src/lib/utils.ts` | clsx + tailwind-merge                                                     |
 
 **Radix nerede?** Interaktif chrome island'larda: `mobile-menu` (Sheet), `footer-accordion` (Accordion), `user-chrome` (DropdownMenu). Header/Footer gövdesi SSR + Tailwind.
 
@@ -726,12 +730,12 @@ Tablet → mobile shell; API'ye yine `Tablet` gider.
 
 ### MenuItem modeli
 
-`apps/showroom/src/lib/menu/types.ts` — `MenuItem`, `IMenuItems`.
+`packages/origin-shared/src/lib/menu/types.ts` — `MenuItem`, `IMenuItems`.
 
 ### Gateway content URL kontratı
 
 Gateway/CMS URL'lerini component içinde doğrudan güvenli varsayma. Tek giriş noktası
-[`apps/showroom/src/lib/content-url.ts`](../src/lib/content-url.ts):
+[`packages/origin-shared/src/lib/content-url.ts`](../packages/origin-shared/src/lib/content-url.ts):
 
 - Internal navigation root-relative olmalıdır; absolute same-origin değer relative biçime normalize
   edilir.
@@ -742,26 +746,26 @@ Gateway/CMS URL'lerini component içinde doğrudan güvenli varsayma. Tek giriş
 - Canonical ve `og:url` daima `SITE_URL` origin'inde kalır. Dış HTTPS yalnız metadata image alanında
   kullanılabilir.
 
-[`apps/showroom/server/services/menu.ts`](../server/services/menu.ts) yalnız array kontrolü yapmaz. Her item'ın
+[`apps/showroom/server/services/menu.ts`](../apps/showroom/server/services/menu.ts) yalnız array kontrolü yapmaz. Her item'ın
 zorunlu tiplerini ve string sınırlarını doğrular; maksimum derinlik `3`, seviye başına item `50`, tüm
 payload için item `200` sınırıdır. Cross-origin link domain listesini env'e koyma: dış link olma
 kararı gateway/CMS item'ındaki açık `external` alanının iş kontratıdır; uygulamanın teknik policy'si
 ise yalnız HTTPS gibi güvenlik invariant'larını uygular.
 
-CMS SEO nesnesi [`apps/showroom/src/lib/metadata/schema.ts`](../src/lib/metadata/schema.ts) ile runtime'da parse
-edilir. [`apps/showroom/src/lib/metadata/merge.ts`](../src/lib/metadata/merge.ts) policy'yi final head üretiminde
+CMS SEO nesnesi [`packages/origin-shared/src/lib/metadata/schema.ts`](../packages/origin-shared/src/lib/metadata/schema.ts) ile runtime'da parse
+edilir. [`packages/origin-shared/src/lib/metadata/merge.ts`](../packages/origin-shared/src/lib/metadata/merge.ts) policy'yi final head üretiminde
 tekrar uygular. Böylece eski cache payload'ı veya route override'ı unsafe canonical/OG URL üretemez.
 
 ### İlgili dosyalar
 
-| Dosya                                         | Rol                                                      |
-| --------------------------------------------- | -------------------------------------------------------- |
-| `apps/showroom/server/services/menu.ts`       | GW fetch + menü API cache                                |
-| `apps/showroom/src/lib/device.ts`             | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
-| `apps/showroom/src/lib/menu/utils.ts`         | sort, filter, label                                      |
-| `apps/showroom/src/components/layout/header/` | Desktop / Mobile shell                                   |
-| `apps/showroom/src/components/layout/footer/` | Grid / accordion                                         |
-| `apps/showroom/src/islands/user-chrome.tsx`   | Auth dropdown (defer, lazy chunk)                        |
+| Dosya                                          | Rol                                                      |
+| ---------------------------------------------- | -------------------------------------------------------- |
+| `apps/showroom/server/services/menu.ts`        | GW fetch + menü API cache                                |
+| `packages/origin-shared/src/lib/device.ts`     | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
+| `packages/origin-shared/src/lib/menu/utils.ts` | sort, filter, label                                      |
+| `apps/showroom/src/components/layout/header/`  | Desktop / Mobile shell                                   |
+| `apps/showroom/src/components/layout/footer/`  | Grid / accordion                                         |
+| `apps/showroom/src/islands/user-chrome.tsx`    | Auth dropdown (defer, lazy chunk)                        |
 
 ---
 
@@ -771,13 +775,13 @@ Next.js'teki **Metadata API** + **manuel `<head>`** ayrımının karşılığı.
 
 ### Kanal 1 — Metadata API (`generateMetadata`)
 
-| Katman         | Dosya                                                 | Ne                                                           |
-| -------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
-| Site defaults  | `apps/showroom/src/lib/metadata/site-defaults.ts`     | title template, identity, OG/Twitter, icons, robots          |
-| GW parser      | `apps/showroom/src/lib/metadata/schema.ts`            | bounded `seoInfo`, URL/date/image/editorial validation       |
-| Route override | `route.generateMetadata(data, ctx)`                   | canonical, robots, social metadata ve route JSON-LD          |
-| Merge          | `apps/showroom/src/lib/metadata/merge.ts`             | defaults ⊎ page, URL policy, base structured-data graph      |
-| HTML           | `apps/showroom/src/components/head/metadata-head.tsx` | meta, canonical, prev/next, verification ve JSON-LD `@graph` |
+| Katman         | Dosya                                                      | Ne                                                           |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| Site defaults  | `apps/showroom/src/lib/metadata/site-defaults.ts`          | title template, identity, OG/Twitter, icons, robots          |
+| GW parser      | `packages/origin-shared/src/lib/metadata/schema.ts`        | bounded `seoInfo`, URL/date/image/editorial validation       |
+| Route override | `route.generateMetadata(data, ctx)`                        | canonical, robots, social metadata ve route JSON-LD          |
+| Merge          | `packages/origin-shared/src/lib/metadata/merge.ts`         | defaults ⊎ page, URL policy, base structured-data graph      |
+| HTML           | `packages/origin-react/src/lib/metadata/metadata-head.tsx` | meta, canonical, prev/next, verification ve JSON-LD `@graph` |
 
 ```ts
 loader: async (ctx) => {
@@ -834,7 +838,7 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 
 | Next.js             | OriginLoom                                                           | Sorumluluk                   |
 | ------------------- | -------------------------------------------------------------------- | ---------------------------- |
-| `app/layout.tsx`    | `packages/origin-core/src/document.tsx` + `RootLayout`               | HTML shell, GTM bootstrap    |
+| `app/layout.tsx`    | `packages/origin-core/src/document.ts` + `RootLayout`                | HTML shell, GTM bootstrap    |
 | `layout.client.tsx` | `apps/showroom/src/islands/layout-client.tsx`                        | Chrome + store seed          |
 | `page.tsx`          | `apps/showroom/server/routes/*.tsx` + `apps/showroom/src/features/*` | Loader/metadata + SSR UI     |
 | `page.client.tsx`   | `apps/showroom/src/islands/page-analytics.tsx`                       | Yalnızca page-view dataLayer |
@@ -853,7 +857,7 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 ### HTML'e embedded JSON ve crawler-visible URL'ler
 
 HTML içine hydration, analytics veya bootstrap verisi gömülüyorsa doğrudan `JSON.stringify()`
-kullanmak yasaktır. Tek otorite `apps/showroom/src/lib/embedded-json.ts` içindeki `serializeEmbeddedJson()`
+kullanmak yasaktır. Tek otorite `packages/origin-shared/src/lib/embedded-json.ts` içindeki `serializeEmbeddedJson()`
 fonksiyonudur.
 
 ```tsx
@@ -925,14 +929,14 @@ kişisel panel gibi client verileri için **TanStack Query v5** kullanılır.
 
 ### Katmanlar
 
-| Katman       | Dosya                                          | Rol                                                        |
-| ------------ | ---------------------------------------------- | ---------------------------------------------------------- |
-| Query client | `apps/showroom/src/lib/query/client.ts`        | Singleton `QueryClient` (island'lar arası paylaşımlı)      |
-| Provider     | `apps/showroom/src/lib/query/provider.tsx`     | `AppQueryProvider` — `entry.client.tsx` her island'ı sarar |
-| Query keys   | `apps/showroom/src/lib/query/keys.ts`          | Merkezi key factory                                        |
-| Hooks        | `apps/showroom/src/lib/query/hooks/*`          | `useAccountSummary`                                        |
-| Client fetch | `apps/showroom/src/lib/client/api-fetch.ts`    | `credentials: "include"` ile BFF çağrısı                   |
-| BFF (auth)   | `apps/showroom/server/api/internal/account.ts` | `GET /api/internal/account/summary` — cookie auth          |
+| Katman       | Dosya                                                | Rol                                                        |
+| ------------ | ---------------------------------------------------- | ---------------------------------------------------------- |
+| Query client | `packages/origin-react/src/lib/query/client.ts`      | Singleton `QueryClient` (island'lar arası paylaşımlı)      |
+| Provider     | `packages/origin-react/src/lib/query/provider.tsx`   | `AppQueryProvider` — `entry.client.tsx` her island'ı sarar |
+| Query keys   | `apps/showroom/src/lib/query/keys.ts`                | Merkezi key factory                                        |
+| Hooks        | `apps/showroom/src/lib/query/hooks/*`                | `useAccountSummary`                                        |
+| Client fetch | `packages/origin-shared/src/lib/client/api-fetch.ts` | `credentials: "include"` ile BFF çağrısı                   |
+| BFF (auth)   | `apps/showroom/server/api/internal/account.ts`       | `GET /api/internal/account/summary` — cookie auth          |
 
 ### Ne zaman hangi mod?
 
@@ -965,7 +969,7 @@ Loader'ı React Query ile değiştirme — HTML cache mimarisi bozulur.
 
 ## Middleware pipeline
 
-Next.js `middleware.ts` karşılığı: [`packages/origin-core/src/middleware/pipeline.ts`](../server/middleware/pipeline.ts)
+Next.js `middleware.ts` karşılığı: [`packages/origin-core/src/middleware/pipeline.ts`](../packages/origin-core/src/middleware/pipeline.ts)
 
 **Sıra:** auth → session/tracking → CMS redirect → (handler) static rules.ts → SSR
 
@@ -1073,7 +1077,7 @@ uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `tools/mock-
 
 ## Routing — rewrite, redirect, proxy
 
-Next.js `rewrites()` / `redirects()` karşılığı: [`apps/showroom/src/routing/rules.ts`](../src/routing/rules.ts)
+Next.js `rewrites()` / `redirects()` karşılığı: [`apps/showroom/src/routing/rules.ts`](../apps/showroom/src/routing/rules.ts)
 
 | Next.js                 | OriginLoom                          | Davranış                            |
 | ----------------------- | ----------------------------------- | ----------------------------------- |
@@ -1083,7 +1087,7 @@ Next.js `rewrites()` / `redirects()` karşılığı: [`apps/showroom/src/routing
 
 **Pipeline sırası:** public URL normalization → redirect → rewrite/proxy → route match → SSR
 
-[`normalizePublicUrl()`](../src/routing/public-url.ts) route matching, CMS/static redirect, rewrite ve
+[`normalizePublicUrl()`](../packages/origin-shared/src/routing/public-url.ts) route matching, CMS/static redirect, rewrite ve
 cache lookup'tan önce çalışır:
 
 - `/foo/`, `/foo//` ve `//foo///` tek slash/trailing-slash politikasına göre 308 ile canonical path'e
@@ -1105,7 +1109,7 @@ korunur ve destination query ile birleştirilir, çakışmada destination değer
 `pathname` ve `search` alanlarını ayrı taşır. Parametreler URL-safe encode edilir; yalnız `:path*`
 birden fazla segmenti koruyabilir.
 
-Query birleştirme yalnız statik rules için yazılmaz. [`mergeSearchParams()`](../src/routing/query.ts)
+Query birleştirme yalnız statik rules için yazılmaz. [`mergeSearchParams()`](../packages/origin-shared/src/routing/query.ts)
 statik redirect, internal/external rewrite ve CMS redirect'in ortak utility'sidir. Kontrat:
 
 - Incoming anahtarlar korunur.
@@ -1232,7 +1236,7 @@ CDN (veya origin /assets/*) → Cache-Control: immutable, max-age=31536000
 | Dosya                                                  | Rol                                              |
 | ------------------------------------------------------ | ------------------------------------------------ |
 | `packages/origin-core/src/assets.ts`                   | `readAssets()`, `assetUrl()`, `assetCdnOrigin()` |
-| `packages/origin-core/src/document.tsx`                | CDN `preconnect` + manifest URL'leri             |
+| `packages/origin-core/src/document.ts`                 | CDN `preconnect` + manifest URL'leri             |
 | `packages/origin-core/src/middleware/static-assets.ts` | Origin `/assets/*` için immutable header         |
 | `packages/origin-core/src/config.ts`                   | `ASSET_CDN_URL`                                  |
 

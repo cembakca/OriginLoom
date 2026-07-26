@@ -437,7 +437,10 @@ TTL dolduğunda entry silinmez, `read()` sırasında kontrol edilir ve silinir (
 
 ### 6. Route Sistemi
 
-#### Route Tanımı — `src/lib/types.ts`
+#### Route Tanımı — `packages/origin-shared/src/lib/types.ts`
+
+Nötr tanım `Route<T, TNode>` şeklinde node tipinde parametriktir;
+`@originloom/react/lib/types` onu React'e sabitler ve uygulamalar bu facade'ı import eder:
 
 ```typescript
 type Route<T> = {
@@ -630,7 +633,7 @@ Client-side TanStack Query hook'ları bu endpoint'leri çağırır:
 
 Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanılır — pipeline'daki auth mantığını tekrar çalıştırır, gerekiyorsa refresh eder, Authorization inject eder.
 
-**401 retry pattern:** `packages/origin-react/src/lib/client/api-fetch.ts` client fetch'leri wrap'ler. 401 alınca `/api/internal/refresh` çağırır ve isteği tekrarlar.
+**401 retry pattern:** `packages/origin-shared/src/lib/client/api-fetch.ts` client fetch'leri wrap'ler. 401 alınca `/api/internal/refresh` çağırır ve isteği tekrarlar.
 
 ### Bağımsız Mock Gateway — `tools/mock-gw/`
 
