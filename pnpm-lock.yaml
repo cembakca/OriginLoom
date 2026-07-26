@@ -60,6 +60,85 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@8.1.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  apps/gen-check:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^1.13.7
+        version: 1.19.14(hono@4.12.30)
+      '@originloom/core':
+        specifier: workspace:*
+        version: link:../../packages/origin-core
+      '@originloom/react':
+        specifier: workspace:*
+        version: link:../../packages/origin-react
+      '@originloom/shared':
+        specifier: workspace:*
+        version: link:../../packages/origin-shared
+      '@tailwindcss/vite':
+        specifier: ^4.3.2
+        version: 4.3.3(vite@8.1.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      hono:
+        specifier: ^4.6.14
+        version: 4.12.30
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+      tailwindcss:
+        specifier: ^4.3.2
+        version: 4.3.3
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.1
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.39.5
+        version: 9.39.5
+      '@originloom/tooling':
+        specifier: workspace:*
+        version: link:../../packages/origin-tooling
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.2
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.2
+        version: 19.2.3(@types/react@19.2.17)
+      '@vitejs/plugin-react':
+        specifier: ^5.2.0
+        version: 5.2.0(vite@8.1.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+      eslint:
+        specifier: ^9.39.5
+        version: 9.39.5(jiti@2.7.0)
+      eslint-config-prettier:
+        specifier: ^10.1.8
+        version: 10.1.8(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-simple-import-sort:
+        specifier: ^13.0.0
+        version: 13.0.0(eslint@9.39.5(jiti@2.7.0))
+      prettier:
+        specifier: ^3.9.5
+        version: 3.9.5
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.64.0
+        version: 8.64.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      vite:
+        specifier: ^8.1.5
+        version: 8.1.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@8.1.5(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+
   apps/showroom:
     dependencies:
       '@hono/node-server':
@@ -257,6 +336,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
+      prettier:
+        specifier: ^3.9.5
+        version: 3.9.5
       sharp:
         specifier: ^0.35.3
         version: 0.35.3(@types/node@22.20.1)

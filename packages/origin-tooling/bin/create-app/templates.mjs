@@ -1174,6 +1174,9 @@ export type RootLayoutProps = {
   children: ReactNode;
 };
 
+// Kept out of the markup so the JSX layout does not depend on how long the name is.
+const SITE_NAME = "${title}";
+
 /** Application shell. Header/footer that need their own cache lifetime belong in fragments. */
 export function RootLayout({ shell, children }: RootLayoutProps) {
   return (
@@ -1182,7 +1185,7 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
         <header className="border-b border-slate-200">
           <div className="mx-auto flex max-w-5xl items-center px-4 py-4">
             <a href="/" className="text-lg font-semibold text-slate-900">
-              ${title}
+              {SITE_NAME}
             </a>
           </div>
         </header>
@@ -1194,7 +1197,9 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
 
       {shell.minimalChrome ? null : (
         <footer className="border-t border-slate-200 py-6">
-          <div className="mx-auto max-w-5xl px-4 text-sm text-slate-500">${title} — OriginLoom</div>
+          <div className="mx-auto max-w-5xl px-4 text-sm text-slate-500">
+            {SITE_NAME} — OriginLoom
+          </div>
         </footer>
       )}
     </div>

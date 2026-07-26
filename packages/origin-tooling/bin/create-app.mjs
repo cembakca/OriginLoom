@@ -24,6 +24,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 
+import { format } from "prettier";
+
 import { renderTemplates } from "./create-app/templates.mjs";
 
 const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
@@ -69,13 +71,32 @@ async function main() {
     version: options.version ?? "^0.1.0",
   });
 
+  // Templates interpolate values of unknown length (the title above all), so their
+  // hand-written line breaks cannot match Prettier for every input. Formatting on
+  // the way out means the generated app always passes its own `format:check`.
+  const prettierConfig = JSON.parse(files[".prettierrc.json"]);
   for (const [relativePath, contents] of Object.entries(files)) {
     const target = join(options.appDir, relativePath);
     await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, contents, "utf8");
+    await writeFile(target, await formatted(relativePath, contents, prettierConfig), "utf8");
   }
 
   report({ ...options, name, port, appDir: options.appDir });
+}
+
+/**
+ * Files Prettier has no parser for (Dockerfile, .env, .nvmrc, …) are written
+ * verbatim. Any other failure is a broken template and must surface.
+ */
+async function formatted(relativePath, contents, config) {
+  try {
+    return await format(contents, { ...config, filepath: relativePath });
+  } catch (error) {
+    if (error?.name === "UndefinedParserError") return contents;
+    throw new Error(`Template ${relativePath} could not be formatted: ${error?.message}`, {
+      cause: error,
+    });
+  }
 }
 
 function report(o) {
