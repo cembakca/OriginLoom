@@ -14,7 +14,7 @@
   "scripts": {
     "audit:prod": "pnpm audit --prod --audit-level=high",
     "build": "pnpm --filter showroom build",
-    "build:packages": "pnpm --filter @originloom/core --filter @originloom/react run build",
+    "build:packages": "pnpm --filter @originloom/shared --filter @originloom/core --filter @originloom/react run build",
     "check:cycles": "pnpm --filter showroom check:cycles",
     "ci": "pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run build && pnpm run smoke",
     "create-app": "node packages/origin-tooling/bin/create-app.mjs",

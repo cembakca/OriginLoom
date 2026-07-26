@@ -1,0 +1,47 @@
+{
+  "name": "@originloom/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    "./lib/*": "./src/lib/*.ts",
+    "./routing": "./src/routing/index.ts",
+    "./routing/*": "./src/routing/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "exports": {
+      "./lib/*": {
+        "types": "./dist/lib/*.d.ts",
+        "default": "./dist/lib/*.js"
+      },
+      "./routing": {
+        "types": "./dist/routing/index.d.ts",
+        "default": "./dist/routing/index.js"
+      },
+      "./routing/*": {
+        "types": "./dist/routing/*.d.ts",
+        "default": "./dist/routing/*.js"
+      },
+      "./*": {
+        "types": "./dist/*.d.ts",
+        "default": "./dist/*.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

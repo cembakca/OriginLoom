@@ -10,10 +10,21 @@ const workspaceRoot = findWorkspaceRoot(root);
 // the app's own cycles.
 const packageRoots = workspaceRoot
   ? {
+      "@originloom/shared": join(workspaceRoot, "packages/origin-shared/src"),
       "@originloom/core": join(workspaceRoot, "packages/origin-core/src"),
       "@originloom/react": join(workspaceRoot, "packages/origin-react/src"),
     }
   : {};
+/**
+ * Layering guard. `@originloom/shared` is the framework-neutral base both upper
+ * packages build on; the client/runtime package must never depend on the server
+ * core (and, once core is framework-free, vice versa).
+ */
+const forbiddenLayerEdges = [
+  ["@originloom/react", "@originloom/core"],
+  ["@originloom/shared", "@originloom/core"],
+  ["@originloom/shared", "@originloom/react"],
+];
 const sourceRoots = [join(root, "server"), join(root, "src"), ...Object.values(packageRoots)];
 const extensions = [".ts", ".tsx", ".js", ".mjs"];
 const files = (await Promise.all(sourceRoots.map(walk))).flat();
@@ -151,15 +162,17 @@ async function walk(directory) {
   return nested.flat();
 }
 
-/** Layering guard: the client/runtime package must never depend on the server core. */
 function assertLayering(importer, dependency) {
-  const reactRoot = packageRoots["@originloom/react"];
-  const coreRoot = packageRoots["@originloom/core"];
-  if (!reactRoot || !coreRoot) return; // standalone: packages are external, not walked
-  if (importer.startsWith(reactRoot) && dependency.startsWith(coreRoot)) {
-    throw new Error(
-      `Layering violation: @originloom/react must not import @originloom/core (${relative(workspaceRoot, importer)} -> ${relative(workspaceRoot, dependency)})`,
-    );
+  if (!workspaceRoot) return; // standalone: packages are external, not walked
+  for (const [from, to] of forbiddenLayerEdges) {
+    const fromRoot = packageRoots[from];
+    const toRoot = packageRoots[to];
+    if (!fromRoot || !toRoot) continue;
+    if (importer.startsWith(fromRoot) && dependency.startsWith(toRoot)) {
+      throw new Error(
+        `Layering violation: ${from} must not import ${to} (${relative(workspaceRoot, importer)} -> ${relative(workspaceRoot, dependency)})`,
+      );
+    }
   }
 }
 
