@@ -19,6 +19,7 @@ import type { ShellData } from "~/lib/shell-data";
 import { productConfig } from "./config";
 import { productDocumentShell } from "./document-shell";
 import { productFragments } from "./fragments";
+import { productRenderer } from "./renderer";
 
 // CSP hashes for the product's inline scripts (no-op outside production).
 registerCspScriptHashes(
@@ -31,6 +32,7 @@ if (productConfig.gtmContainerId) {
 }
 
 export const productRuntime: OriginRuntime<ShellData> = {
+  renderer: productRenderer,
   fragments: productFragments,
   buildShellData,
   isShellUsableForFragments: (shell) => Boolean(shell?.menu),

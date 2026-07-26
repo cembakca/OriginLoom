@@ -47,7 +47,7 @@ export function createClientViteConfig(options: ClientViteConfigOptions): UserCo
     ],
     resolve: { alias: options.alias ?? {}, dedupe: ["react", "react-dom"] },
     // Workspace packages ship TypeScript source; keep them out of the dep optimizer.
-    optimizeDeps: { exclude: ["@originloom/react", "@originloom/core"] },
+    optimizeDeps: { exclude: ["@originloom/react", "@originloom/core", "@originloom/shared"] },
     server: {
       host,
       port,
@@ -65,7 +65,11 @@ export function createClientViteConfig(options: ClientViteConfigOptions): UserCo
   };
 }
 
-/** SSR server bundle: single self-contained index.js consumed by plain Node. */
+/**
+ * SSR server bundle: single self-contained index.js consumed by plain Node.
+ * `@originloom/react/server` (the render adapter) belongs to this bundle only —
+ * it pulls in react-dom/server and must never be reached from the client entry.
+ */
 export function createServerViteConfig(options: ServerViteConfigOptions): UserConfig {
   return {
     resolve: { alias: options.alias ?? {}, dedupe: ["react", "react-dom"] },

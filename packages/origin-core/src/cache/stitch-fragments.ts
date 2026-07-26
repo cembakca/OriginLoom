@@ -1,3 +1,4 @@
+import { SSR_FRAGMENT_PATTERN, ssrFragmentPlaceholder } from "@originloom/shared/fragment-markup";
 import type { Ctx, Route } from "@originloom/shared/lib/types";
 
 import { logError } from "../logger.js";
@@ -9,9 +10,6 @@ import {
   shouldResolveFragment,
 } from "./fragment.js";
 
-const FRAGMENT_PATTERN =
-  /<ssr-fragment name="([a-zA-Z0-9_-]+)" style="display:\s*contents">[\s\S]*?<\/ssr-fragment>/g;
-
 export async function stitchCachedHtml(
   htmlContent: string,
   route: Route,
@@ -20,7 +18,7 @@ export async function stitchCachedHtml(
 ): Promise<string> {
   if (route.minimalChrome) return htmlContent;
 
-  const matches = [...htmlContent.matchAll(FRAGMENT_PATTERN)].filter((match) =>
+  const matches = [...htmlContent.matchAll(SSR_FRAGMENT_PATTERN)].filter((match) =>
     shouldResolveFragment(match[1]!, cachedDocument),
   );
   if (matches.length === 0) return htmlContent;
@@ -51,11 +49,9 @@ export async function stitchCachedHtml(
     );
     const htmlMap = new Map(resolvedHtmls);
 
-    return htmlContent.replace(FRAGMENT_PATTERN, (fullMatch: string, name: string) => {
+    return htmlContent.replace(SSR_FRAGMENT_PATTERN, (fullMatch: string, name: string) => {
       const freshHtml = htmlMap.get(name);
-      return freshHtml === undefined
-        ? fullMatch
-        : `<ssr-fragment name="${name}" style="display: contents">${freshHtml}</ssr-fragment>`;
+      return freshHtml === undefined ? fullMatch : ssrFragmentPlaceholder(name, freshHtml);
     });
   } catch (error) {
     rethrowRequestDeadline(routeCtx.request, error);

@@ -1,6 +1,4 @@
-/** @jsxRuntime automatic */ /** @jsxImportSource react */
 import type { CachePolicy, Ctx } from "@originloom/shared/lib/types";
-import { renderToString } from "react-dom/server";
 
 import { isRequestDeadlineError } from "../middleware/request-deadline.js";
 import { type FragmentDefinition, getRuntime } from "../runtime.js";
@@ -46,8 +44,8 @@ export async function getOrSetFragmentByName(
     key,
     policy,
     work: async () => {
-      const element = await definition.resolve(shell, ctx);
-      const html = renderToString(element);
+      const node = await definition.resolve(shell, ctx);
+      const html = getRuntime().renderer.renderNode(node);
       return { value: html, body: html, cacheable: true, terminal: false };
     },
     isTimeout: (error) =>

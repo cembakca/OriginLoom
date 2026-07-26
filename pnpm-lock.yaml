@@ -192,22 +192,10 @@ importers:
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1
-      react:
-        specifier: ^19.0.0
-        version: 19.2.7
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.7(react@19.2.7)
     devDependencies:
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.17)
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

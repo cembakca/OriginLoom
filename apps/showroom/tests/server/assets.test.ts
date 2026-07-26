@@ -41,10 +41,7 @@ describe("assetUrl", () => {
     expect(assets).toMatchObject({
       js: "http://127.0.0.1:5174/src/entry.client.tsx",
       css: ["http://127.0.0.1:5174/src/styles/globals.css"],
-      development: {
-        client: "http://127.0.0.1:5174/@vite/client",
-        reactRefresh: "http://127.0.0.1:5174/@react-refresh",
-      },
+      development: { client: "http://127.0.0.1:5174/@vite/client" },
     });
     expect(assets.fonts).toHaveLength(2);
     expect(assets.fonts[0]?.href).toMatch(/^\/assets\/media\/inter-latin\.[a-f0-9]+\.woff2$/);

@@ -1,17 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { config } from "./config.js";
-import { type FontAsset, readFontAssets } from "./media.js";
+import type { Assets } from "@originloom/shared/assets";
 
-export type Assets = {
-  js: string;
-  css: string[];
-  fonts: FontAsset[];
-  modulePreloads?: string[];
-  islandModulePreloads?: Record<string, string[]>;
-  development?: { client: string; reactRefresh: string };
-};
+import { config } from "./config.js";
+import { readFontAssets } from "./media.js";
+
+export type { Assets } from "@originloom/shared/assets";
 
 export type ManifestChunk = {
   isEntry?: boolean;
@@ -67,10 +62,9 @@ export function readAssets(options: AssetsOptions = {}): Assets {
       // entry.client.tsx import'u HMR için kalır.
       css: devStylesheets.map((path) => `${viteOrigin}${path}`),
       fonts: readFontAssets(),
-      development: {
-        client: `${viteOrigin}/@vite/client`,
-        reactRefresh: `${viteOrigin}/@react-refresh`,
-      },
+      // Framework-specific dev URLs (React Refresh, …) are the renderer
+      // adapter's business; it derives them from this origin.
+      development: { client: `${viteOrigin}/@vite/client` },
     };
   }
 

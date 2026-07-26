@@ -60,7 +60,8 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
     "server/services/shell-data.ts": serverShellData(),
     "server/services/items.ts": itemsService(),
     "server/product/runtime.ts": productRuntime(),
-    "server/product/document-shell.tsx": productDocumentShell(title),
+    "server/product/document-shell.ts": productDocumentShell(title),
+    "server/product/renderer.tsx": productRenderer(),
     "server/product/boundary-pages.tsx": boundaryPages(),
     "server/product/fragments.tsx": fragmentsFile(),
 
@@ -642,9 +643,8 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
 }
 `;
 
-const itemDetailRoute =
-  () => `import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
-import { defineRoute, notFound } from "@originloom/react/lib/types";
+const itemDetailRoute = () => `import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
 import { getItem, type Item } from "@server/services/items";
 
 import { ItemDetailPage } from "~/features/items/item-detail-page";
@@ -821,8 +821,8 @@ export function CatalogPage({ data }: Props) {
 }
 `;
 
-const liveRoute = () => `import { neverCache } from "@originloom/shared/lib/cache-policy";
-import { defineRoute } from "@originloom/react/lib/types";
+const liveRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
 
 import { LivePage } from "~/features/live/live-page";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -944,12 +944,15 @@ import type { ShellData } from "~/lib/shell-data";
 
 import { productDocumentShell } from "./document-shell";
 import { productFragments } from "./fragments";
+import { productRenderer } from "./renderer";
 
 /**
  * The product side of the platform contract. @originloom/core reads this instead
  * of importing anything from this app.
  */
 export const productRuntime: OriginRuntime<ShellData> = {
+  // Turns this app's React views into HTML. Swapping this swaps the UI framework.
+  renderer: productRenderer,
   // Cached HTML fragments resolved independently of the page (header, footer, …).
   fragments: productFragments,
   buildShellData,
@@ -968,23 +971,19 @@ const productDocumentShell = (
   title,
 ) => `import type { DocumentShell } from "@originloom/core/runtime";
 import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
-import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
 import { resolveDocumentMetadata } from "@originloom/shared/lib/metadata/resolve";
-import type { Ctx, Route } from "@originloom/react/lib/types";
+import type { Ctx, Route } from "@originloom/shared/lib/types";
 
-import { RootLayout } from "~/components/layout/root-layout";
-import { defaultPageMeta, type ShellData } from "~/lib/shell-data";
-
-import { NotFoundPage, RouteErrorPage } from "./boundary-pages";
+import { defaultPageMeta } from "~/lib/shell-data";
 
 const BOT_UA = /bot|crawl|spider|slurp|bingpreview/i;
 
-/** Document chrome: what wraps every rendered route. */
-export const productDocumentShell: DocumentShell<ShellData> = {
+/** Document policy: language, bot detection, metadata. Views live in ./renderer. */
+export const productDocumentShell: DocumentShell = {
   htmlLang: "tr",
   errorPageTitle: "Sayfa gösterilemiyor | ${title}",
   isBotRequest: (request) => BOT_UA.test(request.headers.get("user-agent") ?? ""),
-  resolveMetadata: <T,>(route: Route<T>, data: T, ctx: Ctx) =>
+  resolveMetadata: <T>(route: Route<T>, data: T, ctx: Ctx) =>
     resolveDocumentMetadata(route, data, ctx),
   boundaryMetadata: (kind, ctx) =>
     mergeMetadata(
@@ -1002,6 +1001,20 @@ export const productDocumentShell: DocumentShell<ShellData> = {
       ctx,
     ),
   defaultPageMeta: (ctx, pageType) => defaultPageMeta(ctx, pageType),
+};
+`;
+
+const productRenderer =
+  () => `import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
+import { createReactRenderer } from "@originloom/react/server";
+
+import { RootLayout } from "~/components/layout/root-layout";
+import type { ShellData } from "~/lib/shell-data";
+
+import { NotFoundPage, RouteErrorPage } from "./boundary-pages";
+
+/** The React half of the runtime contract: every view the document renders. */
+export const productRenderer = createReactRenderer<ShellData>({
   NotFoundComponent: NotFoundPage,
   ErrorComponent: RouteErrorPage,
   renderHeadStart: ({ seo, cspNonce }) => <MetadataHead meta={seo} nonce={cspNonce} />,
@@ -1012,7 +1025,7 @@ export const productDocumentShell: DocumentShell<ShellData> = {
       {children}
     </RootLayout>
   ),
-};
+});
 `;
 
 const boundaryPages = () => `import type { RouteError } from "@originloom/react/lib/types";
@@ -1189,13 +1202,12 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
 }
 `;
 
-const libShellData =
-  () => `import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
+const libShellData = () => `import type { Ctx } from "@originloom/react/lib/types";
+import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import { Cookie } from "@originloom/shared/lib/cookies";
 import type { DeviceType } from "@originloom/shared/lib/device";
 import { deviceCacheFragment, getDeviceShell } from "@originloom/shared/lib/device";
 import { cookie } from "@originloom/shared/lib/request";
-import type { Ctx } from "@originloom/react/lib/types";
 
 /** Cache-safe props for the shell — no trackingId, no auth tokens. */
 export type ShellData = {
@@ -1237,10 +1249,9 @@ export function defaultPageMeta(
 }
 `;
 
-const cacheKeys =
-  () => `import { neverCache, sharedUnlessBypass } from "@originloom/shared/lib/cache-policy";
+const cacheKeys = () => `import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
+import { neverCache, sharedUnlessBypass } from "@originloom/shared/lib/cache-policy";
 import { locale } from "@originloom/shared/lib/request";
-import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
 
 import { pageParam } from "~/lib/pagination";
 import { layoutCacheFragment } from "~/lib/shell-data";

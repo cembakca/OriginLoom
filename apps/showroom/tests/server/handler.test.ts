@@ -780,10 +780,7 @@ describe("handler", () => {
       js: "http://127.0.0.1:5174/src/entry.client.tsx",
       css: [],
       fonts: [],
-      development: {
-        client: "http://127.0.0.1:5174/@vite/client",
-        reactRefresh: "http://127.0.0.1:5174/@react-refresh",
-      },
+      development: { client: "http://127.0.0.1:5174/@vite/client" },
     };
 
     const res = await handle(new Request("http://localhost/dev-assets"), [route], devAssets);

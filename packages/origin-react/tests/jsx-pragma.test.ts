@@ -23,13 +23,17 @@ function collectTsxFiles(dir: string): string[] {
 }
 
 describe("workspace package JSX", () => {
-  it.each([
-    ["origin-react", join(import.meta.dirname, "../src")],
-    ["origin-core", join(import.meta.dirname, "../../origin-core/src")],
-  ])("every %s .tsx file declares the automatic JSX runtime", (_name, root) => {
-    const missing = collectTsxFiles(root).filter(
+  it("every origin-react .tsx file declares the automatic JSX runtime", () => {
+    const missing = collectTsxFiles(join(import.meta.dirname, "../src")).filter(
       (file) => !readFileSync(file, "utf8").includes(PRAGMA),
     );
     expect(missing).toEqual([]);
+  });
+
+  it.each([
+    ["origin-core", join(import.meta.dirname, "../../origin-core/src")],
+    ["origin-shared", join(import.meta.dirname, "../../origin-shared/src")],
+  ])("%s contains no JSX at all", (_name, root) => {
+    expect(collectTsxFiles(root)).toEqual([]);
   });
 });

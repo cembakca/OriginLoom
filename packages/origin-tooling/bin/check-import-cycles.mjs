@@ -26,6 +26,18 @@ const forbiddenLayerEdges = [
   ["@originloom/shared", "@originloom/core"],
   ["@originloom/shared", "@originloom/react"],
 ];
+/**
+ * Framework guard: the server core and the neutral base render through the
+ * `OriginRenderer` seam, so neither may reach a UI framework — not even for a
+ * type.
+ */
+const frameworkSpecifiers = [
+  /^react(\/|$)/,
+  /^react-dom(\/|$)/,
+  /^preact(\/|$)/,
+  /^@tanstack\/react-/,
+  /^@originloom\/react(\/|$)/,
+];
 const sourceRoots = [join(root, "server"), join(root, "src"), ...Object.values(packageRoots)];
 const extensions = [".ts", ".tsx", ".js", ".mjs"];
 const files = (await Promise.all(sourceRoots.map(walk))).flat();
@@ -35,8 +47,11 @@ const graph = new Map();
 for (const file of files) {
   const source = await readFile(file, "utf8");
   const dependencies = new Set();
-  for (const specifier of collectRuntimeImports(file, source)) {
-    const dependency = resolveImport(file, specifier);
+  for (const { text, runtime } of collectImports(file, source)) {
+    // Type-only imports still count here: a React type in the core is a leak.
+    assertFrameworkFree(file, text);
+    if (!runtime) continue;
+    const dependency = resolveImport(file, text);
     if (dependency) {
       assertLayering(file, dependency);
       dependencies.add(dependency);
@@ -90,7 +105,8 @@ function resolveImport(importer, specifier) {
   return candidates.find((candidate) => fileSet.has(candidate)) ?? null;
 }
 
-function collectRuntimeImports(file, source) {
+/** Every import in the file, flagged with whether it survives type erasure. */
+function collectImports(file, source) {
   const specifiers = [];
   const sourceFile = ts.createSourceFile(
     file,
@@ -104,22 +120,23 @@ function collectRuntimeImports(file, source) {
   return specifiers;
 
   function visitNode(node) {
-    if (ts.isImportDeclaration(node) && isRuntimeImport(node)) {
-      addModuleSpecifier(node.moduleSpecifier);
-    } else if (ts.isExportDeclaration(node) && isRuntimeExport(node)) {
-      addModuleSpecifier(node.moduleSpecifier);
-    } else if (ts.isImportEqualsDeclaration(node) && !node.isTypeOnly) {
+    if (ts.isImportDeclaration(node)) {
+      addModuleSpecifier(node.moduleSpecifier, isRuntimeImport(node));
+    } else if (ts.isExportDeclaration(node)) {
+      addModuleSpecifier(node.moduleSpecifier, isRuntimeExport(node));
+    } else if (ts.isImportEqualsDeclaration(node)) {
       const reference = node.moduleReference;
-      if (ts.isExternalModuleReference(reference)) addModuleSpecifier(reference.expression);
+      if (ts.isExternalModuleReference(reference))
+        addModuleSpecifier(reference.expression, !node.isTypeOnly);
     } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-      addModuleSpecifier(node.arguments[0]);
+      addModuleSpecifier(node.arguments[0], true);
     }
 
     ts.forEachChild(node, visitNode);
   }
 
-  function addModuleSpecifier(node) {
-    if (node && ts.isStringLiteralLike(node)) specifiers.push(node.text);
+  function addModuleSpecifier(node, runtime) {
+    if (node && ts.isStringLiteralLike(node)) specifiers.push({ text: node.text, runtime });
   }
 }
 
@@ -161,6 +178,23 @@ async function walk(directory) {
     }),
   );
   return nested.flat();
+}
+
+/**
+ * `resolveImport` returns null for bare package specifiers, so this runs off the
+ * raw specifier instead of the resolved file.
+ */
+function assertFrameworkFree(file, specifier) {
+  if (!workspaceRoot) return;
+  const roots = [packageRoots["@originloom/core"], packageRoots["@originloom/shared"]].filter(
+    Boolean,
+  );
+  if (!roots.some((packageRoot) => file.startsWith(packageRoot))) return;
+  if (frameworkSpecifiers.some((pattern) => pattern.test(specifier))) {
+    throw new Error(
+      `Framework boundary violation: ${relative(workspaceRoot, file)} imports "${specifier}" — render through OriginRenderer instead`,
+    );
+  }
 }
 
 function assertLayering(importer, dependency) {

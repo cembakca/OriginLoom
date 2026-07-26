@@ -1,23 +1,19 @@
 import type { DocumentShell } from "@originloom/core/runtime";
-import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
 import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
 import { resolveDocumentMetadata } from "@originloom/shared/lib/metadata/resolve";
 import type { ResolvedMetadata } from "@originloom/shared/lib/metadata/types";
 import type { Ctx, Route } from "@originloom/shared/lib/types";
 import { productConfig } from "@server/product/config";
 
-import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";
-import { HeadClient } from "~/components/head/head-client";
-import { RootLayout } from "~/components/layout/root-layout";
-import { defaultPageMeta, type ShellData } from "~/lib/shell-data";
+import { isBotRequest } from "~/components/analytics/gtm-bootstrap";
+import { defaultPageMeta } from "~/lib/shell-data";
 
-import { NotFoundPage, RouteErrorPage } from "./boundary-pages";
-
-export const productDocumentShell: DocumentShell<ShellData> = {
+/** Framework-free document policy. The views live in `./renderer`. */
+export const productDocumentShell: DocumentShell = {
   htmlLang: "tr",
   errorPageTitle: "Sayfa gösterilemiyor | Hangikredi",
   isBotRequest,
-  resolveMetadata: <T,>(route: Route<T>, data: T, ctx: Ctx) =>
+  resolveMetadata: <T>(route: Route<T>, data: T, ctx: Ctx) =>
     withSiteVerification(resolveDocumentMetadata(route, data, ctx)),
   boundaryMetadata: (kind, ctx) =>
     kind === "not-found"
@@ -38,22 +34,6 @@ export const productDocumentShell: DocumentShell<ShellData> = {
           ctx,
         ),
   defaultPageMeta: (ctx, pageType) => defaultPageMeta(ctx, pageType),
-  NotFoundComponent: NotFoundPage,
-  ErrorComponent: RouteErrorPage,
-  renderHeadStart: ({ seo, cspNonce }) => (
-    <>
-      <MetadataHead meta={seo} nonce={cspNonce} />
-      <HeadClient />
-    </>
-  ),
-  renderHeadEnd: ({ cspNonce, isBot }) => (
-    <GtmBootstrap containerId={productConfig.gtmContainerId} isBot={isBot} nonce={cspNonce} />
-  ),
-  renderLayout: ({ shell, pageMeta, children }) => (
-    <RootLayout shell={shell} pageMeta={pageMeta}>
-      {children}
-    </RootLayout>
-  ),
 };
 
 function withSiteVerification(metadata: ResolvedMetadata): ResolvedMetadata {

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import type { FontAsset } from "@originloom/shared/assets";
 import {
   createCdnImage,
   type ImageCandidate,
@@ -16,15 +17,7 @@ function mediaManifestPath(): string {
   return join(config.clientDistDir, "asset-pipeline.json");
 }
 
-export type FontAsset = {
-  family: string;
-  style: string;
-  weight: string;
-  display: "swap" | "optional" | "fallback";
-  unicodeRange: string;
-  preload: boolean;
-  href: string;
-};
+export type { FontAsset };
 
 type ImageManifestEntry = {
   source: string;

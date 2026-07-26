@@ -1,27 +1,36 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import type { FontAsset } from "../media.js";
-import { getRuntime } from "../runtime.js";
-import type { DocumentLayoutProps } from "./types.js";
+import type { FontAsset } from "@originloom/shared/assets";
+import type { DocumentRenderInput } from "@originloom/shared/render";
+import type { ReactElement, ReactNode } from "react";
 
-export function DocumentLayout({
-  seo,
-  assets,
-  preconnectOrigins,
-  imagePreloads,
-  modulePreloads,
-  isBot,
-  shell,
-  pageMeta,
-  content,
-  cspNonce,
-}: DocumentLayoutProps) {
-  const doc = getRuntime().document;
+import type { ReactRendererConfig } from "./types.js";
+
+export type DocumentLayoutProps<Shell> = {
+  input: DocumentRenderInput<Shell>;
+  config: ReactRendererConfig<Shell>;
+};
+
+export function DocumentLayout<Shell>({ input, config }: DocumentLayoutProps<Shell>): ReactElement {
+  const {
+    htmlLang,
+    seo,
+    assets,
+    preconnectOrigins,
+    imagePreloads,
+    modulePreloads,
+    isBot,
+    shell,
+    pageMeta,
+    content,
+    cspNonce,
+  } = input;
+
   return (
-    <html lang={doc.htmlLang}>
+    <html lang={htmlLang}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        {doc.renderHeadStart({ seo, cspNonce })}
+        {config.renderHeadStart({ seo, cspNonce })}
         {assets.fonts.map((font) =>
           font.preload ? (
             <link
@@ -60,7 +69,10 @@ export function DocumentLayout({
               type="module"
               nonce={cspNonce}
               dangerouslySetInnerHTML={{
-                __html: reactRefreshPreamble(assets.development.reactRefresh),
+                __html: reactRefreshPreamble(
+                  config.refreshRuntimeUrl?.(assets.development) ??
+                    defaultRefreshRuntimeUrl(assets.development.client),
+                ),
               }}
             />
           </>
@@ -68,10 +80,13 @@ export function DocumentLayout({
         {modulePreloads.map((href) => (
           <link key={href} rel="modulepreload" href={href} />
         ))}
-        {doc.renderHeadEnd({ cspNonce, isBot })}
+        {config.renderHeadEnd({ cspNonce, isBot })}
       </head>
       <body>
-        <div id="root">{doc.renderLayout({ shell, pageMeta, children: content })}</div>
+        <div id="root">
+          {/* `content` crossed the seam as an opaque node; here it is React again. */}
+          {config.renderLayout({ shell, pageMeta, children: content as ReactNode })}
+        </div>
         <script
           type="module"
           src={assets.js}
@@ -81,6 +96,11 @@ export function DocumentLayout({
       </body>
     </html>
   );
+}
+
+/** The dev server that serves `@vite/client` also serves the refresh runtime. */
+function defaultRefreshRuntimeUrl(devClientUrl: string): string {
+  return `${new URL(devClientUrl).origin}/@react-refresh`;
 }
 
 function reactRefreshPreamble(refreshRuntimeUrl: string): string {
