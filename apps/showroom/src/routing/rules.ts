@@ -1,4 +1,4 @@
-import type { RedirectRule, RewriteRule } from "@originloom/react/routing/types";
+import type { RedirectRule, RewriteRule } from "@originloom/shared/routing/types";
 
 /**
  * Next.js `rewrites()` equivalent. First match wins.

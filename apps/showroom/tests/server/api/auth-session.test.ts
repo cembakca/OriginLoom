@@ -1,4 +1,4 @@
-import { Cookie } from "@originloom/react/lib/cookies";
+import { Cookie } from "@originloom/shared/lib/cookies";
 import { handleAuthSessionApi } from "@server/api/internal/auth-session";
 import { handleRefresh } from "@server/api/internal/auth-session";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -1,4 +1,4 @@
-import { validateRoutingRules } from "@originloom/react/routing/validate";
+import { validateRoutingRules } from "@originloom/shared/routing/validate";
 import { describe, expect, it } from "vitest";
 
 import { createRewrites, redirects } from "~/routing/rules";

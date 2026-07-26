@@ -3,7 +3,7 @@ import {
   MAX_PAGE,
   parsePage,
   resolvePageParam,
-} from "@originloom/react/lib/content-values";
+} from "@originloom/shared/lib/content-values";
 import { describe, expect, it } from "vitest";
 
 describe("bounded content values", () => {

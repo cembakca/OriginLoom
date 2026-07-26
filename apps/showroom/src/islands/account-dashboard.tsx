@@ -1,4 +1,4 @@
-import { ClientApiError } from "@originloom/react/lib/client/api-fetch";
+import { ClientApiError } from "@originloom/shared/lib/client/api-fetch";
 
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";

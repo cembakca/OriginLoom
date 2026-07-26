@@ -1,4 +1,4 @@
-import type { Ctx, Route } from "@originloom/react/lib/types";
+import type { Ctx, Route } from "@originloom/shared/lib/types";
 
 import { logError } from "../logger.js";
 import { getRuntime } from "../runtime.js";

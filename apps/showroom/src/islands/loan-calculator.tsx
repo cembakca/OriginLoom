@@ -1,4 +1,4 @@
-import { clientApiFetch } from "@originloom/react/lib/client/api-fetch";
+import { clientApiFetch } from "@originloom/shared/lib/client/api-fetch";
 import { useState } from "react";
 
 import { Badge } from "~/components/ui/badge";

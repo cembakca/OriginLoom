@@ -1,9 +1,9 @@
-import type { DeviceShell } from "@originloom/react/lib/device";
 import { Island } from "@originloom/react/lib/island";
-import type { NavItemProp } from "@originloom/react/lib/menu/serialize";
-import type { MenuItem } from "@originloom/react/lib/menu/types";
-import { navLabel } from "@originloom/react/lib/menu/utils";
 import { cn } from "@originloom/react/lib/utils";
+import type { DeviceShell } from "@originloom/shared/lib/device";
+import type { NavItemProp } from "@originloom/shared/lib/menu/serialize";
+import type { MenuItem } from "@originloom/shared/lib/menu/types";
+import { navLabel } from "@originloom/shared/lib/menu/utils";
 import type { ReactNode } from "react";
 
 import { Menu } from "~/components/icons";

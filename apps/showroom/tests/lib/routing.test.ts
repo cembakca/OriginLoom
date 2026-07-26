@@ -1,5 +1,5 @@
-import { applyPattern, matchPattern } from "@originloom/react/routing/pattern";
-import { resolveRouteWith } from "@originloom/react/routing/resolve";
+import { applyPattern, matchPattern } from "@originloom/shared/routing/pattern";
+import { resolveRouteWith } from "@originloom/shared/routing/resolve";
 import { describe, expect, it } from "vitest";
 
 describe("routing pattern", () => {

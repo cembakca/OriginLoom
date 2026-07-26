@@ -1,5 +1,5 @@
-import { parseTheme } from "@originloom/react/lib/content-values";
-import { cookie } from "@originloom/react/lib/request";
+import { parseTheme } from "@originloom/shared/lib/content-values";
+import { cookie } from "@originloom/shared/lib/request";
 
 import { tryGetRuntime } from "../../../runtime.js";
 import { sanitizeUuid, sanitizeValue } from "../../sanitize.js";

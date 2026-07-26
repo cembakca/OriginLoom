@@ -1,5 +1,5 @@
-import type { NavItemProp } from "@originloom/react/lib/menu/serialize";
-import { linkRel } from "@originloom/react/lib/menu/utils";
+import type { NavItemProp } from "@originloom/shared/lib/menu/serialize";
+import { linkRel } from "@originloom/shared/lib/menu/utils";
 
 import {
   AccordionContent,

@@ -1,5 +1,5 @@
-import { parseEmbeddedJson, serializeEmbeddedJson } from "@originloom/react/lib/embedded-json";
 import { Island } from "@originloom/react/lib/island";
+import { parseEmbeddedJson, serializeEmbeddedJson } from "@originloom/shared/lib/embedded-json";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 

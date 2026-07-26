@@ -1,5 +1,5 @@
-import { match } from "@originloom/react/lib/match";
 import type { Route } from "@originloom/react/lib/types";
+import { match } from "@originloom/shared/lib/match";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 

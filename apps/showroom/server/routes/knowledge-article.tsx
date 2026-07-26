@@ -1,10 +1,10 @@
-import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
 import {
   generateMetaDataForPageWithSeoInfo,
   publicAbsoluteUrl,
-} from "@originloom/react/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
-import { defineRoute, notFound } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata/jsonld";
 import { getKnowledgeArticle } from "@server/services/knowledge-center";
 
 import { KnowledgeArticlePage } from "~/features/knowledge-center/article-detail";

@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 
 import { getOrSetFragmentByName } from "@originloom/core/cache/fragment";
 import type { FragmentDefinition } from "@originloom/core/runtime";
-import type { DeviceType } from "@originloom/react/lib/device";
 import type { Ctx } from "@originloom/react/lib/types";
+import type { DeviceType } from "@originloom/shared/lib/device";
 import { productConfig } from "@server/product/config";
 import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
 

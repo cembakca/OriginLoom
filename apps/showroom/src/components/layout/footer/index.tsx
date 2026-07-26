@@ -1,8 +1,8 @@
-import type { DeviceType } from "@originloom/react/lib/device";
-import { getDeviceShell } from "@originloom/react/lib/device";
-import { serializeNavItems } from "@originloom/react/lib/menu/serialize";
-import type { IMenuItems } from "@originloom/react/lib/menu/types";
-import { footerNavItems, linkRel, sortFooterItems } from "@originloom/react/lib/menu/utils";
+import type { DeviceType } from "@originloom/shared/lib/device";
+import { getDeviceShell } from "@originloom/shared/lib/device";
+import { serializeNavItems } from "@originloom/shared/lib/menu/serialize";
+import type { IMenuItems } from "@originloom/shared/lib/menu/types";
+import { footerNavItems, linkRel, sortFooterItems } from "@originloom/shared/lib/menu/utils";
 
 import { FooterAccordionSlot, NavLink } from "~/components/layout/header/nav-parts";
 import { Container, Logo } from "~/components/ui/container";

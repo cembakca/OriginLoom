@@ -1,5 +1,6 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import type { Ctx, Route, RouteError } from "@originloom/react/lib/types";
+import type { Ctx, Route, RouteError } from "@originloom/shared/lib/types";
+import type { ComponentType } from "react";
 
 import type { Assets } from "./assets.js";
 import { renderDocumentView } from "./document.js";
@@ -11,7 +12,9 @@ export async function renderNotFoundDocument(
   route?: Route,
 ): Promise<string> {
   const doc = getRuntime().document;
-  const Component = route?.NotFoundComponent ?? doc.NotFoundComponent;
+  // Route-supplied boundaries return the neutral node type; React needs them
+  // narrowed. Temporary — this pick moves into the renderer adapter.
+  const Component = (route?.NotFoundComponent ?? doc.NotFoundComponent) as ComponentType;
   return renderDocumentView({
     assets,
     routeCtx,
@@ -30,7 +33,10 @@ export async function renderRouteErrorDocument(
   status: number,
 ): Promise<string> {
   const doc = getRuntime().document;
-  const Component = route.ErrorComponent ?? doc.ErrorComponent;
+  const Component = (route.ErrorComponent ?? doc.ErrorComponent) as ComponentType<{
+    error: RouteError | null;
+    status: number;
+  }>;
   return renderDocumentView({
     assets,
     routeCtx,

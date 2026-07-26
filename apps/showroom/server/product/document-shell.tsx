@@ -1,9 +1,9 @@
 import type { DocumentShell } from "@originloom/core/runtime";
-import { mergeMetadata } from "@originloom/react/lib/metadata/merge";
 import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
-import { resolveDocumentMetadata } from "@originloom/react/lib/metadata/resolve";
-import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
-import type { Ctx, Route } from "@originloom/react/lib/types";
+import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
+import { resolveDocumentMetadata } from "@originloom/shared/lib/metadata/resolve";
+import type { ResolvedMetadata } from "@originloom/shared/lib/metadata/types";
+import type { Ctx, Route } from "@originloom/shared/lib/types";
 import { productConfig } from "@server/product/config";
 
 import { GtmBootstrap, isBotRequest } from "~/components/analytics/gtm-bootstrap";

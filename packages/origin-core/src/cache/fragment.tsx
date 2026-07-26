@@ -1,5 +1,5 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
+import type { CachePolicy, Ctx } from "@originloom/shared/lib/types";
 import { renderToString } from "react-dom/server";
 
 import { isRequestDeadlineError } from "../middleware/request-deadline.js";

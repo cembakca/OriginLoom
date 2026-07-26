@@ -1,8 +1,8 @@
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
-import type { Route } from "@originloom/react/lib/types";
-import { normalizePublicUrl } from "@originloom/react/routing";
+import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
+import type { Route } from "@originloom/shared/lib/types";
+import { normalizePublicUrl } from "@originloom/shared/routing";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { compress } from "hono/compress";
 import { HTTPException } from "hono/http-exception";

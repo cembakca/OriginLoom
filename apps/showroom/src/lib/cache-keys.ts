@@ -1,11 +1,11 @@
-import { neverCache, sharedUnlessBypass } from "@originloom/react/lib/cache-policy";
+import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
+import { neverCache, sharedUnlessBypass } from "@originloom/shared/lib/cache-policy";
 import {
   contentQueryCacheFragment,
   type ContentQueryConfig,
-} from "@originloom/react/lib/cache-query-params";
-import type { DeviceType } from "@originloom/react/lib/device";
-import { locale } from "@originloom/react/lib/request";
-import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/cache-query-params";
+import type { DeviceType } from "@originloom/shared/lib/device";
+import { locale } from "@originloom/shared/lib/request";
 
 import { layoutCacheFragment } from "~/lib/shell-data";
 

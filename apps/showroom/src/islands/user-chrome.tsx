@@ -1,4 +1,4 @@
-import { getUserInfo, subscribeUserInfo } from "@originloom/react/lib/stores/user-info-store";
+import { getUserInfo, subscribeUserInfo } from "@originloom/shared/lib/stores/user-info-store";
 import { useSyncExternalStore } from "react";
 
 import { User } from "~/components/icons";

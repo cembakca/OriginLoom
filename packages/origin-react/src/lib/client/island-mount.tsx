@@ -1,14 +1,13 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import { type ComponentType, type ReactNode, useEffect } from "react";
-import { createRoot, hydrateRoot } from "react-dom/client";
-
-import { parseEmbeddedJson } from "../embedded-json.js";
-import { reportClientError } from "./error-telemetry.js";
+import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
 import {
   createIslandMountWatchdog,
   IslandRuntimeError,
   loadIslandModule,
-} from "./island-runtime.js";
+} from "@originloom/shared/lib/client/island-runtime";
+import { parseEmbeddedJson } from "@originloom/shared/lib/embedded-json";
+import { type ComponentType, type ReactNode, useEffect } from "react";
+import { createRoot, hydrateRoot } from "react-dom/client";
 
 export type IslandModule = { default: ComponentType<Record<string, unknown>> };
 

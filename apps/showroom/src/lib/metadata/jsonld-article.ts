@@ -1,4 +1,4 @@
-import type { JsonLdObject } from "@originloom/react/lib/metadata/jsonld";
+import type { JsonLdObject } from "@originloom/shared/lib/metadata/jsonld";
 
 import type { KnowledgeArticle } from "~/lib/contracts/knowledge-center";
 

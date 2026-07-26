@@ -1,5 +1,5 @@
-import { buildPaginationItems } from "@originloom/react/lib/pagination";
 import { cn } from "@originloom/react/lib/utils";
+import { buildPaginationItems } from "@originloom/shared/lib/pagination";
 
 import { buttonVariants } from "~/components/ui/button";
 

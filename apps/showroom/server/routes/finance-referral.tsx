@@ -1,6 +1,6 @@
-import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
-import { publicAbsoluteUrl } from "@originloom/react/lib/metadata/generate";
 import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
+import { publicAbsoluteUrl } from "@originloom/shared/lib/metadata/generate";
 import { getReferral } from "@server/services/financial-products";
 
 import { ReferralPage } from "~/features/financial-products/referral-page";

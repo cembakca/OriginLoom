@@ -1,15 +1,15 @@
-import { neverCache } from "@originloom/react/lib/cache-policy";
-import { resolvePageParam } from "@originloom/react/lib/content-values";
+import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
+import { resolvePageParam } from "@originloom/shared/lib/content-values";
 import {
   generatePaginatedMetadata,
   publicAbsoluteUrl,
-} from "@originloom/react/lib/metadata/generate";
+} from "@originloom/shared/lib/metadata/generate";
 import {
   breadcrumbJsonLd,
   compactJsonLd,
   itemListJsonLd,
-} from "@originloom/react/lib/metadata/jsonld";
-import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/jsonld";
 import { getKnowledgeArticles } from "@server/services/knowledge-center";
 
 import { KnowledgeCenterPage } from "~/features/knowledge-center/article-list";

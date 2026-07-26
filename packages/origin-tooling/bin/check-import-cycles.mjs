@@ -22,6 +22,7 @@ const packageRoots = workspaceRoot
  */
 const forbiddenLayerEdges = [
   ["@originloom/react", "@originloom/core"],
+  ["@originloom/core", "@originloom/react"],
   ["@originloom/shared", "@originloom/core"],
   ["@originloom/shared", "@originloom/react"],
 ];

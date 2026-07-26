@@ -19,10 +19,12 @@ Styling is Tailwind CSS v4 via `@tailwindcss/vite`. Utility classes go directly 
 ```css
 @import "tailwindcss";
 
-/* Utility classes used by the React package render outside this app's own
-   source, so Tailwind must scan the package too. */
+/* Utility classes used by the platform packages render outside this app's own
+   source, so Tailwind must scan them too. */
 @source "../../node_modules/@originloom/react/dist"; /* standalone */
+@source "../../node_modules/@originloom/shared/dist"; /* standalone */
 /* @source "../../../../packages/origin-react/src";   ← workspace apps use this */
+/* @source "../../../../packages/origin-shared/src";  ← workspace apps use this */
 
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif;

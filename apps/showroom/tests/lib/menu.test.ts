@@ -1,11 +1,11 @@
-import { getDeviceShell, getDeviceType } from "@originloom/react/lib/device";
-import type { MenuItem } from "@originloom/react/lib/menu/types";
+import { getDeviceShell, getDeviceType } from "@originloom/shared/lib/device";
+import type { MenuItem } from "@originloom/shared/lib/menu/types";
 import {
   footerNavItems,
   linkRel,
   sortNavItems,
   topNavItems,
-} from "@originloom/react/lib/menu/utils";
+} from "@originloom/shared/lib/menu/utils";
 import { describe, expect, it } from "vitest";
 
 describe("device", () => {

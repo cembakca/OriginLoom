@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { CachePolicy, Ctx, LoaderResult, Route } from "@originloom/react/lib/types";
+import type { CachePolicy, Ctx, LoaderResult, Route } from "@originloom/shared/lib/types";
 
 import type { Assets } from "../assets.js";
 import { coalesceColdMiss } from "../cache/cold-fill.js";

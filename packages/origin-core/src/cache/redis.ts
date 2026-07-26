@@ -1,4 +1,4 @@
-import type { CachePolicy } from "@originloom/react/lib/types";
+import type { CachePolicy } from "@originloom/shared/lib/types";
 import Redis from "ioredis";
 
 import { logger } from "../logger.js";

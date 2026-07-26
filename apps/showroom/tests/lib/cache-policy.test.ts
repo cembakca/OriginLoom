@@ -1,12 +1,12 @@
+import type { Ctx } from "@originloom/react/lib/types";
 import {
   clearCacheBypassChecks,
   hasPid,
   isAuthenticated,
   registerCacheBypassCheck,
   sharedUnlessBypass,
-} from "@originloom/react/lib/cache-policy";
-import { Cookie } from "@originloom/react/lib/cookies";
-import type { Ctx } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/cache-policy";
+import { Cookie } from "@originloom/shared/lib/cookies";
 import { beforeEach, describe, expect, it } from "vitest";
 
 function ctx(request: Request, overrides: Partial<Ctx> = {}): Ctx {

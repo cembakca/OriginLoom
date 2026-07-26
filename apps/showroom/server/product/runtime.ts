@@ -1,6 +1,6 @@
 import { cspScriptHash, registerCspScriptHashes } from "@originloom/core/middleware/security";
 import { installRuntime, type OriginRuntime } from "@originloom/core/runtime";
-import { configureSiteMetadata } from "@originloom/react/lib/metadata/site-config";
+import { configureSiteMetadata } from "@originloom/shared/lib/metadata/site-config";
 import { marketStreamMetricLines } from "@server/metrics/market-stream";
 import { referralMetricLines } from "@server/metrics/referrals";
 import { storeBotVisit } from "@server/services/bot-analytics";

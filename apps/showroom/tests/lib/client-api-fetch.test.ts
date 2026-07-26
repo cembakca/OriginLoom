@@ -1,5 +1,5 @@
-import { clientApiFetch } from "@originloom/react/lib/client/api-fetch";
-import { getUserInfo, seedUserInfo } from "@originloom/react/lib/stores/user-info-store";
+import { clientApiFetch } from "@originloom/shared/lib/client/api-fetch";
+import { getUserInfo, seedUserInfo } from "@originloom/shared/lib/stores/user-info-store";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {

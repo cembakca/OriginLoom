@@ -1,10 +1,10 @@
+import type { Ctx } from "@originloom/react/lib/types";
 import {
   contentQueryCacheFragment,
   contentSearchString,
   foreignQueryParamNames,
   isTrackingQueryParam,
-} from "@originloom/react/lib/cache-query-params";
-import type { Ctx } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/cache-query-params";
 import { describe, expect, it } from "vitest";
 
 function ctx(url: string, overrides: Partial<Ctx> = {}): Ctx {

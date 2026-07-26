@@ -1,6 +1,6 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import { serializeEmbeddedJson } from "../embedded-json.js";
-import type { ResolvedMetadata } from "./types.js";
+import { serializeEmbeddedJson } from "@originloom/shared/lib/embedded-json";
+import type { ResolvedMetadata } from "@originloom/shared/lib/metadata/types";
 
 /** Metadata API çıktısı → HTML head tag'leri. GTM/analytics burada değil. */
 export function MetadataHead({

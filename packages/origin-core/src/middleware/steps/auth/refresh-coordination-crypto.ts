@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
 import type { RefreshResult } from "./refresh-result.js";
 

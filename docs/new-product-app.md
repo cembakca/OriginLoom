@@ -139,7 +139,7 @@ import { createApp } from "@originloom/core/app";
 import { readAssets } from "@originloom/core/assets";
 import { initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
-import { configureRouting } from "@originloom/react/routing";
+import { configureRouting } from "@originloom/shared/routing";
 
 import { mountApi } from "./api";
 import { installProductRuntime } from "./product/runtime";
@@ -210,7 +210,7 @@ export const mount = createIslandMounter({
 ```tsx
 // src/entry.client.tsx
 import "./styles/globals.css";
-import { runIslandBootstrap } from "@originloom/react/lib/client/island-runtime";
+import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
 
 runIslandBootstrap((el) => {
   void import("./hydrate.client").then(({ mount }) => mount(el));
@@ -223,8 +223,10 @@ modda paketin kaynağı, standalone modda kurulu `dist`'i:
 ```css
 /* workspace */
 @source "../../../../packages/origin-react/src";
+@source "../../../../packages/origin-shared/src";
 /* standalone */
 @source "../../node_modules/@originloom/react/dist";
+@source "../../node_modules/@originloom/shared/dist";
 ```
 
 ---

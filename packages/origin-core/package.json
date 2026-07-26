@@ -28,7 +28,7 @@
     "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
     "@opentelemetry/resources": "^2.9.0",
     "@opentelemetry/sdk-node": "^0.220.0",
-    "@originloom/react": "workspace:*",
+    "@originloom/shared": "workspace:*",
     "hono": "^4.6.14",
     "ioredis": "^5.4.2"
   },

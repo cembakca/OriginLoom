@@ -44,6 +44,7 @@
     "@hono/node-server": "^1.13.7",
     "@originloom/core": "workspace:*",
     "@originloom/react": "workspace:*",
+    "@originloom/shared": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.16",
     "@radix-ui/react-dialog": "^1.1.19",
     "@radix-ui/react-dropdown-menu": "^2.1.20",

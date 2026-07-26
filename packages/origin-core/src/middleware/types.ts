@@ -1,5 +1,5 @@
 /** Central cookie names — re-export from shared lib. */
-export { Cookie } from "@originloom/react/lib/cookies";
+export { Cookie } from "@originloom/shared/lib/cookies";
 
 import type { CookieJar } from "./cookie-jar.js";
 

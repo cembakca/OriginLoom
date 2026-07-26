@@ -5,9 +5,9 @@ import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-p
 import {
   normalizeMetadataImageUrl,
   normalizeNavigationUrl,
-} from "@originloom/react/lib/content-url";
-import type { DeviceType } from "@originloom/react/lib/device";
-import type { IMenuItems, MenuItem } from "@originloom/react/lib/menu/types";
+} from "@originloom/shared/lib/content-url";
+import type { DeviceType } from "@originloom/shared/lib/device";
+import type { IMenuItems, MenuItem } from "@originloom/shared/lib/menu/types";
 import { productConfig } from "@server/product/config";
 
 import { menuCacheKey } from "~/lib/cache-keys";

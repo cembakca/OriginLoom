@@ -1,10 +1,10 @@
-import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
-import { Cookie } from "@originloom/react/lib/cookies";
-import type { DeviceType } from "@originloom/react/lib/device";
-import { deviceCacheFragment, getDeviceShell } from "@originloom/react/lib/device";
-import type { IMenuItems } from "@originloom/react/lib/menu/types";
-import { cookie } from "@originloom/react/lib/request";
 import type { Ctx } from "@originloom/react/lib/types";
+import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
+import { Cookie } from "@originloom/shared/lib/cookies";
+import type { DeviceType } from "@originloom/shared/lib/device";
+import { deviceCacheFragment, getDeviceShell } from "@originloom/shared/lib/device";
+import type { IMenuItems } from "@originloom/shared/lib/menu/types";
+import { cookie } from "@originloom/shared/lib/request";
 
 /** Cache-safe props for layout-client island — no trackingId, no auth tokens. */
 export type LayoutClientProps = {

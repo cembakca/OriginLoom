@@ -1,10 +1,10 @@
-import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
 import {
   generateMetaDataForPageWithSeoInfo,
   publicAbsoluteUrl,
-} from "@originloom/react/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
-import { defineRoute, notFound } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata/jsonld";
 import { getHousingLoan } from "@server/services/financial-products";
 
 import { HousingLoanDetailPage } from "~/features/financial-products/housing-loan-detail";

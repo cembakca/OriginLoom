@@ -161,6 +161,7 @@ const packageJson = (name, { standalone, version }) => {
         "@hono/node-server": "^1.13.7",
         "@originloom/core": originloom,
         "@originloom/react": originloom,
+        "@originloom/shared": originloom,
         "@tailwindcss/vite": "^4.3.2",
         clsx: "^2.1.1",
         hono: "^4.6.14",
@@ -362,8 +363,8 @@ import { config, validateConfig } from "@originloom/core/config";
 import { drainRevalidations } from "@originloom/core/handler";
 import { logError, logger } from "@originloom/core/logger";
 import { createMetricsApp } from "@originloom/core/metrics-server";
-import { configureRouting } from "@originloom/react/routing";
-import { validateRoutingRules } from "@originloom/react/routing/validate";
+import { configureRouting } from "@originloom/shared/routing";
+import { validateRoutingRules } from "@originloom/shared/routing/validate";
 
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
@@ -642,7 +643,7 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
 `;
 
 const itemDetailRoute =
-  () => `import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+  () => `import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
 import { defineRoute, notFound } from "@originloom/react/lib/types";
 import { getItem, type Item } from "@server/services/items";
 
@@ -820,7 +821,7 @@ export function CatalogPage({ data }: Props) {
 }
 `;
 
-const liveRoute = () => `import { neverCache } from "@originloom/react/lib/cache-policy";
+const liveRoute = () => `import { neverCache } from "@originloom/shared/lib/cache-policy";
 import { defineRoute } from "@originloom/react/lib/types";
 
 import { LivePage } from "~/features/live/live-page";
@@ -934,7 +935,7 @@ export async function buildShellData(
 
 const productRuntime =
   () => `import { installRuntime, type OriginRuntime } from "@originloom/core/runtime";
-import { configureSiteMetadata } from "@originloom/react/lib/metadata/site-config";
+import { configureSiteMetadata } from "@originloom/shared/lib/metadata/site-config";
 import { buildShellData } from "@server/services/shell-data";
 
 import { isKnownPageCachePrefix } from "~/lib/cache-keys";
@@ -966,9 +967,9 @@ export function installProductRuntime(): void {
 const productDocumentShell = (
   title,
 ) => `import type { DocumentShell } from "@originloom/core/runtime";
-import { mergeMetadata } from "@originloom/react/lib/metadata/merge";
+import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
 import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
-import { resolveDocumentMetadata } from "@originloom/react/lib/metadata/resolve";
+import { resolveDocumentMetadata } from "@originloom/shared/lib/metadata/resolve";
 import type { Ctx, Route } from "@originloom/react/lib/types";
 
 import { RootLayout } from "~/components/layout/root-layout";
@@ -1047,9 +1048,9 @@ export function RouteErrorPage({ error }: { error: RouteError | null; status: nu
 
 const entryClient = () => `import "./styles/globals.css";
 
-import { reportClientError } from "@originloom/react/lib/client/error-telemetry";
-import { runIslandBootstrap } from "@originloom/react/lib/client/island-runtime";
-import { installReloadButtons } from "@originloom/react/lib/client/reload-button";
+import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
+import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
+import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
 
 installReloadButtons();
 
@@ -1149,7 +1150,7 @@ export function HomePage({ data }: { data: { greeting: string } }) {
 
 const rootLayout = (
   title,
-) => `import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
+) => `import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
 import type { ShellData } from "~/lib/shell-data";
@@ -1189,11 +1190,11 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
 `;
 
 const libShellData =
-  () => `import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
-import { Cookie } from "@originloom/react/lib/cookies";
-import type { DeviceType } from "@originloom/react/lib/device";
-import { deviceCacheFragment, getDeviceShell } from "@originloom/react/lib/device";
-import { cookie } from "@originloom/react/lib/request";
+  () => `import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
+import { Cookie } from "@originloom/shared/lib/cookies";
+import type { DeviceType } from "@originloom/shared/lib/device";
+import { deviceCacheFragment, getDeviceShell } from "@originloom/shared/lib/device";
+import { cookie } from "@originloom/shared/lib/request";
 import type { Ctx } from "@originloom/react/lib/types";
 
 /** Cache-safe props for the shell — no trackingId, no auth tokens. */
@@ -1237,8 +1238,8 @@ export function defaultPageMeta(
 `;
 
 const cacheKeys =
-  () => `import { neverCache, sharedUnlessBypass } from "@originloom/react/lib/cache-policy";
-import { locale } from "@originloom/react/lib/request";
+  () => `import { neverCache, sharedUnlessBypass } from "@originloom/shared/lib/cache-policy";
+import { locale } from "@originloom/shared/lib/request";
 import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
 
 import { pageParam } from "~/lib/pagination";
@@ -1350,7 +1351,7 @@ export function isKnownPageCachePrefix(prefix: string): prefix is PageCacheId {
 
 const siteDefaults = (
   title,
-) => `import type { SiteMetadataConfig } from "@originloom/react/lib/metadata/types";
+) => `import type { SiteMetadataConfig } from "@originloom/shared/lib/metadata/types";
 
 /** Static site identity — the metadata engine merges route metadata on top of this. */
 export function siteMetadata(baseUrl: string): SiteMetadataConfig {
@@ -1377,7 +1378,7 @@ export function siteMetadata(baseUrl: string): SiteMetadataConfig {
 `;
 
 const routingRules =
-  () => `import type { RedirectRule, RewriteRule } from "@originloom/react/routing/types";
+  () => `import type { RedirectRule, RewriteRule } from "@originloom/shared/routing/types";
 
 /**
  * Config-level redirects — the Next.js \`redirects()\` equivalent.
@@ -1398,9 +1399,10 @@ export function createRewrites(_gatewayUrl: string): RewriteRule[] {
 
 const globalsCss = (standalone) => `@import "tailwindcss";
 
-/* The React package renders utility classes outside this app's own source, so
-   Tailwind must scan it too — as workspace source, or as installed dist. */
+/* The platform packages render utility classes outside this app's own source,
+   so Tailwind must scan them too — as workspace source, or as installed dist. */
 @source "${standalone ? "../../node_modules/@originloom/react/dist" : "../../../../packages/origin-react/src"}";
+@source "${standalone ? "../../node_modules/@originloom/shared/dist" : "../../../../packages/origin-shared/src"}";
 
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif;

@@ -1,9 +1,9 @@
+import type { Ctx } from "@originloom/react/lib/types";
 import {
   generateMetaDataForPageWithSeoInfo,
   publicAbsoluteUrl,
-} from "@originloom/react/lib/metadata/generate";
-import type { PageMetadata, SeoInfo } from "@originloom/react/lib/metadata/types";
-import type { Ctx } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/generate";
+import type { PageMetadata, SeoInfo } from "@originloom/shared/lib/metadata/types";
 
 const dummySeoByPath: Record<string, Partial<SeoInfo>> = {
   "/": {

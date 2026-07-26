@@ -1,4 +1,4 @@
-import type { LoaderResult, Route } from "@originloom/react/lib/types";
+import type { LoaderResult, Route } from "@originloom/shared/lib/types";
 
 import * as cache from "../cache/index.js";
 import { logger } from "../logger.js";

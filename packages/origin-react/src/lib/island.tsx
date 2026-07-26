@@ -1,7 +1,6 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
+import { serializeEmbeddedJson } from "@originloom/shared/lib/embedded-json";
 import type { ReactNode } from "react";
-
-import { serializeEmbeddedJson } from "./embedded-json.js";
 
 /**
  * `hydrate` — server renders it, client wakes it up.

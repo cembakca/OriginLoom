@@ -1,4 +1,4 @@
-import type { Ctx, Route } from "@originloom/react/lib/types";
+import type { Ctx, Route } from "@originloom/shared/lib/types";
 
 import type { Assets } from "../assets.js";
 import { config } from "../config.js";

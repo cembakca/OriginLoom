@@ -8,8 +8,8 @@ import { drainRevalidations } from "@originloom/core/handler";
 import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
 import { logError, logger } from "@originloom/core/logger";
 import { createMetricsApp } from "@originloom/core/metrics-server";
-import { configureRouting } from "@originloom/react/routing";
-import { validateRoutingRules } from "@originloom/react/routing/validate";
+import { configureRouting } from "@originloom/shared/routing";
+import { validateRoutingRules } from "@originloom/shared/routing/validate";
 
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 

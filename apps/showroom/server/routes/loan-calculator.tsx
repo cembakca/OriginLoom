@@ -1,10 +1,10 @@
-import { neverCache } from "@originloom/react/lib/cache-policy";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
 import {
   generateMetaDataForPageWithSeoInfo,
   publicAbsoluteUrl,
-} from "@originloom/react/lib/metadata/generate";
-import { breadcrumbJsonLd, compactJsonLd } from "@originloom/react/lib/metadata/jsonld";
-import { defineRoute, notFound } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata/jsonld";
 import { getLoanCalculation } from "@server/services/financial-products";
 
 import { LoanCalculatorPage } from "~/features/financial-products/loan-calculator-page";

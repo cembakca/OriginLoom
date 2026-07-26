@@ -1,5 +1,5 @@
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
-import type { Route } from "@originloom/react/lib/types";
+import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
+import type { Route } from "@originloom/shared/lib/types";
 import type { Handler } from "hono";
 
 import type { Assets } from "../assets.js";

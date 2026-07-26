@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { reportClientError } from "@originloom/react/lib/client/error-telemetry";
+import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {

@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
-import { cookie } from "@originloom/react/lib/request";
-import { isBoundedString, isRecord } from "@originloom/react/lib/runtime-schema";
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
+import { cookie } from "@originloom/shared/lib/request";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 
 import { gatewayFetch } from "../../../adapters/gateway.js";
 import {

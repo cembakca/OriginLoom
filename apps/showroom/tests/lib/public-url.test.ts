@@ -1,4 +1,4 @@
-import { normalizePublicUrl } from "@originloom/react/routing";
+import { normalizePublicUrl } from "@originloom/shared/routing";
 import { describe, expect, it } from "vitest";
 
 describe("public URL normalization", () => {

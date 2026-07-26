@@ -1,8 +1,8 @@
 import { config } from "@originloom/core/config";
 import { responsiveImage, unoptimizedImage } from "@originloom/core/media";
-import { imagePreload } from "@originloom/react/lib/media";
-import { generateMetaDataForPageWithSeoInfo } from "@originloom/react/lib/metadata/generate";
 import { defineRoute } from "@originloom/react/lib/types";
+import { imagePreload } from "@originloom/shared/lib/media";
+import { generateMetaDataForPageWithSeoInfo } from "@originloom/shared/lib/metadata/generate";
 
 import {
   MEDIA_DEMO_SIZES,

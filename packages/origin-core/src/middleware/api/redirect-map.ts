@@ -1,4 +1,4 @@
-import { isRecord } from "@originloom/react/lib/runtime-schema";
+import { isRecord } from "@originloom/shared/lib/runtime-schema";
 
 import { gatewayFetch } from "../../adapters/gateway.js";
 import { config } from "../../config.js";

@@ -1,5 +1,5 @@
-import { ClientApiError, clientApiFetch } from "@originloom/react/lib/client/api-fetch";
-import { seedUserInfo } from "@originloom/react/lib/stores/user-info-store";
+import { ClientApiError, clientApiFetch } from "@originloom/shared/lib/client/api-fetch";
+import { seedUserInfo } from "@originloom/shared/lib/stores/user-info-store";
 import { useQuery } from "@tanstack/react-query";
 
 import type { AccountSummary } from "~/lib/contracts/account";

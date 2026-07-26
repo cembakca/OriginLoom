@@ -3,7 +3,7 @@ import {
   bootstrapIslandElements,
   createIslandMountWatchdog,
   loadIslandModule,
-} from "@originloom/react/lib/client/island-runtime";
+} from "@originloom/shared/lib/client/island-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {

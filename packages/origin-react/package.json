@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@originloom/shared": "workspace:*",
     "@tanstack/react-query": "^5.101.2",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.6.0"

@@ -1,4 +1,4 @@
-import type { ResponsiveImageData, UnoptimizedImageData } from "@originloom/react/lib/media";
+import type { ResponsiveImageData, UnoptimizedImageData } from "@originloom/shared/lib/media";
 
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";

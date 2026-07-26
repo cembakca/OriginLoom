@@ -8,7 +8,7 @@ import {
   type ResponsiveImageData,
   serializeSrcSet,
   type UnoptimizedImageData,
-} from "@originloom/react/lib/media";
+} from "@originloom/shared/lib/media";
 
 import { config } from "./config.js";
 

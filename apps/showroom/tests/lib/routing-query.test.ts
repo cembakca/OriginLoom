@@ -1,4 +1,4 @@
-import { mergeSearchParams } from "@originloom/react/routing";
+import { mergeSearchParams } from "@originloom/shared/routing";
 import { describe, expect, it } from "vitest";
 
 describe("routing query merge", () => {

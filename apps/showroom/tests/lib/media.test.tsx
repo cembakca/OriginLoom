@@ -4,7 +4,7 @@ import {
   createUnoptimizedImage,
   imagePreload,
   prefixMediaUrl,
-} from "@originloom/react/lib/media";
+} from "@originloom/shared/lib/media";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 

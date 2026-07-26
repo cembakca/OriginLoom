@@ -1,12 +1,12 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
 import { PassThrough, Readable } from "node:stream";
 
-import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
-import type { ImagePreload } from "@originloom/react/lib/media";
-import type { ResolvedMetadata } from "@originloom/react/lib/metadata/types";
-import { stripUndefined } from "@originloom/react/lib/strip-undefined";
-import type { Ctx, Route } from "@originloom/react/lib/types";
-import type { ReactElement } from "react";
+import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
+import type { ImagePreload } from "@originloom/shared/lib/media";
+import type { ResolvedMetadata } from "@originloom/shared/lib/metadata/types";
+import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
+import type { Ctx, Route } from "@originloom/shared/lib/types";
+import type { ComponentType, ReactElement } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
 
 import type { Assets } from "./assets.js";
@@ -30,11 +30,14 @@ export async function renderDocument<T>(
   const pageMeta =
     route.pageMeta?.(data, routeCtx) ??
     doc.defaultPageMeta(routeCtx, route.path === "/" ? "home" : route.path.replace(/^\//, ""));
+  // `Route.Component` returns the neutral node type; React needs it narrowed.
+  // Temporary — the renderer seam moves every JSX site out of this package.
+  const Component = route.Component as ComponentType<{ data: T }>;
 
   return renderDocumentView({
     assets,
     routeCtx,
-    content: <route.Component data={data} />,
+    content: <Component data={data} />,
     metadata: seo,
     pageMeta,
     imagePreloads,
@@ -130,7 +133,8 @@ export async function renderDocumentToStream<T>(
     allReadyResolve = resolve;
   });
 
-  const content = <route.Component data={data} />;
+  const Component = route.Component as ComponentType<{ data: T }>;
+  const content = <Component data={data} />;
 
   const rxStream = renderToPipeableStream(
     <DocumentLayout

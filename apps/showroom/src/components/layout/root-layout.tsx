@@ -1,5 +1,5 @@
-import type { PageAnalyticsMeta } from "@originloom/react/lib/analytics/types";
 import { Island } from "@originloom/react/lib/island";
+import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
 import { Container } from "~/components/ui/container";

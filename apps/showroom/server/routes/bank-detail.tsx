@@ -1,14 +1,14 @@
-import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
 import {
   generateMetaDataForPageWithSeoInfo,
   publicAbsoluteUrl,
-} from "@originloom/react/lib/metadata/generate";
+} from "@originloom/shared/lib/metadata/generate";
 import {
   breadcrumbJsonLd,
   compactJsonLd,
   itemListJsonLd,
-} from "@originloom/react/lib/metadata/jsonld";
-import { defineRoute, notFound } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/jsonld";
 import { getBank } from "@server/services/financial-products";
 
 import { BankDetailPage } from "~/features/financial-products/bank-detail";

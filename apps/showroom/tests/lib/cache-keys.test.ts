@@ -1,6 +1,6 @@
-import { clearCacheBypassChecks } from "@originloom/react/lib/cache-policy";
-import { Cookie } from "@originloom/react/lib/cookies";
 import type { Ctx } from "@originloom/react/lib/types";
+import { clearCacheBypassChecks } from "@originloom/shared/lib/cache-policy";
+import { Cookie } from "@originloom/shared/lib/cookies";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {

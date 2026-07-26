@@ -1,10 +1,10 @@
+import type { Ctx } from "@originloom/react/lib/types";
 import {
   generateMetaDataForPageWithSeoInfo,
   generatePaginatedMetadata,
-} from "@originloom/react/lib/metadata/generate";
-import { mergeMetadata } from "@originloom/react/lib/metadata/merge";
-import { parseSeoInfo } from "@originloom/react/lib/metadata/schema";
-import type { Ctx } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/generate";
+import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
+import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
 import { describe, expect, it } from "vitest";
 
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";

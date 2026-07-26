@@ -1,4 +1,4 @@
-import { parsePage } from "@originloom/react/lib/content-values";
+import { parsePage } from "@originloom/shared/lib/content-values";
 
 const SORT = new Set(["symbol-asc", "price-desc", "change-desc", "change-asc", "market-cap-desc"]);
 

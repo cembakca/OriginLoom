@@ -1,7 +1,7 @@
-import { hasAuthCookies, readCookie } from "@originloom/react/lib/client/cookies";
-import { Cookie } from "@originloom/react/lib/cookies";
-import { seedSession } from "@originloom/react/lib/stores/session-store";
-import { seedUserInfo } from "@originloom/react/lib/stores/user-info-store";
+import { hasAuthCookies, readCookie } from "@originloom/shared/lib/client/cookies";
+import { Cookie } from "@originloom/shared/lib/cookies";
+import { seedSession } from "@originloom/shared/lib/stores/session-store";
+import { seedUserInfo } from "@originloom/shared/lib/stores/user-info-store";
 import { useLayoutEffect } from "react";
 
 import type { LayoutClientProps } from "~/lib/shell-data";

@@ -1,4 +1,4 @@
-import type { LoaderResult } from "@originloom/react/lib/types";
+import type { LoaderResult } from "@originloom/shared/lib/types";
 
 import type { StreamResult } from "../document.js";
 

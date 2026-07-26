@@ -1,4 +1,4 @@
-import type { ResponsiveImageData, UnoptimizedImageData } from "@originloom/react/lib/media";
+import type { ResponsiveImageData, UnoptimizedImageData } from "@originloom/shared/lib/media";
 import type { ImgHTMLAttributes } from "react";
 
 type Props = Omit<

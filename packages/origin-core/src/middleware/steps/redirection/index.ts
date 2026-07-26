@@ -1,4 +1,4 @@
-import { mergeSearchParams } from "@originloom/react/routing";
+import { mergeSearchParams } from "@originloom/shared/routing";
 
 import { lookupRedirect } from "../../api/redirect-map.js";
 import type { MiddlewareStep } from "../../types.js";

@@ -71,6 +71,9 @@ importers:
       '@originloom/react':
         specifier: workspace:*
         version: link:../../packages/origin-react
+      '@originloom/shared':
+        specifier: workspace:*
+        version: link:../../packages/origin-shared
       '@radix-ui/react-accordion':
         specifier: ^1.2.16
         version: 1.2.16(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -180,9 +183,9 @@ importers:
       '@opentelemetry/sdk-node':
         specifier: ^0.220.0
         version: 0.220.0(@opentelemetry/api@1.9.1)
-      '@originloom/react':
+      '@originloom/shared':
         specifier: workspace:*
-        version: link:../origin-react
+        version: link:../origin-shared
       hono:
         specifier: ^4.6.14
         version: 4.12.30
@@ -211,6 +214,9 @@ importers:
 
   packages/origin-react:
     dependencies:
+      '@originloom/shared':
+        specifier: workspace:*
+        version: link:../origin-shared
       '@tanstack/react-query':
         specifier: ^5.101.2
         version: 5.101.2(react@19.2.7)

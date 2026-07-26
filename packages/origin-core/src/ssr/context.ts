@@ -1,4 +1,4 @@
-import type { Ctx } from "@originloom/react/lib/types";
+import type { Ctx } from "@originloom/shared/lib/types";
 
 import { config } from "../config.js";
 import { isRequestDeadlineError } from "../middleware/request-deadline.js";

@@ -1,4 +1,4 @@
-import { reportClientError } from "@originloom/react/lib/client/error-telemetry";
+import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
 import { useEffect, useState } from "react";
 
 import { MarketLiveTable, type MarketStreamStatus } from "~/features/markets/market-live-table";

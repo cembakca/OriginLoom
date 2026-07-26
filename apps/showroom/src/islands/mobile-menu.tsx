@@ -1,4 +1,4 @@
-import type { NavItemProp } from "@originloom/react/lib/menu/serialize";
+import type { NavItemProp } from "@originloom/shared/lib/menu/serialize";
 
 import { Menu } from "~/components/icons";
 import {

@@ -1,6 +1,6 @@
-import { mergeMetadata } from "@originloom/react/lib/metadata/merge";
 import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
 import type { Ctx } from "@originloom/react/lib/types";
+import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 

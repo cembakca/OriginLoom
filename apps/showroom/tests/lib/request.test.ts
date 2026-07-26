@@ -1,4 +1,4 @@
-import { cookie, device, locale } from "@originloom/react/lib/request";
+import { cookie, device, locale } from "@originloom/shared/lib/request";
 import { describe, expect, it } from "vitest";
 
 describe("request helpers", () => {

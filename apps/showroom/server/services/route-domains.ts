@@ -1,7 +1,7 @@
 import { gatewayFetch } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
-import { isBoundedRouteSlug } from "@originloom/react/lib/content-values";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
 
 const ROUTE_DOMAINS_CACHE_KEY = "route-domains";
 const MAX_DOMAIN_VALUES = 500;

@@ -1,4 +1,4 @@
-import type { JsonLdObject } from "@originloom/react/lib/metadata/jsonld";
+import type { JsonLdObject } from "@originloom/shared/lib/metadata/jsonld";
 
 import type { BankProfile, CreditCard, HousingLoan } from "~/lib/contracts/financial-products";
 

@@ -2,6 +2,7 @@
 
 /* Workspace packages are outside this app's root; scan them for utility classes. */
 @source "../../../../packages/origin-react/src";
+@source "../../../../packages/origin-shared/src";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;

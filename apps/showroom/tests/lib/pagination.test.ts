@@ -1,4 +1,4 @@
-import { buildPaginationItems } from "@originloom/react/lib/pagination";
+import { buildPaginationItems } from "@originloom/shared/lib/pagination";
 import { describe, expect, it } from "vitest";
 
 describe("pagination window", () => {

@@ -1,4 +1,4 @@
-import type { SeoInfo } from "@originloom/react/lib/metadata/types";
+import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 
 import type { Pagination } from "./pagination";
 

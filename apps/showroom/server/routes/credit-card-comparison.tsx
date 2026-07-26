@@ -1,9 +1,9 @@
-import { neverCache } from "@originloom/react/lib/cache-policy";
+import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
 import {
   generateMetaDataForPageWithSeoInfo,
   publicAbsoluteUrl,
-} from "@originloom/react/lib/metadata/generate";
-import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
+} from "@originloom/shared/lib/metadata/generate";
 import { getCreditCardComparison } from "@server/services/financial-products";
 
 import { CreditCardComparisonPage } from "~/features/financial-products/credit-card-comparison";

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import { match } from "@originloom/react/lib/match";
-import type { Route } from "@originloom/react/lib/types";
-import { resolveRoute } from "@originloom/react/routing";
+import { match } from "@originloom/shared/lib/match";
+import type { Route } from "@originloom/shared/lib/types";
+import { resolveRoute } from "@originloom/shared/routing";
 
 import type { Assets } from "./assets.js";
 import { config } from "./config.js";

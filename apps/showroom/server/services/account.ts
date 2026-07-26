@@ -6,7 +6,7 @@ import {
   isBoundedString,
   isFiniteNumber,
   isRecord,
-} from "@originloom/react/lib/runtime-schema";
+} from "@originloom/shared/lib/runtime-schema";
 
 import type { AccountActivity, AccountSummary, UserProfile } from "~/lib/contracts/account";
 
