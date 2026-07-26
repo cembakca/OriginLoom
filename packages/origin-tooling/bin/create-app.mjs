@@ -39,12 +39,9 @@ const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 async function main() {
   const options = parseArgs(process.argv.slice(2));
 
-  let workspaceRoot = null;
-  if (options.workspace) {
-    workspaceRoot = findWorkspaceRoot(process.cwd());
-    if (!workspaceRoot) {
-      fail("--workspace requires running inside an OriginLoom workspace (no pnpm-workspace.yaml).");
-    }
+  const workspaceRoot = findWorkspaceRoot(process.cwd());
+  if (options.workspace && !workspaceRoot) {
+    fail("--workspace requires running inside an OriginLoom workspace (no pnpm-workspace.yaml).");
   }
 
   const prompt = await createPrompter(options);
@@ -88,7 +85,7 @@ async function main() {
     await writeFile(target, await formatted(relativePath, contents, prettierConfig), "utf8");
   }
 
-  report({ ...options, name, port, appDir: options.appDir });
+  report({ ...options, name, port, appDir: options.appDir, workspaceRoot });
 }
 
 /**
@@ -108,6 +105,7 @@ async function formatted(relativePath, contents, config) {
 
 function report(o) {
   console.log(`\n✓ ${o.appDir} created (standalone: ${!o.workspace})\n`);
+  warnIfStandaloneInsideWorkspace(o);
   if (o.workspace) {
     console.log("Next steps:\n");
     console.log("  pnpm install");
@@ -122,6 +120,25 @@ function report(o) {
   console.log("  pnpm dev\n");
   console.log(`The app will serve on http://127.0.0.1:${o.port}.`);
   console.log("Set GATEWAY_URL in .env.development to point at your gateway.\n");
+}
+
+/**
+ * A standalone app installs @originloom/* from a registry. Generated inside the
+ * workspace that develops those packages, that is almost always a slip: they are
+ * unpublished there, so `pnpm install` cannot resolve them.
+ */
+function warnIfStandaloneInsideWorkspace({ workspace, workspaceRoot, appDir, name }) {
+  if (workspace || !workspaceRoot) return;
+  if (!resolve(appDir).startsWith(resolve(workspaceRoot))) return;
+
+  console.warn(
+    `! ${name} is a standalone app inside an OriginLoom workspace.\n` +
+      `  Standalone apps resolve @originloom/* from a registry, and the packages in\n` +
+      `  this repo are not published — pnpm install will fail here.\n` +
+      `  For an app that links the local packages, regenerate with --workspace:\n\n` +
+      `    rm -rf ${appDir}\n` +
+      `    pnpm create-app ${name} --workspace\n`,
+  );
 }
 
 function assertValidRenderer(value) {

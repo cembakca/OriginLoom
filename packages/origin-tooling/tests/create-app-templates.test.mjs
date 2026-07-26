@@ -402,3 +402,30 @@ describe("renderTemplates — vanilla renderer", () => {
     );
   });
 });
+
+describe("renderTemplates — generated apps satisfy their own tooling", () => {
+  const modes = [
+    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
+    [
+      "vanilla",
+      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
+    ],
+  ];
+
+  it.each(modes)("%s: typechecks and lints its tests too", (_name, files) => {
+    // Without this the repo's typed lint reports "not found by the project
+    // service" for every generated test file.
+    expect(JSON.parse(files["tsconfig.json"]).include).toContain("tests");
+  });
+
+  it.each(modes)("%s: keeps import groups sorted the way eslint wants", (_name, files) => {
+    for (const [path, contents] of Object.entries(files)) {
+      if (!path.endsWith(".ts") && !path.endsWith(".tsx")) continue;
+      for (const group of contents.split("\n\n")) {
+        const specifiers = [...group.matchAll(/^import[^"']*["']([^"']+)["']/gm)].map((m) => m[1]);
+        const aliased = specifiers.filter((s) => s.startsWith("~/") || s.startsWith("@server/"));
+        expect(aliased, `${path}: unsorted import group`).toEqual([...aliased].sort());
+      }
+    }
+  });
+});

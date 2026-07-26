@@ -51,9 +51,9 @@ export const routes: Route[] = [home, catalog, itemDetail];
 
 export const homeRoute = (title) => `import { defineRoute } from "@originloom/vanilla/lib/types";
 
-import { homePage } from "~/pages/home";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
+import { homePage } from "~/pages/home";
 
 const GREETING = "${title}";
 
@@ -72,10 +72,10 @@ export default defineRoute<Data>({
 export const catalogRoute = () => `import { defineRoute } from "@originloom/vanilla/lib/types";
 import { type Item, listItems } from "@server/services/items";
 
-import { catalogPage } from "~/pages/catalog";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { pageParam } from "~/lib/pagination";
 import { defaultPageMeta } from "~/lib/shell-data";
+import { catalogPage } from "~/pages/catalog";
 
 const PER_PAGE = 3;
 
@@ -101,9 +101,9 @@ export const itemDetailRoute =
 import { defineRoute, notFound } from "@originloom/vanilla/lib/types";
 import { getItem, type Item } from "@server/services/items";
 
-import { itemDetailPage } from "~/pages/item-detail";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
+import { itemDetailPage } from "~/pages/item-detail";
 
 type Data = { item: Item };
 

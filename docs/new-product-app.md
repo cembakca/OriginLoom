@@ -18,6 +18,11 @@ Elle kurmak yerine CLI kullanın — aşağıdaki bölümlerin tamamını üreti
 - **`--workspace`**: bu monorepo içinde `apps/<ad>` altında, paketleri `workspace:*` ile bağlayan
   uygulama. Platform ekibinin pilot app'leri için.
 
+> **Bu repo içinde çalışıyorsanız `--workspace` kullanın.** Bayraksız üretilen uygulama
+> `@originloom/*` paketlerini registry'den çözmeye çalışır; bu repodakiler yayınlanmadığı için
+> `pnpm install` başarısız olur (ve `origin-dev: command not found` gibi görünür). Generator bu
+> durumu fark edip uyarır.
+
 ```bash
 pnpm create-app                                        # interaktif, standalone
 pnpm create-app landing-web --vanilla                  # UI framework'süz (html`` + düz island)

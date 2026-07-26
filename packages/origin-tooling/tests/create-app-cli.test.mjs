@@ -162,3 +162,38 @@ describe("origin-create-app CLI — renderer selection", () => {
     expect(bad.stderr).toContain("Invalid --renderer");
   });
 });
+
+describe("origin-create-app CLI — standalone inside a workspace", () => {
+  /** A scratch dir that looks like an OriginLoom workspace to findWorkspaceRoot. */
+  function workspaceScratch() {
+    const dir = scratch();
+    writeFileSync(join(dir, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n');
+    return dir;
+  }
+
+  it("warns that the generated app cannot install its platform packages", () => {
+    const cwd = workspaceScratch();
+    const { status, stderr } = run(["landing-web", "--title", "Landing"], { cwd });
+
+    expect(status).toBe(0);
+    expect(stderr).toContain("standalone app inside an OriginLoom workspace");
+    expect(stderr).toContain("--workspace");
+  });
+
+  it("stays quiet for a standalone app generated outside a workspace", () => {
+    const { status, stderr } = run(["landing-web", "--title", "Landing"]);
+    expect(status).toBe(0);
+    expect(stderr).not.toContain("standalone app inside an OriginLoom workspace");
+  });
+
+  it("stays quiet when the app is written outside the workspace it was run from", () => {
+    const cwd = workspaceScratch();
+    const target = scratch();
+    const { status, stderr } = run(["landing-web", "--title", "Landing", "--target-dir", target], {
+      cwd,
+    });
+
+    expect(status).toBe(0);
+    expect(stderr).not.toContain("standalone app inside an OriginLoom workspace");
+  });
+});

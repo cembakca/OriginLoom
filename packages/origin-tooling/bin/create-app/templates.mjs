@@ -319,7 +319,7 @@ const tsconfig = (standalone, renderer = "react") => {
 ${extendsLine}  "compilerOptions": {
 ${options}
   },
-  "include": ["src", "server", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts"]
+  "include": ["src", "server", "tests", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts"]
 }
 `;
 };
@@ -983,7 +983,7 @@ export default function LiveTicks() {
   const [tick, setTick] = useState("bağlanıyor…");
   useEffect(() => {
     const source = new EventSource("/api/ticks");
-    source.addEventListener("tick", (event) => setTick((event as MessageEvent).data));
+    source.addEventListener("tick", (event: MessageEvent<string>) => setTick(event.data));
     source.onerror = () => source.close();
     return () => source.close();
   }, []);
