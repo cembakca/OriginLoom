@@ -19,7 +19,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vite": "^8.1.5"
   },
   "publishConfig": {
     "exports": {
@@ -43,5 +44,13 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "peerDependencies": {
+    "vite": "^8.1.5"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  }
 }
