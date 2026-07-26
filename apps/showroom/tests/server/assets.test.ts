@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("assetUrl", () => {
@@ -5,6 +7,7 @@ describe("assetUrl", () => {
 
   afterEach(() => {
     process.env = { ...envSnapshot };
+    vi.restoreAllMocks();
     vi.resetModules();
   });
 
@@ -45,6 +48,20 @@ describe("assetUrl", () => {
     });
     expect(assets.fonts).toHaveLength(2);
     expect(assets.fonts[0]?.href).toMatch(/^\/assets\/media\/inter-latin\.[a-f0-9]+\.woff2$/);
+  });
+
+  it("refuses to boot dev against a client entry that does not exist", async () => {
+    process.env.VITE_DEV_SERVER_URL = "http://127.0.0.1:5174/";
+    // The server runs from the app root in dev; the runner does not.
+    vi.spyOn(process, "cwd").mockReturnValue(resolve(import.meta.dirname, "../.."));
+    vi.resetModules();
+    const { readAssets } = await import("@originloom/core/assets");
+
+    // Vite would 404 this module and the page would never boot its islands.
+    expect(() => readAssets({ clientEntry: "/src/entry.client.ts" })).toThrow(
+      /Client entry not found: \/src\/entry\.client\.ts/,
+    );
+    expect(() => readAssets({ clientEntry: "/src/entry.client.tsx" })).not.toThrow();
   });
 
   it("collects only global eager islands and their recursive static imports", async () => {

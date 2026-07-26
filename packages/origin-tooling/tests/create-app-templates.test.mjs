@@ -418,6 +418,13 @@ describe("renderTemplates — generated apps satisfy their own tooling", () => {
     expect(JSON.parse(files["tsconfig.json"]).include).toContain("tests");
   });
 
+  it.each(modes)("%s: points readAssets at an entry module it actually ships", (_name, files) => {
+    // A mismatch 404s on the Vite dev server and nothing hydrates — silently.
+    const clientEntry = /clientEntry: "([^"]+)"/.exec(files["server/index.ts"])?.[1];
+    expect(clientEntry, "server/index.ts must pass clientEntry").toBeDefined();
+    expect(Object.keys(files)).toContain(clientEntry.replace(/^\//, ""));
+  });
+
   it.each(modes)("%s: keeps import groups sorted the way eslint wants", (_name, files) => {
     for (const [path, contents] of Object.entries(files)) {
       if (!path.endsWith(".ts") && !path.endsWith(".tsx")) continue;

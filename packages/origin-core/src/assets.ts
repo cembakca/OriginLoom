@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Assets } from "@originloom/shared/assets";
@@ -49,17 +49,37 @@ export function assetUrl(path: string): string {
   return base ? `${base}${normalized}` : normalized;
 }
 
+/**
+ * In dev the entry is fetched from the Vite server, so a wrong path 404s and the
+ * page silently never boots its islands. Fail at startup with the fix instead.
+ *
+ * Skipped when the process was not started from the app root — then the check
+ * would say more about the working directory than about the entry.
+ */
+function assertDevClientEntry(clientEntry: string): void {
+  const root = process.cwd();
+  if (!existsSync(join(root, "src"))) return;
+  if (existsSync(join(root, clientEntry.replace(/^\//, "")))) return;
+
+  throw new Error(
+    `Client entry not found: ${clientEntry}. ` +
+      `Pass readAssets({ clientEntry }) matching this app's entry module ` +
+      `(a non-React app usually ends in .ts, not .tsx).`,
+  );
+}
+
 export function readAssets(options: AssetsOptions = {}): Assets {
   const clientEntry = options.clientEntry ?? DEFAULT_CLIENT_ENTRY;
   const devStylesheets = options.devStylesheets ?? DEFAULT_DEV_STYLESHEETS;
   const manifestPath = options.manifestPath ?? join(config.clientDistDir, ".vite/manifest.json");
 
   if (config.viteDevServerUrl) {
+    assertDevClientEntry(clientEntry);
     const viteOrigin = config.viteDevServerUrl.replace(/\/$/, "");
     return {
       js: `${viteOrigin}${clientEntry}`,
       // Head'de blocking stylesheet — full reload'da FOUC/layout shift olmasın.
-      // entry.client.tsx import'u HMR için kalır.
+      // Client entry import'u HMR için kalır.
       css: devStylesheets.map((path) => `${viteOrigin}${path}`),
       fonts: readFontAssets(),
       // Framework-specific dev URLs (React Refresh, …) are the renderer
@@ -150,9 +170,11 @@ function islandManifestKey(
   name: string,
   islandSourcePrefix: string,
 ): string {
-  const source = `${islandSourcePrefix}${name}.tsx`;
+  // The extension is the app's business — a framework-free app writes .ts.
+  const sources = [`${islandSourcePrefix}${name}.tsx`, `${islandSourcePrefix}${name}.ts`];
   const record = Object.entries(manifest).find(
-    ([key, chunk]) => key === source || chunk.src === source,
+    ([key, chunk]) =>
+      sources.includes(key) || (chunk.src !== undefined && sources.includes(chunk.src)),
   );
   if (!record) throw new Error(`Eager island not found in Vite manifest: ${name}`);
   return record[0];

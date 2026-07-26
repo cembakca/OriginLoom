@@ -63,7 +63,7 @@ export function renderTemplates({
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
 
-    "server/index.ts": serverIndex(),
+    "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/api/index.ts": apiIndex(),
     "server/routes/index.ts": routesIndex(),
     "server/routes/home.tsx": homeRoute(title),
@@ -138,7 +138,7 @@ function vanillaTemplates({ name, title, port, metricsPort, standalone, version 
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
 
-    "server/index.ts": serverIndex(),
+    "server/index.ts": serverIndex("/src/entry.client.ts"),
     "server/api/index.ts": vanilla.apiIndex(),
     "server/routes/index.ts": vanilla.routesIndex(),
     "server/routes/home.ts": vanilla.homeRoute(title),
@@ -442,7 +442,8 @@ CACHE_REQUIRED=false
 # REDIS_URL=rediss://cache.internal:6379
 `;
 
-const serverIndex = () => `import type { ServerType } from "@hono/node-server";
+/** @param {string} clientEntry Dev-server path of this app's client entry module. */
+const serverIndex = (clientEntry) => `import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
 import { createApp } from "@originloom/core/app";
 import { readAssets } from "@originloom/core/assets";
@@ -472,7 +473,9 @@ async function main() {
   validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });
   await initCache();
 
-  const assets = readAssets({ eagerIslands: [] });
+  // The entry path is the app's, not the platform's — in dev it is fetched from
+  // the Vite server, so it has to match the file this app actually ships.
+  const assets = readAssets({ clientEntry: "${clientEntry}", eagerIslands: [] });
   const app = createApp({
     assets,
     routes,
