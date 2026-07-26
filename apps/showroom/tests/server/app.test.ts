@@ -31,6 +31,29 @@ describe("Hono application integration", () => {
     await closeCache();
   });
 
+  it("keeps a returning anonymous visitor's page cacheable", async () => {
+    const route: Route = {
+      path: "/cacheable",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["cacheable"] }),
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "ok"),
+    };
+    const app = appWith([route]);
+
+    // First visit: the pipeline establishes tracking state, so the response
+    // that carries the Set-Cookie must not be stored anywhere.
+    const first = await app.request("/cacheable");
+    expect(first.headers.get("set-cookie")).toContain("user_tracking_id=");
+    expect(first.headers.get("cache-control")).toBe("private, no-store");
+
+    // Every visit after that mutates nothing, so the route's own policy stands.
+    const second = await app.request("/cacheable", {
+      headers: { cookie: "user_tracking_id=9f1f2f7e-0f0e-4d3c-8b6a-2c1d0e5f4a3b" },
+    });
+    expect(second.headers.get("set-cookie")).toBeNull();
+    expect(second.headers.get("cache-control")).toBe("private, no-cache, max-age=0");
+  });
+
   it("applies request identity and security middleware to final responses", async () => {
     const app = appWith([]);
     const response = await app.request("/healthz", {

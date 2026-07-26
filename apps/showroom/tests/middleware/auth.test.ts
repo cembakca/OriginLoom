@@ -42,6 +42,28 @@ describe("auth helpers", () => {
     expect(jar.toHeaderStrings().some((c) => c.startsWith("account_text="))).toBe(true);
   });
 
+  it("leaves an anonymous request untouched so its response stays cacheable", async () => {
+    const jar = new CookieJar();
+    const outcome = await runAuthCore(new Request("http://localhost/"), jar);
+
+    expect(outcome.kind).toBe("anonymous");
+    // No Set-Cookie at all: applyCookies would force `private, no-store` and
+    // make every page uncacheable for every logged-out visitor.
+    expect(jar.toHeaderStrings()).toEqual([]);
+  });
+
+  it("clears hint cookies that outlived their tokens", async () => {
+    const jar = new CookieJar();
+    const outcome = await runAuthCore(
+      new Request("http://localhost/", { headers: { cookie: "signed_in=1; account_text=Ada" } }),
+      jar,
+    );
+
+    expect(outcome.kind).toBe("anonymous");
+    expect(jar.toHeaderStrings()).toContain("signed_in=; Max-Age=0; Path=/");
+    expect(jar.toHeaderStrings()).toContain("account_text=; Max-Age=0; Path=/");
+  });
+
   it("clears credentials when the gateway authoritatively rejects refresh", async () => {
     process.env.NODE_ENV = "production";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));

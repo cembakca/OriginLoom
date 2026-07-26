@@ -2,6 +2,7 @@ import type { CookieJar } from "../../cookie-jar.js";
 import {
   clearTokenCookies,
   displayNameFromAccess,
+  hasAuthCookies,
   isAccessTokenExpired,
   readTokens,
   refreshTokens,
@@ -31,7 +32,10 @@ export async function runAuthCore(request: Request, jar: CookieJar): Promise<Aut
     // A successful refresh is authoritative; synchronize the UI hint cookies.
     setSessionCookies(jar, { displayName: displayNameFromAccess(refreshed.access) });
   } else if (!access && !tokens.refresh) {
-    clearTokenCookies(jar);
+    // Stale hint cookies (signed_in, account_text) can outlive the tokens; clear
+    // them. A visitor carrying no auth cookies at all gets no Set-Cookie, so the
+    // response stays cacheable.
+    if (hasAuthCookies(request)) clearTokenCookies(jar);
     return { kind: "anonymous", cookies: jar };
   }
 

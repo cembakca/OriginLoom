@@ -97,11 +97,24 @@ export function setSessionCookies(jar: CookieJar, profile: { displayName: string
   jar.set(Cookie.accountText, profile.displayName, { secure, maxAge: 86_400 });
 }
 
+const AUTH_COOKIES = [
+  Cookie.accessToken,
+  Cookie.refreshToken,
+  Cookie.signedIn,
+  Cookie.accountText,
+] as const;
+
+/**
+ * Whether the request carries any auth state at all. A visitor who sent none has
+ * nothing to clear, and emitting Set-Cookie anyway would make every anonymous
+ * response uncacheable — see `applyCookies`.
+ */
+export function hasAuthCookies(request: Request): boolean {
+  return AUTH_COOKIES.some((name) => cookie(request, name) !== undefined);
+}
+
 export function clearTokenCookies(jar: CookieJar): void {
-  jar.delete(Cookie.accessToken);
-  jar.delete(Cookie.refreshToken);
-  jar.delete(Cookie.signedIn);
-  jar.delete(Cookie.accountText);
+  for (const name of AUTH_COOKIES) jar.delete(name);
 }
 
 export async function refreshTokens(
