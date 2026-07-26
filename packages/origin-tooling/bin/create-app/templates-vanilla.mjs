@@ -7,7 +7,7 @@
  * is shared, because the platform below them does not care what draws the HTML.
  */
 
-export const viteConfig = () => `import { resolve } from "node:path";
+export const viteConfig = (vitePort) => `import { resolve } from "node:path";
 
 import { createClientViteConfig } from "@originloom/vanilla/vite";
 import { defineConfig } from "vite";
@@ -16,6 +16,8 @@ export default defineConfig(
   createClientViteConfig({
     entry: resolve(__dirname, "src/entry.client.ts"),
     alias: { "~": resolve(__dirname, "src"), "@server": resolve(__dirname, "server") },
+    // Every app owns a port, so several can run side by side.
+    devServer: { port: ${vitePort} },
     reload: {
       shouldReload: (file) =>
         file.includes("/server/") || file.includes("/src/pages/") || file.includes("/src/components/"),
@@ -565,7 +567,7 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
 }
 `;
 
-export const readme = (name, title, port, standalone) => `# ${title}
+export const readme = (name, title, port, vitePort, standalone) => `# ${title}
 
 OriginLoom ürün uygulaması (renderer: **vanilla** — UI framework yok). Platform runtime'ı
 \\\`@originloom/core\\\`, \\\`@originloom/shared\\\` ve \\\`@originloom/vanilla\\\` paketlerinden gelir; bu repo
@@ -587,7 +589,7 @@ pnpm --filter ${name} dev`
 }
 \\\`\\\`\\\`
 
-Uygulama \\\`http://127.0.0.1:${port}\\\`, client modülleri Vite dev server'dan (\\\`:5174\\\`) gelir.${
+Uygulama \\\`http://127.0.0.1:${port}\\\`, client modülleri Vite dev server'dan (\\\`:${vitePort}\\\`) gelir.${
   standalone
     ? `\nUpstream gateway'i \\\`.env.development\\\` içindeki \\\`GATEWAY_URL\\\` ile ayarlayın.`
     : ""

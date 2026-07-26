@@ -38,11 +38,17 @@ pnpm create-app knowledge-web --workspace              # bu monorepo içinde app
 | `--vanilla`          | UI framework'süz uygulama üretir (`--renderer vanilla` ile aynı). Varsayılan `react`.                          |
 | `--target-dir <yol>` | Standalone uygulamanın oluşturulacağı üst dizin. Varsayılan: içinde bulunduğunuz dizin.                        |
 | `--version <aralık>` | Standalone modda `@originloom/*` bağımlılıklarının sürüm aralığı. Varsayılan `^0.1.0`.                         |
-| `--port <n>`         | Uygulamanın portu (metrics portu `n + 6000`). Varsayılan `3010`.                                               |
+| `--port <n>`         | Uygulamanın portu (metrics `n + 6000`, Vite dev server `n + 2000`). Varsayılan `3010`.                         |
+| `--vite-port <n>`    | Client modüllerini servis eden Vite portunu ayrıca belirler. Varsayılan `--port + 2000`.                       |
 | `--title "..."`      | Görünen ad; site metadata, layout ve README'de kullanılır.                                                     |
 
 Üretilen uygulama çalışır durumdadır: SSR sayfası, hydrate olan örnek bir island, cache'li HTML,
 `/healthz` ve `/readyz` hazır gelir.
+
+> **Birden fazla app'i aynı anda geliştirmek.** Her uygulama kendi Vite portunu alır
+> (`--port 3020` → Vite `5020`), böylece iki dev sunucusu yan yana çalışır. Portları çakışan iki app
+> üretirseniz ikincisinin Vite'ı `Port already in use` ile ölür; SSR ayakta kaldığı için sayfa açılır
+> ama hiçbir client modülü yüklenmez — yani island'lar sessizce hydrate olmaz.
 
 ### Renderer seçimi: React (varsayılan) veya vanilla
 

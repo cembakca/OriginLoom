@@ -197,3 +197,38 @@ describe("origin-create-app CLI — standalone inside a workspace", () => {
     expect(stderr).not.toContain("standalone app inside an OriginLoom workspace");
   });
 });
+
+describe("origin-create-app CLI — dev ports", () => {
+  it("derives the Vite port from --port", () => {
+    const target = scratch();
+    const { status } = run(["a-web", "--title", "A", "--port", "3030", "--target-dir", target]);
+    expect(status).toBe(0);
+    const env = readFileSync(join(target, "a-web/.env.development"), "utf8");
+    expect(env).toContain("PORT=3030");
+    expect(env).toContain("VITE_DEV_SERVER_URL=http://127.0.0.1:5030");
+  });
+
+  it("accepts --vite-port and rejects one that collides with the app port", () => {
+    const target = scratch();
+    expect(
+      run(["b-web", "--title", "B", "--vite-port", "6200", "--target-dir", target]).status,
+    ).toBe(0);
+    expect(readFileSync(join(target, "b-web/.env.development"), "utf8")).toContain(
+      "VITE_DEV_SERVER_URL=http://127.0.0.1:6200",
+    );
+
+    const clash = run([
+      "c-web",
+      "--title",
+      "C",
+      "--port",
+      "3040",
+      "--vite-port",
+      "3040",
+      "--target-dir",
+      scratch(),
+    ]);
+    expect(clash.status).not.toBe(0);
+    expect(clash.stderr).toContain("--vite-port must differ from --port");
+  });
+});

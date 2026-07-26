@@ -12,6 +12,9 @@ import { renderSkills } from "./skills.mjs";
 import * as vanilla from "./templates-vanilla.mjs";
 
 /** Reads a verbatim asset shipped alongside the generator (packed via files: ["bin"]). */
+/** Dev-server port for the client bundle, derived from the app port (3010 → 5010). */
+export const VITE_PORT_OFFSET = 2000;
+
 const asset = (name) =>
   readFileSync(fileURLToPath(new URL(`./assets/${name}`, import.meta.url)), "utf8");
 
@@ -24,6 +27,7 @@ const asset = (name) =>
  *   mode: "workspace" | "standalone";
  *   version: string;
  *   renderer?: "react" | "vanilla";
+ *   vitePort?: number;
  * }} vars
  */
 export function renderTemplates({
@@ -34,6 +38,7 @@ export function renderTemplates({
   mode,
   version,
   renderer = "react",
+  vitePort = port + VITE_PORT_OFFSET,
 }) {
   // Standalone apps live in their own repo and depend on the published
   // @originloom/* packages; workspace apps sit in apps/<name> and link them
@@ -43,7 +48,7 @@ export function renderTemplates({
   // The renderer decides how HTML is produced, so it decides which route, page,
   // island and client-entry templates ship. Everything else is identical.
   if (renderer === "vanilla") {
-    return vanillaTemplates({ name, title, port, metricsPort, standalone, version });
+    return vanillaTemplates({ name, title, port, metricsPort, vitePort, standalone, version });
   }
   return {
     "package.json": packageJson(name, { standalone, version }),
@@ -51,12 +56,12 @@ export function renderTemplates({
     "eslint.config.js": eslintConfig(),
     ".prettierrc.json": asset("prettierrc.json"),
     ".prettierignore": prettierIgnore(),
-    "vite.config.ts": viteConfig(),
+    "vite.config.ts": viteConfig(vitePort),
     "vite.server.config.ts": viteServerConfig(),
     "vitest.config.ts": vitestConfig(name),
-    ".env.development": envDevelopment(port, metricsPort),
+    ".env.development": envDevelopment(port, metricsPort, vitePort),
     ".env.production": envProduction(port, metricsPort),
-    "README.md": readme(name, title, port, standalone),
+    "README.md": readme(name, title, port, vitePort, standalone),
     Dockerfile: dockerfile(name, port, standalone),
     ".dockerignore": asset("dockerignore"),
     ".gitignore": asset("gitignore"),
@@ -119,19 +124,19 @@ export function renderTemplates({
  * @param {{ name: string; title: string; port: number; metricsPort: number;
  *           standalone: boolean; version: string }} vars
  */
-function vanillaTemplates({ name, title, port, metricsPort, standalone, version }) {
+function vanillaTemplates({ name, title, port, metricsPort, vitePort, standalone, version }) {
   return {
     "package.json": packageJson(name, { standalone, version, renderer: "vanilla" }),
     "tsconfig.json": tsconfig(standalone, "vanilla"),
     "eslint.config.js": eslintConfig(),
     ".prettierrc.json": asset("prettierrc.json"),
     ".prettierignore": prettierIgnore(),
-    "vite.config.ts": vanilla.viteConfig(),
+    "vite.config.ts": vanilla.viteConfig(vitePort),
     "vite.server.config.ts": vanilla.viteServerConfig(),
     "vitest.config.ts": vitestConfig(name),
-    ".env.development": envDevelopment(port, metricsPort),
+    ".env.development": envDevelopment(port, metricsPort, vitePort),
     ".env.production": envProduction(port, metricsPort),
-    "README.md": vanilla.readme(name, title, port, standalone),
+    "README.md": vanilla.readme(name, title, port, vitePort, standalone),
     Dockerfile: dockerfile(name, port, standalone),
     ".dockerignore": asset("dockerignore"),
     ".gitignore": asset("gitignore"),
@@ -356,7 +361,7 @@ coverage
 pnpm-lock.yaml
 `;
 
-const viteConfig = () => `import { resolve } from "node:path";
+const viteConfig = (vitePort) => `import { resolve } from "node:path";
 
 import { createClientViteConfig } from "@originloom/react/vite";
 import { defineConfig } from "vite";
@@ -365,6 +370,8 @@ export default defineConfig(
   createClientViteConfig({
     entry: resolve(__dirname, "src/entry.client.tsx"),
     alias: { "~": resolve(__dirname, "src"), "@server": resolve(__dirname, "server") },
+    // Every app owns a port, so several can run side by side.
+    devServer: { port: ${vitePort} },
     reload: {
       shouldReload: (file) =>
         file.includes("/server/") ||
@@ -409,12 +416,12 @@ export default defineConfig({
 });
 `;
 
-const envDevelopment = (port, metricsPort) => `NODE_ENV=development
+const envDevelopment = (port, metricsPort, vitePort) => `NODE_ENV=development
 APP_ENV=development
 PORT=${port}
 METRICS_PORT=${metricsPort}
 SITE_URL=http://127.0.0.1:${port}
-VITE_DEV_SERVER_URL=http://127.0.0.1:5174
+VITE_DEV_SERVER_URL=http://127.0.0.1:${vitePort}
 
 # L1-only cache; no Redis needed for local development.
 CACHE_BACKEND=memory
@@ -1580,7 +1587,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
 CMD ["node", "--enable-source-maps", "dist/server/index.js"]
 `;
 
-const readme = (name, title, port, standalone) => `# ${title}
+const readme = (name, title, port, vitePort, standalone) => `# ${title}
 
 OriginLoom ürün uygulaması. Platform runtime'ı \`@originloom/core\` ve \`@originloom/react\`
 paketlerinden gelir; bu repo yalnız route tablosunu, ürün kontratını ve kendi chrome'unu içerir.
@@ -1597,7 +1604,7 @@ pnpm --filter ${name} dev`
 }
 \`\`\`
 
-Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`:5174\`) gelir.${
+Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`:${vitePort}\`) gelir.${
   standalone
     ? `\nUpstream gateway'i \`.env.development\` içindeki \`GATEWAY_URL\` ile ayarlayın.`
     : ""

@@ -24,6 +24,7 @@
  *   origin-create-app investment-web --version "^1.2.0"
  *   origin-create-app knowledge-web --workspace    # inside this monorepo
  *   origin-create-app landing-web --vanilla        # no UI framework
+ *   origin-create-app landing-web --port 3020      # Vite follows on 5020
  */
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -32,7 +33,7 @@ import { createInterface } from "node:readline/promises";
 
 import { format } from "prettier";
 
-import { renderTemplates } from "./create-app/templates.mjs";
+import { renderTemplates, VITE_PORT_OFFSET } from "./create-app/templates.mjs";
 
 const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
@@ -65,11 +66,14 @@ async function main() {
   }
 
   const port = options.port ?? 3010;
+  // Each app owns a Vite port too, so two of them can run dev side by side.
+  const vitePort = options.vitePort ?? port + VITE_PORT_OFFSET;
   const files = renderTemplates({
     name,
     title,
     port,
     metricsPort: port + 6000,
+    vitePort,
     mode: options.workspace ? "workspace" : "standalone",
     version: options.version ?? "^0.1.0",
     renderer: options.renderer,
@@ -156,6 +160,7 @@ function parseArgs(argv) {
     else if (arg === "--vanilla") options.renderer = "vanilla";
     else if (arg === "--renderer") options.renderer = assertValidRenderer(argv[++i]);
     else if (arg === "--port") options.port = Number(argv[++i]);
+    else if (arg === "--vite-port") options.vitePort = Number(argv[++i]);
     else if (arg === "--title") options.title = argv[++i];
     else if (arg === "--target-dir") options.targetDir = argv[++i];
     else if (arg === "--version") options.version = argv[++i];
@@ -163,8 +168,14 @@ function parseArgs(argv) {
     else if (options.name === undefined) options.name = arg;
     else fail(`Unexpected argument: ${arg}`);
   }
-  if (options.port !== undefined && (!Number.isInteger(options.port) || options.port < 1024)) {
-    fail(`Invalid --port: ${options.port}`);
+  for (const flag of ["port", "vitePort"]) {
+    const value = options[flag];
+    if (value !== undefined && (!Number.isInteger(value) || value < 1024)) {
+      fail(`Invalid --${flag === "vitePort" ? "vite-port" : flag}: ${value}`);
+    }
+  }
+  if (options.vitePort !== undefined && options.vitePort === options.port) {
+    fail("--vite-port must differ from --port");
   }
   return options;
 }

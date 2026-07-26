@@ -46,6 +46,33 @@ describe("renderTemplates — shared shape", () => {
     }
   });
 
+  it("gives every app its own Vite port so two can run dev at once", () => {
+    for (const renderer of ["react", "vanilla"]) {
+      const files = renderTemplates({
+        ...base,
+        mode: "workspace",
+        version: "^0.1.0",
+        renderer,
+        port: 3020,
+        metricsPort: 9020,
+      });
+      expect(files[".env.development"]).toContain("VITE_DEV_SERVER_URL=http://127.0.0.1:5020");
+      expect(files["vite.config.ts"]).toContain("devServer: { port: 5020 }");
+      expect(files["README.md"]).toContain(":5020");
+    }
+  });
+
+  it("accepts an explicit Vite port", () => {
+    const files = renderTemplates({
+      ...base,
+      mode: "workspace",
+      version: "^0.1.0",
+      vitePort: 6123,
+    });
+    expect(files[".env.development"]).toContain("VITE_DEV_SERVER_URL=http://127.0.0.1:6123");
+    expect(files["vite.config.ts"]).toContain("devServer: { port: 6123 }");
+  });
+
   it("threads name, title and ports into the generated files", () => {
     const files = standalone({ name: "demo-web", title: "Demo", port: 4200, metricsPort: 10200 });
     expect(JSON.parse(files["package.json"]).name).toBe("demo-web");
