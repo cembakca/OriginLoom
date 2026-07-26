@@ -8,7 +8,6 @@
   },
   "exports": {
     "./document": "./src/document.tsx",
-    "./error": "./src/error.tsx",
     "./route-boundary": "./src/route-boundary.tsx",
     "./cache/fragment": "./src/cache/fragment.tsx",
     "./cache": "./src/cache/index.ts",
@@ -47,10 +46,6 @@
       "./document": {
         "types": "./dist/document.d.ts",
         "default": "./dist/document.js"
-      },
-      "./error": {
-        "types": "./dist/error.d.ts",
-        "default": "./dist/error.js"
       },
       "./route-boundary": {
         "types": "./dist/route-boundary.d.ts",
