@@ -22,6 +22,7 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 | `packages/origin-core/src/`           | Platform runtime — cache, middleware, SSR pipeline, document orkestrasyonu         |
 | `packages/origin-core/src/adapters/`  | Gateway ve dış sistem adapter'ları                                                 |
 | `packages/origin-react/src/`          | React adaptörü — island runtime, `server/` render adaptörü, Vite preset            |
+| `packages/origin-vanilla/src/`        | Framework'süz adaptör — `html` template, `island()`, `createHtmlRenderer`          |
 | `packages/origin-tooling/bin/`        | build/dev/env/compose/smoke bin'leri                                               |
 | `tools/mock-gw/`                      | Bağımsız mock gateway                                                              |
 
@@ -31,8 +32,10 @@ uygulama içi importlar `~/` (src) ve `@server/` alias'larını kullanmaya devam
 ürün koduna **asla** import edemez — gereken her şey `OriginRuntime` üzerinden enjekte edilir.
 `@originloom/core` ayrıca hiçbir UI framework'üne bağlı değildir: render, `@originloom/shared`'daki
 `OriginRenderer` kontratından geçer ve ürünün React görünümleri
-`apps/showroom/server/product/renderer.tsx` içinde `createReactRenderer` ile tek yerde toplanır
-(detay: [ARCHITECTURE.md](../ARCHITECTURE.md#render-kontratı--core-neden-react-bilmiyor)).
+`apps/showroom/server/product/renderer.tsx` içinde `createReactRenderer` ile tek yerde toplanır.
+React kullanmayan bir ürün aynı kontratı `@originloom/vanilla`'nın `createHtmlRenderer`'ı ile
+karşılar (`pnpm create-app <ad> --vanilla`)
+— detay: [ARCHITECTURE.md](../ARCHITECTURE.md#render-kontratı--core-neden-react-bilmiyor).
 
 ## İsimlendirme
 

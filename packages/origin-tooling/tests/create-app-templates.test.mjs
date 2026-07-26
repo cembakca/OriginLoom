@@ -310,3 +310,95 @@ describe("renderTemplates — example routes", () => {
     expect(files["server/index.ts"]).toContain("mounts: { api: mountApi }");
   });
 });
+
+describe("renderTemplates — vanilla renderer", () => {
+  const vanilla = (over = {}) =>
+    renderTemplates({
+      ...base,
+      mode: "workspace",
+      version: "^0.1.0",
+      renderer: "vanilla",
+      ...over,
+    });
+
+  it("emits the same file set in both modes", () => {
+    const standaloneVanilla = renderTemplates({
+      ...base,
+      mode: "standalone",
+      version: "^0.1.0",
+      renderer: "vanilla",
+    });
+    expect(Object.keys(vanilla()).sort()).toEqual(Object.keys(standaloneVanilla).sort());
+  });
+
+  it("ships no React anywhere in the generated app", () => {
+    const files = vanilla();
+    const pkg = JSON.parse(files["package.json"]);
+    const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+    expect(declared.filter((name) => /react/i.test(name))).toEqual([]);
+    expect(declared).toContain("@originloom/vanilla");
+
+    for (const [path, contents] of Object.entries(files)) {
+      expect(path.endsWith(".tsx"), `${path} is a .tsx file`).toBe(false);
+      if (path.endsWith(".ts") || path.endsWith(".css")) {
+        expect(contents, `${path} mentions react`).not.toMatch(/@originloom\/react|"react"/);
+      }
+    }
+  });
+
+  it("emits pages and islands instead of React components", () => {
+    const files = vanilla();
+    for (const path of [
+      "server/routes/home.ts",
+      "server/product/renderer.ts",
+      "server/product/boundary-pages.ts",
+      "src/pages/home.ts",
+      "src/islands/counter.ts",
+      "src/components/layout.ts",
+      "src/entry.client.ts",
+      "src/hydrate.client.ts",
+    ]) {
+      expect(files, `missing ${path}`).toHaveProperty([path]);
+    }
+    expect(files).not.toHaveProperty(["src/global.d.ts"]);
+    expect(files["server/product/renderer.ts"]).toContain("createHtmlRenderer");
+    expect(files["server/product/runtime.ts"]).toContain("renderer: productRenderer");
+    expect(files["src/hydrate.client.ts"]).toContain(
+      'import.meta.glob<IslandModule>("./islands/*.ts")',
+    );
+  });
+
+  it("drops the JSX compiler option from a standalone tsconfig", () => {
+    const react = JSON.parse(
+      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0" })["tsconfig.json"],
+    );
+    const vanillaTs = JSON.parse(
+      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0", renderer: "vanilla" })[
+        "tsconfig.json"
+      ],
+    );
+    expect(react.compilerOptions.jsx).toBe("react-jsx");
+    expect(vanillaTs.compilerOptions.jsx).toBeUndefined();
+  });
+
+  it("scans the vanilla package for Tailwind classes", () => {
+    expect(vanilla()["src/styles/globals.css"]).toContain("packages/origin-vanilla/src");
+    expect(
+      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0", renderer: "vanilla" })[
+        "src/styles/globals.css"
+      ],
+    ).toContain("node_modules/@originloom/vanilla/dist");
+  });
+
+  it("ships renderer-specific skills and CLAUDE.md", () => {
+    const files = vanilla();
+    expect(files[".claude/skills/islands/SKILL.md"]).toContain("IslandMount");
+    expect(files[".claude/skills/islands/SKILL.md"]).not.toContain("useState");
+    expect(files[".claude/skills/add-page/SKILL.md"]).toContain("@originloom/vanilla/lib/types");
+    expect(files["CLAUDE.md"]).toContain("createHtmlRenderer");
+    // Skills with no renderer-specific content are shared verbatim.
+    expect(files[".claude/skills/caching/SKILL.md"]).toBe(
+      workspace()[".claude/skills/caching/SKILL.md"],
+    );
+  });
+});

@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { renderSkills } from "./skills.mjs";
+import * as vanilla from "./templates-vanilla.mjs";
 
 /** Reads a verbatim asset shipped alongside the generator (packed via files: ["bin"]). */
 const asset = (name) =>
@@ -22,14 +23,28 @@ const asset = (name) =>
  *   metricsPort: number;
  *   mode: "workspace" | "standalone";
  *   version: string;
+ *   renderer?: "react" | "vanilla";
  * }} vars
  */
-export function renderTemplates({ name, title, port, metricsPort, mode, version }) {
+export function renderTemplates({
+  name,
+  title,
+  port,
+  metricsPort,
+  mode,
+  version,
+  renderer = "react",
+}) {
   // Standalone apps live in their own repo and depend on the published
   // @originloom/* packages; workspace apps sit in apps/<name> and link them
   // via workspace:*. The two modes differ only in how they reach the packages
   // and how they build — the app source they generate is identical.
   const standalone = mode === "standalone";
+  // The renderer decides how HTML is produced, so it decides which route, page,
+  // island and client-entry templates ship. Everything else is identical.
+  if (renderer === "vanilla") {
+    return vanillaTemplates({ name, title, port, metricsPort, standalone, version });
+  }
   return {
     "package.json": packageJson(name, { standalone, version }),
     "tsconfig.json": tsconfig(standalone),
@@ -92,7 +107,69 @@ export function renderTemplates({ name, title, port, metricsPort, mode, version 
     // generated app source they describe is too.
     "CLAUDE.md": asset("generated-claude.md"),
     ".claude/settings.json": claudeSettings(),
-    ...renderSkills(),
+    ...renderSkills("react"),
+  };
+}
+
+/**
+ * The vanilla file map. Same platform contract, different renderer: routes and
+ * pages return HTML nodes, islands are plain modules, and no React package is
+ * installed at all.
+ *
+ * @param {{ name: string; title: string; port: number; metricsPort: number;
+ *           standalone: boolean; version: string }} vars
+ */
+function vanillaTemplates({ name, title, port, metricsPort, standalone, version }) {
+  return {
+    "package.json": packageJson(name, { standalone, version, renderer: "vanilla" }),
+    "tsconfig.json": tsconfig(standalone, "vanilla"),
+    "eslint.config.js": eslintConfig(),
+    ".prettierrc.json": asset("prettierrc.json"),
+    ".prettierignore": prettierIgnore(),
+    "vite.config.ts": vanilla.viteConfig(),
+    "vite.server.config.ts": vanilla.viteServerConfig(),
+    "vitest.config.ts": vitestConfig(name),
+    ".env.development": envDevelopment(port, metricsPort),
+    ".env.production": envProduction(port, metricsPort),
+    "README.md": vanilla.readme(name, title, port, standalone),
+    Dockerfile: dockerfile(name, port, standalone),
+    ".dockerignore": asset("dockerignore"),
+    ".gitignore": asset("gitignore"),
+    ".nvmrc": asset("nvmrc"),
+    ".editorconfig": asset("editorconfig"),
+
+    "server/index.ts": serverIndex(),
+    "server/api/index.ts": vanilla.apiIndex(),
+    "server/routes/index.ts": vanilla.routesIndex(),
+    "server/routes/home.ts": vanilla.homeRoute(title),
+    "server/routes/catalog.ts": vanilla.catalogRoute(),
+    "server/routes/item-detail.ts": vanilla.itemDetailRoute(),
+    "server/services/shell-data.ts": vanilla.serverShellData(),
+    "server/services/items.ts": itemsService(),
+    "server/product/runtime.ts": vanilla.productRuntime(),
+    "server/product/document-shell.ts": productDocumentShell(title),
+    "server/product/renderer.ts": vanilla.productRenderer(),
+    "server/product/boundary-pages.ts": vanilla.boundaryPages(),
+
+    "src/entry.client.ts": vanilla.entryClient(),
+    "src/hydrate.client.ts": vanilla.hydrateClient(),
+    "src/islands/counter.ts": vanilla.counterIsland(),
+    "src/pages/home.ts": vanilla.homePage(),
+    "src/pages/catalog.ts": vanilla.catalogPage(),
+    "src/pages/item-detail.ts": vanilla.itemDetailPage(),
+    "src/components/layout.ts": vanilla.layoutComponent(title),
+    "src/lib/shell-data.ts": vanilla.libShellData(),
+    "src/lib/cache-keys.ts": vanilla.cacheKeys(),
+    "src/lib/pagination.ts": paginationLib(),
+    "src/lib/metadata/site-defaults.ts": siteDefaults(title),
+    "src/routing/rules.ts": routingRules(),
+    "src/styles/globals.css": vanilla.globalsCss(standalone),
+
+    "tests/home.test.ts": homeTest(),
+
+    "CLAUDE.md": asset("generated-claude-vanilla.md"),
+    ".claude/settings.json": claudeSettings(),
+    ...renderSkills("vanilla"),
   };
 }
 
@@ -126,8 +203,8 @@ const claudeSettings = () =>
     2,
   )}\n`;
 
-/** @param {{ standalone: boolean; version: string }} opts */
-const packageJson = (name, { standalone, version }) => {
+/** @param {{ standalone: boolean; version: string; renderer?: "react" | "vanilla" }} opts */
+const packageJson = (name, { standalone, version, renderer = "react" }) => {
   // workspace apps link the packages by workspace:*; standalone apps pin the
   // published version range passed via --version.
   const originloom = standalone ? version : "workspace:*";
@@ -161,13 +238,14 @@ const packageJson = (name, { standalone, version }) => {
       dependencies: {
         "@hono/node-server": "^1.13.7",
         "@originloom/core": originloom,
-        "@originloom/react": originloom,
         "@originloom/shared": originloom,
+        ...(renderer === "vanilla"
+          ? { "@originloom/vanilla": originloom }
+          : { "@originloom/react": originloom }),
         "@tailwindcss/vite": "^4.3.2",
-        clsx: "^2.1.1",
+        ...(renderer === "vanilla" ? {} : { clsx: "^2.1.1" }),
         hono: "^4.6.14",
-        react: "^19.0.0",
-        "react-dom": "^19.0.0",
+        ...(renderer === "vanilla" ? {} : { react: "^19.0.0", "react-dom": "^19.0.0" }),
         tailwindcss: "^4.3.2",
         tsx: "^4.19.2",
       },
@@ -175,9 +253,13 @@ const packageJson = (name, { standalone, version }) => {
         "@eslint/js": "^9.39.5",
         "@originloom/tooling": originloom,
         "@types/node": "^22.10.2",
-        "@types/react": "^19.0.2",
-        "@types/react-dom": "^19.0.2",
-        "@vitejs/plugin-react": "^5.2.0",
+        ...(renderer === "vanilla"
+          ? {}
+          : {
+              "@types/react": "^19.0.2",
+              "@types/react-dom": "^19.0.2",
+              "@vitejs/plugin-react": "^5.2.0",
+            }),
         eslint: "^9.39.5",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-simple-import-sort": "^13.0.0",
@@ -225,9 +307,14 @@ const APP_COMPILER_OPTIONS = `    "types": ["node", "vite/client"],
       "@server/*": ["./server/*"]
     }`;
 
-const tsconfig = (standalone) => {
+const tsconfig = (standalone, renderer = "react") => {
   const extendsLine = standalone ? "" : `  "extends": "../../tsconfig.base.json",\n`;
-  const options = standalone ? BASE_COMPILER_OPTIONS + APP_COMPILER_OPTIONS : APP_COMPILER_OPTIONS;
+  // A vanilla app has no JSX, so a standalone one does not carry the setting.
+  const base =
+    renderer === "vanilla"
+      ? BASE_COMPILER_OPTIONS.replace(`    "jsx": "react-jsx",\n`, "")
+      : BASE_COMPILER_OPTIONS;
+  const options = standalone ? base + APP_COMPILER_OPTIONS : APP_COMPILER_OPTIONS;
   return `{
 ${extendsLine}  "compilerOptions": {
 ${options}

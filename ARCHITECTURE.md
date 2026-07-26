@@ -18,12 +18,13 @@ Repo bir pnpm workspace'idir. Amaç, aynı SSR altyapısını birden fazla ürü
 | `packages/origin-shared` (`@originloom/shared`)   | Framework-nötr taban: `Route`/`Ctx` tipleri, routing **engine**, metadata motoru, menu/device/media/cache-policy yardımcıları, client (DOM) yardımcıları ve **render kontratı** (`OriginRenderer`). Sıfır runtime dependency                                            |
 | `packages/origin-core` (`@originloom/core`)       | Platform sunucu runtime'ı: `createApp`, handler, SSR pipeline, cache (L1/L2/tiered/cold-fill/SWR/purge/fragment mekanizması), middleware, security, config + validation, metrik primitifleri, document orkestrasyonu, assets/manifest çözümü. **React bağımlılığı yok** |
 | `packages/origin-react` (`@originloom/react`)     | React adaptörü: island runtime (`Island`, mounter, bootstrap), `@originloom/react/server` render adaptörü (`createReactRenderer`), client query katmanı, Vite preset                                                                                                    |
+| `packages/origin-vanilla` (`@originloom/vanilla`) | Framework'süz adaptör: `html` tagged template (otomatik escape), `island()` marker'ı, `createHtmlRenderer`, düz TS island mounter'ı, Vite preset                                                                                                                        |
 | `packages/origin-tooling` (`@originloom/tooling`) | build/dev/env/compose/smoke/cycle-check bin'leri (`origin-*`)                                                                                                                                                                                                           |
 | `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s                                                                                                                         |
 | `tools/mock-gw`                                   | Bağımsız mock gateway (dev/test aracı)                                                                                                                                                                                                                                  |
 
-Bağımlılık yönü tek yönlüdür — `showroom → {core, react} → shared`. `core` ile `react` birbirini
-**import etmez**: ikisi de `@originloom/shared`'daki kontratlara yaslanır. Ters yöndeki bir import
+Bağımlılık yönü tek yönlüdür — `showroom → {core, renderer} → shared`. `core`, `react` ve
+`vanilla` birbirini **import etmez**: ikisi de `@originloom/shared`'daki kontratlara yaslanır. Ters yöndeki bir import
 `origin-check-cycles` tarafından katman ihlali olarak reddedilir. Aynı bekçi, `core` ve `shared`
 altında herhangi bir `react`/`react-dom`/`@originloom/react` specifier'ını — type-only import dahil —
 framework sınırı ihlali olarak reddeder.
@@ -96,8 +97,29 @@ string mi, head asset'leri, cache ve fragment stitching); **adaptör** yalnız v
 `@originloom/react/lib/types` onu `ReactElement`'e sabitler (uygulama tarafında JSX tip kontrolü
 korunur), core ise yalnız `unknown` varsayılanını görür.
 
-Bunun pratik sonucu: Preact/Svelte/vanilla bir adaptör yazmak `OriginRenderer`'ı implement etmekten
-ibarettir; core'da tek satır değişmez.
+Bunun pratik sonucu: ikinci bir adaptör yazmak `OriginRenderer`'ı implement etmekten ibarettir;
+core'da tek satır değişmez. `@originloom/vanilla` bunun çalışan örneğidir — UI framework'ü
+kullanmayan bir uygulama sayfalarını `html` tagged template'i ile yazar, island'ları düz TypeScript
+modülüdür, ve aynı cache/middleware/SSR hattını kullanır (`pnpm create-app <ad> --vanilla`):
+
+```ts
+// server/product/renderer.ts
+export const productRenderer = createHtmlRenderer<ShellData>({
+  notFoundPage,
+  errorPage,
+  renderHeadStart: ({ seo, cspNonce }) => metadataHead(seo, cspNonce),
+  renderLayout: ({ shell, children }) => layout(shell, children),
+});
+
+// src/pages/home.ts — interpolate edilen her değer otomatik escape edilir
+export function homePage({ data }: { data: { greeting: string } }) {
+  return html`<h1 class="text-3xl font-bold">${data.greeting}</h1>`;
+}
+```
+
+Vanilla adaptöründe streaming yoktur (erteleyecek boundary kavramı yok): `renderDocumentToStream`
+dokümanı tek parça verir, `route.streaming: true` çalışmaya devam eder ama erteleyecek bir şey
+bulamaz.
 
 Route tablosu, API/SEO mount'ları ve statik kök `createApp` seçenekleriyle verilir:
 

@@ -39,6 +39,9 @@ packages/
     src/runtime.ts  Ürünün platforma verdiği kontrat (renderer, fragment, shell, metrik)
   origin-react/   React adaptörü: island runtime + Vite preset (@originloom/react)
     src/server/     createReactRenderer — OriginRenderer'ın React implementasyonu
+  origin-vanilla/ Framework'süz adaptör (@originloom/vanilla)
+    src/html.ts     html`` tagged template — otomatik escape
+    src/server/     createHtmlRenderer — OriginRenderer'ın string implementasyonu
   origin-tooling/ build/dev/env/compose/smoke bin'leri (@originloom/tooling)
 
 apps/
@@ -62,8 +65,8 @@ tools/
 Repo bir pnpm workspace'idir: platform paketleri (`packages/*`) bir kez yazılır, ürün uygulamaları
 (`apps/*`) bunları `workspace:*` bağımlılığı olarak tüketir ve ayrı deploy edilir. Paketler kaynak
 `.ts` export eder; ayrı bir derleme adımı yoktur — Vite/tsx/Vitest/tsc kaynağı doğrudan çözer.
-Bağımlılık yönü tek yönlüdür: `showroom → {core, react} → shared`. `core` ile `react` birbirini
-import etmez — ikisi de `@originloom/shared`'daki kontratlara yaslanır, böylece sunucu runtime'ı
+Bağımlılık yönü tek yönlüdür: `showroom → {core, renderer} → shared`. `core`, `react` ve `vanilla`
+birbirini import etmez — ikisi de `@originloom/shared`'daki kontratlara yaslanır, böylece sunucu runtime'ı
 UI framework'ünden bağımsız kalır. Ters yöndeki bir import ya da core/shared içinde bir React
 specifier'ı `pnpm check:cycles` tarafından reddedilir.
 
@@ -76,6 +79,7 @@ pnpm build          # apps/showroom production build
 pnpm test           # tüm projeler (vitest projects)
 pnpm ci             # typecheck + cycles + lint + format + coverage + build + smoke
 pnpm create-app     # yeni ürün uygulaması üretir (standalone; --workspace ile apps/<ad>)
+                    # varsayılan renderer React; --vanilla ile UI framework'süz app
 ```
 
 Aşağıdaki tablodaki uygulama komutları showroom kapsamındadır; kökten

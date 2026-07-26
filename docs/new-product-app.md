@@ -20,6 +20,7 @@ Elle kurmak yerine CLI kullanın — aşağıdaki bölümlerin tamamını üreti
 
 ```bash
 pnpm create-app                                        # interaktif, standalone
+pnpm create-app landing-web --vanilla                  # UI framework'süz (html`` + düz island)
 pnpm create-app investment-web --title "Yatırım"       # standalone, cwd altına
 pnpm create-app investment-web --target-dir ~/projects # başka bir üst dizine
 pnpm create-app investment-web --version "^1.2.0"      # paket sürüm aralığını sabitle
@@ -29,13 +30,32 @@ pnpm create-app knowledge-web --workspace              # bu monorepo içinde app
 | Bayrak               | Anlamı                                                                                                         |
 | -------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `--workspace`        | Uygulamayı monorepo içinde `apps/<ad>` altına, `workspace:*` bağımlılıklarıyla kurar. Bayrak yoksa standalone. |
+| `--vanilla`          | UI framework'süz uygulama üretir (`--renderer vanilla` ile aynı). Varsayılan `react`.                          |
 | `--target-dir <yol>` | Standalone uygulamanın oluşturulacağı üst dizin. Varsayılan: içinde bulunduğunuz dizin.                        |
 | `--version <aralık>` | Standalone modda `@originloom/*` bağımlılıklarının sürüm aralığı. Varsayılan `^0.1.0`.                         |
 | `--port <n>`         | Uygulamanın portu (metrics portu `n + 6000`). Varsayılan `3010`.                                               |
 | `--title "..."`      | Görünen ad; site metadata, layout ve README'de kullanılır.                                                     |
 
 Üretilen uygulama çalışır durumdadır: SSR sayfası, hydrate olan örnek bir island, cache'li HTML,
-`/healthz` ve `/readyz` hazır gelir. Standalone modda `pnpm install && pnpm dev`, workspace modda
+`/healthz` ve `/readyz` hazır gelir.
+
+### Renderer seçimi: React (varsayılan) veya vanilla
+
+Platform çekirdeği UI framework'ünden bağımsız olduğu için generator iki uygulama biçimi üretir:
+
+|             | `react` (varsayılan)                                   | `--vanilla`                                         |
+| ----------- | ------------------------------------------------------ | --------------------------------------------------- |
+| Sayfa       | `src/features/<ad>/<ad>-page.tsx` — JSX bileşeni       | `src/pages/<ad>.ts` — `html\`\`` döndüren fonksiyon |
+| Island      | `src/islands/<ad>.tsx` — React bileşeni, `hydrateRoot` | `src/islands/<ad>.ts` — `(element, props) => void`  |
+| Marker      | `<Island name="…">`                                    | `island({ name: "…" })`                             |
+| Adaptör     | `createReactRenderer` (`server/product/renderer.tsx`)  | `createHtmlRenderer` (`server/product/renderer.ts`) |
+| Bağımlılık  | react, react-dom, @vitejs/plugin-react                 | yok                                                 |
+| Streaming   | Suspense ile deferred boundary                         | yok — doküman tek parça                             |
+| Örnek route | 6 route + 3 island                                     | 3 route (home, catalog, item-detail) + 1 island     |
+
+Ortak olan her şey aynıdır: cache registry, middleware, routing rules, config, Docker, CI, skill'ler.
+Vanilla modda escape sorumluluğu `html` tagged template'indedir — interpolate edilen her değer
+otomatik escape edilir, güvendiğiniz markup için `raw()` kullanılır. Standalone modda `pnpm install && pnpm dev`, workspace modda
 repo kökünden `pnpm install` sonrası `pnpm --filter <ad> dev` ile ayağa kalkar. Sonraki bölümler
 generator'ın ne ürettiğini ve neden öyle ürettiğini açıklar — elle kurmak veya üretileni değiştirmek
 isteyenler için.

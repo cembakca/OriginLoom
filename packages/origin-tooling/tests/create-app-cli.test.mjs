@@ -127,3 +127,38 @@ describe("origin-create-app CLI — validation", () => {
     expect(stderr).toMatch(/already exists/i);
   });
 });
+
+describe("origin-create-app CLI — renderer selection", () => {
+  it("scaffolds a vanilla app with --vanilla", () => {
+    const target = scratch();
+    const { status } = run([
+      "landing-web",
+      "--title",
+      "Landing",
+      "--vanilla",
+      "--target-dir",
+      target,
+    ]);
+    expect(status).toBe(0);
+
+    const appDir = join(target, "landing-web");
+    const pkg = JSON.parse(readFileSync(join(appDir, "package.json"), "utf8"));
+    expect(pkg.dependencies["@originloom/vanilla"]).toBe("^0.1.0");
+    expect(pkg.dependencies.react).toBeUndefined();
+    expect(existsSync(join(appDir, "src/pages/home.ts"))).toBe(true);
+    expect(existsSync(join(appDir, "src/islands/counter.ts"))).toBe(true);
+    expect(existsSync(join(appDir, "server/routes/home.tsx"))).toBe(false);
+  });
+
+  it("accepts the explicit --renderer form and rejects anything else", () => {
+    const target = scratch();
+    expect(
+      run(["a-web", "--title", "A", "--renderer", "react", "--target-dir", target]).status,
+    ).toBe(0);
+    expect(existsSync(join(target, "a-web/server/routes/home.tsx"))).toBe(true);
+
+    const bad = run(["b-web", "--title", "B", "--renderer", "svelte", "--target-dir", scratch()]);
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toContain("Invalid --renderer");
+  });
+});
