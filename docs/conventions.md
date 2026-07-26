@@ -18,13 +18,15 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 | `apps/showroom/src/components/icons/` | Otomatik üretilen icon bileşenleri (elle düzenlenmez)                              |
 | `apps/showroom/src/lib/`              | Ürüne özel yardımcılar, kontratlar ve cache-key registry                           |
 | `apps/showroom/tests/`                | `server/` ve `src/` yapısını yansıtır                                              |
-| `packages/origin-core/src/`           | Platform runtime — cache, middleware, SSR pipeline, document motoru                |
+| `packages/origin-shared/src/`         | Framework-nötr taban — tipler, routing engine, metadata motoru, render kontratı    |
+| `packages/origin-core/src/`           | Platform runtime — cache, middleware, SSR pipeline, document orkestrasyonu         |
 | `packages/origin-core/src/adapters/`  | Gateway ve dış sistem adapter'ları                                                 |
-| `packages/origin-react/src/`          | Island runtime, routing engine, generic lib, Vite preset                           |
+| `packages/origin-react/src/`          | React adaptörü — island runtime, `server/` render adaptörü, Vite preset            |
 | `packages/origin-tooling/bin/`        | build/dev/env/compose/smoke bin'leri                                               |
 | `tools/mock-gw/`                      | Bağımsız mock gateway                                                              |
 
-Ürün kodu platform paketlerini `@originloom/core` ve `@originloom/react` üzerinden import eder;
+Ürün kodu platform paketlerini `@originloom/core`, `@originloom/react` ve `@originloom/shared`
+üzerinden import eder;
 uygulama içi importlar `~/` (src) ve `@server/` alias'larını kullanmaya devam eder. Platform paketleri
 ürün koduna **asla** import edemez — gereken her şey `OriginRuntime` üzerinden enjekte edilir.
 

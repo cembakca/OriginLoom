@@ -34,17 +34,20 @@ export default defineRoute<Data>({
 });
 ```
 
-## The document head — `server/product/document-shell.tsx`
+## The document head — `server/product/document-shell.ts` + `renderer.tsx`
 
-The document shell wires the engine into HTML:
+Resolving metadata and emitting it are separate files, because the core has no
+UI framework:
 
-- `resolveMetadata` → `resolveDocumentMetadata(route, data, ctx)` merges route
-  metadata over the site defaults.
-- `boundaryMetadata` → `mergeMetadata(...)` produces 404/500 metadata.
-- `renderHeadStart` → `<MetadataHead meta={seo} nonce={cspNonce} />` emits the
-  actual `<meta>`/`<link>` tags with the CSP nonce.
+- `document-shell.ts` (framework-free policy)
+  - `resolveMetadata` → `resolveDocumentMetadata(route, data, ctx)` merges route
+    metadata over the site defaults.
+  - `boundaryMetadata` → `mergeMetadata(...)` produces 404/500 metadata.
+- `renderer.tsx` (React views)
+  - `renderHeadStart` → `<MetadataHead meta={seo} nonce={cspNonce} />` emits the
+    actual `<meta>`/`<link>` tags with the CSP nonce.
 
-You rarely edit this file; adjust metadata through the route and site defaults.
+You rarely edit these files; adjust metadata through the route and site defaults.
 
 ## Rules
 

@@ -13,16 +13,20 @@ Ana karar: **İsland Architecture** + **Shared HTML Cache** kombinasyonu. Vite, 
 Repo bir pnpm workspace'idir. Amaç, aynı SSR altyapısını birden fazla ürün uygulamasının
 **kopyalamadan** kullanabilmesi: motor bir kez yazılır, gövde her üründe farklıdır.
 
-| Paket / uygulama                                  | Sorumluluk                                                                                                                                                                                                                                   |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/origin-core` (`@originloom/core`)       | Platform sunucu runtime'ı: `createApp`, handler, SSR pipeline, cache (L1/L2/tiered/cold-fill/SWR/purge/fragment mekanizması), middleware, security, config + validation, metrik primitifleri, document render motoru, assets/manifest çözümü |
-| `packages/origin-react` (`@originloom/react`)     | Island runtime (`Island`, mounter, bootstrap), client altyapısı, generic lib yardımcıları, metadata motoru, routing **engine**, Vite preset                                                                                                  |
-| `packages/origin-tooling` (`@originloom/tooling`) | build/dev/env/compose/smoke/cycle-check bin'leri (`origin-*`)                                                                                                                                                                                |
-| `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s                                                                                              |
-| `tools/mock-gw`                                   | Bağımsız mock gateway (dev/test aracı)                                                                                                                                                                                                       |
+| Paket / uygulama                                  | Sorumluluk                                                                                                                                                                                                                                                              |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/origin-shared` (`@originloom/shared`)   | Framework-nötr taban: `Route`/`Ctx` tipleri, routing **engine**, metadata motoru, menu/device/media/cache-policy yardımcıları, client (DOM) yardımcıları ve **render kontratı** (`OriginRenderer`). Sıfır runtime dependency                                            |
+| `packages/origin-core` (`@originloom/core`)       | Platform sunucu runtime'ı: `createApp`, handler, SSR pipeline, cache (L1/L2/tiered/cold-fill/SWR/purge/fragment mekanizması), middleware, security, config + validation, metrik primitifleri, document orkestrasyonu, assets/manifest çözümü. **React bağımlılığı yok** |
+| `packages/origin-react` (`@originloom/react`)     | React adaptörü: island runtime (`Island`, mounter, bootstrap), `@originloom/react/server` render adaptörü (`createReactRenderer`), client query katmanı, Vite preset                                                                                                    |
+| `packages/origin-tooling` (`@originloom/tooling`) | build/dev/env/compose/smoke/cycle-check bin'leri (`origin-*`)                                                                                                                                                                                                           |
+| `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s                                                                                                                         |
+| `tools/mock-gw`                                   | Bağımsız mock gateway (dev/test aracı)                                                                                                                                                                                                                                  |
 
-Bağımlılık yönü tek yönlüdür — `showroom → @originloom/core → @originloom/react`. Ters yöndeki bir
-import `origin-check-cycles` tarafından katman ihlali olarak reddedilir.
+Bağımlılık yönü tek yönlüdür — `showroom → {core, react} → shared`. `core` ile `react` birbirini
+**import etmez**: ikisi de `@originloom/shared`'daki kontratlara yaslanır. Ters yöndeki bir import
+`origin-check-cycles` tarafından katman ihlali olarak reddedilir. Aynı bekçi, `core` ve `shared`
+altında herhangi bir `react`/`react-dom`/`@originloom/react` specifier'ını — type-only import dahil —
+framework sınırı ihlali olarak reddeder.
 
 Paketler kaynak `.ts` export eder; ayrı derleme adımı yoktur. Vite/tsx/Vitest/tsc `exports`
 üzerinden kaynağı doğrudan çözer. Production server bundle'ı `ssr.noExternal: true` ile tamamen
@@ -36,10 +40,11 @@ Platform, ürüne ait hiçbir modülü import etmez. Ürün, uygulamanın compos
 ```ts
 // packages/origin-core/src/runtime.ts
 export type OriginRuntime<Shell = unknown> = {
+  renderer: OriginRenderer<Shell>; // framework seam — bkz. "Render kontratı"
   fragments: Record<string, FragmentDefinition<Shell>>;
   buildShellData: (ctx: Ctx, opts?: { minimalChrome?: boolean }) => Promise<Shell>;
   isShellUsableForFragments: (shell: Shell) => boolean;
-  document: DocumentShell<Shell>; // metadata, head slotları, layout, 404/500 bileşenleri
+  document: DocumentShell; // htmlLang, bot tespiti, metadata — görünüm YOK
   cacheKeys: { isKnownPageCachePrefix: (prefix: string) => boolean };
   onBotVisit?: (visit: BotVisit) => void;
   metricSources?: Array<() => string[]>;
@@ -47,6 +52,52 @@ export type OriginRuntime<Shell = unknown> = {
 
 installRuntime(productRuntime);
 ```
+
+### Render kontratı — core neden React bilmiyor
+
+`@originloom/core` hiçbir UI framework'üne bağlı değildir: ne `react` dependency'si, ne `.tsx`
+dosyası, ne de bir JSX çağrısı vardır. Render, `@originloom/shared/render`'daki nötr arayüzden
+geçer:
+
+```ts
+// packages/origin-shared/src/render.ts
+export type FrameworkNode = unknown; // opaque: içine yalnız adaptör bakar
+
+export interface OriginRenderer<Shell = unknown> {
+  routeContent<T>(route: Route<T>, data: T, ctx: Ctx): FrameworkNode;
+  notFoundContent(ctx: Ctx, route?: Route): FrameworkNode;
+  errorContent(ctx: Ctx, route: Route, error: RouteError | null, status: number): FrameworkNode;
+  renderNode(node: FrameworkNode): string; // fragment / partial
+  renderDocument(input: DocumentRenderInput<Shell>): string; // <!DOCTYPE html> dahil
+  renderDocumentToStream(
+    input: DocumentRenderInput<Shell>,
+    options: DocumentStreamOptions,
+  ): Promise<StreamResult>;
+}
+```
+
+Kontrat `shared`'da durduğu için döngü oluşmaz: `react` onu **implement eder**, `core`
+**tüketir**. React tarafı `@originloom/react/server`'dadır ve ürünün görünümlerini alır:
+
+```ts
+// apps/showroom/server/product/renderer.tsx
+export const productRenderer = createReactRenderer<ShellData>({
+  NotFoundComponent: NotFoundPage,
+  ErrorComponent: RouteErrorPage,
+  renderHeadStart: ({ seo, cspNonce }) => <MetadataHead meta={seo} nonce={cspNonce} />,
+  renderHeadEnd: ({ cspNonce, isBot }) => <GtmBootstrap … />,
+  renderLayout: ({ shell, pageMeta, children }) => <RootLayout …>{children}</RootLayout>,
+});
+```
+
+İş bölümü: **core** neyin render edileceğine karar verir (route içeriği mi boundary mi, stream mi
+string mi, head asset'leri, cache ve fragment stitching); **adaptör** yalnız veriyi HTML'e çevirir.
+`Route.Component`'in döndürdüğü tip `Route<T, TNode>` ile parametriktir —
+`@originloom/react/lib/types` onu `ReactElement`'e sabitler (uygulama tarafında JSX tip kontrolü
+korunur), core ise yalnız `unknown` varsayılanını görür.
+
+Bunun pratik sonucu: Preact/Svelte/vanilla bir adaptör yazmak `OriginRenderer`'ı implement etmekten
+ibarettir; core'da tek satır değişmez.
 
 Route tablosu, API/SEO mount'ları ve statik kök `createApp` seçenekleriyle verilir:
 

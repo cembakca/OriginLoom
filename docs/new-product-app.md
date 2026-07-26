@@ -95,7 +95,7 @@ yeterli — generator hepsini otomatik kopyalar.
 
 ```text
 apps/<product>-web/
-  package.json          @originloom/core + @originloom/react (workspace:*)
+  package.json          @originloom/{core,react,shared} (workspace:*)
   tsconfig.json         ../../tsconfig.base.json + ~/@server alias'ları
   vite.config.ts        createClientViteConfig(...)
   vite.server.config.ts createServerViteConfig({ noExternal: true })
@@ -174,10 +174,11 @@ Platformun ürüne sorduğu her şey tek bir nesnede toplanır:
 ```ts
 // apps/<product>-web/server/product/runtime.ts
 export const productRuntime: OriginRuntime<ShellData> = {
+  renderer: productRenderer, // createReactRenderer(...) — layout, head slotları, 404/500
   fragments: productFragments, // header/footer vb. — ürün başına farklı
   buildShellData, // menü/chrome verisi
   isShellUsableForFragments: (shell) => Boolean(shell?.menu),
-  document: productDocumentShell, // metadata, head slotları, layout, 404/500
+  document: productDocumentShell, // htmlLang, bot tespiti, metadata
   cacheKeys: { isKnownPageCachePrefix },
   onBotVisit: storeBotVisit, // opsiyonel
   metricSources: [myMetricLines], // opsiyonel — /metrics çıktısına eklenir
@@ -188,8 +189,10 @@ export function installProductRuntime() {
 }
 ```
 
-Minimum bir app için `fragments` boş `{}` olabilir; `document` ise zorunludur (layout ve
-metadata olmadan document render edilemez).
+Minimum bir app için `fragments` boş `{}` olabilir; `renderer` ve `document` zorunludur —
+biri görünümleri (`server/product/renderer.tsx`), diğeri metadata/dil politikasını
+(`server/product/document-shell.ts`) taşır. Ayrım şu: `@originloom/core` React bilmez, bu yüzden
+her JSX `createReactRenderer` config'inde toplanır.
 
 ---
 

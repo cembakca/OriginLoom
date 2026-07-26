@@ -17,22 +17,24 @@ engine — lives in `@originloom/core` and `@originloom/react`. This app is
 - Auth/session middleware, CSP, request-id, metrics, `/healthz` + `/readyz`
 - The document/SSR engine, island runtime, routing engine, metadata engine
 
-Imported as `@originloom/core/*` and `@originloom/react/*`.
+Imported as `@originloom/core/*`, `@originloom/react/*` and `@originloom/shared/*`.
+The core is framework-free: it renders through the `OriginRenderer` contract in
+`@originloom/shared/render`, which `@originloom/react/server` implements.
 
 ## What this app owns
 
-| Area                                                  | Where                                                                                     |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Route table                                           | `server/routes/`                                                                          |
-| Product contract given to the platform                | `server/product/runtime.ts` (`OriginRuntime`), `document-shell.tsx`, `boundary-pages.tsx` |
-| Server-only data orchestration (gateway calls)        | `server/services/`                                                                        |
-| Composition root — wires runtime, routing, cache, app | `server/index.ts`                                                                         |
-| Page cache registry                                   | `src/lib/cache-keys.ts`                                                                   |
-| Page components                                       | `src/features/`                                                                           |
-| Client interactivity                                  | `src/islands/`                                                                            |
-| Chrome / layout                                       | `src/components/`, `src/styles/`                                                          |
-| Site identity / SEO defaults                          | `src/lib/metadata/site-defaults.ts`                                                       |
-| Redirect / rewrite rules                              | `src/routing/rules.ts`                                                                    |
+| Area                                                  | Where                                                                                                    |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Route table                                           | `server/routes/`                                                                                         |
+| Product contract given to the platform                | `server/product/runtime.ts` (`OriginRuntime`), `renderer.tsx`, `document-shell.ts`, `boundary-pages.tsx` |
+| Server-only data orchestration (gateway calls)        | `server/services/`                                                                                       |
+| Composition root — wires runtime, routing, cache, app | `server/index.ts`                                                                                        |
+| Page cache registry                                   | `src/lib/cache-keys.ts`                                                                                  |
+| Page components                                       | `src/features/`                                                                                          |
+| Client interactivity                                  | `src/islands/`                                                                                           |
+| Chrome / layout                                       | `src/components/`, `src/styles/`                                                                         |
+| Site identity / SEO defaults                          | `src/lib/metadata/site-defaults.ts`                                                                      |
+| Redirect / rewrite rules                              | `src/routing/rules.ts`                                                                                   |
 
 ## Hard rules
 

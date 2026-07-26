@@ -24,15 +24,20 @@ Bir sayfa isteği sırasıyla şu katmanlardan geçer:
 
 ```text
 packages/
-  origin-core/    Platform sunucu runtime'ı (@originloom/core)
+  origin-shared/  Framework-nötr taban (@originloom/shared)
+    src/lib/        Route/Ctx tipleri, metadata motoru, device/media/menu yardımcıları
+    src/routing/    Rewrite/redirect resolution engine
+    src/render.ts   OriginRenderer — UI framework seam'i
+  origin-core/    Platform sunucu runtime'ı (@originloom/core) — React bağımlılığı yok
     src/adapters/   Gateway gibi dış sistem adapter'ları
     src/cache/      Katmanlı L1 memory + opsiyonel L2 Redis, Pub/Sub invalidation
     src/middleware/ Request pipeline adımları
     src/ssr/        Request çözümleme, cache/loader ve response orkestrasyonu
     src/handler.ts  SSR pipeline'ın ince giriş noktası
-    src/document.tsx Tam HTML document render'ı
-    src/runtime.ts  Ürünün platforma verdiği kontrat (fragment, shell, document, metrik)
-  origin-react/   Island runtime, routing engine ve Vite preset (@originloom/react)
+    src/document.ts Document render orkestrasyonu (HTML'i renderer üretir)
+    src/runtime.ts  Ürünün platforma verdiği kontrat (renderer, fragment, shell, metrik)
+  origin-react/   React adaptörü: island runtime + Vite preset (@originloom/react)
+    src/server/     createReactRenderer — OriginRenderer'ın React implementasyonu
   origin-tooling/ build/dev/env/compose/smoke bin'leri (@originloom/tooling)
 
 apps/
@@ -40,7 +45,7 @@ apps/
     server/routes/    Loader, cache ve metadata içeren SSR route tanımları
     server/api/       Public ve internal BFF endpointleri
     server/services/  Server-only veri orkestrasyonu
-    server/product/   Platforma enjekte edilen ürün kontratı (runtime, fragment, document shell)
+    server/product/   Platforma enjekte edilen ürün kontratı (runtime, renderer, fragment, document shell)
     src/features/     Route'ların feature bazlı SSR-safe sunum/shell bileşenleri
     src/islands/      Client-side etkileşim giriş noktaları
     src/components/   SSR-safe UI bileşenleri
@@ -56,8 +61,10 @@ tools/
 Repo bir pnpm workspace'idir: platform paketleri (`packages/*`) bir kez yazılır, ürün uygulamaları
 (`apps/*`) bunları `workspace:*` bağımlılığı olarak tüketir ve ayrı deploy edilir. Paketler kaynak
 `.ts` export eder; ayrı bir derleme adımı yoktur — Vite/tsx/Vitest/tsc kaynağı doğrudan çözer.
-Bağımlılık yönü tek yönlüdür: `showroom → @originloom/core → @originloom/react`. Ters yöndeki bir
-import `pnpm check:cycles` tarafından reddedilir.
+Bağımlılık yönü tek yönlüdür: `showroom → {core, react} → shared`. `core` ile `react` birbirini
+import etmez — ikisi de `@originloom/shared`'daki kontratlara yaslanır, böylece sunucu runtime'ı
+UI framework'ünden bağımsız kalır. Ters yöndeki bir import ya da core/shared içinde bir React
+specifier'ı `pnpm check:cycles` tarafından reddedilir.
 
 Kök komutlar tüm workspace'i kapsar:
 
