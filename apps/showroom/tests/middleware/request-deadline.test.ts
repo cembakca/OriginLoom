@@ -20,7 +20,8 @@ describe("request deadline middleware", () => {
     const app = new Hono<{ Variables: AppVariables }>();
     let signal: AbortSignal | undefined;
     app.use("*", requestId);
-    app.use("*", requestDeadline([], { api: 10 }));
+    // What createApp derives from the app's own route table.
+    app.use("*", requestDeadline([], { api: 10, apiRouteLabels: new Set(["/api/referrals"]) }));
     app.get("/api/referrals", async (c) => {
       signal = contextRequest(c).signal;
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -57,10 +58,10 @@ describe("request deadline middleware", () => {
     expect(renderMetrics()).toContain('request_timeout_total{class="ssr",route="/slow"}');
   });
 
-  it("leaves the market stream to its own connection lifetime contract", async () => {
+  it("leaves a declared long-lived endpoint to its own connection lifetime contract", async () => {
     const app = new Hono<{ Variables: AppVariables }>();
     app.use("*", requestId);
-    app.use("*", requestDeadline([], { api: 5 }));
+    app.use("*", requestDeadline([], { api: 5, longLivedRoutes: ["/api/markets/stream"] }));
     app.get("/api/markets/stream", async (c) => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       return c.text("stream-owned-timeout");
@@ -72,18 +73,24 @@ describe("request deadline middleware", () => {
     expect(await response.text()).toBe("stream-owned-timeout");
   });
 
-  it("does not classify unmatched API paths as gateway proxies", async () => {
+  it("buckets an unmatched API path instead of labelling metrics with it", async () => {
     const app = new Hono<{ Variables: AppVariables }>();
     app.use("*", requestId);
-    app.use("*", requestDeadline([], { proxy: 100, ssr: 5 }));
+    app.use("*", requestDeadline([], { proxy: 100, api: 5, apiRouteLabels: new Set() }));
     app.all("*", async (c) => {
       await new Promise((resolve) => setTimeout(resolve, 25));
       return c.text("late unmatched request");
     });
 
-    const response = await app.request("/api/external-fallback");
+    const response = await app.request("/api/not-mounted-" + Date.now());
+
+    // Still an API call — not a page, and never a gateway proxy just because no
+    // route matched. The label is bucketed: putting the raw path in a metric
+    // would let any caller mint an unbounded number of time series.
     expect(response.status).toBe(504);
-    expect(response.headers.get("content-type")).toContain("text/html");
-    expect(renderMetrics()).toContain('request_timeout_total{class="ssr",route="<unmatched>"}');
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(renderMetrics()).toContain(
+      'request_timeout_total{class="api",route="/api/<unmatched>"}',
+    );
   });
 });

@@ -622,6 +622,9 @@ async function main() {
     assets,
     routes,
     mounts: { api: mountApi, seo: mountSeo },
+    // /api/ticks streams until the client leaves, so it manages its own
+    // lifetime — arming a request deadline on it would cut a healthy stream.
+    longLivedRoutes: ["/api/ticks"],
     isShuttingDown: () => shuttingDown,
   });
 

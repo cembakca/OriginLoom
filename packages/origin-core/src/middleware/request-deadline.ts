@@ -12,17 +12,6 @@ import type { AppVariables, RequestClass } from "./context.js";
 export type { RequestClass } from "./context.js";
 type DeadlineOptions = Partial<Record<RequestClass, number>>;
 
-const KNOWN_API_ROUTES = new Set([
-  "/api/referrals",
-  "/api/finance/loan-calculation",
-  "/api/internal/account/summary",
-  "/api/internal/auth/session",
-  "/api/internal/client-errors",
-  "/api/internal/refresh",
-  "/api/markets/stream",
-]);
-const LONG_LIVED_API_ROUTES = new Set(["/api/markets/stream"]);
-
 export class RequestDeadlineError extends Error {
   constructor(
     readonly requestClass: RequestClass,
@@ -33,10 +22,26 @@ export class RequestDeadlineError extends Error {
   }
 }
 
+export type RequestDeadlineOptions = DeadlineOptions & {
+  /**
+   * Endpoints that hold their connection open on purpose — SSE, long polling.
+   * They own their own lifetime, heartbeat and admission, so no deadline is
+   * armed for them. Which endpoints those are is the app's knowledge.
+   */
+  longLivedRoutes?: readonly string[];
+  /**
+   * The concrete /api paths worth labelling in metrics. Anything outside it is
+   * folded into one bucket, so an unmatched path cannot create a time series.
+   */
+  apiRouteLabels?: ReadonlySet<string>;
+};
+
 export function requestDeadline(
   routeTable: Route[],
-  options: DeadlineOptions = {},
+  options: RequestDeadlineOptions = {},
 ): MiddlewareHandler<{ Variables: AppVariables }> {
+  const longLived = new Set(options.longLivedRoutes ?? []);
+  const apiRouteLabels = options.apiRouteLabels ?? new Set<string>();
   return async (c, next) => {
     const raw = c.req.raw;
     const requestClass = classifyRequest(raw);
@@ -46,15 +51,13 @@ export function requestDeadline(
       ? raw.signal
       : AbortSignal.any([raw.signal, controller.signal]);
     const request = new Request(raw, { signal });
-    const route = routeLabel(request, requestClass, routeTable);
+    const route = routeLabel(request, requestClass, routeTable, apiRouteLabels);
 
     c.set("request", request);
     c.set("requestClass", requestClass);
     c.set("requestRoute", route);
 
-    // The endpoint owns heartbeat, connection lifetime and admission limits; a short API
-    // deadline would terminate a healthy SSE connection before its first rotation.
-    if (LONG_LIVED_API_ROUTES.has(new URL(raw.url).pathname)) {
+    if (longLived.has(new URL(raw.url).pathname)) {
       await next();
       return;
     }
@@ -87,10 +90,24 @@ export function isRequestDeadlineError(error: unknown): error is RequestDeadline
   return error instanceof RequestDeadlineError;
 }
 
+/**
+ * What kind of work this request is, which decides its time budget and whether
+ * it competes for render capacity.
+ *
+ * `/api/` is the convention every app already follows for endpoints that are
+ * not pages, and it is the only signal the platform can read without being told
+ * each app's route names — which it has no business knowing. A configured proxy
+ * rule outranks it: that is an explicit statement about a specific path, while
+ * the prefix is a convention.
+ *
+ * An endpoint misread as a page gets the render time budget instead of the API
+ * one, answers an oversized payload with an HTML error page rather than JSON,
+ * and reports itself as a page in the timeout metrics.
+ */
 export function classifyRequest(request: Request): RequestClass {
   const url = new URL(request.url);
-  if (KNOWN_API_ROUTES.has(url.pathname)) return "api";
-  return resolveRoute(url, config.gatewayUrl).kind === "proxy" ? "proxy" : "ssr";
+  if (resolveRoute(url, config.gatewayUrl).kind === "proxy") return "proxy";
+  return url.pathname === "/api" || url.pathname.startsWith("/api/") ? "api" : "ssr";
 }
 
 function timeoutFor(requestClass: RequestClass): number {
@@ -99,8 +116,16 @@ function timeoutFor(requestClass: RequestClass): number {
   return config.ssrRequestTimeoutMs;
 }
 
-function routeLabel(request: Request, requestClass: RequestClass, routeTable: Route[]): string {
-  if (requestClass === "api") return apiRouteLabel(new URL(request.url).pathname);
+function routeLabel(
+  request: Request,
+  requestClass: RequestClass,
+  routeTable: Route[],
+  apiRouteLabels: ReadonlySet<string>,
+): string {
+  if (requestClass === "api") {
+    const pathname = new URL(request.url).pathname;
+    return apiRouteLabels.has(pathname) ? pathname : "/api/<unmatched>";
+  }
   if (requestClass === "proxy") return "<proxy>";
 
   const resolution = resolveRoute(new URL(request.url), config.gatewayUrl);
@@ -109,10 +134,6 @@ function routeLabel(request: Request, requestClass: RequestClass, routeTable: Ro
   return (
     match(routeTable, resolution.pathname)?.route.path ?? infrastructureRoute(resolution.pathname)
   );
-}
-
-function apiRouteLabel(pathname: string): string {
-  return KNOWN_API_ROUTES.has(pathname) ? pathname : "/api/<unmatched>";
 }
 
 function infrastructureRoute(pathname: string): string {

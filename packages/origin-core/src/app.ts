@@ -47,6 +47,11 @@ export type CreateAppOptions = {
   readinessCheck?: () => Promise<boolean>;
   cacheRequired?: boolean;
   capacity?: Capacity;
+  /**
+   * Endpoints that hold their connection open on purpose — SSE, long polling.
+   * They manage their own lifetime, so no request deadline is armed for them.
+   */
+  longLivedRoutes?: readonly string[];
 };
 
 export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVariables }> {
@@ -87,7 +92,17 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   // Before requestDeadline: that clones the request, and a clone locks the body
   // the limit still has to measure.
   app.use("*", publicBodyLimit(config.proxyBodyLimitBytes));
-  app.use("*", requestDeadline(routeTable));
+  // Filled in from the app's own route table once everything is mounted, and read
+  // only when a metric is labelled. Deriving it beats asking for a list: what is
+  // mounted is the truth, and it cannot drift or be forgotten.
+  const mountedApiRoutes = new Set<string>();
+  app.use(
+    "*",
+    requestDeadline(routeTable, {
+      apiRouteLabels: mountedApiRoutes,
+      ...stripUndefined({ longLivedRoutes: options.longLivedRoutes }),
+    }),
+  );
   app.use("*", async (c, next) => {
     await withRequestSpan(contextRequest(c), c.get("requestId"), async (span) => {
       await next();
@@ -136,6 +151,15 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
 
   options.mounts?.seo?.(app, config.siteUrl);
   options.mounts?.api?.(app);
+
+  // Every concrete /api endpoint this app registered — its own and the
+  // platform's. A metric label has to come from a bounded set: labelling with
+  // the raw path would let any caller mint new time series.
+  for (const route of app.routes) {
+    if (route.method !== "ALL" && route.path.startsWith("/api")) {
+      mountedApiRoutes.add(route.path);
+    }
+  }
 
   app.all(
     "*",

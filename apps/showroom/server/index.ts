@@ -41,6 +41,9 @@ async function main() {
     assets,
     routes,
     mounts: { api: mountApi, seo: mountSeoRoutes },
+    // The market stream holds its connection open by design and runs its own
+    // heartbeat and admission, so it is exempt from the request deadline.
+    longLivedRoutes: ["/api/markets/stream"],
     isShuttingDown: () => shuttingDown,
   });
 

@@ -31,6 +31,37 @@ describe("Hono application integration", () => {
     await closeCache();
   });
 
+  it("classifies an app's own API endpoint as an API call, not as a page", async () => {
+    const app = appWith([], {
+      mounts: {
+        api: (api) => api.get("/api/items", (c) => c.text(c.get("requestClass") ?? "unset")),
+      },
+    });
+
+    // The platform cannot know this app's route names, so it reads the /api
+    // convention. Read as a page, the endpoint would get the render time budget
+    // and report itself as a page in the timeout metrics.
+    const res = await app.request("http://localhost/api/items");
+
+    expect(await res.text()).toBe("api");
+  });
+
+  it("keeps the oversized-payload answer machine-readable for an app's own API route", async () => {
+    const app = appWith([], {
+      mounts: { api: (api) => api.post("/api/items", (c) => c.json({ ok: true })) },
+    });
+
+    const res = await app.request("http://localhost/api/items", {
+      method: "POST",
+      headers: { "content-length": String(config.proxyBodyLimitBytes + 1) },
+      body: "x".repeat(config.proxyBodyLimitBytes + 1),
+    });
+
+    expect(res.status).toBe(413);
+    // An API client parses this; an HTML error page would be a second failure.
+    await expect(res.json()).resolves.toMatchObject({ code: "PAYLOAD_TOO_LARGE" });
+  });
+
   it("answers a POST whose length it has to measure, instead of failing on it", async () => {
     const app = appWith([], {
       mounts: { api: (api) => api.post("/api/echo", (c) => c.json({ ok: true })) },

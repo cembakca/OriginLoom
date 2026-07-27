@@ -168,6 +168,30 @@ ekleyemiyordu.
 (auth refresh, CMS redirect) de kendi contract'larını tanımlıyor. Core'da tek bir ürün domain adı
 kalmadı. Kayıt defteri yerine nesne tercih edildi: "kaydetmeyi unutma" diye bir hata durumu yok.
 
+### C3. `request-deadline` showroom'un uçlarını hardcode ediyordu ✅ çözüldü
+
+`packages/origin-core/src/middleware/request-deadline.ts` içinde iki sabit liste vardı:
+`KNOWN_API_ROUTES` (`/api/referrals`, `/api/finance/loan-calculation`, `/api/markets/stream` …) ve
+`LONG_LIVED_API_ROUTES`. Üretilen app'in `/api/items`, `/api/session` uçları listede olmadığı için
+**sayfa** sayılıyordu: render zaman bütçesi alıyor, aşırı gövdede JSON yerine düz metin dönüyor ve
+timeout metriğinde `class="ssr"` olarak görünüyorlardı.
+
+**Çözüm — üç ayrı soru, üç ayrı cevap:**
+
+1. **Sınıflandırma** artık konvansiyondan okunuyor: `/api/` altındaki her şey API. Açıkça
+   yapılandırılmış bir proxy kuralı bunu geçer — o belirli bir yol hakkında bilinçli bir ifade,
+   prefix ise yalnızca konvansiyon.
+2. **Uzun ömürlü uçlar** (SSE, long poll) platformun tahmin edebileceği bir şey değil, o yüzden
+   `createApp({ longLivedRoutes })` ile uygulama söylüyor. Showroom `/api/markets/stream`,
+   üretilen app `/api/ticks` beyan ediyor.
+3. **Metrik etiketi** app'in kendi route tablosundan türetiliyor: `createApp` mount işlemi bittikten
+   sonra `app.routes` üzerinden somut `/api` yollarını topluyor. Beyan istemek yerine türetmek,
+   "kaydetmeyi unuttum" hatasını ortadan kaldırıyor; sınır ise korunuyor — mount edilmemiş bir yol
+   `/api/<unmatched>` kovasına düşüyor, yoksa herhangi bir çağıran sınırsız time series üretebilirdi.
+
+Doğrulandı: üretilen app'te aşırı gövde `/api/items` için JSON 413, sayfa yolunda düz metin;
+üç rastgele `/api/...` isteği tek etikette toplanıyor.
+
 ### C2. `.env` görünürlüğü ✅ yapıldı
 
 **Çözüm:** üretilen `.env.development`'a "Platform knobs" bölümü eklendi — upstream/render
