@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
   security-events: write
+  # analyze reads the workflow run it belongs to; without this it fails with
+  # "Resource not accessible by integration" after a full 4-minute scan.
+  actions: read
 
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
