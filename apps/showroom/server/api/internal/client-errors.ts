@@ -1,3 +1,8 @@
+import {
+  isClientErrorSampled,
+  parseClientErrorPayload,
+  sanitizeClientErrorPayload,
+} from "@originloom/core/api/client-errors";
 import { config } from "@originloom/core/config";
 import { logger } from "@originloom/core/logger";
 import { observeClientErrorTelemetry } from "@originloom/core/metrics";
@@ -12,13 +17,7 @@ import {
 import { productConfig } from "@server/product/config";
 import type { Hono } from "hono";
 
-import {
-  isClientErrorSampled,
-  parseClientErrorPayload,
-  sanitizeClientErrorPayload,
-} from "./client-errors/contract";
-
-export { redactSensitive } from "./client-errors/contract";
+export { redactSensitive } from "@originloom/core/api/client-errors";
 export { BoundedIpRateLimiter, FixedWindowRateLimiter } from "@originloom/core/security/rate-limit";
 
 type ClientErrorApiOptions = {

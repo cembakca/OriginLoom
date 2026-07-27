@@ -1,7 +1,7 @@
 {
   "name": "@originloom/core",
-  "version": "0.1.0",
-  "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics \u2014 with no UI framework of its own.",
+  "version": "0.2.1",
+  "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics — with no UI framework of its own.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
   "homepage": "https://github.com/cembakca/OriginLoom/tree/main/packages/origin-core#readme",

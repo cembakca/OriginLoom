@@ -554,7 +554,8 @@ body {
 `;
 
 export const apiIndex =
-  () => `import type { AppVariables } from "@originloom/core/middleware/request-id";
+  () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 
 /**
@@ -563,6 +564,10 @@ import type { Hono } from "hono";
  * fetch it from here instead of putting it in the cached HTML.
  */
 export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
+  // The island runtime reports client-side failures here. Without it every
+  // browser error turns into a 404 in the console instead of a server log.
+  mountClientErrorApi(app);
+
   app.get("/api/time", (c) => c.json({ now: new Date().toISOString() }));
 }
 `;

@@ -30,6 +30,13 @@ export type BaseClientViteConfigOptions = ClientViteConfigOptions & {
   plugins?: PluginOption[];
   /** Packages that must resolve to a single copy (e.g. a UI framework runtime). */
   dedupe?: string[];
+  /**
+   * Dependencies to pre-bundle. The platform packages are excluded from the
+   * optimizer, and Vite serves an excluded package's imports raw — so a CJS
+   * dependency it reaches for (react-dom/client) would arrive without named
+   * exports. Listing it here makes Vite pre-bundle it anyway.
+   */
+  optimizeDeps?: string[];
 };
 
 export type ServerViteConfigOptions = {
@@ -65,6 +72,7 @@ export function createBaseClientViteConfig(options: BaseClientViteConfigOptions)
         "@originloom/react",
         "@originloom/vanilla",
       ],
+      ...(options.optimizeDeps ? { include: options.optimizeDeps } : {}),
     },
     server: {
       host,

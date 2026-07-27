@@ -27,16 +27,26 @@
  *   origin-create-app landing-web --port 3020      # Vite follows on 5020
  *   origin-create-app landing-web --registry http://localhost:4873
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 
 import { format } from "prettier";
 
 import { renderTemplates, VITE_PORT_OFFSET } from "./create-app/templates.mjs";
 
 const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
+/**
+ * A standalone app pins the platform range. Defaulting to this CLI's own version
+ * keeps the two in step: the generator that shipped in 0.2.0 scaffolds ^0.2.0.
+ */
+const DEFAULT_VERSION_RANGE = `^${
+  JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"))
+    .version
+}`;
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -76,7 +86,7 @@ async function main() {
     metricsPort: port + 6000,
     vitePort,
     mode: options.workspace ? "workspace" : "standalone",
-    version: options.version ?? "^0.1.0",
+    version: options.version ?? DEFAULT_VERSION_RANGE,
     renderer: options.renderer,
     ...(options.registry ? { registry: options.registry } : {}),
   });

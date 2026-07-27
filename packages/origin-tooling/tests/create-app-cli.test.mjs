@@ -7,6 +7,11 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
 const CLI = fileURLToPath(new URL("../bin/create-app.mjs", import.meta.url));
+/** The generator defaults the platform range to its own version, so they move together. */
+const OWN_RANGE = `^${
+  JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"))
+    .version
+}`;
 const scratchDirs = [];
 
 /** A fresh temp dir with no pnpm-workspace.yaml above it, so the CLI treats it as standalone. */
@@ -44,7 +49,7 @@ describe("origin-create-app CLI — standalone", () => {
     expect(stdout).toContain("standalone: true");
     const pkg = JSON.parse(readFileSync(join(target, "investment-web/package.json"), "utf8"));
     expect(pkg.name).toBe("investment-web");
-    expect(pkg.dependencies["@originloom/core"]).toBe("^0.1.0");
+    expect(pkg.dependencies["@originloom/core"]).toBe(OWN_RANGE);
   });
 
   it("passes --version through to the pinned dependency range", () => {
@@ -143,7 +148,7 @@ describe("origin-create-app CLI — renderer selection", () => {
 
     const appDir = join(target, "landing-web");
     const pkg = JSON.parse(readFileSync(join(appDir, "package.json"), "utf8"));
-    expect(pkg.dependencies["@originloom/vanilla"]).toBe("^0.1.0");
+    expect(pkg.dependencies["@originloom/vanilla"]).toBe(OWN_RANGE);
     expect(pkg.dependencies.react).toBeUndefined();
     expect(existsSync(join(appDir, "src/pages/home.ts"))).toBe(true);
     expect(existsSync(join(appDir, "src/islands/counter.ts"))).toBe(true);

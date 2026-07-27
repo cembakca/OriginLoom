@@ -23,6 +23,10 @@ export function createClientViteConfig(options: ClientViteConfigOptions): UserCo
     ...options,
     plugins: [react(), tailwindcss()],
     dedupe: DEDUPE,
+    // @originloom/react is excluded from the optimizer, so its own imports are
+    // served raw. react-dom/client is CJS: without pre-bundling, the browser
+    // gets a module with no `createRoot` export and no island ever mounts.
+    optimizeDeps: ["react", "react-dom", "react-dom/client", "react/jsx-runtime"],
   });
 }
 

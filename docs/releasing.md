@@ -47,12 +47,52 @@ Sürüm gerektirmeyen bir değişiklik için: `pnpm changeset --empty`.
 
 ### Sürüm yükseltirken
 
+İki yol var; **ikisini karıştırmayın**.
+
+**A) changesets ile (kayıt tutar):**
+
 ```bash
 pnpm changeset:version   # changeset version + lockfile güncelleme
 ```
 
-Beş `package.json`'ı yükseltir, `CHANGELOG.md` dosyalarını yazar, biriken changeset dosyalarını
-siler. Çıkan diff'i gözden geçirip commit'leyin.
+Biriken changeset dosyalarından yeni sürümü hesaplar, beş `package.json`'ı yükseltir,
+`CHANGELOG.md` dosyalarını yazar ve changeset dosyalarını siler.
+
+**B) Elle sürüm vererek (hızlı yol):**
+
+```bash
+pnpm version:set 0.2.0        # ya da: patch | minor | major
+pnpm version:set 0.3.0 --dry-run
+```
+
+Beş pakete aynı sürümü yazar. Sabit grup olduğu için hepsi birlikte hareket eder; script paketlerin
+hâlihazırda aynı sürümde olduğunu da doğrular — grup bozulmuşsa durur, çünkü öyle bir yayın
+tüketiciyi çözülemez bir kümeyle bırakır.
+
+> Elle sürüm verdiyseniz **bekleyen changeset dosyalarını silin** (veya önce A yolunu çalıştırın).
+> Aksi halde bir sonraki `changeset:version` aynı değişiklikleri ikinci kez sayar.
+
+### Yükselttikten sonra: yayınla ve tüketiciye ulaştır
+
+```bash
+pnpm install --lockfile-only   # workspace linkleri yeni sürümü görsün
+pnpm registry:publish          # yerel registry'ye (Nexus'ta: §5.4'teki workflow)
+git commit -am "chore(release): 0.2.0"
+```
+
+Tüketici uygulamada (repo dışında, registry'den kurulu olan):
+
+```bash
+pnpm update "@originloom/*" --latest
+```
+
+`package.json`'daki aralık `^0.2.0` biçimindeyse `--latest` olmadan da minor/patch güncellemeleri
+gelir; major geçişte aralığı elle yükseltmek gerekir.
+
+**Aynı sürümü yeniden yayınlamayın.** Yerel registry buna izin verir (`registry:publish` üzerine
+yazar) ama tüketici tarafındaki pnpm tarball'ı önbelleğe aldığı için değişikliği görmeyebilir —
+bunu bir kez yaşadık: yeniden yayınlanan tooling yerine önbellekteki eski sürüm çalıştı. Doğrusu
+sürümü yükseltmektir; gerçek registry'ler zaten üzerine yazmayı yasaklar.
 
 ### Yayın provası
 
@@ -225,15 +265,24 @@ tekrar çalıştırmak zararsızdır.
 
 ### 5.5 İlk sürüm numarasına karar verin
 
-Şu an `0.1.0` ve biriken changeset `0.2.0`'a götürüyor. `0.x` iken her minor breaking olabilir
+`0.x` iken her minor breaking olabilir
 sayılır; API'yi sabitlemeye hazır olduğunuzda `1.0.0`'a geçin. **`1.0.0`'dan sonra** küratlı export
 listesini daraltmak major sürüm gerektirir — bu yüzden export yüzeyini şimdi gözden geçirin.
 
 ### 5.6 Tüketici tarafını ayarlayın
 
-`origin-create-app --version <aralık>` üretilen standalone uygulamanın bağımlılık aralığını
-belirler (varsayılan `^0.1.0`). Yayınlanan gerçek sürüme göre bu varsayılanı güncelleyin:
-`packages/origin-tooling/bin/create-app.mjs` içindeki `options.version ?? "^0.1.0"`.
+Yerel registry akışında kullandığınız komut Nexus'ta da aynıdır, yalnız URL değişir:
+
+```bash
+pnpm --package=@originloom/tooling dlx origin-create-app yatirim-web \
+  --title "Yatırım" --registry https://nexus.<şirket>.com/repository/npm-group/
+```
+
+`--registry` üretilen uygulamanın `.npmrc`'sini yazar. Nexus okuma için de kimlik istiyorsa ekipler
+o dosyaya token satırını ekler (veya `~/.npmrc`'de tutar — repoya girmesin).
+
+`--version <aralık>` bağımlılık aralığını belirler. Varsayılan **generator'ın kendi sürümünden**
+türetilir (`@originloom/tooling@0.2.1` → `^0.2.1`), yani elle güncellenecek bir yer değildir.
 
 ### 5.7 Yayın sonrası
 

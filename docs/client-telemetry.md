@@ -3,6 +3,13 @@
 `POST /api/internal/client-errors`, island ve React root hatalarını best-effort olarak server loguna
 taşır. Endpoint bir hata izleme ürünü veya sınırsız log ingestion servisi değildir.
 
+**Endpoint platformun parçasıdır.** İstemci tarafı (`reportClientError`,
+`@originloom/shared/lib/client/error-telemetry`) bu yolu sabit yazar, bu yüzden sunucu tarafı da
+platformda durur: `mountClientErrorApi` — `@originloom/core/api/client-errors`. Üretilen her
+uygulama `server/api/index.ts` içinde bunu mount eder; etmezse tarayıcıdaki her istemci hatası
+konsolda 404 olur ve sunucuya hiç ulaşmaz. Showroom aynı mount'u kendi rate-limit/sampling
+ayarlarıyla sarar (`server/api/internal/client-errors.ts`).
+
 ## Ingestion sırası
 
 İstekler şu sırayla işlenir:

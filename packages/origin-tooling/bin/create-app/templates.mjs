@@ -745,7 +745,8 @@ export function listItems(page: number, perPage: number): { items: Item[]; total
 }
 `;
 
-const apiIndex = () => `import type { AppVariables } from "@originloom/core/middleware/request-id";
+const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 
@@ -754,6 +755,10 @@ import { streamSSE } from "hono/streaming";
  * is handled here and never reaches a page route.
  */
 export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
+  // The island runtime reports client-side failures here. Without it every
+  // browser error turns into a 404 in the console instead of a server log.
+  mountClientErrorApi(app);
+
   // Demo Server-Sent Events stream: emits the server time once a second until the
   // client disconnects. The /live island consumes it with EventSource.
   app.get("/api/ticks", (c) =>
