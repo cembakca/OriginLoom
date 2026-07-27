@@ -70,6 +70,24 @@ birbirini import etmez — ikisi de `@originloom/shared`'daki kontratlara yaslan
 UI framework'ünden bağımsız kalır. Ters yöndeki bir import ya da core/shared içinde bir React
 specifier'ı `pnpm check:cycles` tarafından reddedilir.
 
+### Paketleme ve sürüm
+
+Beş `@originloom/*` paketi **sabit grup**: hep aynı sürümü paylaşır ve birlikte çıkar (birbirlerine
+tam sürümle bağlılar, kısmi bir yayın tüketiciyi çözülemez bir kümeyle bırakır).
+
+```bash
+pnpm changeset          # değişiklik notu ekle (PR ile birlikte commit'lenir)
+pnpm changeset:version  # beş paketi birlikte yükselt, CHANGELOG yaz
+pnpm release:verify     # yerel Verdaccio'ya yayınla, temiz bir app'e kur, build + smoke
+```
+
+`release:verify` kapıdır: paketleri workspace'ten değil **registry'den** kurup uygulamayı ayağa
+kaldırır — `dist` derlemesi, `publishConfig.exports` haritası ve paketler arası sürümler ancak orada
+buluşur. CI'da her PR'da hem react hem vanilla için koşar.
+
+Gerçek bir registry'ye yayın **henüz bağlı değil**: her pakette `publishConfig.registry` yerel
+Verdaccio'yu gösterir, yani buradaki hiçbir komut kazayla npmjs'e ulaşamaz.
+
 Kök komutlar tüm workspace'i kapsar:
 
 ```bash

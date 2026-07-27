@@ -1,12 +1,40 @@
 {
   "name": "@originloom/core",
   "version": "0.1.0",
-  "private": true,
+  "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics \u2014 with no UI framework of its own.",
+  "license": "UNLICENSED",
+  "author": "Cem Bakca",
+  "homepage": "https://github.com/cembakca/OriginLoom/tree/main/packages/origin-core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cembakca/OriginLoom.git",
+    "directory": "packages/origin-core"
+  },
+  "keywords": [
+    "originloom",
+    "ssr",
+    "hono",
+    "cache",
+    "server"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
   },
   "exports": {
+    "./app/*": null,
+    "./cache/cold-fill": null,
+    "./cache/revalidation": null,
+    "./document/*": null,
+    "./metrics/cache-label": null,
+    "./metrics/runtime": null,
+    "./middleware/context": null,
+    "./middleware/pipeline": null,
+    "./middleware/static-assets": null,
+    "./middleware/steps/auth/refresh-result": null,
+    "./middleware/steps/redirection/gone": null,
+    "./public-url": null,
+    "./ssr/*": null,
     "./cache": "./src/cache/index.ts",
     "./middleware/steps/auth": "./src/middleware/steps/auth/index.ts",
     "./middleware/steps/redirection": "./src/middleware/steps/redirection/index.ts",
@@ -34,7 +62,21 @@
     "vitest": "^4.1.10"
   },
   "publishConfig": {
+    "registry": "http://localhost:4873",
     "exports": {
+      "./app/*": null,
+      "./cache/cold-fill": null,
+      "./cache/revalidation": null,
+      "./document/*": null,
+      "./metrics/cache-label": null,
+      "./metrics/runtime": null,
+      "./middleware/context": null,
+      "./middleware/pipeline": null,
+      "./middleware/static-assets": null,
+      "./middleware/steps/auth/refresh-result": null,
+      "./middleware/steps/redirection/gone": null,
+      "./public-url": null,
+      "./ssr/*": null,
       "./cache": {
         "types": "./dist/cache/index.d.ts",
         "default": "./dist/cache/index.js"

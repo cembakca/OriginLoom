@@ -1,7 +1,21 @@
 {
   "name": "@originloom/react",
   "version": "0.1.0",
-  "private": true,
+  "description": "React renderer adapter for OriginLoom: island runtime, document rendering and the Vite preset.",
+  "license": "UNLICENSED",
+  "author": "Cem Bakca",
+  "homepage": "https://github.com/cembakca/OriginLoom/tree/main/packages/origin-react#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cembakca/OriginLoom.git",
+    "directory": "packages/origin-react"
+  },
+  "keywords": [
+    "originloom",
+    "react",
+    "ssr",
+    "islands"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -42,6 +56,7 @@
     "vite": "^8.1.5"
   },
   "publishConfig": {
+    "registry": "http://localhost:4873",
     "exports": {
       "./lib/island": {
         "types": "./dist/lib/island.d.ts",

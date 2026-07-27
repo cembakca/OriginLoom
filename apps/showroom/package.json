@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit",
     "check:cycles": "origin-check-cycles",
     "test": "vitest run",
-    "smoke": "origin-smoke --gateway tests/fixtures/gateway/server.js",
+    "smoke": "origin-smoke --gateway tests/fixtures/gateway/server.js --expect-gone /kaldirildi --expect-ok /robots.txt",
     "loadtest": "node load-test/run.mjs",
     "loadtest:memory": "node load-test/run.mjs --profile memory",
     "loadtest:redis": "node load-test/run.mjs --profile redis",

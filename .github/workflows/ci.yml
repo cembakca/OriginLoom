@@ -91,3 +91,37 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: HIGH,CRITICAL
+
+  # Everything above runs against the workspace, where the packages resolve to
+  # src/ through workspace:*. This job publishes them to a throwaway registry and
+  # builds an app that has never seen this repo — the only way the dist build,
+  # the publish export map and the cross-package versions get exercised.
+  release-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        renderer: [react, vanilla]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish to a local registry and build an installed app
+        run: pnpm run release:verify --renderer ${{ matrix.renderer }}
