@@ -1,5 +1,15 @@
-import { applyCookies, CookieJar } from "@originloom/core/middleware/cookie-jar";
-import { runAuthCore } from "@originloom/core/middleware/steps/auth/core";
+/**
+ * The server half of a browser session. Credentials stay in HttpOnly cookies —
+ * the browser never holds a token — so every authenticated call goes through
+ * here, where the cookie is exchanged for an `Authorization` header.
+ *
+ * Which gateway endpoint says who the user is, and what a profile looks like,
+ * is the app's business; this module only carries credentials.
+ */
+import { Cookie } from "@originloom/shared/lib/cookies";
+
+import { applyCookies, CookieJar } from "../middleware/cookie-jar.js";
+import { runAuthCore } from "../middleware/steps/auth/core.js";
 import {
   clearTokenCookies,
   displayNameFromAccess,
@@ -7,15 +17,18 @@ import {
   refreshTokens,
   setSessionCookies,
   setTokenCookies,
-} from "@originloom/core/middleware/steps/auth/helpers";
-import { Cookie } from "@originloom/shared/lib/cookies";
+} from "../middleware/steps/auth/helpers.js";
 
 export type BffAuthResult =
   | { kind: "authorized"; request: Request; cookies: CookieJar }
   | { kind: "unauthorized"; request: Request; cookies: CookieJar }
   | { kind: "unavailable"; request: Request; cookies: CookieJar };
 
-/** Internal BFF handler'ları için — access expire ise refresh dener, Authorization inject eder. */
+/**
+ * Resolves the caller's credentials for a BFF handler: refreshes an expired
+ * access token when it can, and hands back a request carrying `Authorization`
+ * so the gateway call downstream is a plain fetch.
+ */
 export async function authenticateBffRequest(request: Request): Promise<BffAuthResult> {
   const jar = new CookieJar();
   const outcome = await runAuthCore(request, jar);
@@ -54,7 +67,7 @@ export function challengeBffSession(jar: CookieJar): void {
   jar.delete(Cookie.accountText);
 }
 
-/** Client 401 sonrası — refresh_token ile yeni access üretir. */
+/** After a client-side 401: mints a new access token from the refresh token. */
 export async function forceTokenRefresh(request: Request): Promise<BffAuthResult> {
   const jar = new CookieJar();
   const tokens = readTokens(request);

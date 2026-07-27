@@ -9,8 +9,8 @@ mi" kararını kayda geçirir.
 
 ---
 
-> **Durum:** C1, A1-A6, A9, A10 yapıldı — aşağıda ✅ ile işaretli.
-> Kalan: A7 (OpenTelemetry), A8 (auth/BFF örneği) ve B (ops varlıkları).
+> **Durum:** C1, C2 ve A1-A10 yapıldı; B'den CI workflow'u eklendi — aşağıda ✅ ile işaretli.
+> Kalan: B'nin geri kalanı (docker-compose, k8s, load-test, Redis ile lokal çalışma).
 
 ## A. Platform yeteneği var, örneği yok → **eklenmeli**
 
@@ -72,17 +72,26 @@ geçerdi; üretilen app'te kalıp yoktu.
 geliyor. Örnek ayar dekoratif değil — `CATALOG_PAGE_SIZE` katalog sayfasını gerçekten sürüyor
 (3 → 3 ürün, 5 → 5 ürün) ve `0` verilince sunucu **başlangıçta** hata verip duruyor.
 
-### A7. OpenTelemetry
+### A7. OpenTelemetry ✅ yapıldı
 
-Showroom `server/index.ts` başında `register()` çağırır, kapanışta `shutdownInstrumentation()`.
-Üretilen app'te yok → tracing kapalı ve nasıl açılacağı görünmüyor.
+**Çözüm:** üretilen `server/index.ts` başta `register()` çağırıyor, kapanışta ve başlatma hatasında
+`shutdownInstrumentation()` ile kapatıyor; `server started` logu artık `tracingEnabled` taşıyor.
+OTLP endpoint tanımlı olmadıkça SDK no-op kaldığı için lokalde bedeli yok. `.env.development`
+kapalı örnekleri gösteriyor (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`).
 
-### A8. Auth akışı örneği
+### A8. Auth akışı örneği ✅ yapıldı
 
-Auth middleware (token yenileme, cookie jar) **her** uygulamada zaten çalışıyor, ama showroom'daki
-BFF uçları (`api/internal/auth-bff.ts`, `auth-session.ts`, `services/user.ts`) üretilen app'te yok.
-Sonuç: "giriş yapmış kullanıcı" akışının nasıl kurulacağına dair örnek yok — `account` route'u
-sadece tarayıcıda saat gösteren bir defer island.
+BFF yapıştırıcısı showroom'daydı ama içinde tek bir ürün bilgisi yoktu — hepsi core primitifleri
+üzerine kuruluydu. **Çözüm:** `@originloom/core/auth/bff`'e taşındı (`authenticateBffRequest`,
+`forceTokenRefresh`, `confirmBffSession`, `challengeBffSession`, `rejectBffSession`,
+`withBffAuthCookies`); showroom artık oradan tüketiyor.
+
+Üretilen app buna dayanan tam bir örnek taşıyor: `server/api/session.ts` (`GET /api/session`,
+`POST /api/session/refresh`, `guardPublicApi` ile korunuyor, `private, no-store`),
+`server/services/profile.ts` (üç sonuçlu `ok | unauthorized | unavailable` — "bilinmiyor",
+"çıkış yapıldı" demek değil) ve mock gateway'de `/user/profile`. `account` route'unun defer
+island'ı artık saat değil, gerçek oturumu gösteriyor: yüklenirken / girişli / girişsiz /
+bilinmiyor. Doğrulandı: çerezsiz `{"signedIn":false}` 401, `access_token` çereziyle profil 200.
 
 ### A9. Güvenlik yardımcıları ✅ yapıldı
 
@@ -109,15 +118,15 @@ işi olduğu için lisans yolu artık config'teki `fonts[].license` alanından g
 
 ## B. Ops varlıkları → **tercihe bağlı, bayrakla verilebilir**
 
-| Varlık                                                                              | Showroom                                  | Üretilen app                              |
-| ----------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- |
-| `Dockerfile`                                                                        | var                                       | **var**                                   |
-| `docker-compose.yml` (+ redis overlay)                                              | var                                       | yok                                       |
-| k8s manifestleri (deployment, hpa, ingress, pdb, network-policy, prometheus-rules…) | 12 dosya                                  | yok                                       |
-| load-test + stress + karşılaştırma                                                  | `load-test/`                              | yok                                       |
-| pentest hazırlık scriptleri                                                         | `scripts/`                                | yok                                       |
-| CI workflow                                                                         | repo kökünde                              | yok (üretilen app kendi CI'ını taşımıyor) |
-| Redis ile lokal çalışma                                                             | `dev:redis`, `start:local:redis`, compose | yok (yalnız memory)                       |
+| Varlık                                                                              | Showroom                                  | Üretilen app                         |
+| ----------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------ |
+| `Dockerfile`                                                                        | var                                       | **var**                              |
+| `docker-compose.yml` (+ redis overlay)                                              | var                                       | yok                                  |
+| k8s manifestleri (deployment, hpa, ingress, pdb, network-policy, prometheus-rules…) | 12 dosya                                  | yok                                  |
+| load-test + stress + karşılaştırma                                                  | `load-test/`                              | yok                                  |
+| pentest hazırlık scriptleri                                                         | `scripts/`                                | yok                                  |
+| CI workflow                                                                         | repo kökünde                              | **var** — `.github/workflows/ci.yml` |
+| Redis ile lokal çalışma                                                             | `dev:redis`, `start:local:redis`, compose | yok (yalnız memory)                  |
 
 Hepsini her uygulamaya basmak şişkinlik yaratır; `--with-ops` gibi bir bayrak veya ayrı bir
 "production hardening" belgesi daha uygun olabilir.
@@ -159,12 +168,12 @@ ekleyemiyordu.
 (auth refresh, CMS redirect) de kendi contract'larını tanımlıyor. Core'da tek bir ürün domain adı
 kalmadı. Kayıt defteri yerine nesne tercih edildi: "kaydetmeyi unutma" diye bir hata durumu yok.
 
-### C2. `.env` görünürlüğü
+### C2. `.env` görünürlüğü ✅ yapıldı
 
-Showroom'un `.env.development`'ında olup üretilende olmayan ~30 değişken var (SSR timeout/capacity,
-cache fill, client-error rate limit, bot analytics…). Bunların core'da makul varsayılanları var, o
-yüzden **hata değil**; ama ekip hangi düğmelerin bulunduğunu göremiyor. Yorum satırı olarak
-eklenmesi yeterli.
+**Çözüm:** üretilen `.env.development`'a "Platform knobs" bölümü eklendi — upstream/render
+bütçeleri, render admission (concurrency/queue/shed), cache boyutu, `CSP_ENFORCE`, `TRUST_PROXY`,
+shutdown bütçesi ve tracing. Hepsi **yorumlu** ve core'daki varsayılan değerle yazılı: ekip hangi
+düğmelerin var olduğunu görüyor, ama kopyalayıp varsayılanı dondurmuş olmuyor.
 
 ---
 

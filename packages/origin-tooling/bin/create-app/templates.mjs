@@ -76,7 +76,7 @@ export function renderTemplates({
     "vite.config.ts": viteConfig(vitePort),
     "vite.server.config.ts": viteServerConfig(),
     "vitest.config.ts": vitestConfig(name),
-    ".env.development": envDevelopment(port, metricsPort, vitePort),
+    ".env.development": envDevelopment(name, port, metricsPort, vitePort),
     ".env.production": envProduction(port, metricsPort),
     "README.md": readme(name, title, port, vitePort, standalone),
     Dockerfile: dockerfile(name, port, standalone),
@@ -84,6 +84,7 @@ export function renderTemplates({
     ".gitignore": asset("gitignore"),
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
+    ".github/workflows/ci.yml": githubWorkflow(name),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/api/index.ts": apiIndex(),
@@ -91,6 +92,7 @@ export function renderTemplates({
     "server/metrics/catalog.ts": productMetrics(),
     "server/product/config.ts": productConfigFile(),
     "server/api/items.ts": publicItemsApi(),
+    "server/api/session.ts": sessionApi(),
     "server/media.config.json": mediaConfig(),
     "src/assets/images/og-cover.svg": ogCoverSvg(title),
     "src/assets/images/brand-mark.svg": brandMarkSvg(),
@@ -106,6 +108,7 @@ export function renderTemplates({
     "server/routes/live.tsx": liveRoute(),
     "server/services/shell-data.ts": serverShellData(),
     "server/services/items.ts": itemsService(),
+    "server/services/profile.ts": profileService(),
     "server/services/gateway-contracts.ts": gatewayContracts(),
     "mock-gateway/server.mjs": mockGateway(),
     "server/product/runtime.ts": productRuntime(),
@@ -173,7 +176,7 @@ function vanillaTemplates({
     "vite.config.ts": vanilla.viteConfig(vitePort),
     "vite.server.config.ts": vanilla.viteServerConfig(),
     "vitest.config.ts": vitestConfig(name),
-    ".env.development": envDevelopment(port, metricsPort, vitePort),
+    ".env.development": envDevelopment(name, port, metricsPort, vitePort),
     ".env.production": envProduction(port, metricsPort),
     "README.md": vanilla.readme(name, title, port, vitePort, standalone),
     Dockerfile: dockerfile(name, port, standalone),
@@ -181,6 +184,7 @@ function vanillaTemplates({
     ".gitignore": asset("gitignore"),
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
+    ".github/workflows/ci.yml": githubWorkflow(name),
 
     "server/index.ts": serverIndex("/src/entry.client.ts"),
     "server/api/index.ts": vanilla.apiIndex(),
@@ -188,6 +192,7 @@ function vanillaTemplates({
     "server/metrics/catalog.ts": productMetrics(),
     "server/product/config.ts": productConfigFile(),
     "server/api/items.ts": publicItemsApi(),
+    "server/api/session.ts": sessionApi(),
     "server/media.config.json": mediaConfig(),
     "src/assets/images/og-cover.svg": ogCoverSvg(title),
     "src/assets/images/brand-mark.svg": brandMarkSvg(),
@@ -197,6 +202,7 @@ function vanillaTemplates({
     "server/routes/item-detail.ts": vanilla.itemDetailRoute(),
     "server/services/shell-data.ts": vanilla.serverShellData(),
     "server/services/items.ts": itemsService(),
+    "server/services/profile.ts": profileService(),
     "server/services/gateway-contracts.ts": gatewayContracts(),
     "mock-gateway/server.mjs": mockGateway(),
     "server/product/runtime.ts": vanilla.productRuntime(),
@@ -291,6 +297,8 @@ const packageJson = (name, { standalone, version, renderer = "react" }) => {
         format: "prettier --write .",
         "format:check": "prettier --check .",
         test: "vitest run",
+        // What CI runs, in one command, so it can be run locally too.
+        ci: "pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build && pnpm run smoke",
       },
       dependencies: {
         "@hono/node-server": "^1.13.7",
@@ -399,6 +407,11 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    // Tool configs that have to stay CommonJS (SVGR reads .cjs with require).
+    files: ["**/*.cjs"],
+    languageOptions: { sourceType: "commonjs", globals: globals.node },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     plugins: { "simple-import-sort": simpleImportSort },
     rules: {
@@ -476,7 +489,7 @@ export default defineConfig({
 });
 `;
 
-const envDevelopment = (port, metricsPort, vitePort) => `NODE_ENV=development
+const envDevelopment = (name, port, metricsPort, vitePort) => `NODE_ENV=development
 APP_ENV=development
 PORT=${port}
 METRICS_PORT=${metricsPort}
@@ -499,6 +512,47 @@ CATALOG_PAGE_SIZE=3
 # Cache inspect/purge on the operations port. Without it those endpoints stay
 # open in development and refuse to answer in production.
 # CACHE_PURGE_SECRET=change-me
+
+# ── Platform knobs ───────────────────────────────────────────────────────────
+# All of these have working defaults in @originloom/core; the values shown are
+# those defaults. They are listed commented out so you can see which dials
+# exist — uncomment one only when you have a reason, and prefer changing it in
+# production config rather than here.
+#
+# Upstream and render budgets. A request that outlives its budget is failed on
+# purpose: a slow page that still answers is worse than a fast error, because it
+# holds a connection the next visitor needs.
+# GATEWAY_TIMEOUT_MS=5000
+# SSR_REQUEST_TIMEOUT_MS=15000
+# API_REQUEST_TIMEOUT_MS=12000
+# CACHE_FILL_TIMEOUT_MS=12000
+#
+# Render admission. Past max concurrency requests queue, and past the queue they
+# are shed with 503 — the app stays responsive instead of collapsing under load.
+# SSR_MAX_CONCURRENCY=32
+# SSR_MAX_QUEUE=64
+# SSR_QUEUE_WAIT_MS=250
+#
+# In-process HTML cache size, in entries.
+# CACHE_MAX_ENTRIES=2000
+#
+# CSP is report-only in development and enforced in production. Turn it on here
+# to find violations before they reach production.
+# CSP_ENFORCE=true
+#
+# Behind a load balancer, so client IPs come from X-Forwarded-For. Leave off
+# unless a proxy really is in front: with it on, any caller can claim any IP.
+# TRUST_PROXY=false
+# TRUSTED_PROXY_HOPS=1
+#
+# Graceful shutdown budget for in-flight requests.
+# SHUTDOWN_TIMEOUT_MS=10000
+#
+# Tracing. server/index.ts already calls register() and shuts the SDK down on
+# exit; it stays a no-op until an endpoint is set, so nothing is exported until
+# you point it somewhere. /metrics works either way.
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
+# OTEL_SERVICE_NAME=\${name}
 `;
 
 const envProduction = (port, metricsPort) => `NODE_ENV=production
@@ -509,6 +563,11 @@ METRICS_PORT=${metricsPort}
 # Required in production — set these from your secret manager / deployment env:
 #   SITE_URL, GATEWAY_URL, RELEASE_ID, AUTH_REFRESH_COORDINATION_SECRET
 # RELEASE_ID also namespaces the shared Redis cache, so give each app its own.
+
+# This app's own required setting, checked by validateProductConfig() at startup:
+# with it missing the server refuses to boot rather than serving pages that
+# cannot show a support address. Replace it; deployments should override it.
+SUPPORT_EMAIL=destek@example.com
 
 # Single-pod L1 cache. For a shared L2 cache across pods switch to redis and set
 # REDIS_URL; CACHE_REQUIRED=true makes readiness fail when Redis is unreachable.
@@ -521,12 +580,13 @@ CACHE_REQUIRED=false
 /** @param {string} clientEntry Dev-server path of this app's client entry module. */
 const serverIndex = (clientEntry) => `import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
-import { createApp } from "@originloom/core/app";
 import { mountCachePurgeApi } from "@originloom/core/api/cache-purge";
+import { createApp } from "@originloom/core/app";
 import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
 import { drainRevalidations } from "@originloom/core/handler";
+import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
 import { logError, logger } from "@originloom/core/logger";
 import { createMetricsApp } from "@originloom/core/metrics-server";
 import { configureRouting } from "@originloom/shared/routing";
@@ -548,6 +608,9 @@ async function main() {
   // The platform never imports product code; everything it needs is installed here.
   installProductRuntime();
   configureRouting({ redirects, rewrites, createRewrites });
+  // Tracing has to start before anything it should trace. It stays off until
+  // OTEL_EXPORTER_OTLP_ENDPOINT is set, so this line costs nothing locally.
+  const tracingEnabled = register();
   validateConfig([validateProductConfig]);
   validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });
   await initCache();
@@ -566,6 +629,7 @@ async function main() {
     logger.info("server started", {
       port: info.port,
       cacheTopology: cacheTopology(),
+      tracingEnabled,
       metricsPort: config.metricsPort,
     });
   });
@@ -593,6 +657,8 @@ async function main() {
           drainRevalidations(config.revalidationDrainTimeoutMs),
         ]);
         await closeCache();
+        // Last, so spans emitted while draining still get exported.
+        await shutdownInstrumentation();
         logger.info("shutdown complete");
         clearTimeout(forceExit);
         process.exit(0);
@@ -614,8 +680,11 @@ function closeServer(server: ServerType | null): Promise<void> {
   });
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   logError(err, { msg: "failed to start server" });
+  await shutdownInstrumentation().catch((shutdownError) => {
+    logError(shutdownError, { msg: "instrumentation shutdown failed after startup error" });
+  });
   process.exit(1);
 });
 `;
@@ -828,8 +897,9 @@ function isItemPage(value: unknown): value is ItemPage {
 `;
 
 const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
-import { mountPublicItemsApi } from "@server/api/items";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { mountPublicItemsApi } from "@server/api/items";
+import { mountSessionApi } from "@server/api/session";
 import type { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 
@@ -843,6 +913,9 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   mountClientErrorApi(app);
 
   mountPublicItemsApi(app);
+
+  // "Who am I", answered from HttpOnly cookies. The account island calls it.
+  mountSessionApi(app);
 
   // Demo Server-Sent Events stream: emits the server time once a second until the
   // client disconnects. The /live island consumes it with EventSource.
@@ -940,23 +1013,61 @@ export default defineRoute({
 
 const accountPanelIsland = () => `import { useEffect, useState } from "react";
 
+type Session =
+  | { state: "loading" }
+  | { state: "signed-in"; displayName: string; initials: string }
+  | { state: "signed-out" }
+  | { state: "unavailable" };
+
 /**
- * Defer island: the server renders only the fallback; the client mounts this and
- * loads its own per-user data. Nothing here ever enters the shared page cache.
+ * Defer island: the server renders only the fallback, and this mounts in the
+ * browser and asks /api/session who the user is. That is the cache-safe
+ * personalization pattern — the document stays shared and cacheable while the
+ * per-user part is fetched, so no one is ever served someone else's name.
  */
 export default function AccountPanel() {
-  const [now, setNow] = useState<string | null>(null);
+  const [session, setSession] = useState<Session>({ state: "loading" });
+
   useEffect(() => {
-    // Stand-in for a per-user BFF fetch — runs only in the browser.
-    setNow(new Date().toLocaleString());
+    const controller = new AbortController();
+    // Cookies are HttpOnly, so the browser attaches them and no script reads them.
+    fetch("/api/session", { credentials: "same-origin", signal: controller.signal })
+      .then(async (response) => {
+        if (response.status === 401) return setSession({ state: "signed-out" });
+        if (!response.ok) return setSession({ state: "unavailable" });
+        const body = (await response.json()) as { profile: { displayName: string; initials: string } };
+        setSession({ state: "signed-in", ...body.profile });
+      })
+      // An aborted fetch is a cancelled render, not a failure.
+      .catch(() => {
+        if (!controller.signal.aborted) setSession({ state: "unavailable" });
+      });
+    return () => controller.abort();
   }, []);
+
   return (
     <div className="rounded-md border border-slate-200 p-4">
-      <p className="font-medium text-slate-900">Merhaba 👋</p>
-      <p className="text-sm text-slate-600">
-        Bu blok yalnızca tarayıcıda render edildi{now ? <> — {now}</> : null}. Kişisel veri buraya
-        gelir ve hiçbir zaman paylaşılan cache'e girmez.
-      </p>
+      {session.state === "loading" ? <p className="text-slate-400">Oturum kontrol ediliyor…</p> : null}
+      {session.state === "signed-in" ? (
+        <>
+          <p className="font-medium text-slate-900">
+            <span className="mr-2 inline-block rounded-full bg-slate-900 px-2 py-1 text-xs text-white">
+              {session.initials}
+            </span>
+            Merhaba {session.displayName}
+          </p>
+          <p className="text-sm text-slate-600">
+            Bu blok yalnızca tarayıcıda render edildi ve hiçbir zaman paylaşılan cache'e girmez.
+          </p>
+        </>
+      ) : null}
+      {session.state === "signed-out" ? (
+        <p className="text-sm text-slate-600">Giriş yapılmamış.</p>
+      ) : null}
+      {/* "Bilinmiyor" is not "çıkış yapıldı": an upstream hiccup must not sign anyone out. */}
+      {session.state === "unavailable" ? (
+        <p className="text-sm text-slate-600">Oturum bilgisi şu an alınamıyor.</p>
+      ) : null}
     </div>
   );
 }
@@ -1774,6 +1885,56 @@ Production'da \`SITE_URL\`, \`GATEWAY_URL\`, \`RELEASE_ID\` ve
 namespace'ini de belirler — her uygulamaya kendine ait bir değer verin.
 `;
 
+const githubWorkflow = (name) => `name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-\${{ github.workflow }}-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      # @originloom/* comes from a private registry. The local .npmrc points at a
+      # developer's machine, which CI cannot reach — point it at the real one and
+      # give it a token if the registry requires auth.
+      #   NPM_CONFIG_REGISTRY: \${{ vars.NPM_REGISTRY_URL }}
+      #   NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # typecheck, cycles, lint, format, tests, build and a smoke run against the
+      # built server. \`smoke\` starts the mock gateway itself, so nothing external
+      # has to be running.
+      - name: Verify
+        run: pnpm run ci
+
+      - name: Build container
+        run: docker build --tag ${name}:\${{ github.sha }} .
+`;
+
 const mockGateway = () => `#!/usr/bin/env node
 /**
  * Local stand-in for the upstream gateway, so \`pnpm dev\` works before a real one
@@ -1812,6 +1973,14 @@ const server = createServer((req, res) => {
     return item ? json(res, 200, item) : json(res, 404, { error: "not_found" });
   }
 
+  // The real gateway decides who the caller is from the bearer token. Here any
+  // token is accepted and none is rejected — enough to exercise both branches of
+  // the session flow without a login screen.
+  if (url.pathname === "/user/profile") {
+    if (!req.headers.authorization) return json(res, 401, { error: "unauthorized" });
+    return json(res, 200, { displayName: "Örnek Kullanıcı", initials: "ÖK" });
+  }
+
   return json(res, 404, { error: "not_found" });
 });
 
@@ -1841,7 +2010,158 @@ const gatewayContracts =
  */
 export const GatewayContracts = {
   items: defineGatewayContract("items", 262_144),
+  profile: defineGatewayContract("profile", 16_384),
 } as const;
+`;
+
+const profileService =
+  () => `import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+export type UserProfile = { displayName: string; initials: string };
+
+/**
+ * Three outcomes, not two: "we know you are not signed in" and "we could not
+ * find out" are different answers. Collapsing them signs users out whenever the
+ * upstream hiccups.
+ */
+export type UserProfileResult =
+  | { kind: "ok"; profile: UserProfile }
+  | { kind: "unauthorized" }
+  | { kind: "unavailable" };
+
+const INVALID = "Profile gateway returned an invalid payload";
+
+/** \`request\` must already carry Authorization — see @originloom/core/auth/bff. */
+export async function fetchUserProfile(request: Request): Promise<UserProfileResult> {
+  if (!request.headers.get("authorization")) return { kind: "unauthorized" };
+
+  try {
+    const response = await gatewayFetchForRequest(request, "/user/profile");
+    if (response.status === 401 || response.status === 403) return { kind: "unauthorized" };
+    if (!response.ok) return { kind: "unavailable" };
+
+    const payload = await readGatewayJson(response, GatewayContracts.profile, INVALID);
+    const data = requireGatewayPayload(
+      GatewayContracts.profile,
+      payload,
+      isProfilePayload,
+      INVALID,
+    );
+    return {
+      kind: "ok",
+      profile: {
+        displayName: data.displayName,
+        initials: data.initials ?? data.displayName.slice(0, 2).toUpperCase(),
+      },
+    };
+  } catch (error) {
+    if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
+    if (isRequestDeadlineError(error)) throw error;
+    return { kind: "unavailable" };
+  }
+}
+
+function isProfilePayload(
+  value: unknown,
+): value is { displayName: string; initials?: string } {
+  return (
+    isRecord(value) &&
+    isBoundedString(value.displayName, 200) &&
+    (value.initials === undefined || isBoundedString(value.initials, 8))
+  );
+}
+`;
+
+const sessionApi = () => `import {
+  authenticateBffRequest,
+  challengeBffSession,
+  confirmBffSession,
+  forceTokenRefresh,
+  rejectBffSession,
+  withBffAuthCookies,
+} from "@originloom/core/auth/bff";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
+import { fetchUserProfile } from "@server/services/profile";
+import type { Hono } from "hono";
+
+/**
+ * The session BFF: the browser asks "who am I", never "here is my token".
+ *
+ * Credentials live in HttpOnly cookies, so no script can read them; this
+ * endpoint exchanges them for a gateway call and answers with a profile. That
+ * is also why personalization comes from here instead of the SSR document —
+ * the document is shared cache, and this response is per-user and never stored.
+ */
+const SESSION_POLICY: PublicApiPolicy = {
+  name: "session",
+  windowMs: 60_000,
+  globalLimit: 5_000,
+  ipLimit: 120,
+  requireSameOriginMutation: true,
+};
+
+export function mountSessionApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.get("/api/session", async (c) => {
+    const request = contextRequest(c);
+    const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", SESSION_POLICY);
+    if (denied) return denied;
+
+    const auth = await authenticateBffRequest(request);
+    if (auth.kind === "unavailable") return sessionUnavailable(auth.cookies);
+    if (auth.kind === "unauthorized") {
+      rejectBffSession(auth.cookies);
+      return signedOut(auth.cookies);
+    }
+
+    const result = await fetchUserProfile(auth.request);
+    // The gateway is the authority: it rejected the token, so the UI hints go
+    // too — but the refresh token stays, so the next call can recover.
+    if (result.kind === "unauthorized") {
+      challengeBffSession(auth.cookies);
+      return signedOut(auth.cookies);
+    }
+    if (result.kind === "unavailable") return sessionUnavailable(auth.cookies);
+
+    confirmBffSession(auth.cookies, result.profile);
+    return withBffAuthCookies(json({ signedIn: true, profile: result.profile }), auth.cookies);
+  });
+
+  // Called after a client-side 401: mints a new access token from the refresh
+  // token so the browser can retry, without ever seeing either.
+  app.post("/api/session/refresh", async (c) => {
+    const request = contextRequest(c);
+    const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", SESSION_POLICY);
+    if (denied) return denied;
+
+    const refreshed = await forceTokenRefresh(request);
+    if (refreshed.kind === "unavailable") return sessionUnavailable(refreshed.cookies);
+    if (refreshed.kind === "unauthorized") return signedOut(refreshed.cookies);
+    return withBffAuthCookies(json({ signedIn: true }), refreshed.cookies);
+  });
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    // Per-user and never shared: no cache may keep this, at any layer.
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store" },
+  });
+}
+
+function signedOut(cookies: Parameters<typeof withBffAuthCookies>[1]): Response {
+  return withBffAuthCookies(json({ signedIn: false }, 401), cookies);
+}
+
+function sessionUnavailable(cookies: Parameters<typeof withBffAuthCookies>[1]): Response {
+  return withBffAuthCookies(json({ error: "Oturum servisi kullanılamıyor" }, 503), cookies);
+}
 `;
 
 const seoRoutes = () => `import { config } from "@originloom/core/config";
@@ -1928,9 +2248,9 @@ export function validateProductConfig(): void {
 `;
 
 const publicItemsApi =
-  () => `import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
-import { contextRequest } from "@originloom/core/middleware/request-deadline";
+  () => `import { contextRequest } from "@originloom/core/middleware/request-deadline";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
 import { listItems } from "@server/services/items";
 import type { Hono } from "hono";
 

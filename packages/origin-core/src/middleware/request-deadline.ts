@@ -87,7 +87,7 @@ export function isRequestDeadlineError(error: unknown): error is RequestDeadline
   return error instanceof RequestDeadlineError;
 }
 
-function classifyRequest(request: Request): RequestClass {
+export function classifyRequest(request: Request): RequestClass {
   const url = new URL(request.url);
   if (KNOWN_API_ROUTES.has(url.pathname)) return "api";
   return resolveRoute(url, config.gatewayUrl).kind === "proxy" ? "proxy" : "ssr";

@@ -84,6 +84,9 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
 
   app.use("*", requestId);
   app.use("*", clientIpMiddleware);
+  // Before requestDeadline: that clones the request, and a clone locks the body
+  // the limit still has to measure.
+  app.use("*", publicBodyLimit(config.proxyBodyLimitBytes));
   app.use("*", requestDeadline(routeTable));
   app.use("*", async (c, next) => {
     await withRequestSpan(contextRequest(c), c.get("requestId"), async (span) => {
@@ -115,7 +118,6 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     }
     await next();
   });
-  app.use("*", publicBodyLimit(config.proxyBodyLimitBytes));
 
   app.use("/assets/*", staticAssetCacheHeaders);
   app.use("/assets/*", serveStatic({ root: options.staticRoot ?? config.clientDistDir }));

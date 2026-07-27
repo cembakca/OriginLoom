@@ -31,6 +31,32 @@ describe("Hono application integration", () => {
     await closeCache();
   });
 
+  it("answers a POST whose length it has to measure, instead of failing on it", async () => {
+    const app = appWith([], {
+      mounts: { api: (api) => api.post("/api/echo", (c) => c.json({ ok: true })) },
+    });
+
+    // What a bodiless `curl -X POST` becomes on the Node adapter: a body stream
+    // with no content-length. That is the one shape the size limit must read to
+    // measure — and reading it throws if anything upstream has already cloned
+    // the request, since a clone locks the original's body.
+    const res = await app.request(
+      new Request("http://localhost/api/echo", {
+        method: "POST",
+        body: new ReadableStream({
+          start(controller) {
+            controller.close();
+          },
+        }),
+        // @ts-expect-error -- Node requires duplex for a streaming body; the DOM types omit it.
+        duplex: "half",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
   it("keeps a returning anonymous visitor's page cacheable", async () => {
     const route: Route = {
       path: "/cacheable",

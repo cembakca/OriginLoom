@@ -1,6 +1,3 @@
-import { contextRequest } from "@originloom/core/middleware/request-deadline";
-import type { AppVariables } from "@originloom/core/middleware/request-id";
-import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
 import {
   authenticateBffRequest,
   challengeBffSession,
@@ -8,7 +5,10 @@ import {
   forceTokenRefresh,
   rejectBffSession,
   withBffAuthCookies,
-} from "@server/api/internal/auth-bff";
+} from "@originloom/core/auth/bff";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
 import { fetchUserProfileResult } from "@server/services/user";
 import type { Hono } from "hono";
 

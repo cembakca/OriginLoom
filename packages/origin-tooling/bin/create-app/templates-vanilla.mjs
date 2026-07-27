@@ -561,6 +561,7 @@ body {
 export const apiIndex =
   () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
 import { mountPublicItemsApi } from "@server/api/items";
+import { mountSessionApi } from "@server/api/session";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 
@@ -575,6 +576,9 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   mountClientErrorApi(app);
 
   mountPublicItemsApi(app);
+
+  // "Who am I", answered from HttpOnly cookies — see server/api/session.ts.
+  mountSessionApi(app);
 
   app.get("/api/time", (c) => c.json({ now: new Date().toISOString() }));
 }
