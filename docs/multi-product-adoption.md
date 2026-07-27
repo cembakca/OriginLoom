@@ -62,20 +62,20 @@ Aşağıdaki tablo **mevcut dosya ağacına** göredir. “Platform” = paylaş
 
 ### 3.1 Platform (paylaşılır — `@corp/origin-core` benzeri)
 
-| Klasör / dosya                                                         | Ne iş yapar?                                                                   |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `server/cache/*`                                                       | L1 memory + opsiyonel Redis, tiered store, cold-fill, SWR, purge, invalidation |
-| `server/handler.ts`                                                    | İstek → route → cache → loader → render zinciri                                |
-| `server/ssr/*`                                                         | Route çözümleme, cold miss, response                                           |
-| `server/middleware/*`                                                  | Auth, session, redirection, CSP, request-id, deadline                          |
-| `server/config.ts`, `config-validation.ts`                             | Env kuralları                                                                  |
-| `server/metrics*`, `observability.ts`, `logger.ts`                     | Prometheus, trace, log                                                         |
-| `server/app.ts`                                                        | `createApp()` — Hono uygulamasını kurar                                        |
-| `server/document/*`                                                    | HTML iskelet, `<head>`, streaming                                              |
-| `server/cache/fragment.tsx`                                            | Fragment cache **mekanizması** (registry içeriği ürüne özel kalabilir)         |
-| `src/lib/island.tsx`, `src/hydrate.client.tsx`, `src/entry.client.tsx` | Island mimarisi                                                                |
-| `scripts/build.mjs`, `dev.mjs`, docker compose yardımcıları            | Build / dev orchestration                                                      |
-| `tests/server/cache/*`, `handler.test.ts`, `config.test.ts`, …         | Altyapı testlerinin çoğu                                                       |
+| Klasör / dosya                                                                  | Ne iş yapar?                                                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `server/cache/*`                                                                | L1 memory + opsiyonel Redis, tiered store, cold-fill, SWR, purge, invalidation |
+| `server/handler.ts`                                                             | İstek → route → cache → loader → render zinciri                                |
+| `server/ssr/*`                                                                  | Route çözümleme, cold miss, response                                           |
+| `server/middleware/*`                                                           | Auth, session, redirection, CSP, request-id, deadline                          |
+| `server/config.ts`, `config-validation.ts`                                      | Env kuralları                                                                  |
+| `server/metrics*`, `observability.ts`, `logger.ts`                              | Prometheus, trace, log                                                         |
+| `server/app.ts`                                                                 | `createApp()` — Hono uygulamasını kurar                                        |
+| `server/document/*`                                                             | HTML iskelet, `<head>`, streaming                                              |
+| `server/cache/fragment.tsx`                                                     | Fragment cache **mekanizması** (registry içeriği ürüne özel kalabilir)         |
+| `src/lib/island.tsx`, `src/hydrate.client.tsx`, `src/entry.client.tsx`          | Island mimarisi                                                                |
+| `packages/origin-tooling/bin/build.mjs`, `dev.mjs`, docker compose yardımcıları | Build / dev orchestration                                                      |
+| `tests/server/cache/*`, `handler.test.ts`, `config.test.ts`, …                  | Altyapı testlerinin çoğu                                                       |
 
 **Özet:** Bir isteğin “nasıl işlendiği” — cache hit mi, auth refresh mi, readiness ne — burada.
 

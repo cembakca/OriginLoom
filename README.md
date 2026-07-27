@@ -8,6 +8,7 @@ Mimari kararların gerekçesi ve Next.js’ten geçişin teknik hikâyesi için
 için [çok ürünlü adoption rehberi](docs/multi-product-adoption.md); platform üstüne yeni bir ürün
 uygulaması eklemek için [new-product-app.md](docs/new-product-app.md). Production güvenlik kabulü, secret rotation
 ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur.
+Paketlerin sürümlenmesi ve yayın hattı için [releasing.md](docs/releasing.md).
 
 ## Mimari
 
@@ -86,7 +87,9 @@ kaldırır — `dist` derlemesi, `publishConfig.exports` haritası ve paketler a
 buluşur. CI'da her PR'da hem react hem vanilla için koşar.
 
 Gerçek bir registry'ye yayın **henüz bağlı değil**: her pakette `publishConfig.registry` yerel
-Verdaccio'yu gösterir, yani buradaki hiçbir komut kazayla npmjs'e ulaşamaz.
+Verdaccio'yu gösterir, yani buradaki hiçbir komut kazayla npmjs'e ulaşamaz. Sürümleme kararları,
+provanın adım adım ne yaptığı ve gerçek yayına geçerken yapılacaklar listesi:
+[docs/releasing.md](docs/releasing.md).
 
 Kök komutlar tüm workspace'i kapsar:
 

@@ -722,15 +722,15 @@ cluster ve IP connection limiti uygulanmalıdır.
 
 ```
 Dev:   Vite dev server (HMR/Fast Refresh) + tsx watch (Hono) + mock-gw
-       scripts/dev.mjs · .env.development (memory cache)
+       packages/origin-tooling/bin/dev.mjs · .env.development (memory cache)
        npm run dev:redis → .env.development.redis overlay + Docker Redis
-Prod:  scripts/build.mjs · .env.production
+Prod:  packages/origin-tooling/bin/build.mjs · .env.production
        npm run start / start:staging
        node dist/server/index.js
 ```
 
 Ortam dosyaları: `.env.development` (memory), `.env.staging`, `.env.production`. Kişisel
-override: `.env.local`. Yükleme: `scripts/load-env.mjs`; npm script'leri `scripts/run-with-env.mjs`
+override: `.env.local`. Yükleme: `packages/origin-tooling/bin/load-env.mjs`; npm script'leri `packages/origin-tooling/bin/run-with-env.mjs`
 üzerinden doğru dosyayı seçer.
 
 Development'ta server restart için `tsx`, client HMR için Vite dev server kullanılır. Production'da
@@ -744,7 +744,7 @@ recursive `imports` alanlarını kullanarak global ve route-scoped island preloa
 Ortak dependency URL'leri document başına tek linke indirilir. CDN varsa `ASSET_CDN_URL` env ile asset
 base URL değiştirilir.
 
-Development bu manifest yolunu kullanmaz. `scripts/dev.mjs` Hono, mock gateway, Vite dev server ve
+Development bu manifest yolunu kullanmaz. `packages/origin-tooling/bin/dev.mjs` Hono, mock gateway, Vite dev server ve
 `tsx watch` süreçlerini tek lifecycle altında çalıştırır. Hono document'i Vite `/@vite/client`, React
 Refresh preamble ve source `apps/showroom/src/entry.client.tsx` modülünü enjekte eder. Island/client değişiklikleri
 Fast Refresh ile uygulanır. SSR üreten `server/`, `apps/showroom/src/features/` ve paylaşılan component değişiklikleri
@@ -809,7 +809,7 @@ deploy tarafından açıkça `ALLOW_INSECURE_GATEWAY=true` seçilirse kabul edil
 
 ### 11. Responsive Image ve Self-host Font Pipeline
 
-Image optimizasyonu request sırasında Node process'inde yapılmaz. `scripts/build-media.mjs`, client
+Image optimizasyonu request sırasında Node process'inde yapılmaz. `packages/origin-tooling/bin/build-media.mjs`, client
 build'inden sonra `apps/showroom/server/media.config.json` kaynaklarını Sharp ile işler:
 
 ```text

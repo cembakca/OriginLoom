@@ -1,0 +1,195 @@
+# Paketleme ve Yayın
+
+Bu belge `@originloom/*` paketlerinin nasıl sürümlendiğini, yayın provasının nasıl çalıştığını ve
+**gerçek bir registry'ye geçerken tam olarak neyin değişmesi gerektiğini** anlatır.
+
+Bugünkü durum tek cümleyle: paketler yayınlanabilir haldedir ve yayın hattı uçtan uca prova
+edilmiştir, ama **hiçbir yere yayınlanmamaktadır** — hedef registry bilinçli olarak yerel Verdaccio'ya
+sabitlenmiştir.
+
+İlgili: [ARCHITECTURE.md](../ARCHITECTURE.md#workspace-platform-ve-ürün-ayrımı) (paket sınırları),
+[new-product-app.md](./new-product-app.md) (bu paketleri tüketen uygulama üretmek).
+
+---
+
+## 1. Ne var elimizde
+
+| Parça             | Nerede                                        | Ne yapar                                                     |
+| ----------------- | --------------------------------------------- | ------------------------------------------------------------ |
+| Sürümleme         | `.changeset/config.json`                      | Beş paketi tek sürümde tutar (`fixed` grup)                  |
+| Yayın provası     | `scripts/release-verify.mjs`                  | Verdaccio'ya yayınlar, temiz app'e kurar, build + smoke eder |
+| CI kapısı         | `.github/workflows/ci.yml` → `release-verify` | Her PR'da provayı react ve vanilla için koşar                |
+| Public API sınırı | `packages/origin-core/package.json` `exports` | İç modülleri `null` hedefle kapatır                          |
+| Kaza güvenliği    | Her paketin `publishConfig.registry`          | Elle `pnpm publish` yerel Verdaccio'ya gider, npmjs'e değil  |
+
+### Yayınlanan paketler
+
+`@originloom/shared`, `@originloom/core`, `@originloom/react`, `@originloom/vanilla`,
+`@originloom/tooling`. `apps/showroom` yayınlanmaz (changesets'te `ignore` listesinde).
+
+---
+
+## 2. Günlük kullanım
+
+### Değişiklik yaptığınızda
+
+```bash
+pnpm changeset
+```
+
+Etkilenen paketi ve etki düzeyini (patch/minor/major) sorar, `.changeset/` altına bir markdown
+düşürür. **Bu dosyayı PR'ınızla birlikte commit'leyin.** Hangi paketi seçtiğiniz pratikte fark
+etmez: sabit grup olduğu için beşi birden yükselir — ama seçilen düzey (major/minor/patch) grubun
+düzeyini belirler.
+
+Sürüm gerektirmeyen bir değişiklik için: `pnpm changeset --empty`.
+
+### Sürüm yükseltirken
+
+```bash
+pnpm changeset:version   # changeset version + lockfile güncelleme
+```
+
+Beş `package.json`'ı yükseltir, `CHANGELOG.md` dosyalarını yazar, biriken changeset dosyalarını
+siler. Çıkan diff'i gözden geçirip commit'leyin.
+
+### Yayın provası
+
+```bash
+pnpm release:verify                    # react uygulamasıyla
+pnpm release:verify --renderer vanilla # vanilla uygulamasıyla
+pnpm release:verify --keep             # geçici dizini silme (inceleme için)
+```
+
+Sırasıyla şunu yapar:
+
+1. Boş bir porta geçici **Verdaccio** kaldırır (storage da geçici dizinde).
+2. `pnpm run build:packages` ile dört paketin `dist`'ini üretir.
+3. Beş paketi bu registry'ye yayınlar (`--tag rehearsal`).
+4. `origin-create-app` ile **workspace dışında** bir uygulama üretir; kendi `.npmrc`'si ve boş
+   `pnpm-workspace.yaml`'ı yazılır ki bu repoyu hiç görmesin.
+5. Registry'den kurar, sonra doğrular: beş paketin de kurulduğunu, core'un `src/` değil `dist/`
+   gönderdiğini.
+6. Kurulan uygulamayı `tsc --noEmit` + `origin-build` + `origin-smoke` ile sürer.
+7. Verdaccio'yu kapatır, geçici dizini siler.
+
+**Neden gerekli:** repodaki diğer tüm kontroller paketleri `workspace:*` üzerinden `src/`'den
+çözer. `dist` derlemesi, `publishConfig.exports` haritası ve paketler arası sürüm bağları ancak
+gerçek bir registry'de buluşur. Prova ilk çalıştığında `origin-smoke`'un showroom'a özgü iki
+beklenti taşıdığını ortaya çıkardı — üretilen her uygulama kendi smoke'undan kalıyordu.
+
+---
+
+## 3. Kararlar ve gerekçeleri
+
+Bunlar sonradan "neden böyle yapmışız" diye sorulacak şeyler:
+
+**Sabit (fixed) grup sürümleme.** Beş paket birbirine **tam sürümle** bağlı: yayınlanmış
+`@originloom/core@0.2.0`, `"@originloom/shared": "0.2.0"` ister. Bağımsız sürümlerde tüketicinin
+uyumlu kombinasyonu bulması gerekirdi; kısmi bir yayın çözülemez bir küme bırakırdı. Tek sürüm bu
+soruyu ortadan kaldırır — bedeli, değişmeyen paketlerin de sürüm atlaması.
+
+**`publishConfig.registry` yerel Verdaccio.** Provanın kendisi registry'yi zaten `--registry` ile
+açıkça geçiyor; bu alan **kaza güvenliği** için: repoda elle `pnpm publish` çalıştıran biri npmjs'e
+değil, ulaşamayacağı bir yerel adrese gider ve hata alır.
+
+**`UNLICENSED` lisans.** Gerçek yayın kararı verilmediği için bilinçli yer tutucu. Yayına geçerken
+seçilmesi zorunlu (§4).
+
+**core'da küratlı export.** `ssr/*`, `cache/cold-fill`, `middleware/pipeline`, `app/*`, `document/*`
+gibi 21 iç modül `exports` içinde `null` hedefiyle kapatıldı. Node en spesifik eşleşmeyi seçtiği
+için `"./*"` wildcard'ı durmaya devam ediyor ama bunlar dışarı açılmıyor. Sebep: yayınlanan her
+alt yol taahhüttür; iç boru hattını sonradan değiştirmek breaking release olurdu.
+`packages/origin-core/tests/public-api.test.ts` iki export haritasının aynı şeyi kapattığını ve
+kapatılanı paket dışından kimsenin import etmediğini doğrular.
+
+**Smoke beklentileri opt-in.** `origin-smoke` artık yalnızca platform değişmezlerini denetler
+(healthz, `/metrics` public değil, cluster metrikleri, HEAD + tracking cookie + `no-store`,
+POST → 405). Uygulamaya özgü olanlar bayrakla verilir; showroom
+`--expect-gone /kaldirildi --expect-ok /robots.txt` geçer.
+
+---
+
+## 4. Gerçek yayına geçerken yapılacaklar
+
+Sırayla. Hiçbiri kod değişikliği değil; ayar ve karar.
+
+### 4.1 Lisans seçin
+
+Beş `package.json`'daki `"license": "UNLICENSED"` değerini gerçek lisansla değiştirin ve repo
+köküne `LICENSE` dosyasını ekleyin.
+
+- Şirket içi/kapalı kalacaksa: `UNLICENSED` kalabilir, ama `"private": true` **olmadığı** için
+  yanlışlıkla public yayınlanabileceğini unutmayın; registry erişimini token ile kısıtlayın.
+- Açık kaynak olacaksa: MIT veya Apache-2.0 (patent maddesi isterseniz ikincisi).
+
+### 4.2 Hedef registry'yi belirleyin
+
+Beş pakette `publishConfig.registry` değerini değiştirin:
+
+```jsonc
+// şirket içi
+"publishConfig": { "registry": "https://<şirket-registry>/repository/npm-private/" }
+
+// npmjs (public)
+"publishConfig": { "registry": "https://registry.npmjs.org", "access": "public" }
+```
+
+npmjs kullanacaksanız **`@originloom` scope'unun sahipliğini önceden almanız** gerekir.
+
+### 4.3 Kimlik doğrulama
+
+CI'da `NODE_AUTH_TOKEN` (veya registry'ye özel token) secret'ı tanımlayın; `actions/setup-node`
+adımına `registry-url` verin ki `.npmrc` otomatik yazılsın. Token'ı asla repoya koymayın.
+
+### 4.4 Yayın workflow'u ekleyin
+
+`release-verify` job'ı zaten kapı. Üstüne yayın adımı:
+
+```yaml
+release:
+  needs: [verify, release-verify]
+  if: startsWith(github.ref, 'refs/tags/v')
+  runs-on: ubuntu-latest
+  steps:
+    # checkout + pnpm + node (registry-url ile) + install
+    - run: pnpm run build:packages
+    - run: pnpm exec changeset publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+`changeset publish` yalnızca registry'de bulunmayan sürümleri yayınlar ve git tag'lerini atar —
+tekrar çalıştırmak zararsızdır.
+
+### 4.5 İlk sürüm numarasına karar verin
+
+Şu an `0.1.0` ve biriken changeset `0.2.0`'a götürüyor. `0.x` iken her minor breaking olabilir
+sayılır; API'yi sabitlemeye hazır olduğunuzda `1.0.0`'a geçin. **`1.0.0`'dan sonra** küratlı export
+listesini daraltmak major sürüm gerektirir — bu yüzden export yüzeyini şimdi gözden geçirin.
+
+### 4.6 Tüketici tarafını ayarlayın
+
+`origin-create-app --version <aralık>` üretilen standalone uygulamanın bağımlılık aralığını
+belirler (varsayılan `^0.1.0`). Yayınlanan gerçek sürüme göre bu varsayılanı güncelleyin:
+`packages/origin-tooling/bin/create-app.mjs` içindeki `options.version ?? "^0.1.0"`.
+
+### 4.7 Yayın sonrası
+
+- `pnpm release:verify` provayı **yerel** tutmaya devam etsin; gerçek registry'ye kurup doğrulayan
+  ayrı bir "kurulum tazeliği" kontrolü isterseniz aynı script'e `--registry` parametresi eklenebilir.
+- Yanlış yayınlanan bir sürümü `npm unpublish` ile geri çekmek yerine (72 saat sınırı ve
+  tüketiciyi kırma riski) `npm deprecate` + düzeltilmiş yeni sürüm tercih edin.
+
+---
+
+## 5. Sorun giderme
+
+| Belirti                                                 | Sebep ve çözüm                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `ENEEDAUTH ... requires you to be logged in`            | npm istemcisi token olmadan publish denemez. Prova script'i sahte token'lı geçici `.npmrc` yazar; elle denerken siz de yazmalısınız. |
+| `@originloom/shared is not in the npm registry`         | Paketler birbirini **sürümle** ister. Tek bir tarball'ı tek başına kuramazsınız; hepsi aynı registry'de olmalı.                      |
+| `release:verify` `Verdaccio did not become ready` diyor | 30 sn içinde ayağa kalkmadı. `--keep` ile çalıştırıp geçici dizindeki `verdaccio.yaml` ve stderr çıktısına bakın.                    |
+| Prova geçiyor ama `pnpm ci` düşüyor (veya tersi)        | Farklı şeyleri ölçüyorlar: `ci` workspace'i, `release:verify` yayınlanmış artefaktı. İkisi de yeşil olmalı.                          |
+| Smoke `did not become healthy` yerine liste veriyor     | Beklenen davranış: artık hangi beklentinin kırıldığını yazar (`GET / responded 500` gibi).                                           |
+| Yeni bir core modülü dışarıdan import edilemiyor        | `exports` içinde bir `null` bloğuna denk geliyor olabilir (`./ssr/*` gibi). Kasıtlıysa dokunmayın; değilse bloğu daraltın.           |

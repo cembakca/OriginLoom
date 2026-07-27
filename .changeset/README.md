@@ -22,3 +22,6 @@ pnpm release:verify     # publishes to a local Verdaccio and installs into a scr
 `pnpm release:verify` is the gate: it proves the packages install and boot from a registry rather
 than from the workspace. Publishing to a real registry is not wired up yet — `publishConfig.registry`
 points at the local Verdaccio in every package, so no command here can reach npmjs by accident.
+
+Why the group is fixed, what the rehearsal checks, and the checklist for switching to a real
+registry: [docs/releasing.md](../docs/releasing.md).
