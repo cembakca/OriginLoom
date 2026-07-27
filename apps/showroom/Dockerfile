@@ -21,6 +21,12 @@ ENV PORT=3005
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
+# The bundled package managers are the image's entire JavaScript dependency
+# surface — this container only ever runs `node` against a self-contained
+# bundle, so they are removed rather than carried along with their CVEs.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+  /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
 # The server bundle is fully self-contained (ssr.noExternal: true) — no node_modules needed.
 COPY --from=builder --chown=nodejs:nodejs /repo/apps/showroom/dist ./dist
 RUN printf '{"type":"module"}\n' > package.json
