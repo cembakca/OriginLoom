@@ -232,3 +232,38 @@ describe("origin-create-app CLI — dev ports", () => {
     expect(clash.stderr).toContain("--vite-port must differ from --port");
   });
 });
+
+describe("origin-create-app CLI — private registry", () => {
+  it("writes the app's .npmrc from --registry", () => {
+    const target = scratch();
+    const registry = "http://localhost:4873";
+    const { status } = run([
+      "shop-web",
+      "--title",
+      "Shop",
+      "--registry",
+      registry,
+      "--target-dir",
+      target,
+    ]);
+
+    expect(status).toBe(0);
+    expect(readFileSync(join(target, "shop-web/.npmrc"), "utf8")).toContain(
+      `@originloom:registry=${registry}`,
+    );
+  });
+
+  it("rejects a registry that is not a URL", () => {
+    const bad = run([
+      "shop-web",
+      "--title",
+      "Shop",
+      "--registry",
+      "nexus",
+      "--target-dir",
+      scratch(),
+    ]);
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toContain("Invalid --registry");
+  });
+});

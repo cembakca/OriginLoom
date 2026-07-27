@@ -18,24 +18,23 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
-const repoRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
-const PACKAGES = ["shared", "core", "react", "vanilla", "tooling"];
+import {
+  PACKAGES,
+  repoRoot,
+  verdaccioBin,
+  waitForRegistry,
+  writeNpmrc,
+  writeVerdaccioConfig,
+} from "./verdaccio-config.mjs";
 
 const options = parseArgs(process.argv.slice(2));
 const workDir = mkdtempSync(join(tmpdir(), "originloom-release-"));
 const registryPort = await freePort();
 const registry = `http://localhost:${registryPort}`;
 
-const npmrcPath = join(workDir, ".npmrc");
-// The client refuses to publish without a token even when the registry allows
-// anonymous writes, so give it one; Verdaccio does not check its value.
-writeFileSync(
-  npmrcPath,
-  `registry=${registry}\n@originloom:registry=${registry}\n//localhost:${registryPort}/:_authToken=release-verify\n`,
-);
+const npmrcPath = writeNpmrc(join(workDir, ".npmrc"), registry);
 const npmEnv = {
   ...process.env,
   npm_config_userconfig: npmrcPath,
@@ -79,10 +78,7 @@ try {
     { cwd: workDir },
   );
   // A scratch app must never inherit this repo's pnpm workspace or lockfile.
-  writeFileSync(
-    join(appDir, ".npmrc"),
-    `registry=${registry}\n@originloom:registry=${registry}\n//localhost:${registryPort}/:_authToken=release-verify\n`,
-  );
+  writeNpmrc(join(appDir, ".npmrc"), registry);
   writeFileSync(join(appDir, "pnpm-workspace.yaml"), "packages: []\n");
 
   step("install from the registry");
@@ -143,60 +139,21 @@ function freePort() {
 }
 
 async function startVerdaccio(port, root) {
-  const storage = join(root, "storage");
-  const configPath = join(root, "verdaccio.yaml");
-  // Anonymous publish, no upstream proxy for our scope: the rehearsal must not
-  // silently fall back to a package that happens to exist on npmjs.
-  writeFileSync(
-    configPath,
-    `storage: ${storage}
-auth:
-  htpasswd:
-    file: ${join(root, "htpasswd")}
-    max_users: -1
-uplinks:
-  npmjs:
-    url: https://registry.npmjs.org/
-packages:
-  "@originloom/*":
-    access: $all
-    publish: $all
-    unpublish: $all
-  "**":
-    access: $all
-    publish: $all
-    proxy: npmjs
-log: { type: stdout, format: pretty, level: error }
-`,
-  );
-
-  const child = spawn(
-    "node",
-    [
-      join(repoRoot, "node_modules/verdaccio/bin/verdaccio"),
-      "--config",
-      configPath,
-      "--listen",
-      String(port),
-    ],
-    { stdio: ["ignore", "ignore", "inherit"] },
-  );
+  const configPath = writeVerdaccioConfig({ root });
+  const child = spawn("node", [verdaccioBin(), "--config", configPath, "--listen", String(port)], {
+    stdio: ["ignore", "ignore", "inherit"],
+  });
   child.on("exit", (code) => {
     if (code !== null && code !== 0) console.error(`verdaccio exited with ${code}`);
   });
 
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`http://localhost:${port}/-/ping`);
-      if (response.ok) return child;
-    } catch {
-      // still starting
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+  try {
+    await waitForRegistry(`http://localhost:${port}`);
+  } catch (error) {
+    child.kill("SIGTERM");
+    throw error;
   }
-  child.kill("SIGTERM");
-  throw new Error("Verdaccio did not become ready");
+  return child;
 }
 
 /** The point of the rehearsal: nothing may resolve back to the workspace. */

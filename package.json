@@ -25,6 +25,8 @@
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 9",
     "lint:fix": "eslint . --fix",
+    "registry:local": "node scripts/local-registry.mjs",
+    "registry:publish": "node scripts/local-publish.mjs",
     "release:verify": "node scripts/release-verify.mjs",
     "smoke": "pnpm --filter showroom smoke",
     "start": "pnpm --filter showroom start",

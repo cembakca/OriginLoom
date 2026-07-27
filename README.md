@@ -86,10 +86,17 @@ pnpm release:verify     # yerel Verdaccio'ya yayınla, temiz bir app'e kur, buil
 kaldırır — `dist` derlemesi, `publishConfig.exports` haritası ve paketler arası sürümler ancak orada
 buluşur. CI'da her PR'da hem react hem vanilla için koşar.
 
-Gerçek bir registry'ye yayın **henüz bağlı değil**: her pakette `publishConfig.registry` yerel
-Verdaccio'yu gösterir, yani buradaki hiçbir komut kazayla npmjs'e ulaşamaz. Sürümleme kararları,
-provanın adım adım ne yaptığı ve gerçek yayına geçerken yapılacaklar listesi:
-[docs/releasing.md](docs/releasing.md).
+Ürün ekiplerinin yaşayacağı akışı (uygulama kendi reposunda, paketler registry'den kurulu) bugün
+yerel bir registry ile birebir deneyebilirsiniz:
+
+```bash
+pnpm registry:local     # kalıcı Verdaccio — http://localhost:4873
+pnpm registry:publish   # 5 paketi oraya yayınla
+```
+
+Kurumsal yayın hedefi **Nexus** private registry'sidir; yerel akış bilinçli olarak aynı şekle
+sahip, geçiş URL + kimlik bilgisi değişikliğinden ibaret. Sürümleme kararları, provanın adım adım
+ne yaptığı ve Nexus'a geçiş listesi: [docs/releasing.md](docs/releasing.md).
 
 Kök komutlar tüm workspace'i kapsar:
 

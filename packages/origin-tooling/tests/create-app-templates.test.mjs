@@ -62,6 +62,27 @@ describe("renderTemplates — shared shape", () => {
     }
   });
 
+  it("carries its own .npmrc when a registry is given", () => {
+    // npm config is not inherited from parent directories: without this file the
+    // app resolves @originloom/* from npmjs and the install fails.
+    const files = renderTemplates({
+      ...base,
+      mode: "standalone",
+      version: "^0.1.0",
+      registry: "https://nexus.example.com/repository/npm-private/",
+    });
+    expect(files[".npmrc"]).toBe(
+      "@originloom:registry=https://nexus.example.com/repository/npm-private/\n",
+    );
+  });
+
+  it("writes no .npmrc when no registry is given", () => {
+    for (const renderer of ["react", "vanilla"]) {
+      const files = renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer });
+      expect(files).not.toHaveProperty([".npmrc"]);
+    }
+  });
+
   it("accepts an explicit Vite port", () => {
     const files = renderTemplates({
       ...base,

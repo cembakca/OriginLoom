@@ -15,6 +15,9 @@ import * as vanilla from "./templates-vanilla.mjs";
 /** Dev-server port for the client bundle, derived from the app port (3010 → 5010). */
 export const VITE_PORT_OFFSET = 2000;
 
+/** Scoped registry for the platform packages; everything else stays on the default. */
+const npmrc = (registry) => `@originloom:registry=${registry}\n`;
+
 const asset = (name) =>
   readFileSync(fileURLToPath(new URL(`./assets/${name}`, import.meta.url)), "utf8");
 
@@ -28,6 +31,7 @@ const asset = (name) =>
  *   version: string;
  *   renderer?: "react" | "vanilla";
  *   vitePort?: number;
+ *   registry?: string;
  * }} vars
  */
 export function renderTemplates({
@@ -39,6 +43,7 @@ export function renderTemplates({
   version,
   renderer = "react",
   vitePort = port + VITE_PORT_OFFSET,
+  registry,
 }) {
   // Standalone apps live in their own repo and depend on the published
   // @originloom/* packages; workspace apps sit in apps/<name> and link them
@@ -48,9 +53,21 @@ export function renderTemplates({
   // The renderer decides how HTML is produced, so it decides which route, page,
   // island and client-entry templates ship. Everything else is identical.
   if (renderer === "vanilla") {
-    return vanillaTemplates({ name, title, port, metricsPort, vitePort, standalone, version });
+    return vanillaTemplates({
+      name,
+      title,
+      port,
+      metricsPort,
+      vitePort,
+      standalone,
+      version,
+      registry,
+    });
   }
   return {
+    // npm config is not inherited from parent directories, so an app that
+    // installs @originloom/* from somewhere other than npmjs carries its own.
+    ...(registry ? { ".npmrc": npmrc(registry) } : {}),
     "package.json": packageJson(name, { standalone, version }),
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
@@ -124,8 +141,18 @@ export function renderTemplates({
  * @param {{ name: string; title: string; port: number; metricsPort: number;
  *           standalone: boolean; version: string }} vars
  */
-function vanillaTemplates({ name, title, port, metricsPort, vitePort, standalone, version }) {
+function vanillaTemplates({
+  name,
+  title,
+  port,
+  metricsPort,
+  vitePort,
+  standalone,
+  version,
+  registry,
+}) {
   return {
+    ...(registry ? { ".npmrc": npmrc(registry) } : {}),
     "package.json": packageJson(name, { standalone, version, renderer: "vanilla" }),
     "tsconfig.json": tsconfig(standalone, "vanilla"),
     "eslint.config.js": eslintConfig(),

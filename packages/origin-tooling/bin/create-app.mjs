@@ -25,6 +25,7 @@
  *   origin-create-app knowledge-web --workspace    # inside this monorepo
  *   origin-create-app landing-web --vanilla        # no UI framework
  *   origin-create-app landing-web --port 3020      # Vite follows on 5020
+ *   origin-create-app landing-web --registry http://localhost:4873
  */
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -77,6 +78,7 @@ async function main() {
     mode: options.workspace ? "workspace" : "standalone",
     version: options.version ?? "^0.1.0",
     renderer: options.renderer,
+    ...(options.registry ? { registry: options.registry } : {}),
   });
 
   // Templates interpolate values of unknown length (the title above all), so their
@@ -145,6 +147,16 @@ function warnIfStandaloneInsideWorkspace({ workspace, workspaceRoot, appDir, nam
   );
 }
 
+/** Writes an .npmrc so the app resolves @originloom/* from a private registry. */
+function assertValidRegistry(value) {
+  try {
+    new URL(value);
+  } catch {
+    fail(`Invalid --registry: ${value}`);
+  }
+  return value;
+}
+
 function assertValidRenderer(value) {
   if (value !== "react" && value !== "vanilla") {
     fail(`Invalid --renderer: ${value}. Expected "react" or "vanilla".`);
@@ -161,6 +173,7 @@ function parseArgs(argv) {
     else if (arg === "--renderer") options.renderer = assertValidRenderer(argv[++i]);
     else if (arg === "--port") options.port = Number(argv[++i]);
     else if (arg === "--vite-port") options.vitePort = Number(argv[++i]);
+    else if (arg === "--registry") options.registry = assertValidRegistry(argv[++i]);
     else if (arg === "--title") options.title = argv[++i];
     else if (arg === "--target-dir") options.targetDir = argv[++i];
     else if (arg === "--version") options.version = argv[++i];

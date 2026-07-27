@@ -24,6 +24,7 @@ pnpm create-app knowledge-web --workspace   # inside an OriginLoom monorepo
 | `--vite-port <n>`    | Override the Vite dev-server port                              |
 | `--target-dir <dir>` | Where a standalone app is written                              |
 | `--version <range>`  | `@originloom/*` version range for a standalone app             |
+| `--registry <url>`   | Writes the app's `.npmrc` so it installs `@originloom/*` there |
 
 The generated app is formatted with Prettier on the way out, ships Claude Code skills matching its
 renderer, and boots with a working SSR page, a hydrating island and a cached HTML response.
