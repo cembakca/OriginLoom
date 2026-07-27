@@ -92,6 +92,18 @@ describe("createHtmlRenderer", () => {
     expect(document).toContain('<script type="application/ld+json"');
   });
 
+  it("ships the dev client and its bfcache preamble only in development", () => {
+    expect(document).not.toContain("@vite/client");
+    expect(document).not.toContain('addEventListener("pagehide"');
+
+    const dev = renderer.renderDocument({
+      ...input,
+      assets: { ...assets, development: { client: "http://127.0.0.1:5010/@vite/client" } },
+    });
+    expect(dev.indexOf('addEventListener("pagehide"')).toBeLessThan(dev.indexOf("@vite/client"));
+    expect(dev).toContain('<script nonce="n0nce">');
+  });
+
   it("omits metadata tags that have no value", () => {
     expect(document).not.toContain('rel="prev"');
     expect(document).not.toContain("twitter:image");

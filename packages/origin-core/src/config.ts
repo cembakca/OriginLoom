@@ -56,6 +56,8 @@ export const config = {
     (nodeEnv === "production" ? "" : "development-auth-refresh-coordination-secret"),
   authRefreshCoordinationPreviousSecret:
     process.env.AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET?.trim() || undefined,
+  /** Guards the platform's cache inspect/purge endpoints. */
+  cachePurgeSecret: process.env.CACHE_PURGE_SECRET?.trim() || undefined,
   cacheFillTimeoutMs,
   cacheFillWaitMs: numberEnv("CACHE_FILL_WAIT_MS", cacheFillTimeoutMs + 500),
   cacheFillPollMs: numberEnv("CACHE_FILL_POLL_MS", 100),

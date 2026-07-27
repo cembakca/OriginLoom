@@ -2,10 +2,16 @@ import { isRecord } from "@originloom/shared/lib/runtime-schema";
 
 import { gatewayFetch } from "../../adapters/gateway.js";
 import { config } from "../../config.js";
-import { parseGatewayPayload, readGatewayJson } from "../../gateway-payload.js";
+import {
+  defineGatewayContract,
+  parseGatewayPayload,
+  readGatewayJson,
+} from "../../gateway-payload.js";
 import { logger } from "../../logger.js";
 import { isRequestDeadlineError } from "../request-deadline.js";
 
+/** CMS redirect lookup is a platform feature, so the platform owns its contract. */
+const REDIRECT = defineGatewayContract("redirect", 16_384);
 export type CmsRedirectRule =
   { kind: "redirect"; destination: string; status: 301 | 302 | 307 | 308 } | { kind: "gone" };
 
@@ -57,11 +63,11 @@ export async function lookupRedirect(
     if (res.ok) {
       const payload = await readGatewayJson(
         res,
-        "redirect",
+        REDIRECT,
         "Redirect gateway returned an invalid payload",
       );
       value = parseGatewayPayload(
-        "redirect",
+        REDIRECT,
         payload,
         parseRule,
         "Redirect gateway returned an invalid payload",

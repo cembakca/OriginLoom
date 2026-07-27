@@ -62,3 +62,45 @@ pnpm test
 ```
 
 Or just run `/check`.
+
+## Kendi env'ini eklemek
+
+Platformun okuduğu değişkenler (port, cache, gateway, timeout) core'dadır. Bu
+uygulamaya özgü olan her şey `server/product/config.ts`'te toplanır ve orada
+doğrulanır:
+
+```ts
+export const productConfig = {
+  catalogPageSize: numberEnv("CATALOG_PAGE_SIZE", 3),
+} as const;
+
+export function validateProductConfig(): void {
+  assertPositiveInteger("CATALOG_PAGE_SIZE", productConfig.catalogPageSize);
+}
+```
+
+`server/index.ts` bunu `validateConfig([validateProductConfig])` ile çağırır: hatalı
+env, ilk isteği bekleyip orada patlamak yerine **başlangıçta** durdurur. Yeni bir
+değişken eklerken `.env.development`'a da yorumuyla ekleyin.
+
+## Public bir uç eklemek
+
+İnternete açık her uç `guardPublicApi`'den geçmelidir (`server/api/items.ts`
+örnektir):
+
+```ts
+const POLICY: PublicApiPolicy = {
+  name: "items",
+  windowMs: 60_000,
+  globalLimit: 600, // process bütçesi
+  ipLimit: 60, // tek çağıranın bu bütçeyi yemesini engeller
+  requireSameOriginMutation: true, // cross-origin yazma = tarayıcıda CSRF denemesi
+};
+
+const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", POLICY);
+if (denied) return denied;
+```
+
+İkisinden biri eksikse koruma yoktur: yalnız global limit tek bir çağıran
+tarafından tüketilir, yalnız IP limiti ise dağıtık bir yükte işe yaramaz. Redis
+varsa limitler pod'lar arasında paylaşılır, yoksa pod-local'dır.

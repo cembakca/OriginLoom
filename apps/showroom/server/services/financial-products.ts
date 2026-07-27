@@ -1,10 +1,12 @@
 import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import type { GatewayContract } from "@originloom/core/gateway-payload";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import {
   createFinancialReferralGuards,
   isReferralStats,
 } from "@server/services/financial-referral-guards";
 import { createFinancialToolGuards } from "@server/services/financial-tool-guards";
+import { GatewayContracts } from "@server/services/gateway-contracts";
 import {
   isInteger,
   isNumber,
@@ -41,26 +43,36 @@ const { isBankDetail, isCreditCardComparison, isLoanCalculatorData } = createFin
 const { isReferralCreated, isReferralDetail } = createFinancialReferralGuards(isBank);
 
 export async function getHousingLoans(search: URLSearchParams, signal: AbortSignal) {
-  return getJson(`/finance/housing-loans?${search}`, "housing_loans", isHousingLoanList, signal);
+  return getJson(
+    `/finance/housing-loans?${search}`,
+    GatewayContracts.housingLoans,
+    isHousingLoanList,
+    signal,
+  );
 }
 
 export async function getHousingLoan(slug: string, search: URLSearchParams, signal: AbortSignal) {
   return getOptionalJson(
     `/finance/housing-loans/${encodeURIComponent(slug)}?${search}`,
-    "housing_loans",
+    GatewayContracts.housingLoans,
     isHousingLoanDetail,
     signal,
   );
 }
 
 export async function getCreditCards(search: URLSearchParams, signal: AbortSignal) {
-  return getJson(`/finance/credit-cards?${search}`, "credit_cards", isCreditCardList, signal);
+  return getJson(
+    `/finance/credit-cards?${search}`,
+    GatewayContracts.creditCards,
+    isCreditCardList,
+    signal,
+  );
 }
 
 export async function getCreditCard(slug: string, signal: AbortSignal) {
   return getOptionalJson(
     `/finance/credit-cards/${encodeURIComponent(slug)}`,
-    "credit_cards",
+    GatewayContracts.creditCards,
     isCreditCardDetail,
     signal,
   );
@@ -69,7 +81,7 @@ export async function getCreditCard(slug: string, signal: AbortSignal) {
 export async function getCreditCardCampaigns(slug: string, signal: AbortSignal) {
   return getOptionalJson(
     `/finance/credit-cards/${encodeURIComponent(slug)}/campaigns`,
-    "credit_cards",
+    GatewayContracts.creditCards,
     isCreditCardCampaignList,
     signal,
   );
@@ -78,7 +90,7 @@ export async function getCreditCardCampaigns(slug: string, signal: AbortSignal) 
 export async function getLoanCalculation(search: URLSearchParams, signal: AbortSignal) {
   return getJson(
     `/finance/calculators/loans?${search}`,
-    "finance_tools",
+    GatewayContracts.financeTools,
     isLoanCalculatorData,
     signal,
   );
@@ -87,7 +99,7 @@ export async function getLoanCalculation(search: URLSearchParams, signal: AbortS
 export async function getCreditCardComparison(search: URLSearchParams, signal: AbortSignal) {
   return getOptionalJson(
     `/finance/credit-cards/compare?${search}`,
-    "finance_tools",
+    GatewayContracts.financeTools,
     isCreditCardComparison,
     signal,
   );
@@ -96,7 +108,7 @@ export async function getCreditCardComparison(search: URLSearchParams, signal: A
 export async function getBank(slug: string, signal: AbortSignal) {
   return getOptionalJson(
     `/finance/banks/${encodeURIComponent(slug)}`,
-    "finance_tools",
+    GatewayContracts.financeTools,
     isBankDetail,
     signal,
   );
@@ -105,7 +117,7 @@ export async function getBank(slug: string, signal: AbortSignal) {
 export async function getReferral(productType: string, slug: string, signal: AbortSignal) {
   return getOptionalJson(
     `/finance/referrals/${encodeURIComponent(productType)}/${encodeURIComponent(slug)}`,
-    "finance_referral",
+    GatewayContracts.financeReferral,
     isReferralDetail,
     signal,
   );
@@ -125,20 +137,38 @@ export async function createReferral(
   });
   if (response.status === 400 || response.status === 404) return null;
   if (!response.ok) throw new Error(`Finance gateway returned ${response.status}`);
-  const payload = await readGatewayJson(response, "finance_referral", INVALID_FINANCE);
-  return requireGatewayPayload("finance_referral", payload, isReferralCreated, INVALID_FINANCE);
+  const payload = await readGatewayJson(
+    response,
+    GatewayContracts.financeReferral,
+    INVALID_FINANCE,
+  );
+  return requireGatewayPayload(
+    GatewayContracts.financeReferral,
+    payload,
+    isReferralCreated,
+    INVALID_FINANCE,
+  );
 }
 
 export async function getReferralStats(signal: AbortSignal): Promise<ReferralStats> {
   const response = await gatewayFetch("/internal/referrals/stats", { signal });
   if (!response.ok) throw new Error(`Referral stats gateway returned ${response.status}`);
-  const payload = await readGatewayJson(response, "finance_referral", INVALID_FINANCE);
-  return requireGatewayPayload("finance_referral", payload, isReferralStats, INVALID_FINANCE);
+  const payload = await readGatewayJson(
+    response,
+    GatewayContracts.financeReferral,
+    INVALID_FINANCE,
+  );
+  return requireGatewayPayload(
+    GatewayContracts.financeReferral,
+    payload,
+    isReferralStats,
+    INVALID_FINANCE,
+  );
 }
 
 async function getJson<T>(
   path: string,
-  contract: "housing_loans" | "credit_cards" | "finance_tools",
+  contract: GatewayContract,
   guard: (value: unknown) => value is T,
   signal: AbortSignal,
 ): Promise<T> {
@@ -150,7 +180,7 @@ async function getJson<T>(
 
 async function getOptionalJson<T>(
   path: string,
-  contract: "housing_loans" | "credit_cards" | "finance_referral" | "finance_tools",
+  contract: GatewayContract,
   guard: (value: unknown) => value is T,
   signal: AbortSignal,
 ): Promise<T | null> {

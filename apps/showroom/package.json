@@ -10,7 +10,7 @@
     "media": "origin-build-media",
     "build": "origin-build",
     "mock-gw": "origin-run-with-env development node tests/fixtures/gateway/server.js",
-    "dev": "pnpm run icons && pnpm run media && origin-dev",
+    "dev": "origin-dev",
     "dev:redis": "origin-dev-local",
     "dev:local": "pnpm run dev:redis",
     "compose:up": "origin-compose-up",

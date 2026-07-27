@@ -9,19 +9,33 @@ description: Use when fetching data for a page — wiring gateway/API calls, wri
 
 - **Route `loader`** — the entry point. Runs on cache miss, may be async, returns
   `{ data }`. Keep it thin: call a service, shape the result, return it.
-- **`server/services/`** — all gateway/API orchestration. Fetching, retries and
-  response validation live here, not inline in routes. `server/services/shell-data.ts`
-  is the example the generator ships.
+- **`server/services/`** — all gateway/API orchestration. Fetching, contracts and
+  response validation live here, not inline in routes. `server/services/items.ts`
+  is the working example the generator ships.
 
-The generated app has a `GATEWAY_URL` env but does not call it yet — wire your
-upstream calls into `server/services/` and call them from loaders.
+Copy that shape:
+
+```ts
+// server/services/gateway-contracts.ts — this app's endpoints and their limits
+export const GatewayContracts = {
+  items: defineGatewayContract("items", 262_144),
+  housingLoans: defineGatewayContract("housing_loans", 524_288), // ← yours
+} as const;
+```
 
 ```ts
 // server/services/housing-loans.ts
+import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+
+const INVALID = "Housing loans gateway returned an invalid payload";
+
 export async function getHousingLoans(signal: AbortSignal): Promise<LoanSummary[]> {
-  const res = await fetch(`${config.gatewayUrl}/loans/housing`, { signal });
-  if (!res.ok) throw new Error(`gateway ${res.status}`);
-  return parseLoanList(await res.json()); // validate — see below
+  const response = await gatewayFetch("/loans/housing", { signal });
+  if (!response.ok) throw new Error(`Housing loans gateway returned ${response.status}`);
+
+  const payload = await readGatewayJson(response, GatewayContracts.housingLoans, INVALID);
+  return requireGatewayPayload(GatewayContracts.housingLoans, payload, isLoanList, INVALID);
 }
 ```
 
@@ -29,6 +43,22 @@ export async function getHousingLoans(signal: AbortSignal): Promise<LoanSummary[
 // server/routes/housing-loans.tsx
 loader: async (ctx) => ({ data: { items: await getHousingLoans(ctx.request.signal) } }),
 ```
+
+`gatewayFetch` adds tracing, the correlation id and the gateway timeout.
+`readGatewayJson` refuses a body larger than that contract's budget — an upstream
+answering ten times its usual size is a defect, and reading it would be the
+failure. `requireGatewayPayload` runs your guard and reports a rejection under
+`ssr_gateway_invalid_payload_total{contract="…"}`.
+
+**A 404 is data, not an error.** Return `null` from the service and let the route
+turn it into `notFound()`; an exception would render the 500 page instead.
+
+## Local gateway
+
+`pnpm dev` starts `mock-gateway/server.mjs` alongside the app, so the pages work
+before a real upstream exists. It is a fixture — fixed data in the shapes the real
+gateway returns, not a second implementation of your backend. Point
+`GATEWAY_URL` at the real thing when you have one.
 
 ## Rules
 

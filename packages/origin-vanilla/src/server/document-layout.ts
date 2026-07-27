@@ -1,4 +1,5 @@
 import type { FontAsset } from "@originloom/shared/assets";
+import { devClientPreamble } from "@originloom/shared/dev-client";
 import type { DocumentRenderInput } from "@originloom/shared/render";
 
 import { type HtmlNode, joinHtml, raw } from "../html.js";
@@ -65,7 +66,10 @@ function head<Shell>(
       ),
       assets.css.map((href) => tag("link", { rel: "stylesheet", href })),
       assets.development
-        ? tag("script", { type: "module", src: assets.development.client }, null)
+        ? joinHtml([
+            tag("script", { nonce: cspNonce }, raw(devClientPreamble())),
+            tag("script", { type: "module", src: assets.development.client }, null),
+          ])
         : null,
       input.modulePreloads.map((href) => tag("link", { rel: "modulepreload", href })),
       config.renderHeadEnd?.({ cspNonce, isBot }) ?? null,

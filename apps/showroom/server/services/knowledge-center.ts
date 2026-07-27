@@ -1,5 +1,6 @@
 import { gatewayFetch } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { GatewayContracts } from "@server/services/gateway-contracts";
 import {
   isInteger,
   isIsoDate,
@@ -42,8 +43,12 @@ async function parseResponse<T>(
   guard: (value: unknown) => value is T,
 ): Promise<T> {
   if (!response.ok) throw new Error(`Knowledge center gateway returned ${response.status}`);
-  const payload = await readGatewayJson(response, "knowledge_center", INVALID_CONTENT);
-  return requireGatewayPayload("knowledge_center", payload, guard, INVALID_CONTENT);
+  const payload = await readGatewayJson(
+    response,
+    GatewayContracts.knowledgeCenter,
+    INVALID_CONTENT,
+  );
+  return requireGatewayPayload(GatewayContracts.knowledgeCenter, payload, guard, INVALID_CONTENT);
 }
 
 function isArticleSummary(value: unknown): value is KnowledgeArticleSummary {

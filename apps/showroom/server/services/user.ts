@@ -2,6 +2,7 @@ import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import { GatewayContracts } from "@server/services/gateway-contracts";
 
 import type { UserProfile } from "~/lib/contracts/account";
 
@@ -20,8 +21,13 @@ export async function fetchUserProfileResult(request: Request): Promise<UserProf
     }
     if (!res.ok) return { kind: "unavailable" };
 
-    const payload = await readGatewayJson(res, "profile", INVALID_PROFILE);
-    const data = requireGatewayPayload("profile", payload, isUserProfilePayload, INVALID_PROFILE);
+    const payload = await readGatewayJson(res, GatewayContracts.profile, INVALID_PROFILE);
+    const data = requireGatewayPayload(
+      GatewayContracts.profile,
+      payload,
+      isUserProfilePayload,
+      INVALID_PROFILE,
+    );
     return {
       kind: "ok",
       profile: {

@@ -49,6 +49,27 @@ UI framework:
 
 You rarely edit these files; adjust metadata through the route and site defaults.
 
+## robots.txt ve sitemap.xml — `server/seo.ts`
+
+Both are mounted for you (`mounts: { seo: mountSeo }` in `server/index.ts`). The
+platform owns the mechanics — headers, caching, XML escaping, degradation — and
+this file owns the content:
+
+```ts
+mountPlatformSeoRoutes(app, {
+  siteUrl: config.siteUrl,
+  entries: async (signal) => {
+    const { items } = await listItems(1, 100, signal);
+    return [{ path: "/" }, ...items.map((item) => ({ path: `/items/${item.slug}` }))];
+  },
+  fallbackEntries: [{ path: "/" }], // served when the source is down
+});
+```
+
+`entries` runs per request with the request's signal. If it throws, the fallback
+is served and the failure is logged — a stale sitemap beats a 500 to a crawler.
+Add `disallow: ["/api/", "/hesabim"]` to keep paths out of robots.txt.
+
 ## Rules
 
 - **SEO meta ≠ analytics.** GTM/analytics scripts never go through

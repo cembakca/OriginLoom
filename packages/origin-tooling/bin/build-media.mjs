@@ -69,8 +69,15 @@ for (const font of config.fonts) {
   });
 }
 
-const fontLicense = resolve(root, "node_modules/@fontsource-variable/inter/LICENSE");
-await cp(fontLicense, resolve(outputDir, "inter-OFL-1.1.txt"));
+// A font's licence ships next to it, and which font is used is the app's choice —
+// so the path comes from the config rather than from this file.
+const copiedLicenses = new Set();
+for (const font of config.fonts ?? []) {
+  if (!font.license || copiedLicenses.has(font.license)) continue;
+  copiedLicenses.add(font.license);
+  const target = font.licenseFilename ?? `${basename(font.license)}.txt`;
+  await cp(resolve(root, font.license), resolve(outputDir, target));
+}
 await writeFile(
   resolve(root, "dist/client/asset-pipeline.json"),
   `${JSON.stringify(manifest, null, 2)}\n`,

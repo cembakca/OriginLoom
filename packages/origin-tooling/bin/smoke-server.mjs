@@ -52,6 +52,10 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
     SITE_URL: `http://127.0.0.1:${port}`,
     CACHE_PURGE_SECRET: "smoke-test-secret",
     RELEASE_ID: "smoke-test",
+    // Production config demands these; a throwaway server gets throwaway values,
+    // so `pnpm smoke` works in a freshly generated app with no secret manager.
+    AUTH_REFRESH_COORDINATION_SECRET:
+      process.env.AUTH_REFRESH_COORDINATION_SECRET ?? "smoke-test-auth-refresh-coordination-secret",
   },
 });
 

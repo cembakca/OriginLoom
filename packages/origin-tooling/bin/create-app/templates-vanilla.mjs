@@ -72,14 +72,14 @@ export default defineRoute<Data>({
 `;
 
 export const catalogRoute = () => `import { defineRoute } from "@originloom/vanilla/lib/types";
+import { observeCatalogView } from "@server/metrics/catalog";
+import { productConfig } from "@server/product/config";
 import { type Item, listItems } from "@server/services/items";
 
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { pageParam } from "~/lib/pagination";
 import { defaultPageMeta } from "~/lib/shell-data";
 import { catalogPage } from "~/pages/catalog";
-
-const PER_PAGE = 3;
 
 type Data = { items: Item[]; page: number; totalPages: number };
 
@@ -89,8 +89,10 @@ export default defineRoute<Data>({
   cache: (ctx) => pageCachePolicy(PageCacheId.catalog, ctx),
   loader: async (ctx) => {
     const page = pageParam(ctx.url);
-    const { items, total } = listItems(page, PER_PAGE);
-    return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / PER_PAGE)) } };
+    const perPage = productConfig.catalogPageSize;
+    const { items, total } = await listItems(page, perPage, ctx.request.signal);
+    observeCatalogView(page);
+    return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / perPage)) } };
   },
   title: () => "Katalog",
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "catalog"),
@@ -116,7 +118,7 @@ export default defineRoute<Data>({
   // The slug is part of the cache key (see cache-keys.ts), so each item caches on its own.
   cache: (ctx) => pageCachePolicy(PageCacheId.itemDetail, ctx),
   loader: async (ctx) => {
-    const item = getItem(ctx.params.slug ?? "");
+    const item = await getItem(ctx.params.slug ?? "", ctx.request.signal);
     // Terminal result, not a thrown error — an unknown slug is a 404, never cached.
     return item ? { data: { item } } : notFound();
   },
@@ -133,6 +135,7 @@ export default defineRoute<Data>({
 export const productRuntime =
   () => `import { installRuntime, type OriginRuntime } from "@originloom/core/runtime";
 import { configureSiteMetadata } from "@originloom/shared/lib/metadata/site-config";
+import { catalogMetricLines } from "@server/metrics/catalog";
 import { buildShellData } from "@server/services/shell-data";
 
 import { isKnownPageCachePrefix } from "~/lib/cache-keys";
@@ -155,6 +158,8 @@ export const productRuntime: OriginRuntime<ShellData> = {
   isShellUsableForFragments: () => true,
   document: productDocumentShell,
   cacheKeys: { isKnownPageCachePrefix },
+  // This app's own metrics, appended to the platform's /metrics output.
+  metricSources: [catalogMetricLines],
 };
 
 export function installProductRuntime(): void {
@@ -555,6 +560,7 @@ body {
 
 export const apiIndex =
   () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
+import { mountPublicItemsApi } from "@server/api/items";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 
@@ -567,6 +573,8 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   // The island runtime reports client-side failures here. Without it every
   // browser error turns into a 404 in the console instead of a server log.
   mountClientErrorApi(app);
+
+  mountPublicItemsApi(app);
 
   app.get("/api/time", (c) => c.json({ now: new Date().toISOString() }));
 }
@@ -607,7 +615,8 @@ Uygulama \\\`http://127.0.0.1:${port}\\\`, client modülleri Vite dev server'dan
 | \\\`server/index.ts\\\`       | Composition root — runtime, routing ve app burada kurulur              |
 | \\\`server/routes/\\\`        | Route tanımları (loader + cache + Component)                           |
 | \\\`server/product/\\\`       | Platforma verilen kontrat: runtime, renderer, document shell, boundary |
-| \\\`server/services/\\\`      | Server-only veri orkestrasyonu (gateway çağrıları buraya)              |
+| \\\`server/services/\\\`      | Server-only veri orkestrasyonu — gateway çağrıları ve guard'lar        |
+| \\\`mock-gateway/\\\`        | Geliştirme için sahte upstream; \\\`pnpm dev\\\` otomatik başlatır       |
 | \\\`src/pages/\\\`            | Sayfa fonksiyonları — loader verisi → HTML                             |
 | \\\`src/islands/\\\`          | Client etkileşim noktaları — dosya adı island adıdır                   |
 | \\\`src/lib/cache-keys.ts\\\` | Sayfa cache registry'si — cache'lenen her sayfa buraya girer           |

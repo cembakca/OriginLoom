@@ -1,5 +1,6 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
 import type { FontAsset } from "@originloom/shared/assets";
+import { devClientPreamble } from "@originloom/shared/dev-client";
 import type { DocumentRenderInput } from "@originloom/shared/render";
 import type { ReactElement, ReactNode } from "react";
 
@@ -64,6 +65,7 @@ export function DocumentLayout<Shell>({ input, config }: DocumentLayoutProps<She
         ))}
         {assets.development ? (
           <>
+            <script nonce={cspNonce} dangerouslySetInnerHTML={{ __html: devClientPreamble() }} />
             <script type="module" src={assets.development.client} />
             <script
               type="module"

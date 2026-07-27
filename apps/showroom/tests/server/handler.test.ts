@@ -787,6 +787,10 @@ describe("handler", () => {
     const body = await res.text();
     expect(body).toContain('src="http://127.0.0.1:5174/@vite/client"');
     expect(body).toContain("window.__vite_plugin_react_preamble_installed__ = true");
+    // The bfcache preamble has to run before the deferred Vite client module.
+    expect(body.indexOf('addEventListener("pagehide"')).toBeLessThan(
+      body.indexOf('src="http://127.0.0.1:5174/@vite/client"'),
+    );
     expect(body).toContain('src="http://127.0.0.1:5174/src/entry.client.tsx"');
     expect(body).not.toContain('rel="modulepreload"');
   });

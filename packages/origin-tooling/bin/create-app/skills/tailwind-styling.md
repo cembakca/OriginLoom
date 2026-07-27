@@ -58,3 +58,15 @@ Components under `src/features/` and `src/components/` render on the server. No
 `useState`, `useEffect` or browser APIs there — move interactivity into an island
 (see the **islands** skill). Theme/design tokens belong in the `@theme` block, not
 scattered magic values.
+
+## İkonlar ve görseller
+
+- `pnpm icons` — `src/assets/svg/*.svg` → `src/components/icons/*.tsx` (SVGR).
+  Üretilen dosyalar elle düzenlenmez; SVG'yi değiştirip yeniden çalıştırın.
+  Renkler `currentColor`'a çevrilir, yani ikon çevresindeki metin rengini alır.
+- `pnpm media` — `server/media.config.json`'daki görselleri avif/webp/jpg
+  varyantlarına çevirir, favicon/apple-touch-icon/OG görselini üretir ve hash'li
+  isimlerle `dist/client/assets/media`'ya yazar. Manifest'i platform okur;
+  `<img>` yerine sayfada `responsiveImage(id)` kullanın.
+- İkisi de `origin-build` tarafından otomatik çalıştırılır (kaynak varsa).
+  Self-hosted font eklerken `fonts[]` girdisine `license` yolunu da yazın.

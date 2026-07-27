@@ -87,6 +87,16 @@ export function renderTemplates({
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/api/index.ts": apiIndex(),
+    "server/seo.ts": seoRoutes(),
+    "server/metrics/catalog.ts": productMetrics(),
+    "server/product/config.ts": productConfigFile(),
+    "server/api/items.ts": publicItemsApi(),
+    "server/media.config.json": mediaConfig(),
+    "src/assets/images/og-cover.svg": ogCoverSvg(title),
+    "src/assets/images/brand-mark.svg": brandMarkSvg(),
+    // React icon codegen: src/assets/svg → src/components/icons (pnpm icons).
+    ".svgrrc.cjs": svgrConfig(),
+    "src/assets/svg/brand-mark.svg": brandMarkSvg(),
     "server/routes/index.ts": routesIndex(),
     "server/routes/home.tsx": homeRoute(title),
     "server/routes/showcase.tsx": showcaseRoute(),
@@ -96,6 +106,8 @@ export function renderTemplates({
     "server/routes/live.tsx": liveRoute(),
     "server/services/shell-data.ts": serverShellData(),
     "server/services/items.ts": itemsService(),
+    "server/services/gateway-contracts.ts": gatewayContracts(),
+    "mock-gateway/server.mjs": mockGateway(),
     "server/product/runtime.ts": productRuntime(),
     "server/product/document-shell.ts": productDocumentShell(title),
     "server/product/renderer.tsx": productRenderer(),
@@ -172,12 +184,21 @@ function vanillaTemplates({
 
     "server/index.ts": serverIndex("/src/entry.client.ts"),
     "server/api/index.ts": vanilla.apiIndex(),
+    "server/seo.ts": seoRoutes(),
+    "server/metrics/catalog.ts": productMetrics(),
+    "server/product/config.ts": productConfigFile(),
+    "server/api/items.ts": publicItemsApi(),
+    "server/media.config.json": mediaConfig(),
+    "src/assets/images/og-cover.svg": ogCoverSvg(title),
+    "src/assets/images/brand-mark.svg": brandMarkSvg(),
     "server/routes/index.ts": vanilla.routesIndex(),
     "server/routes/home.ts": vanilla.homeRoute(title),
     "server/routes/catalog.ts": vanilla.catalogRoute(),
     "server/routes/item-detail.ts": vanilla.itemDetailRoute(),
     "server/services/shell-data.ts": vanilla.serverShellData(),
     "server/services/items.ts": itemsService(),
+    "server/services/gateway-contracts.ts": gatewayContracts(),
+    "mock-gateway/server.mjs": mockGateway(),
     "server/product/runtime.ts": vanilla.productRuntime(),
     "server/product/document-shell.ts": productDocumentShell(title),
     "server/product/renderer.ts": vanilla.productRenderer(),
@@ -254,13 +275,17 @@ const packageJson = (name, { standalone, version, renderer = "react" }) => {
       type: "module",
       engines: { node: ">=22.12.0" },
       scripts: {
-        dev: "origin-dev",
+        dev: "origin-dev --gateway mock-gateway/server.mjs",
+        "mock-gw": "origin-run-with-env development node mock-gateway/server.mjs",
         build: "origin-build",
         start: "origin-run-with-env production node --enable-source-maps dist/server/index.js",
         "start:dev": "origin-run-with-env development node --import tsx/esm server/index.ts",
-        smoke: "origin-smoke",
+        smoke: "origin-smoke --gateway mock-gateway/server.mjs",
         typecheck: "tsc --noEmit",
         "check:cycles": "origin-check-cycles",
+        // Icon codegen emits React components, so it ships with that renderer only.
+        ...(renderer === "vanilla" ? {} : { icons: "origin-generate-icons" }),
+        media: "origin-build-media",
         lint: "eslint .",
         "lint:fix": "eslint . --fix",
         format: "prettier --write .",
@@ -284,6 +309,7 @@ const packageJson = (name, { standalone, version, renderer = "react" }) => {
       devDependencies: {
         "@eslint/js": "^9.39.5",
         "@originloom/tooling": originloom,
+        ...(renderer === "vanilla" ? {} : { "@svgr/cli": "^8.1.0" }),
         "@types/node": "^22.10.2",
         ...(renderer === "vanilla"
           ? {}
@@ -295,6 +321,7 @@ const packageJson = (name, { standalone, version, renderer = "react" }) => {
         eslint: "^9.39.5",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-simple-import-sort": "^13.0.0",
+        globals: "^17.7.0",
         prettier: "^3.9.5",
         typescript: "^5.7.2",
         "typescript-eslint": "^8.64.0",
@@ -359,12 +386,18 @@ ${options}
 const eslintConfig = () => `import js from "@eslint/js";
 import prettier from "eslint-config-prettier";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
+import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   { ignores: ["dist/**", "node_modules/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // Dev fixtures and scripts run in plain Node, not in the browser.
+    files: ["mock-gateway/**/*.mjs", "scripts/**/*.mjs"],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ["**/*.{ts,tsx}"],
     plugins: { "simple-import-sort": simpleImportSort },
@@ -454,9 +487,18 @@ VITE_DEV_SERVER_URL=http://127.0.0.1:${vitePort}
 CACHE_BACKEND=memory
 CACHE_REQUIRED=false
 
-# Upstream API. The generated app does not call it yet — wire it in your loaders.
+# Upstream API. "pnpm dev" starts mock-gateway/server.mjs on this port.
 GATEWAY_URL=http://127.0.0.1:4002
 ALLOW_INSECURE_GATEWAY=true
+
+# This app's own settings — see server/product/config.ts, validated at startup.
+CATALOG_PAGE_SIZE=3
+# SUPPORT_EMAIL is optional here and required in production.
+# SUPPORT_EMAIL=destek@example.com
+
+# Cache inspect/purge on the operations port. Without it those endpoints stay
+# open in development and refuse to answer in production.
+# CACHE_PURGE_SECRET=change-me
 `;
 
 const envProduction = (port, metricsPort) => `NODE_ENV=production
@@ -480,6 +522,7 @@ CACHE_REQUIRED=false
 const serverIndex = (clientEntry) => `import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
 import { createApp } from "@originloom/core/app";
+import { mountCachePurgeApi } from "@originloom/core/api/cache-purge";
 import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
@@ -492,8 +535,10 @@ import { validateRoutingRules } from "@originloom/shared/routing/validate";
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
 import { mountApi } from "./api";
+import { validateProductConfig } from "./product/config";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
+import { mountSeo } from "./seo";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
@@ -503,7 +548,7 @@ async function main() {
   // The platform never imports product code; everything it needs is installed here.
   installProductRuntime();
   configureRouting({ redirects, rewrites, createRewrites });
-  validateConfig();
+  validateConfig([validateProductConfig]);
   validateRoutingRules({ redirects, rewrites: createRewrites(config.gatewayUrl) });
   await initCache();
 
@@ -513,7 +558,7 @@ async function main() {
   const app = createApp({
     assets,
     routes,
-    mounts: { api: mountApi },
+    mounts: { api: mountApi, seo: mountSeo },
     isShuttingDown: () => shuttingDown,
   });
 
@@ -524,7 +569,10 @@ async function main() {
       metricsPort: config.metricsPort,
     });
   });
-  metricsServer = serve({ fetch: createMetricsApp().fetch, port: config.metricsPort });
+  // The operations listener is never exposed publicly, so cache inspection and
+  // purge live here rather than on the site itself. CACHE_PURGE_SECRET gates them.
+  const metricsApp = createMetricsApp({ mounts: (app) => mountCachePurgeApi(app) });
+  metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
@@ -721,31 +769,66 @@ describe("page cache registry", () => {
 });
 `;
 
-const itemsService =
-  () => `/** Stand-in for gateway data. Replace these with real calls in server/services/. */
+const itemsService = () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
 export type Item = { slug: string; name: string; blurb: string };
+export type ItemPage = { items: Item[]; total: number };
 
-const ITEMS: Item[] = [
-  { slug: "alpha", name: "Alpha", blurb: "İlk örnek kayıt." },
-  { slug: "beta", name: "Beta", blurb: "İkinci örnek kayıt." },
-  { slug: "gamma", name: "Gamma", blurb: "Üçüncü örnek kayıt." },
-  { slug: "delta", name: "Delta", blurb: "Dördüncü örnek kayıt." },
-  { slug: "epsilon", name: "Epsilon", blurb: "Beşinci örnek kayıt." },
-  { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt." },
-  { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt." },
-];
+const INVALID = "Items gateway returned an invalid payload";
 
-export function getItem(slug: string): Item | undefined {
-  return ITEMS.find((item) => item.slug === slug);
+/**
+ * Server-only data orchestration. Loaders call these; nothing here runs in the
+ * browser, so this is where upstream calls, validation and error mapping live.
+ */
+export async function listItems(
+  page: number,
+  perPage: number,
+  signal: AbortSignal,
+): Promise<ItemPage> {
+  const response = await gatewayFetch(\`/items?page=\${page}&perPage=\${perPage}\`, { signal });
+  if (!response.ok) throw new Error(\`Items gateway returned \${response.status}\`);
+
+  // Bounded read against this endpoint's contract, then a runtime guard: gateway
+  // JSON is untrusted input, and a TypeScript type is not a check.
+  const payload = await readGatewayJson(response, GatewayContracts.items, INVALID);
+  return requireGatewayPayload(GatewayContracts.items, payload, isItemPage, INVALID);
 }
 
-export function listItems(page: number, perPage: number): { items: Item[]; total: number } {
-  const start = (page - 1) * perPage;
-  return { items: ITEMS.slice(start, start + perPage), total: ITEMS.length };
+export async function getItem(slug: string, signal: AbortSignal): Promise<Item | null> {
+  const response = await gatewayFetch(\`/items/\${encodeURIComponent(slug)}\`, { signal });
+  // A missing item is data, not a failure — the route turns it into notFound().
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(\`Items gateway returned \${response.status}\`);
+
+  const payload = await readGatewayJson(response, GatewayContracts.items, INVALID);
+  return requireGatewayPayload(GatewayContracts.items, payload, isItem, INVALID);
+}
+
+function isItem(value: unknown): value is Item {
+  return (
+    isRecord(value) &&
+    isBoundedString(value.slug, 100) &&
+    isBoundedString(value.name, 200) &&
+    isBoundedString(value.blurb, 1_000)
+  );
+}
+
+function isItemPage(value: unknown): value is ItemPage {
+  return (
+    isRecord(value) &&
+    isBoundedArray(value.items, 100, isItem) &&
+    typeof value.total === "number" &&
+    Number.isFinite(value.total)
+  );
 }
 `;
 
 const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
+import { mountPublicItemsApi } from "@server/api/items";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -758,6 +841,8 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   // The island runtime reports client-side failures here. Without it every
   // browser error turns into a 404 in the console instead of a server log.
   mountClientErrorApi(app);
+
+  mountPublicItemsApi(app);
 
   // Demo Server-Sent Events stream: emits the server time once a second until the
   // client disconnects. The /live island consumes it with EventSource.
@@ -789,7 +874,7 @@ export default defineRoute<Data>({
   // The slug is part of the cache key (see cache-keys.ts), so each item caches on its own.
   cache: (ctx) => pageCachePolicy(PageCacheId.itemDetail, ctx),
   loader: async (ctx) => {
-    const item = getItem(ctx.params.slug ?? "");
+    const item = await getItem(ctx.params.slug ?? "", ctx.request.signal);
     // Terminal result, not a thrown error — an unknown slug is a 404, never cached.
     return item ? { data: { item } } : notFound();
   },
@@ -878,14 +963,14 @@ export default function AccountPanel() {
 `;
 
 const catalogRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { observeCatalogView } from "@server/metrics/catalog";
+import { productConfig } from "@server/product/config";
 import { type Item, listItems } from "@server/services/items";
 
 import { CatalogPage } from "~/features/catalog/catalog-page";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { pageParam } from "~/lib/pagination";
 import { defaultPageMeta } from "~/lib/shell-data";
-
-const PER_PAGE = 3;
 
 type Data = { items: Item[]; page: number; totalPages: number };
 
@@ -895,8 +980,10 @@ export default defineRoute<Data>({
   cache: (ctx) => pageCachePolicy(PageCacheId.catalog, ctx),
   loader: async (ctx) => {
     const page = pageParam(ctx.url);
-    const { items, total } = listItems(page, PER_PAGE);
-    return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / PER_PAGE)) } };
+    const perPage = productConfig.catalogPageSize;
+    const { items, total } = await listItems(page, perPage, ctx.request.signal);
+    observeCatalogView(page);
+    return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / perPage)) } };
   },
   title: () => "Katalog",
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "catalog"),
@@ -1065,6 +1152,7 @@ export async function buildShellData(
 const productRuntime =
   () => `import { installRuntime, type OriginRuntime } from "@originloom/core/runtime";
 import { configureSiteMetadata } from "@originloom/shared/lib/metadata/site-config";
+import { catalogMetricLines } from "@server/metrics/catalog";
 import { buildShellData } from "@server/services/shell-data";
 
 import { isKnownPageCachePrefix } from "~/lib/cache-keys";
@@ -1088,6 +1176,8 @@ export const productRuntime: OriginRuntime<ShellData> = {
   isShellUsableForFragments: () => true,
   document: productDocumentShell,
   cacheKeys: { isKnownPageCachePrefix },
+  // This app's own metrics, appended to the platform's /metrics output.
+  metricSources: [catalogMetricLines],
 };
 
 export function installProductRuntime(): void {
@@ -1516,7 +1606,11 @@ export function siteMetadata(baseUrl: string): SiteMetadataConfig {
     },
     twitter: { card: "summary_large_image" },
     robots: { index: true, follow: true },
-    icons: { icon: "/favicon.ico" },
+    // Both are produced by \`pnpm media\` from server/media.config.json.
+    icons: {
+      icon: "/assets/media/favicon-32.png",
+      apple: "/assets/media/apple-touch-icon.png",
+    },
     formatDetection: { telephone: false },
   };
 }
@@ -1649,7 +1743,8 @@ Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`
 | \`server/index.ts\`       | Composition root — runtime, routing ve app burada kurulur              |
 | \`server/routes/\`        | Route tanımları (loader + cache + Component)                           |
 | \`server/product/\`       | Platforma verilen kontrat: runtime, document shell, boundary sayfaları |
-| \`server/services/\`      | Server-only veri orkestrasyonu (gateway çağrıları buraya)              |
+| \`server/services/\`      | Server-only veri orkestrasyonu — gateway çağrıları ve payload guard'ları |
+| \`mock-gateway/\`        | Geliştirme için sahte upstream; \`pnpm dev\` otomatik başlatır          |
 | \`src/features/\`         | Sayfa bileşenleri                                                      |
 | \`src/islands/\`          | Client etkileşim noktaları — dosya adı island adıdır                   |
 | \`src/lib/cache-keys.ts\` | Sayfa cache registry'si — cache'lenen her sayfa buraya girer           |
@@ -1678,3 +1773,256 @@ Production'da \`SITE_URL\`, \`GATEWAY_URL\`, \`RELEASE_ID\` ve
 \`AUTH_REFRESH_COORDINATION_SECRET\` zorunludur. \`RELEASE_ID\` ortak Redis'te cache
 namespace'ini de belirler — her uygulamaya kendine ait bir değer verin.
 `;
+
+const mockGateway = () => `#!/usr/bin/env node
+/**
+ * Local stand-in for the upstream gateway, so \`pnpm dev\` works before a real one
+ * exists. \`origin-dev --gateway\` and \`origin-smoke --gateway\` start it for you.
+ *
+ * Keep it dumb: fixed data in the shapes the real gateway returns. It is a
+ * development fixture, not a second implementation of your backend.
+ */
+import { createServer } from "node:http";
+
+const PORT = Number(process.env.PORT ?? 4002);
+
+const ITEMS = [
+  { slug: "alpha", name: "Alpha", blurb: "İlk örnek kayıt." },
+  { slug: "beta", name: "Beta", blurb: "İkinci örnek kayıt." },
+  { slug: "gamma", name: "Gamma", blurb: "Üçüncü örnek kayıt." },
+  { slug: "delta", name: "Delta", blurb: "Dördüncü örnek kayıt." },
+  { slug: "epsilon", name: "Epsilon", blurb: "Beşinci örnek kayıt." },
+  { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt." },
+  { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt." },
+];
+
+const server = createServer((req, res) => {
+  const url = new URL(req.url ?? "/", \`http://\${req.headers.host ?? "localhost"}\`);
+
+  if (url.pathname === "/items") {
+    const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
+    const perPage = Math.min(50, Math.max(1, Number(url.searchParams.get("perPage") ?? 3) || 3));
+    const start = (page - 1) * perPage;
+    return json(res, 200, { items: ITEMS.slice(start, start + perPage), total: ITEMS.length });
+  }
+
+  const detail = /^\\/items\\/([^/]+)$/.exec(url.pathname);
+  if (detail) {
+    const item = ITEMS.find((entry) => entry.slug === decodeURIComponent(detail[1]));
+    return item ? json(res, 200, item) : json(res, 404, { error: "not_found" });
+  }
+
+  return json(res, 404, { error: "not_found" });
+});
+
+function json(res, status, body) {
+  const payload = JSON.stringify(body);
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": Buffer.byteLength(payload),
+  });
+  res.end(payload);
+}
+
+server.listen(PORT, "127.0.0.1", () => {
+  if (!process.env.MOCK_GW_QUIET) console.log(\`[mock-gw] http://127.0.0.1:\${PORT}\`);
+});
+`;
+
+const gatewayContracts =
+  () => `import { defineGatewayContract } from "@originloom/core/gateway-payload";
+
+/**
+ * This app's gateway endpoints and the largest response each may return.
+ *
+ * The budget is a safety limit, not an estimate: an upstream that suddenly
+ * answers ten times its usual size is a defect, and reading it would be the
+ * failure. The platform knows none of these names — every app writes its own.
+ */
+export const GatewayContracts = {
+  items: defineGatewayContract("items", 262_144),
+} as const;
+`;
+
+const seoRoutes = () => `import { config } from "@originloom/core/config";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { mountSeoRoutes as mountPlatformSeoRoutes } from "@originloom/core/seo";
+import { listItems } from "@server/services/items";
+import type { Hono } from "hono";
+
+/**
+ * robots.txt and sitemap.xml. The platform owns the mechanics — headers,
+ * caching, XML escaping, degradation — and this file owns the content: which
+ * URLs exist, and what to serve when the source cannot answer.
+ */
+export function mountSeo(app: Hono<{ Variables: AppVariables }>): void {
+  mountPlatformSeoRoutes(app, {
+    siteUrl: config.siteUrl,
+    entries: async (signal) => {
+      const { items } = await listItems(1, 100, signal);
+      return [{ path: "/" }, { path: "/catalog" }, ...items.map((item) => ({ path: \`/items/\${item.slug}\` }))];
+    },
+    // Served when the gateway is down: a stale sitemap beats no sitemap.
+    fallbackEntries: [{ path: "/" }, { path: "/catalog" }],
+  });
+}
+`;
+
+const productMetrics = () => `import {
+  counterLines,
+  type CounterMap,
+  escapeLabel,
+  increment,
+} from "@originloom/core/metrics/primitives";
+
+/**
+ * This app's own metrics, merged into /metrics by the runtime's \`metricSources\`.
+ *
+ * Keep label values bounded: a label built from user input (a slug, a query, an
+ * id) turns one metric into thousands of time series and takes Prometheus down
+ * with it. Page type here is a closed set.
+ */
+const catalogViews: CounterMap = new Map();
+
+export function observeCatalogView(page: number): void {
+  // Bucket the page number instead of labelling every value.
+  const bucket = page === 1 ? "first" : page <= 5 ? "early" : "deep";
+  increment(catalogViews, \`page="\${escapeLabel(bucket)}"\`);
+}
+
+export function catalogMetricLines(): string[] {
+  return counterLines("app_catalog_views_total", "Catalog page renders by page bucket", catalogViews);
+}
+`;
+
+const productConfigFile = () => `import { config, numberEnv } from "@originloom/core/config";
+import { assertPositiveInteger } from "@originloom/core/config-validation";
+
+/**
+ * This app's own environment. The platform reads its own variables (ports,
+ * cache, gateway, timeouts); everything specific to this product lives here so
+ * there is one place to look — and one place to validate.
+ */
+export const productConfig = {
+  /** Items per catalog page. Part of the cache key, so changing it changes cached HTML. */
+  catalogPageSize: numberEnv("CATALOG_PAGE_SIZE", 3),
+  /** Shown in the footer; optional in development, required in production. */
+  supportEmail: process.env.SUPPORT_EMAIL?.trim() || undefined,
+} as const;
+
+export type ProductConfig = typeof productConfig;
+
+/**
+ * Runs at startup through \`validateConfig([validateProductConfig])\`. Fail here,
+ * loudly, rather than at the first request that needs the value.
+ */
+export function validateProductConfig(): void {
+  assertPositiveInteger("CATALOG_PAGE_SIZE", productConfig.catalogPageSize);
+  if (productConfig.catalogPageSize > 100) {
+    throw new Error("CATALOG_PAGE_SIZE above 100 would make one page too large to cache well");
+  }
+  if (config.isProduction && !productConfig.supportEmail) {
+    throw new Error("SUPPORT_EMAIL is required in production");
+  }
+}
+`;
+
+const publicItemsApi =
+  () => `import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { listItems } from "@server/services/items";
+import type { Hono } from "hono";
+
+/**
+ * Budget for a publicly reachable endpoint. Both limits are per window: the
+ * global one protects the process, the per-IP one keeps a single caller from
+ * eating that budget. \`requireSameOriginMutation\` rejects cross-origin writes,
+ * which is what a browser CSRF attempt looks like.
+ */
+const ITEMS_POLICY: PublicApiPolicy = {
+  name: "items",
+  windowMs: 60_000,
+  globalLimit: 600,
+  ipLimit: 60,
+  requireSameOriginMutation: true,
+};
+
+/** A public JSON endpoint — same data as the pages, for clients that are not the page. */
+export function mountPublicItemsApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.get("/api/items", async (c) => {
+    const request = contextRequest(c);
+    const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", ITEMS_POLICY);
+    if (denied) return denied;
+
+    const { items, total } = await listItems(1, 20, request.signal);
+    return c.json(
+      { items, total },
+      200,
+      // Public and identical for everyone, so it may be cached by intermediaries.
+      { "cache-control": "public, max-age=60, stale-while-revalidate=300" },
+    );
+  });
+}
+`;
+
+const svgrConfig =
+  () => `/** SVGR config — \`pnpm icons\` turns src/assets/svg into src/components/icons. */
+module.exports = {
+  typescript: true,
+  icon: true,
+  jsxRuntime: "automatic",
+  expandProps: "end",
+  memo: false,
+  prettier: false,
+  svgoConfig: {
+    plugins: [
+      { name: "preset-default", params: { overrides: { removeViewBox: false } } },
+      // Inherit the surrounding text colour instead of baking one in.
+      { name: "convertColors", params: { currentColor: true } },
+    ],
+  },
+};
+`;
+
+const brandMarkSvg =
+  () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 7h16" />
+  <path d="M4 12h10" />
+  <path d="M4 17h7" />
+</svg>
+`;
+
+const ogCoverSvg = (
+  title,
+) => `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0f172a" />
+  <text x="80" y="330" font-family="system-ui, sans-serif" font-size="72" font-weight="700" fill="#f8fafc">${title}</text>
+  <text x="80" y="410" font-family="system-ui, sans-serif" font-size="32" fill="#94a3b8">OriginLoom</text>
+</svg>
+`;
+
+const mediaConfig = () =>
+  `${JSON.stringify(
+    {
+      seoAssets: {
+        openGraphSource: "src/assets/images/og-cover.svg",
+        brandSource: "src/assets/images/brand-mark.svg",
+      },
+      images: [
+        {
+          id: "og-cover",
+          source: "src/assets/images/og-cover.svg",
+          width: 1200,
+          height: 630,
+          widths: [600, 1200],
+          quality: 78,
+        },
+      ],
+      // Self-hosted fonts go here; each entry is subsetted and emitted with a
+      // hashed filename, then preloaded by the document head.
+      fonts: [],
+    },
+    null,
+    2,
+  )}\n`;

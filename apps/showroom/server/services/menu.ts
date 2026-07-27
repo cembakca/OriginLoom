@@ -9,6 +9,7 @@ import {
 import type { DeviceType } from "@originloom/shared/lib/device";
 import type { IMenuItems, MenuItem } from "@originloom/shared/lib/menu/types";
 import { productConfig } from "@server/product/config";
+import { GatewayContracts } from "@server/services/gateway-contracts";
 
 import { menuCacheKey } from "~/lib/cache-keys";
 
@@ -64,8 +65,8 @@ async function fetchMenuFromGateway(request: Request, device: DeviceType): Promi
 
   if (!res.ok) throw new Error(`Menu gateway returned ${res.status}`);
 
-  const data = await readGatewayJson(res, "menu", INVALID_MENU);
-  return parseGatewayPayload("menu", data, parseMenuPayload, INVALID_MENU);
+  const data = await readGatewayJson(res, GatewayContracts.menu, INVALID_MENU);
+  return parseGatewayPayload(GatewayContracts.menu, data, parseMenuPayload, INVALID_MENU);
 }
 
 function parseMenuPayload(data: unknown): IMenuItems | null {

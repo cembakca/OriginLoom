@@ -7,6 +7,7 @@ import {
   isFiniteNumber,
   isRecord,
 } from "@originloom/shared/lib/runtime-schema";
+import { GatewayContracts } from "@server/services/gateway-contracts";
 
 import type { AccountActivity, AccountSummary, UserProfile } from "~/lib/contracts/account";
 
@@ -23,8 +24,13 @@ export async function fetchAccountSummary(request: Request): Promise<AccountSumm
     if (response.status === 401 || response.status === 403) return { kind: "unauthorized" };
     if (!response.ok) return { kind: "unavailable" };
 
-    const payload = await readGatewayJson(response, "account", INVALID_ACCOUNT);
-    const data = requireGatewayPayload("account", payload, isAccountSummary, INVALID_ACCOUNT);
+    const payload = await readGatewayJson(response, GatewayContracts.account, INVALID_ACCOUNT);
+    const data = requireGatewayPayload(
+      GatewayContracts.account,
+      payload,
+      isAccountSummary,
+      INVALID_ACCOUNT,
+    );
     return { kind: "ok", summary: data };
   } catch (error) {
     if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;

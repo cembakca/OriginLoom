@@ -9,12 +9,15 @@ mi" kararını kayda geçirir.
 
 ---
 
+> **Durum:** C1, A1-A6, A9, A10 yapıldı — aşağıda ✅ ile işaretli.
+> Kalan: A7 (OpenTelemetry), A8 (auth/BFF örneği) ve B (ops varlıkları).
+
 ## A. Platform yeteneği var, örneği yok → **eklenmeli**
 
 Bunlar platformun sunduğu ama üretilen uygulamada hiçbir izi olmayan şeyler. Sonuç: ekip özelliğin
 var olduğunu bilmiyor ya da sıfırdan, yanlış kuruyor.
 
-### A1. Gateway'den veri çekme — **en kritik**
+### A1. Gateway'den veri çekme — **en kritik** ✅ yapıldı
 
 |                   | Showroom                                                                 | Üretilen app                          |
 | ----------------- | ------------------------------------------------------------------------ | ------------------------------------- |
@@ -27,32 +30,47 @@ var olduğunu bilmiyor ya da sıfırdan, yanlış kuruyor.
 `origin-dev` her açılışta "Gateway: … (start it yourself)" yazıyor. Yani platformun **en çok
 kullanılacak** yeteneğinin örneği yok.
 
-### A2. Mock gateway (upstream olmadan geliştirme)
+### A2. Mock gateway (upstream olmadan geliştirme) ✅ yapıldı
 
 Showroom `tests/fixtures/gateway/` altında 14 dosyalık bir mock GW taşır (`pnpm mock-gw`) ve smoke
 testi bununla hermetik çalışır. Üretilen app'te yok → A1'i eklersek ekip ilk gün "gateway nerede"
 sorusuna çarpar.
 
-### A3. SEO route'ları — robots.txt / sitemap.xml
+### A3. SEO route'ları — robots.txt / sitemap.xml ✅ yapıldı
 
-Showroom `server/seo.ts` + `services/sitemap.ts` ile `mounts.seo` üzerinden mount eder. Üretilen
-app `mounts: { api }` verir, SEO yok. Arama motoruna açılacak her ürün için gerekli.
+Showroom `server/seo.ts` + `services/sitemap.ts` ile `mounts.seo` üzerinden mount ederdi; üretilen
+app'te yoktu.
 
-### A4. Cache purge API
+**Çözüm:** mekanik `@originloom/core/seo`'ya taşındı (`mountSeoRoutes` — header'lar, cache,
+XML escape, kaynak çökerse fallback). İçerik uygulamada: üretilen app sitemap'i kendi gateway
+verisinden kuruyor, showroom da aynı platform mount'unu kullanıyor.
 
-`@originloom/core/cache/purge` + showroom'da `api/internal/cache-purge.ts` (secret korumalı).
-Üretilen app'te yok — deploy sonrası cache boşaltma yolu yok.
+### A4. Cache purge API ✅ yapıldı
 
-### A5. Ürün metrikleri
+`@originloom/core/cache/purge` vardı ama HTTP yüzeyi showroom'daydı; üretilen app'te hiç yoktu.
+
+**Çözüm:** `@originloom/core/api/cache-purge` → `mountCachePurgeApi`. Üretilen app bunu
+**operations portunda** mount ediyor (showroom'un yaptığı gibi), public sitede değil — secret'la
+korunsa bile internete açık bir purge ucu DoS kaldıracıdır. `CACHE_PURGE_SECRET` core config'e
+taşındı; production'da secret yoksa uç 503 döner.
+
+### A5. Ürün metrikleri ✅ yapıldı
 
 `OriginRuntime.metricSources` alanı ve `@originloom/core/metrics/primitives` ile uygulama kendi
-metriklerini `/metrics` çıktısına ekleyebiliyor. Showroom iki kaynak veriyor; üretilen app hiç.
+metriklerini `/metrics` çıktısına ekleyebiliyor; üretilen app hiç kullanmıyordu.
 
-### A6. Ürün env'i ve doğrulaması
+**Çözüm:** `server/metrics/catalog.ts` örneği — katalog görüntülemelerini sayar ve `metricSources`
+ile bağlanır. Örnek, label kardinalitesi dersini de veriyor: sayfa numarası etiketlenmiyor,
+bucket'lanıyor (`first`/`early`/`deep`).
+
+### A6. Ürün env'i ve doğrulaması ✅ yapıldı
 
 Showroom `server/product/config.ts` içinde kendi env'ini okur ve `validateConfig`'e ek doğrulama
-geçer (`@originloom/core/config-validation`). Üretilen app'te böyle bir dosya yok; ekip env
-eklemek istediğinde kalıbı göremiyor.
+geçerdi; üretilen app'te kalıp yoktu.
+
+**Çözüm:** üretilen app `server/product/config.ts` + `validateConfig([validateProductConfig])` ile
+geliyor. Örnek ayar dekoratif değil — `CATALOG_PAGE_SIZE` katalog sayfasını gerçekten sürüyor
+(3 → 3 ürün, 5 → 5 ürün) ve `0` verilince sunucu **başlangıçta** hata verip duruyor.
 
 ### A7. OpenTelemetry
 
@@ -66,16 +84,26 @@ BFF uçları (`api/internal/auth-bff.ts`, `auth-session.ts`, `services/user.ts`)
 Sonuç: "giriş yapmış kullanıcı" akışının nasıl kurulacağına dair örnek yok — `account` route'u
 sadece tarayıcıda saat gösteren bir defer island.
 
-### A9. Güvenlik yardımcıları
+### A9. Güvenlik yardımcıları ✅ yapıldı
 
-`security/rate-limit`, `security/public-api-guard`, `security/secrets` ve
-`middleware/security`'nin `registerCspScriptHashes`'i showroom'da kullanılıyor; üretilen app'te
-hiçbiri geçmiyor. Public bir API ucu ekleyen ekip bunları bilmeden yazacak.
+`security/rate-limit`, `security/public-api-guard`, `security/secrets` showroom'da kullanılıyordu;
+üretilen app'te hiç geçmiyordu.
 
-### A10. Medya / ikon pipeline
+**Çözüm:** `server/api/items.ts` — `guardPublicApi` ile korunan public bir JSON ucu (global + IP
+limiti, cross-origin yazma reddi). Doğrulandı: 65 istekte 58×200, 7×429 + `retry-after`.
+`registerCspScriptHashes` eklenmedi — üretilen app'te inline script yok, ölü kod olurdu; skill'de
+anlatılıyor.
 
-`pnpm icons` (SVG → bileşen) ve `pnpm media` (görsel/font manifest'i, `@originloom/core/media`)
-showroom'da script; üretilen app'te ikisi de yok.
+### A10. Medya / ikon pipeline ✅ yapıldı
+
+`pnpm icons` (SVG → bileşen) ve `pnpm media` (görsel/font manifest'i) showroom'da script'ti;
+üretilen app'te ikisi de yoktu.
+
+**Çözüm:** her iki renderer'a `pnpm media` + örnek kaynak (OG görseli, brand mark) ve
+`server/media.config.json`; `pnpm icons` yalnız React'e (SVGR React bileşeni üretir, vanilla derleyemez).
+Bu sırada bir platform sızıntısı daha çıktı: `build-media.mjs` Inter'in lisans dosyasını
+`node_modules/@fontsource-variable/inter/LICENSE`'tan **sabit** kopyalıyordu — font seçimi uygulamanın
+işi olduğu için lisans yolu artık config'teki `fonts[].license` alanından geliyor.
 
 ---
 
@@ -98,7 +126,7 @@ Hepsini her uygulamaya basmak şişkinlik yaratır; `--with-ops` gibi bir bayrak
 
 ## C. Platformda düzeltilmesi gereken sızıntı
 
-### C1. `gateway-payload` showroom'un domain'lerini hardcode ediyor
+### C1. `gateway-payload` showroom'un domain'lerini hardcode ediyor ✅ çözüldü
 
 `packages/origin-core/src/gateway-payload.ts` içindeki `GatewayPayloadContract` kapalı bir union:
 
@@ -122,10 +150,14 @@ Hepsini her uygulamaya basmak şişkinlik yaratır; `--with-ops` gibi bir bayrak
   "sitemap";
 ```
 
-Byte bütçeleri de aynı listeye bağlı. Yani **yeni bir ürün kendi contract'ını platformu
-değiştirmeden ekleyemez** — `credit_cards` gibi başkasının domain adını kullanmak zorunda kalır.
-A1'i (gateway örneği) eklemenin önünde duran ilk engel budur; contract'ın uygulama tarafından
-tanımlanabilir olması gerekir.
+Byte bütçeleri de aynı listeye bağlıydı; yeni bir ürün kendi contract'ını platformu değiştirmeden
+ekleyemiyordu.
+
+**Çözüm:** contract artık bir nesne ve uygulama tanımlıyor —
+`defineGatewayContract(name, maxBytes)`. Showroom kendi 15 contract'ını
+`server/services/gateway-contracts.ts` içinde topladı; platformun kendi gateway çağrıları
+(auth refresh, CMS redirect) de kendi contract'larını tanımlıyor. Core'da tek bir ürün domain adı
+kalmadı. Kayıt defteri yerine nesne tercih edildi: "kaydetmeyi unutma" diye bir hata durumu yok.
 
 ### C2. `.env` görünürlüğü
 

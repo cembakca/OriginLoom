@@ -70,3 +70,23 @@ background — the TTL boundary is not a hard cliff.
 
 `HIT` fresh · `STALE` stale + revalidating · `MISS` rendered & written ·
 `BYPASS` cache skipped · `REDIRECT`/`PROXY` cache not involved.
+
+## Cache'i boşaltmak
+
+Deploy sonrası render çıktısı değiştiyse (bileşen değişikliği, kopya düzeltmesi)
+cache'i düşürmek gerekir. Uçlar **operations portunda** durur, sitede değil:
+
+```bash
+curl -s "http://127.0.0.1:9010/api/internal/cache/keys?prefix=catalog"
+curl -s -X POST http://127.0.0.1:9010/api/internal/cache/purge \
+  -H "authorization: Bearer $CACHE_PURGE_SECRET" \
+  -H "content-type: application/json" \
+  -d '{"mode":"prefix","prefix":"catalog"}'
+```
+
+`CACHE_PURGE_SECRET` tanımlıysa bearer token (veya `X-Cache-Purge-Token`) zorunlu;
+production'da secret yoksa uçlar 503 döner. Development'ta secret olmadan açıktır —
+korunacak bir şey yoktur.
+
+`RELEASE_ID` değiştiğinde Redis namespace'i de değişir, yani yeni release zaten
+boş cache ile başlar; purge esas olarak aynı release içinde içerik düzeltmek için.

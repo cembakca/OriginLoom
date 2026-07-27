@@ -2,6 +2,7 @@ import { gatewayFetch } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
+import { GatewayContracts } from "@server/services/gateway-contracts";
 
 const ROUTE_DOMAINS_CACHE_KEY = "route-domains";
 const MAX_DOMAIN_VALUES = 500;
@@ -43,9 +44,18 @@ export async function fetchRouteDomains(signal?: AbortSignal): Promise<RouteDoma
   });
   if (!response.ok) throw new Error(`Route domains gateway returned ${response.status}`);
 
-  const payload = await readGatewayJson(response, "route_domains", INVALID_ROUTE_DOMAINS);
+  const payload = await readGatewayJson(
+    response,
+    GatewayContracts.routeDomains,
+    INVALID_ROUTE_DOMAINS,
+  );
   const domains = normalizeRouteDomains(
-    requireGatewayPayload("route_domains", payload, isRouteDomains, INVALID_ROUTE_DOMAINS),
+    requireGatewayPayload(
+      GatewayContracts.routeDomains,
+      payload,
+      isRouteDomains,
+      INVALID_ROUTE_DOMAINS,
+    ),
   );
   if (key) await cache.write(key, JSON.stringify(domains), policy);
   return domains;

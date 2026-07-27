@@ -12,7 +12,11 @@ import {
   writeCoordinationValue,
 } from "../../../cache/index.js";
 import { config } from "../../../config.js";
-import { readGatewayJson, requireGatewayPayload } from "../../../gateway-payload.js";
+import {
+  defineGatewayContract,
+  readGatewayJson,
+  requireGatewayPayload,
+} from "../../../gateway-payload.js";
 import type { CookieJar } from "../../cookie-jar.js";
 import { Cookie } from "../../types.js";
 import { createRefreshCoordinationCodec } from "./refresh-coordination-crypto.js";
@@ -28,6 +32,8 @@ type RefreshEntry = {
 
 const refreshesInFlight = new Map<string, RefreshEntry>();
 const INVALID_REFRESH = "Auth refresh gateway returned an invalid payload";
+/** Token refresh is the platform's own gateway call, so it owns this contract. */
+const AUTH_REFRESH = defineGatewayContract("auth_refresh", 16_384);
 const coordinationCodec = createRefreshCoordinationCodec(
   config.authRefreshCoordinationSecret,
   config.authRefreshCoordinationPreviousSecret,
@@ -214,8 +220,8 @@ async function fetchRefreshResult(
     if (res.status === 400 || res.status === 401) return { kind: "unauthorized" };
     if (!res.ok) return { kind: "unavailable" };
 
-    const payload = await readGatewayJson(res, "auth_refresh", INVALID_REFRESH);
-    const data = requireGatewayPayload("auth_refresh", payload, isRefreshPayload, INVALID_REFRESH);
+    const payload = await readGatewayJson(res, AUTH_REFRESH, INVALID_REFRESH);
+    const data = requireGatewayPayload(AUTH_REFRESH, payload, isRefreshPayload, INVALID_REFRESH);
     return { kind: "success", access: data.accessToken, refresh: data.refreshToken };
   } catch {
     return { kind: "unavailable" };

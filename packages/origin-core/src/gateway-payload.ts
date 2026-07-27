@@ -1,49 +1,33 @@
 import { observeInvalidGatewayPayload } from "./metrics.js";
 
-export type GatewayPayloadContract =
-  | "account"
-  | "auth_refresh"
-  | "blogs"
-  | "credit_cards"
-  | "finance_referral"
-  | "finance_tools"
-  | "housing_loans"
-  | "knowledge_center"
-  | "markets"
-  | "popular_blogs"
-  | "menu"
-  | "offers"
-  | "page"
-  | "profile"
-  | "redirect"
-  | "route_domains"
-  | "sitemap";
+/**
+ * What an app expects back from one gateway endpoint: a label for logs and
+ * metrics, and the largest response it is willing to read.
+ *
+ * The budget is a safety limit, not a guess — an upstream that suddenly returns
+ * ten times the usual payload is a defect, and reading it would be the failure.
+ * Apps declare their own contracts; the platform has no idea what domains exist.
+ */
+export type GatewayContract = {
+  readonly name: string;
+  readonly maxBytes: number;
+};
+
+export function defineGatewayContract(name: string, maxBytes: number): GatewayContract {
+  if (!/^[a-z][a-z0-9_]*$/.test(name)) {
+    throw new Error(`Gateway contract name must be snake_case: ${name}`);
+  }
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new Error(`Gateway contract ${name} needs a positive byte budget`);
+  }
+  return { name, maxBytes };
+}
 
 type InvalidPayloadReason = "json" | "schema" | "size";
 
-const MAX_PAYLOAD_BYTES: Record<GatewayPayloadContract, number> = {
-  account: 131_072,
-  auth_refresh: 16_384,
-  blogs: 524_288,
-  credit_cards: 524_288,
-  finance_referral: 65_536,
-  finance_tools: 1_048_576,
-  housing_loans: 524_288,
-  knowledge_center: 1_048_576,
-  markets: 524_288,
-  popular_blogs: 524_288,
-  menu: 262_144,
-  offers: 131_072,
-  page: 65_536,
-  profile: 16_384,
-  redirect: 16_384,
-  route_domains: 65_536,
-  sitemap: 8_388_608,
-};
-
 export class GatewayPayloadError extends Error {
   constructor(
-    readonly contract: GatewayPayloadContract,
+    readonly contract: string,
     readonly reason: InvalidPayloadReason,
     message: string,
   ) {
@@ -54,10 +38,10 @@ export class GatewayPayloadError extends Error {
 
 export async function readGatewayJson(
   response: Response,
-  contract: GatewayPayloadContract,
+  contract: GatewayContract,
   message: string,
 ): Promise<unknown> {
-  const maxBytes = MAX_PAYLOAD_BYTES[contract];
+  const maxBytes = contract.maxBytes;
   const contentLength = response.headers.get("content-length");
   if (contentLength !== null) {
     const declaredBytes = Number(contentLength);
@@ -101,7 +85,7 @@ async function readBoundedText(
 }
 
 export function requireGatewayPayload<T>(
-  contract: GatewayPayloadContract,
+  contract: GatewayContract,
   value: unknown,
   guard: (value: unknown) => value is T,
   message: string,
@@ -111,7 +95,7 @@ export function requireGatewayPayload<T>(
 }
 
 export function parseGatewayPayload<T>(
-  contract: GatewayPayloadContract,
+  contract: GatewayContract,
   value: unknown,
   parser: (value: unknown) => T | null,
   message: string,
@@ -122,10 +106,10 @@ export function parseGatewayPayload<T>(
 }
 
 export function invalidPayload(
-  contract: GatewayPayloadContract,
+  contract: GatewayContract,
   reason: InvalidPayloadReason,
   message: string,
 ): GatewayPayloadError {
-  observeInvalidGatewayPayload(contract, reason);
-  return new GatewayPayloadError(contract, reason, message);
+  observeInvalidGatewayPayload(contract.name, reason);
+  return new GatewayPayloadError(contract.name, reason, message);
 }

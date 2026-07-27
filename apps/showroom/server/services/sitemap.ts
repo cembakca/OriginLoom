@@ -1,5 +1,6 @@
 import { gatewayFetch } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { GatewayContracts } from "@server/services/gateway-contracts";
 import { isIsoDate, isRecord } from "@server/services/gateway-guards";
 
 const MAX_SITEMAP_ENTRIES = 50_000;
@@ -16,8 +17,13 @@ export async function fetchSitemapEntries(signal?: AbortSignal): Promise<Sitemap
     ...(signal ? { signal } : {}),
   });
   if (!response.ok) throw new Error(`Sitemap gateway returned ${response.status}`);
-  const payload = await readGatewayJson(response, "sitemap", INVALID_SITEMAP);
-  const result = requireGatewayPayload("sitemap", payload, isSitemapPayload, INVALID_SITEMAP);
+  const payload = await readGatewayJson(response, GatewayContracts.sitemap, INVALID_SITEMAP);
+  const result = requireGatewayPayload(
+    GatewayContracts.sitemap,
+    payload,
+    isSitemapPayload,
+    INVALID_SITEMAP,
+  );
   return [...new Map(result.entries.map((entry) => [entry.path, entry])).values()];
 }
 

@@ -102,6 +102,16 @@ describe("renderTemplates — shared shape", () => {
     expect(files[".env.development"]).toContain("PORT=4200");
     expect(files[".env.development"]).toContain("METRICS_PORT=10200");
   });
+
+  it("points the icons at assets the media pipeline actually produces", () => {
+    for (const renderer of ["react", "vanilla"]) {
+      const defaults = standalone({ renderer })["src/lib/metadata/site-defaults.ts"];
+      // A dangling /favicon.ico is a 404 in the console of every generated app:
+      // nothing serves it, and only /assets/* is served statically.
+      expect(defaults).not.toContain("/favicon.ico");
+      expect(defaults).toContain("/assets/media/favicon-32.png");
+    }
+  });
 });
 
 describe("renderTemplates — standalone mode", () => {
@@ -355,7 +365,7 @@ describe("renderTemplates — example routes", () => {
     expect(files["src/features/live/live-page.tsx"]).toContain("Suspense");
     expect(files["src/islands/live-ticks.tsx"]).toContain("new EventSource");
     expect(files["server/api/index.ts"]).toContain('"/api/ticks"');
-    expect(files["server/index.ts"]).toContain("mounts: { api: mountApi }");
+    expect(files["server/index.ts"]).toContain("mounts: { api: mountApi, seo: mountSeo }");
   });
 });
 
@@ -482,5 +492,127 @@ describe("renderTemplates — generated apps satisfy their own tooling", () => {
         expect(aliased, `${path}: unsorted import group`).toEqual([...aliased].sort());
       }
     }
+  });
+});
+
+describe("renderTemplates — gateway wiring", () => {
+  const modes = [
+    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
+    [
+      "vanilla",
+      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
+    ],
+  ];
+
+  it.each(modes)("%s: fetches its data through the gateway, not from memory", (_name, files) => {
+    const service = files["server/services/items.ts"];
+    expect(service).toContain("gatewayFetch");
+    // Untrusted JSON: bounded read against a contract, then a runtime guard.
+    expect(service).toContain("readGatewayJson");
+    expect(service).toContain("requireGatewayPayload");
+    expect(service).not.toContain("const ITEMS");
+  });
+
+  it.each(modes)("%s: declares its own gateway contract", (_name, files) => {
+    const contracts = files["server/services/gateway-contracts.ts"];
+    expect(contracts).toContain("defineGatewayContract");
+    // The name is the app's, not one borrowed from another product.
+    expect(contracts).toContain('defineGatewayContract("items"');
+  });
+
+  it.each(modes)("%s: ships a mock gateway and starts it in dev and smoke", (_name, files) => {
+    expect(files["mock-gateway/server.mjs"]).toContain("/items");
+    const scripts = JSON.parse(files["package.json"]).scripts;
+    expect(scripts.dev).toContain("--gateway mock-gateway/server.mjs");
+    expect(scripts.smoke).toContain("--gateway mock-gateway/server.mjs");
+  });
+
+  it.each(modes)("%s: passes the request signal into the loader's gateway call", (_name, files) => {
+    // A cancelled request must not keep the upstream call alive.
+    expect(files["server/routes/catalog." + (_name === "vanilla" ? "ts" : "tsx")]).toContain(
+      "ctx.request.signal",
+    );
+  });
+});
+
+describe("renderTemplates — SEO, cache purge and product metrics", () => {
+  const modes = [
+    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
+    [
+      "vanilla",
+      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
+    ],
+  ];
+
+  it.each(modes)("%s: serves robots.txt and a sitemap built from its own data", (_name, files) => {
+    expect(files["server/index.ts"]).toContain("seo: mountSeo");
+    const seo = files["server/seo.ts"];
+    expect(seo).toContain("mountSeoRoutes");
+    // The sitemap lists what this app actually has, not a hardcoded guess.
+    expect(seo).toContain("listItems");
+    expect(seo).toContain("fallbackEntries");
+  });
+
+  it.each(modes)("%s: keeps cache purge off the public listener", (_name, files) => {
+    // Reachable from the internet, it would be a denial-of-service lever even
+    // behind a secret; the operations port is not exposed.
+    expect(files["server/api/index.ts"]).not.toContain("mountCachePurgeApi");
+    expect(files["server/index.ts"]).toContain("mountCachePurgeApi");
+    expect(files["server/index.ts"]).toContain("createMetricsApp({");
+  });
+
+  it.each(modes)("%s: appends its own metrics to /metrics", (_name, files) => {
+    expect(files["server/product/runtime.ts"]).toContain("metricSources: [catalogMetricLines]");
+    const metrics = files["server/metrics/catalog.ts"];
+    expect(metrics).toContain("counterLines");
+    // Unbounded label values are how a metric takes Prometheus down.
+    expect(metrics).toContain("bucket");
+  });
+});
+
+describe("renderTemplates — product config, public API and media", () => {
+  const modes = [
+    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
+    [
+      "vanilla",
+      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
+    ],
+  ];
+
+  it.each(modes)("%s: validates its own environment at startup", (_name, files) => {
+    expect(files["server/index.ts"]).toContain("validateConfig([validateProductConfig])");
+    const config = files["server/product/config.ts"];
+    expect(config).toContain("assertPositiveInteger");
+    // The example setting is used, not decorative.
+    const route = files["server/routes/catalog." + (_name === "vanilla" ? "ts" : "tsx")];
+    expect(route).toContain("productConfig.catalogPageSize");
+    expect(files[".env.development"]).toContain("CATALOG_PAGE_SIZE=3");
+  });
+
+  it.each(modes)("%s: guards its public endpoint", (_name, files) => {
+    const api = files["server/api/items.ts"];
+    expect(api).toContain("guardPublicApi");
+    // Both a process-wide budget and a per-caller one; one without the other is
+    // either trivially exhausted or trivially bypassed.
+    expect(api).toContain("globalLimit");
+    expect(api).toContain("ipLimit");
+    expect(api).toContain("requireSameOriginMutation");
+  });
+
+  it.each(modes)("%s: ships a media pipeline with its own sources", (_name, files) => {
+    const media = JSON.parse(files["server/media.config.json"]);
+    expect(media.seoAssets.openGraphSource).toBe("src/assets/images/og-cover.svg");
+    expect(files).toHaveProperty(["src/assets/images/og-cover.svg"]);
+    expect(JSON.parse(files["package.json"]).scripts.media).toBe("origin-build-media");
+  });
+
+  it("ships icon codegen only for the renderer whose components it emits", () => {
+    const [, react] = modes[0];
+    const [, vanilla] = modes[1];
+    expect(react).toHaveProperty([".svgrrc.cjs"]);
+    expect(JSON.parse(react["package.json"]).devDependencies["@svgr/cli"]).toBeDefined();
+    // svgr emits React components; a vanilla app would never compile them.
+    expect(vanilla).not.toHaveProperty([".svgrrc.cjs"]);
+    expect(JSON.parse(vanilla["package.json"]).scripts.icons).toBeUndefined();
   });
 });
