@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createServer } from "node:net";
 import { resolve } from "node:path";
 
 import { loadEnv } from "./load-env.mjs";
@@ -82,6 +83,51 @@ function generate(label, script) {
 if (existsSync(resolve(root, "src/assets/svg"))) await generate("icons", "./generate-icons.mjs");
 if (existsSync(resolve(root, "server/media.config.json")))
   await generate("media", "./build-media.mjs");
+
+/**
+ * Refuse to start on a port something else already holds.
+ *
+ * Without this the app crashes on EADDRINUSE while the process that owns the
+ * port keeps answering — usually an older instance, often one whose directory
+ * has since been deleted or rebuilt. The browser then shows a page whose CSS
+ * and JS 404, because they are being looked for in a build that is no longer
+ * there, and nothing on screen points at the real cause. Every generated app
+ * defaults to the same port, so two projects collide the moment both are open.
+ */
+function portOwner(port) {
+  return new Promise((settle) => {
+    const probe = createServer();
+    probe.once("error", (error) => settle(error.code === "EADDRINUSE" ? "busy" : "free"));
+    probe.once("listening", () => probe.close(() => settle("free")));
+    // No host, because that is how the servers themselves bind. Probing
+    // 127.0.0.1 would miss a process already holding the wildcard address —
+    // which is exactly the collision worth catching.
+    probe.listen(port);
+  });
+}
+
+const wanted = [
+  { label: "app", url: appUrl },
+  { label: "Vite", url: viteUrl },
+  ...(gatewayEntry ? [{ label: "gateway", url: gatewayUrl }] : []),
+];
+const taken = [];
+for (const { label, url } of wanted) {
+  const port = Number(url.port || (url.protocol === "https:" ? 443 : 80));
+  if ((await portOwner(port)) === "busy") taken.push({ label, port });
+}
+if (taken.length > 0) {
+  for (const { label, port } of taken) {
+    console.error(`[dev] port ${port} (${label}) is already in use`);
+  }
+  console.error(
+    "\n  Something is already listening — most likely an older instance of this app,\n" +
+      "  or another generated app on the same default port. Stop it, or give this app\n" +
+      "  its own ports in .env.development (PORT, VITE_DEV_SERVER_URL, METRICS_PORT).\n\n" +
+      `  What holds it:  lsof -ti :${taken[0].port}\n`,
+  );
+  process.exit(1);
+}
 
 console.log(`[dev] env: ${process.env.APP_ENV} · cache: ${process.env.CACHE_BACKEND ?? "memory"}`);
 console.log(`[dev] Hono: ${appUrl.origin}`);
