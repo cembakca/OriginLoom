@@ -18,6 +18,7 @@ import { mountCachePurgeRoutes } from "./api/internal/cache-purge";
 import { mountReferralStatsApi } from "./api/internal/referral-stats";
 import { stopMarketStreamClients } from "./api/market-stream";
 import { productConfig, validateProductConfig } from "./product/config";
+import { productCsp } from "./product/csp";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
 import { mountSeoRoutes } from "./seo";
@@ -41,6 +42,7 @@ async function main() {
     assets,
     routes,
     mounts: { api: mountApi, seo: mountSeoRoutes },
+    csp: productCsp,
     // The market stream holds its connection open by design and runs its own
     // heartbeat and admission, so it is exempt from the request deadline.
     longLivedRoutes: ["/api/markets/stream"],

@@ -1369,7 +1369,13 @@ export const productRenderer = createReactRenderer<ShellData>({
   NotFoundComponent: NotFoundPage,
   ErrorComponent: RouteErrorPage,
   renderHeadStart: ({ seo, cspNonce }) => <MetadataHead meta={seo} nonce={cspNonce} />,
-  // Analytics bootstrap (GTM etc.) belongs here.
+  /**
+   * Where a GTM/analytics/consent bootstrap goes. Two things make it work:
+   * \`nonce={cspNonce}\` on every inline script, and the vendor's host declared
+   * in \`createApp({ csp })\` — the platform blesses no vendor. Whatever is
+   * rendered here enters the shared HTML cache, so nothing user-specific may
+   * appear in it. See .claude/skills/third-party-scripts.
+   */
   renderHeadEnd: () => null,
   renderLayout: ({ shell, pageMeta, children }) => (
     <RootLayout shell={shell} pageMeta={pageMeta}>

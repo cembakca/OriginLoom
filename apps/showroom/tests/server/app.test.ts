@@ -31,6 +31,26 @@ describe("Hono application integration", () => {
     await closeCache();
   });
 
+  it("puts an app's own third-party origins in the policy, and no one else's", async () => {
+    const route: Route = {
+      path: "/csp",
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "csp"),
+    };
+    const app = appWith([route], {
+      csp: { scriptSrc: ["https://cdn.matomo.example"], imgSrc: ["https://pixels.example"] },
+    });
+
+    const res = await app.request("http://localhost/csp");
+    const policy = res.headers.get("content-security-policy-report-only") ?? "";
+
+    expect(policy).toContain("https://cdn.matomo.example");
+    expect(policy).toContain("https://pixels.example");
+    // The platform blessing one vendor is what made every other one fail.
+    expect(policy).not.toContain("googletagmanager");
+    expect(policy).not.toContain("google-analytics");
+  });
+
   it("classifies an app's own API endpoint as an API call, not as a page", async () => {
     const app = appWith([], {
       mounts: {

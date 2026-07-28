@@ -59,70 +59,82 @@ if (config.viteDevServerUrl) {
 
 const cspOrigins = resolveCspSourceOrigins(config);
 
-// Build standard CSP directives object at startup for O(1) request-time execution
-const baseCspDirectives = {
-  defaultSrc: ["'self'"],
-  connectSrc: [
-    "'self'",
-    "https://www.google-analytics.com",
-    "https://*.google-analytics.com",
-    "https://*.analytics.google.com",
-    "https://*.googletagmanager.com",
-    ...devViteUrls,
-    ...devViteWsUrls,
-  ],
-  imgSrc: [
-    "'self'",
-    "data:",
-    "https://www.googletagmanager.com",
-    "https://www.google-analytics.com",
-    "https://*.google-analytics.com",
-    "https://*.analytics.google.com",
-    "https://*.googlesyndication.com",
-    ...cspOrigins.image,
-  ],
-  frameSrc: ["'self'", "https://www.googletagmanager.com"],
-  frameAncestors: ["'none'"],
-  formAction: ["'self'"],
-  styleSrc: ["'self'", "'unsafe-inline'", ...cspOrigins.asset, ...devViteUrls],
-  fontSrc: ["'self'", "data:", ...cspOrigins.asset],
-  objectSrc: ["'none'"],
-  baseUri: ["'self'"],
-  ...(config.cspReportUri ? { reportUri: [config.cspReportUri] } : {}),
+/**
+ * Third-party origins this app's pages actually reach — an analytics vendor, a
+ * consent tool, an embedded player.
+ *
+ * The platform cannot know them: which vendor a product uses is a product
+ * decision, and hardcoding one here would both bless it for every app and
+ * silently break every other. Sources are additive; the platform's own needs
+ * ('self', the asset CDN, the dev server) are always present.
+ */
+export type CspSources = {
+  scriptSrc?: readonly string[];
+  connectSrc?: readonly string[];
+  imgSrc?: readonly string[];
+  frameSrc?: readonly string[];
+  styleSrc?: readonly string[];
+  fontSrc?: readonly string[];
 };
 
-export const securityMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (
-  c,
-  next,
-) => {
-  // A nonce/hash source makes browsers ignore 'unsafe-inline'. Development intentionally relies on
-  // 'unsafe-inline' for Vite/React Refresh, so nonce must be a production-only contract.
-  const nonce = config.isProduction ? randomBytes(18).toString("base64") : undefined;
-  if (nonce) c.set("cspNonce", nonce);
-  const cspDirectives = {
-    ...baseCspDirectives,
-    scriptSrc: [
+/**
+ * Built once per app rather than per request: the directive lists are fixed at
+ * startup, and only the nonce changes.
+ */
+export function createSecurityMiddleware(
+  sources: CspSources = {},
+): MiddlewareHandler<{ Variables: AppVariables }> {
+  const baseCspDirectives = {
+    defaultSrc: ["'self'"],
+    connectSrc: ["'self'", ...(sources.connectSrc ?? []), ...devViteUrls, ...devViteWsUrls],
+    imgSrc: ["'self'", "data:", ...(sources.imgSrc ?? []), ...cspOrigins.image],
+    frameSrc: ["'self'", ...(sources.frameSrc ?? [])],
+    frameAncestors: ["'none'"],
+    formAction: ["'self'"],
+    styleSrc: [
       "'self'",
-      "https://www.googletagmanager.com",
+      "'unsafe-inline'",
+      ...(sources.styleSrc ?? []),
       ...cspOrigins.asset,
-      ...hashes,
-      ...(nonce ? [`'nonce-${nonce}'`] : []),
-      ...devScripts,
       ...devViteUrls,
     ],
+    fontSrc: ["'self'", "data:", ...(sources.fontSrc ?? []), ...cspOrigins.asset],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    ...(config.cspReportUri ? { reportUri: [config.cspReportUri] } : {}),
   };
-  const middleware = secureHeaders({
-    xContentTypeOptions: "nosniff",
-    xFrameOptions: "DENY",
-    referrerPolicy: "strict-origin-when-cross-origin",
-    permissionsPolicy: {
-      camera: [],
-      microphone: [],
-      geolocation: [],
-    },
-    ...(config.cspEnforce
-      ? { contentSecurityPolicy: cspDirectives }
-      : { contentSecurityPolicyReportOnly: cspDirectives }),
-  });
-  return middleware(c, next);
-};
+  const appScriptSrc = sources.scriptSrc ?? [];
+
+  return async (c, next) => {
+    // A nonce/hash source makes browsers ignore 'unsafe-inline'. Development intentionally relies on
+    // 'unsafe-inline' for Vite/React Refresh, so nonce must be a production-only contract.
+    const nonce = config.isProduction ? randomBytes(18).toString("base64") : undefined;
+    if (nonce) c.set("cspNonce", nonce);
+    const cspDirectives = {
+      ...baseCspDirectives,
+      scriptSrc: [
+        "'self'",
+        ...appScriptSrc,
+        ...cspOrigins.asset,
+        ...hashes,
+        ...(nonce ? [`'nonce-${nonce}'`] : []),
+        ...devScripts,
+        ...devViteUrls,
+      ],
+    };
+    const middleware = secureHeaders({
+      xContentTypeOptions: "nosniff",
+      xFrameOptions: "DENY",
+      referrerPolicy: "strict-origin-when-cross-origin",
+      permissionsPolicy: {
+        camera: [],
+        microphone: [],
+        geolocation: [],
+      },
+      ...(config.cspEnforce
+        ? { contentSecurityPolicy: cspDirectives }
+        : { contentSecurityPolicyReportOnly: cspDirectives }),
+    });
+    return middleware(c, next);
+  };
+}

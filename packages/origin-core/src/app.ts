@@ -19,7 +19,7 @@ import { observeRequest } from "./metrics.js";
 import { publicBodyLimit } from "./middleware/public-body-limit.js";
 import { contextRequest, requestDeadline } from "./middleware/request-deadline.js";
 import { type AppVariables, requestId } from "./middleware/request-id.js";
-import { securityMiddleware } from "./middleware/security.js";
+import { createSecurityMiddleware, type CspSources } from "./middleware/security.js";
 import { staticAssetCacheHeaders } from "./middleware/static-assets.js";
 import { SpanStatusCode, withRequestSpan } from "./observability.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url.js";
@@ -52,6 +52,11 @@ export type CreateAppOptions = {
    * They manage their own lifetime, so no request deadline is armed for them.
    */
   longLivedRoutes?: readonly string[];
+  /**
+   * Third-party origins this app's pages reach — an analytics vendor, a consent
+   * tool, an embedded player. Added to the platform's own CSP sources.
+   */
+  csp?: CspSources;
 };
 
 export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVariables }> {
@@ -111,7 +116,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
       if (c.res.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
     });
   });
-  app.use("*", securityMiddleware);
+  app.use("*", createSecurityMiddleware(options.csp));
   app.use("*", compress());
   app.use("*", async (c, next) => {
     const started = performance.now();

@@ -1,6 +1,6 @@
 {
   "name": "@originloom/core",
-  "version": "0.3.11",
+  "version": "0.4.0",
   "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics — with no UI framework of its own.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
