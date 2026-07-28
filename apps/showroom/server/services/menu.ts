@@ -8,6 +8,7 @@ import {
 } from "@originloom/shared/lib/content-url";
 import type { DeviceType } from "@originloom/shared/lib/device";
 import type { IMenuItems, MenuItem } from "@originloom/shared/lib/menu/types";
+import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 import { productConfig } from "@server/product/config";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 
@@ -110,28 +111,14 @@ function parseMenuList(
 function parseMenuItem(value: unknown, depth: number, state: { count: number }): MenuItem | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const item = value as Record<string, unknown>;
-  if (
-    !isInteger(item.id) ||
-    !isBoundedString(item.name, MAX_LABEL_LENGTH) ||
-    !isInteger(item.displayOrder) ||
-    !isInteger(item.mobileDisplayOrder) ||
-    !isOptionalInteger(item.parentId, true) ||
-    !isOptionalInteger(item.menuType) ||
-    !isOptionalInteger(item.itemType) ||
-    !isOptionalInteger(item.menuDisplayDeviceType) ||
-    !isOptionalInteger(item.menuDisplayType) ||
-    !isOptionalString(item.hamburgerName, MAX_LABEL_LENGTH) ||
-    !isOptionalString(item.description, MAX_DESCRIPTION_LENGTH) ||
-    (item.external !== undefined && typeof item.external !== "boolean")
-  ) {
-    return null;
-  }
+  if (!hasValidMenuFields(item)) return null;
 
   const external = item.external === true;
   if (typeof item.url !== "string") return null;
   const url = normalizeNavigationUrl(item.url, { siteUrl: config.siteUrl, external });
   if (!url) return null;
 
+  // undefined means "absent"; null means "present and unusable", which fails the item.
   const imagePath = parseOptionalImageUrl(item.imagePath);
   const activeImagePath = parseOptionalImageUrl(item.activeImagePath);
   if (imagePath === null || activeImagePath === null) return null;
@@ -140,27 +127,45 @@ function parseMenuItem(value: unknown, depth: number, state: { count: number }):
   if (children === null) return null;
 
   return {
-    id: item.id,
-    name: item.name,
+    id: item.id as number,
+    name: item.name as string,
     url,
-    displayOrder: item.displayOrder,
-    mobileDisplayOrder: item.mobileDisplayOrder,
-    ...(item.parentId !== undefined ? { parentId: item.parentId as number | null } : {}),
-    ...(item.hamburgerName !== undefined ? { hamburgerName: item.hamburgerName as string } : {}),
-    ...(item.description !== undefined ? { description: item.description as string } : {}),
-    ...(imagePath !== undefined ? { imagePath } : {}),
-    ...(activeImagePath !== undefined ? { activeImagePath } : {}),
-    ...(item.external !== undefined ? { external } : {}),
-    ...(item.menuType !== undefined ? { menuType: item.menuType as number } : {}),
-    ...(item.itemType !== undefined ? { itemType: item.itemType as number } : {}),
-    ...(item.menuDisplayDeviceType !== undefined
-      ? { menuDisplayDeviceType: item.menuDisplayDeviceType as number }
-      : {}),
-    ...(item.menuDisplayType !== undefined
-      ? { menuDisplayType: item.menuDisplayType as number }
-      : {}),
-    ...(children?.length ? { subMenuItemList: children } : {}),
+    displayOrder: item.displayOrder as number,
+    mobileDisplayOrder: item.mobileDisplayOrder as number,
+    // Absent stays absent: an explicit `undefined` key is not the same shape as no
+    // key at all under exactOptionalPropertyTypes. parentId survives as null.
+    ...stripUndefined({
+      parentId: item.parentId as number | null | undefined,
+      hamburgerName: item.hamburgerName as string | undefined,
+      description: item.description as string | undefined,
+      imagePath,
+      activeImagePath,
+      external: item.external === undefined ? undefined : external,
+      menuType: item.menuType as number | undefined,
+      itemType: item.itemType as number | undefined,
+      menuDisplayDeviceType: item.menuDisplayDeviceType as number | undefined,
+      menuDisplayType: item.menuDisplayType as number | undefined,
+      subMenuItemList: children?.length ? children : undefined,
+    }),
   };
+}
+
+/** Everything the upstream must get right before the item is worth shaping. */
+function hasValidMenuFields(item: Record<string, unknown>): boolean {
+  return (
+    isInteger(item.id) &&
+    isBoundedString(item.name, MAX_LABEL_LENGTH) &&
+    isInteger(item.displayOrder) &&
+    isInteger(item.mobileDisplayOrder) &&
+    isOptionalInteger(item.parentId, true) &&
+    isOptionalInteger(item.menuType) &&
+    isOptionalInteger(item.itemType) &&
+    isOptionalInteger(item.menuDisplayDeviceType) &&
+    isOptionalInteger(item.menuDisplayType) &&
+    isOptionalString(item.hamburgerName, MAX_LABEL_LENGTH) &&
+    isOptionalString(item.description, MAX_DESCRIPTION_LENGTH) &&
+    (item.external === undefined || typeof item.external === "boolean")
+  );
 }
 
 function parseOptionalImageUrl(value: unknown): string | undefined | null {

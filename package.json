@@ -23,7 +23,7 @@
     "dev": "pnpm --filter showroom dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --max-warnings 9",
+    "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "registry:local": "node scripts/local-registry.mjs",
     "registry:publish": "node scripts/local-publish.mjs",

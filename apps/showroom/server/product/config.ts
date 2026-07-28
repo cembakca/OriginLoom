@@ -56,23 +56,32 @@ export function referralStatsSecurityConfig(): { secret?: string; isProduction: 
 
 /** Pass to `validateConfig([...])` from the composition root. */
 export function validateProductConfig(): void {
+  validateMenuCache();
+  validateBotAnalytics();
+  validateClientErrorReporting();
+  validateMarketStream();
+  validateSiteIdentity();
+  validateProductionSecrets();
+}
+
+function validateMenuCache(): void {
   assertPositiveInteger("MENU_CACHE_TTL", productConfig.menuCacheTtl);
   if (!Number.isFinite(productConfig.menuCacheSwr) || productConfig.menuCacheSwr < 0) {
     throw new Error(`Invalid MENU_CACHE_SWR: ${productConfig.menuCacheSwr}`);
   }
+}
+
+function validateBotAnalytics(): void {
   assertPositiveInteger("BOT_ANALYTICS_QUEUE_CAPACITY", productConfig.botAnalyticsQueueCapacity);
   assertPositiveInteger("BOT_ANALYTICS_CONCURRENCY", productConfig.botAnalyticsConcurrency);
   assertPositiveInteger("BOT_ANALYTICS_BATCH_SIZE", productConfig.botAnalyticsBatchSize);
   assertPositiveInteger("BOT_ANALYTICS_FLUSH_MS", productConfig.botAnalyticsFlushMs);
   assertPositiveInteger("BOT_ANALYTICS_DEDUP_TTL_MS", productConfig.botAnalyticsDedupTtlMs);
   assertPositiveInteger("BOT_ANALYTICS_DRAIN_TIMEOUT_MS", productConfig.botAnalyticsDrainTimeoutMs);
-  if (
-    !Number.isFinite(productConfig.botAnalyticsSampleRate) ||
-    productConfig.botAnalyticsSampleRate < 0 ||
-    productConfig.botAnalyticsSampleRate > 1
-  ) {
-    throw new Error(`Invalid BOT_ANALYTICS_SAMPLE_RATE: ${productConfig.botAnalyticsSampleRate}`);
-  }
+  assertRate("BOT_ANALYTICS_SAMPLE_RATE", productConfig.botAnalyticsSampleRate);
+
+  // A worker pool or a batch larger than the queue can never fill, and a drain
+  // that outlasts the shutdown budget is a drain that gets killed mid-flush.
   if (productConfig.botAnalyticsConcurrency > productConfig.botAnalyticsQueueCapacity) {
     throw new Error("BOT_ANALYTICS_CONCURRENCY must not exceed BOT_ANALYTICS_QUEUE_CAPACITY");
   }
@@ -85,21 +94,23 @@ export function validateProductConfig(): void {
   if (productConfig.botAnalyticsDrainTimeoutMs >= config.shutdownTimeoutMs) {
     throw new Error("BOT_ANALYTICS_DRAIN_TIMEOUT_MS must be lower than SHUTDOWN_TIMEOUT_MS");
   }
+}
+
+function validateClientErrorReporting(): void {
   assertPositiveInteger("CLIENT_ERROR_RATE_LIMIT", productConfig.clientErrorRateLimit);
   assertPositiveInteger("CLIENT_ERROR_WINDOW_MS", productConfig.clientErrorWindowMs);
   assertPositiveInteger("CLIENT_ERROR_IP_RATE_LIMIT", productConfig.clientErrorIpRateLimit);
   assertPositiveInteger("CLIENT_ERROR_IP_MAX_ENTRIES", productConfig.clientErrorIpMaxEntries);
   assertPositiveInteger("CLIENT_ERROR_IP_TTL_MS", productConfig.clientErrorIpTtlMs);
+  assertRate("CLIENT_ERROR_SAMPLE_RATE", productConfig.clientErrorSampleRate);
+
+  // Entries that expire inside the window would reset a caller's count mid-window.
   if (productConfig.clientErrorIpTtlMs < productConfig.clientErrorWindowMs) {
     throw new Error("CLIENT_ERROR_IP_TTL_MS must be >= CLIENT_ERROR_WINDOW_MS");
   }
-  if (
-    !Number.isFinite(productConfig.clientErrorSampleRate) ||
-    productConfig.clientErrorSampleRate < 0 ||
-    productConfig.clientErrorSampleRate > 1
-  ) {
-    throw new Error(`Invalid CLIENT_ERROR_SAMPLE_RATE: ${productConfig.clientErrorSampleRate}`);
-  }
+}
+
+function validateMarketStream(): void {
   assertPositiveInteger("MARKET_STREAM_MAX_CONNECTIONS", productConfig.marketStreamMaxConnections);
   assertPositiveInteger(
     "MARKET_STREAM_MAX_CONNECTIONS_PER_IP",
@@ -108,6 +119,7 @@ export function validateProductConfig(): void {
   assertPositiveInteger("MARKET_STREAM_MAX_SYMBOLS", productConfig.marketStreamMaxSymbols);
   assertPositiveInteger("MARKET_STREAM_MAX_DURATION_MS", productConfig.marketStreamMaxDurationMs);
   assertPositiveInteger("MARKET_STREAM_HEARTBEAT_MS", productConfig.marketStreamHeartbeatMs);
+
   if (productConfig.marketStreamMaxConnectionsPerIp > productConfig.marketStreamMaxConnections) {
     throw new Error(
       "MARKET_STREAM_MAX_CONNECTIONS_PER_IP must not exceed MARKET_STREAM_MAX_CONNECTIONS",
@@ -116,26 +128,39 @@ export function validateProductConfig(): void {
   if (productConfig.marketStreamMaxSymbols > 100) {
     throw new Error("MARKET_STREAM_MAX_SYMBOLS must not exceed 100");
   }
+  // A heartbeat that never fires before the connection's own deadline is no heartbeat.
   if (productConfig.marketStreamHeartbeatMs >= productConfig.marketStreamMaxDurationMs) {
     throw new Error("MARKET_STREAM_HEARTBEAT_MS must be lower than MARKET_STREAM_MAX_DURATION_MS");
   }
+}
+
+function validateSiteIdentity(): void {
   if (productConfig.gtmContainerId && !/^GTM-[A-Z0-9]{4,20}$/.test(productConfig.gtmContainerId)) {
     throw new Error(`Invalid GTM_CONTAINER_ID: ${productConfig.gtmContainerId}`);
   }
   validateVerificationToken("GOOGLE_SITE_VERIFICATION", productConfig.googleSiteVerification);
   validateVerificationToken("BING_SITE_VERIFICATION", productConfig.bingSiteVerification);
   validateVerificationToken("YANDEX_SITE_VERIFICATION", productConfig.yandexSiteVerification);
+}
 
-  if (config.isProduction) {
-    if (!productConfig.cachePurgeSecret) {
-      throw new Error("CACHE_PURGE_SECRET is required in production");
-    }
-    if (!productConfig.referralStatsSecret) {
-      throw new Error("REFERRAL_STATS_SECRET is required in production");
-    }
-    if (!productConfig.marketStreamToken) {
-      throw new Error("MARKET_STREAM_TOKEN is required in production");
-    }
+/** Secrets that may stay unset locally but must never be missing in production. */
+function validateProductionSecrets(): void {
+  if (!config.isProduction) return;
+  if (!productConfig.cachePurgeSecret) {
+    throw new Error("CACHE_PURGE_SECRET is required in production");
+  }
+  if (!productConfig.referralStatsSecret) {
+    throw new Error("REFERRAL_STATS_SECRET is required in production");
+  }
+  if (!productConfig.marketStreamToken) {
+    throw new Error("MARKET_STREAM_TOKEN is required in production");
+  }
+}
+
+/** A sampling rate is a probability: anything outside 0..1 is a typo, not a choice. */
+function assertRate(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`Invalid ${name}: ${value}`);
   }
 }
 
