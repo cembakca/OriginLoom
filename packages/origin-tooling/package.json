@@ -1,0 +1,55 @@
+{
+  "name": "@originloom/tooling",
+  "version": "0.3.6",
+  "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
+  "license": "UNLICENSED",
+  "author": "Cem Bakca",
+  "homepage": "https://github.com/cembakca/OriginLoom/tree/main/packages/origin-tooling#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cembakca/OriginLoom.git",
+    "directory": "packages/origin-tooling"
+  },
+  "keywords": [
+    "originloom",
+    "cli",
+    "vite",
+    "scaffold"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "bin": {
+    "origin-build": "./bin/build.mjs",
+    "origin-build-media": "./bin/build-media.mjs",
+    "origin-check-cycles": "./bin/check-import-cycles.mjs",
+    "origin-compose-up": "./bin/compose-up.mjs",
+    "origin-create-app": "./bin/create-app.mjs",
+    "origin-dev": "./bin/dev.mjs",
+    "origin-dev-local": "./bin/dev-local.mjs",
+    "origin-docker-clean": "./bin/docker-clean.mjs",
+    "origin-generate-icons": "./bin/generate-icons.mjs",
+    "origin-local-redis": "./bin/local-redis.mjs",
+    "origin-run-local": "./bin/run-local.mjs",
+    "origin-run-with-env": "./bin/run-with-env.mjs",
+    "origin-smoke": "./bin/smoke-server.mjs",
+    "origin-start-memory": "./bin/start-memory.mjs"
+  },
+  "exports": {
+    "./bin/*.mjs": "./bin/*.mjs",
+    "./bin/*": "./bin/*.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "prettier": "^3.9.5",
+    "sharp": "^0.35.3",
+    "typescript": "^5.7.2"
+  },
+  "files": [
+    "bin"
+  ],
+  "publishConfig": {
+    "registry": "http://localhost:4873"
+  }
+}

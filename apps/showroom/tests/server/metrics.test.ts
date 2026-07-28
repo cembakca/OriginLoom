@@ -1,0 +1,128 @@
+import {
+  observeBotAnalyticsBatch,
+  observeBotAnalyticsDrain,
+  observeBotAnalyticsDrop,
+  observeBotAnalyticsEnqueue,
+  observeCacheEntryWrite,
+  observeCacheFill,
+  observeCacheOperation,
+  observeClientErrorTelemetry,
+  observeCoalescedWait,
+  observeColdMissLockTimeout,
+  observeGatewayRequest,
+  observeInvalidGatewayPayload,
+  observeRequest,
+  observeRequestTimeout,
+  observeRevalidation,
+  observeShellDegradation,
+  observeSsrCapacityRejection,
+  observeSsrQueueWait,
+  renderMetrics,
+  setBotAnalyticsQueueState,
+  setSsrCapacityState,
+} from "@originloom/core/metrics";
+import {
+  observeMarketStreamConnection,
+  observeMarketStreamEvent,
+  setMarketStreamActiveConnections,
+} from "@server/metrics/market-stream";
+import { observeReferralRedirect } from "@server/metrics/referrals";
+import { describe, expect, it } from "vitest";
+
+describe("production metrics", () => {
+  it("exports bounded latency histograms and gateway outcomes", () => {
+    observeRequest(200, "HIT", 7, "/bilgi-merkezi");
+    observeGatewayRequest(0, 25, "timeout");
+    observeCacheOperation("redis", "read", "success", 3);
+    observeRevalidation("success", 42);
+    observeInvalidGatewayPayload("offers", "schema");
+    observeShellDegradation("menu", "invalid_payload");
+    observeCacheFill("success", 12);
+    observeCoalescedWait("redis", "cache_hit", 8);
+    observeColdMissLockTimeout();
+    observeBotAnalyticsEnqueue("queued");
+    observeBotAnalyticsDrop("queue_full");
+    observeBotAnalyticsBatch("success", 10, 15);
+    observeBotAnalyticsDrain("success");
+    setBotAnalyticsQueueState(4, 2);
+    observeClientErrorTelemetry("rate_limited");
+    observeRequestTimeout("ssr", "/bilgi-merkezi");
+    observeReferralRedirect("credit-card", "issued", 18, 2.5);
+    observeSsrCapacityRejection("queue_full");
+    observeSsrQueueWait("accepted", 4);
+    setSsrCapacityState(3, 2);
+    observeMarketStreamConnection("accepted");
+    observeMarketStreamEvent("received");
+    setMarketStreamActiveConnections(4);
+
+    const metrics = renderMetrics();
+
+    expect(metrics).toContain(
+      'ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="HIT",route="/bilgi-merkezi"}',
+    );
+    expect(metrics).toContain(
+      'ssr_cache_response_duration_milliseconds_count{state="HIT",route="/bilgi-merkezi"}',
+    );
+    expect(metrics).toContain('ssr_gateway_requests_total{status_class="error",outcome="timeout"}');
+    expect(metrics).toContain(
+      'ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="read",outcome="success"}',
+    );
+    expect(metrics).toContain(
+      'ssr_cache_revalidation_duration_milliseconds_count{outcome="success"}',
+    );
+    expect(metrics).toContain(
+      'ssr_gateway_invalid_payload_total{contract="offers",reason="schema"}',
+    );
+    expect(metrics).toContain(
+      'ssr_shell_degraded_total{component="menu",reason="invalid_payload"}',
+    );
+    expect(metrics).toContain('ssr_cache_fill_total{outcome="success"}');
+    expect(metrics).toContain('ssr_cache_coalesced_wait_total{scope="redis",outcome="cache_hit"}');
+    expect(metrics).toContain('ssr_cache_lock_timeout_total{outcome="timeout"}');
+    expect(metrics).toContain('ssr_bot_analytics_enqueue_total{outcome="queued"}');
+    expect(metrics).toContain('ssr_bot_analytics_dropped_total{reason="queue_full"}');
+    expect(metrics).toContain('ssr_bot_analytics_batches_total{outcome="success"}');
+    expect(metrics).toContain("ssr_bot_analytics_queue_depth 4");
+    expect(metrics).toContain("ssr_bot_analytics_in_flight 2");
+    expect(metrics).toContain('ssr_client_error_telemetry_total{outcome="rate_limited"}');
+    expect(metrics).toContain('request_timeout_total{class="ssr",route="/bilgi-merkezi"}');
+    expect(metrics).toContain(
+      'ssr_referral_redirects_total{product_type="credit-card",outcome="issued"}',
+    );
+    expect(metrics).toContain(
+      'ssr_referral_redirect_duration_milliseconds_count{product_type="credit-card",outcome="issued"}',
+    );
+    expect(metrics).toContain(
+      'ssr_referral_gateway_processing_milliseconds_count{product_type="credit-card"}',
+    );
+    expect(metrics).toContain('ssr_render_rejections_total{reason="queue_full"}');
+    expect(metrics).toContain('ssr_render_queue_wait_milliseconds_count{outcome="accepted"}');
+    expect(metrics).toContain("ssr_render_in_flight 3");
+    expect(metrics).toContain("ssr_render_queue_depth 2");
+    expect(metrics).toContain('ssr_market_stream_connections_total{outcome="accepted"}');
+    expect(metrics).toContain('ssr_market_stream_events_total{outcome="received"}');
+    expect(metrics).toContain("ssr_market_stream_active_connections 4");
+  });
+
+  it("exports event-loop, process and release gauges", () => {
+    const metrics = renderMetrics();
+
+    expect(metrics).toContain("ssr_event_loop_lag_p99_seconds");
+    expect(metrics).toContain("process_resident_memory_bytes");
+    expect(metrics).toContain("process_cpu_user_seconds_total");
+    expect(metrics).toContain("# TYPE process_cpu_user_seconds_total counter");
+    expect(metrics).toContain("# TYPE process_cpu_system_seconds_total counter");
+    expect(metrics).toContain('ssr_release_info{service="origin-loom",release="development"} 1');
+  });
+
+  it("exports bounded cache cardinality and entry size metrics", () => {
+    observeCacheEntryWrite("housing-loans\0amount=2500000", "<html>bounded</html>");
+    observeCacheEntryWrite("housing-loans\0amount=2500000", "<html>updated</html>");
+
+    const metrics = renderMetrics();
+    expect(metrics).toContain('ssr_cache_entry_body_bytes_count{route="housing-loans"} 2');
+    expect(metrics).toContain('ssr_cache_key_bytes_count{route="housing-loans"} 2');
+    expect(metrics).toContain('ssr_cache_distinct_keys_observed{route="housing-loans"} 1');
+    expect(metrics).toContain("ssr_cache_cardinality_overflow_total");
+  });
+});

@@ -16,7 +16,7 @@ const browserRestrictedGlobals = {
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "eslint.config.js"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", "eslint.config.js"],
   },
   eslint.configs.recommended,
   eslintConfigPrettier,
@@ -79,53 +79,53 @@ export default tseslint.config(
         {
           zones: [
             {
-              target: "./server",
-              from: "./src/islands",
+              target: "./apps/showroom/server",
+              from: "./apps/showroom/src/islands",
               message: "Server must not import client islands.",
             },
             {
-              target: "./server",
-              from: "./src/lib/client",
+              target: "./apps/showroom/server",
+              from: "./apps/showroom/src/lib/client",
               message: "Server must not import browser-only client utilities.",
             },
             {
-              target: "./server",
-              from: "./src/lib/query",
+              target: "./apps/showroom/server",
+              from: "./apps/showroom/src/lib/query",
               message: "Server must not import client query infrastructure.",
             },
             {
-              target: "./server",
-              from: "./src/lib/stores",
+              target: "./apps/showroom/server",
+              from: "./apps/showroom/src/lib/stores",
               message: "Server must not import client stores.",
             },
             {
-              target: "./server",
-              from: "./src/entry.client.tsx",
+              target: "./apps/showroom/server",
+              from: "./apps/showroom/src/entry.client.tsx",
               message: "Server must not import client entry.",
             },
             {
-              target: "./src/components",
-              from: "./src/islands",
+              target: "./apps/showroom/src/components",
+              from: "./apps/showroom/src/islands",
               message: "SSR components must not import islands directly.",
             },
             {
-              target: "./src/features",
-              from: "./src/islands",
+              target: "./apps/showroom/src/features",
+              from: "./apps/showroom/src/islands",
               message: "SSR routes must not import islands directly.",
             },
             {
-              target: "./src/lib",
-              from: "./server",
-              message: "src/lib must not import server code.",
+              target: "./apps/showroom/src/lib",
+              from: "./apps/showroom/server",
+              message: "apps/showroom/src/lib must not import server code.",
             },
             {
-              target: "./src",
-              from: "./server",
+              target: "./apps/showroom/src",
+              from: "./apps/showroom/server",
               message: "Shared/client source must not import server code.",
             },
             {
-              target: "./src/islands",
-              from: "./server",
+              target: "./apps/showroom/src/islands",
+              from: "./apps/showroom/server",
               message: "Islands must not import server code.",
             },
           ],
@@ -134,7 +134,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["vite.config.ts", "vitest.config.ts"],
+    files: ["vitest.config.ts"],
     languageOptions: {
       parserOptions: {
         projectService: false,
@@ -144,25 +144,40 @@ export default tseslint.config(
     },
   },
   {
+    // Workspace packages use plain relative imports; the ~/@server aliases are app-only.
+    files: ["packages/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
+  {
     languageOptions: {
       globals: globals.browser,
     },
   },
   {
-    files: ["server/**/*.{ts,tsx}"],
+    files: ["apps/showroom/server/**/*.{ts,tsx}"],
     languageOptions: {
       globals: globals.node,
     },
   },
   {
-    files: ["mock-gw/**/*.js", "scripts/**/*.mjs", "tests/**/*.mjs"],
+    files: [
+      "apps/showroom/tests/fixtures/gateway/**/*.js",
+      "scripts/**/*.mjs",
+      "packages/origin-tooling/bin/**/*.mjs",
+      "packages/origin-tooling/tests/**/*.mjs",
+      "apps/showroom/scripts/**/*.mjs",
+      "apps/showroom/load-test/**/*.mjs",
+      "apps/showroom/tests/**/*.mjs",
+    ],
     languageOptions: {
       globals: globals.node,
     },
   },
   {
-    files: ["server/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
-    ignores: ["src/components/icons/generated.tsx"],
+    files: ["apps/showroom/server/**/*.{ts,tsx}", "apps/showroom/src/**/*.{ts,tsx}"],
+    ignores: ["apps/showroom/src/components/icons/generated.tsx"],
     rules: {
       "max-lines": ["warn", { max: 350, skipBlankLines: true, skipComments: true }],
       "max-lines-per-function": ["warn", { max: 150, skipBlankLines: true, skipComments: true }],
@@ -170,7 +185,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["tests/**/*.ts"],
+    files: ["apps/showroom/tests/**/*.ts"],
     languageOptions: {
       globals: globals.node,
     },
@@ -179,10 +194,12 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",
       "@typescript-eslint/no-unsafe-call": "off",
+      // expect(obj.method) is the standard vitest spy assertion form.
+      "@typescript-eslint/unbound-method": "off",
     },
   },
   {
-    files: ["src/**/*.tsx", "server/routes/**/*.tsx"],
+    files: ["apps/showroom/src/**/*.tsx", "apps/showroom/server/routes/**/*.tsx"],
     plugins: { react, "react-hooks": reactHooks },
     rules: {
       ...react.configs.recommended.rules,
@@ -204,7 +221,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/islands/**/*.{ts,tsx}"],
+    files: ["apps/showroom/src/islands/**/*.{ts,tsx}"],
     plugins: { "react-refresh": reactRefresh },
     rules: {
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
@@ -212,11 +229,11 @@ export default tseslint.config(
   },
   {
     files: [
-      "server/routes/**/*.{ts,tsx}",
-      "src/features/**/*.{ts,tsx}",
-      "src/components/**/*.{ts,tsx}",
+      "apps/showroom/server/routes/**/*.{ts,tsx}",
+      "apps/showroom/src/features/**/*.{ts,tsx}",
+      "apps/showroom/src/components/**/*.{ts,tsx}",
     ],
-    ignores: ["src/components/ui/**"],
+    ignores: ["apps/showroom/src/components/ui/**"],
     languageOptions: {
       globals: browserRestrictedGlobals,
     },

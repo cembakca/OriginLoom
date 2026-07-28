@@ -1,10 +1,14 @@
 # OriginLoom
 
-Hono ve React 19 üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı.
+Hono üzerine kurulu, meta-framework kullanmayan full-document SSR altyapısı. Sunucu çekirdeği UI
+framework'ünden bağımsızdır; React 19 desteği takılabilir bir render adaptörü olarak gelir.
 
 Mimari kararların gerekçesi ve Next.js’ten geçişin teknik hikâyesi için
-[makale serisi indeksine](docs/articles/README.md) bakın. Production güvenlik kabulü, secret rotation
+[makale serisi indeksine](docs/articles/README.md) bakın. **15+ ürün / Next migration organizasyonu**
+için [çok ürünlü adoption rehberi](docs/multi-product-adoption.md); platform üstüne yeni bir ürün
+uygulaması eklemek için [new-product-app.md](docs/new-product-app.md). Production güvenlik kabulü, secret rotation
 ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur.
+Paketlerin sürümlenmesi ve yayın hattı için [releasing.md](docs/releasing.md).
 
 ## Mimari
 
@@ -15,31 +19,99 @@ Bir sayfa isteği sırasıyla şu katmanlardan geçer:
 3. Routing katmanı redirect, internal rewrite veya explicit external rewrite kararı verir; gateway
    browser yüzeyi wildcard proxy yerine BFF handler'larıyla açılır.
 4. Route cache policy hesaplanır; uygun GET isteğinde HTML cache okunur.
-5. MISS durumunda loader çalışır ve React document render edilir.
+5. MISS durumunda loader çalışır ve kurulu renderer document'ı üretir (showroom'da React).
 6. Etkileşimli alanlar bağımsız island chunk'ları olarak hydrate/mount edilir.
 
 ## Dizinler
 
 ```text
-server/
-  adapters/       Gateway gibi dış sistem adapter'ları
-  api/            Public ve internal BFF endpointleri
-  cache/          Katmanlı L1 memory + opsiyonel L2 Redis, Pub/Sub invalidation
-  middleware/     Request pipeline adımları
-  routes/         Loader, cache ve metadata içeren SSR route tanımları
-  services/       Server-only veri orkestrasyonu
-  ssr/            Request çözümleme, cache/loader ve response orkestrasyonu
-  handler.ts      SSR pipeline'ın ince giriş noktası
-  document.tsx    Tam HTML document render'ı
+packages/
+  origin-shared/  Framework-nötr taban (@originloom/shared)
+    src/lib/        Route/Ctx tipleri, metadata motoru, device/media/menu yardımcıları
+    src/routing/    Rewrite/redirect resolution engine
+    src/render.ts   OriginRenderer — UI framework seam'i
+  origin-core/    Platform sunucu runtime'ı (@originloom/core) — React bağımlılığı yok
+    src/adapters/   Gateway gibi dış sistem adapter'ları
+    src/cache/      Katmanlı L1 memory + opsiyonel L2 Redis, Pub/Sub invalidation
+    src/middleware/ Request pipeline adımları
+    src/ssr/        Request çözümleme, cache/loader ve response orkestrasyonu
+    src/handler.ts  SSR pipeline'ın ince giriş noktası
+    src/document.ts Document render orkestrasyonu (HTML'i renderer üretir)
+    src/runtime.ts  Ürünün platforma verdiği kontrat (renderer, fragment, shell, metrik)
+  origin-react/   React adaptörü: island runtime + Vite preset (@originloom/react)
+    src/server/     createReactRenderer — OriginRenderer'ın React implementasyonu
+  origin-vanilla/ Framework'süz adaptör (@originloom/vanilla)
+    src/html.ts     html`` tagged template — otomatik escape
+    src/server/     createHtmlRenderer — OriginRenderer'ın string implementasyonu
+  origin-tooling/ build/dev/env/compose/smoke bin'leri (@originloom/tooling)
 
-src/
-  features/       Route'ların feature bazlı SSR-safe sunum/shell bileşenleri
-  islands/        Client-side etkileşim giriş noktaları
-  components/     SSR-safe UI bileşenleri
-  lib/            Paylaşılan saf tip, kontrat ve yardımcılar
+apps/
+  showroom/       Referans ürün uygulaması
+    server/routes/    Loader, cache ve metadata içeren SSR route tanımları
+    server/api/       Public ve internal BFF endpointleri
+    server/services/  Server-only veri orkestrasyonu
+    server/product/   Platforma enjekte edilen ürün kontratı (runtime, renderer, fragment, document shell)
+    src/features/     Route'ların feature bazlı SSR-safe sunum/shell bileşenleri
+    src/islands/      Client-side etkileşim giriş noktaları
+    src/components/   SSR-safe UI bileşenleri
+    src/lib/          Ürüne özel tip, kontrat ve yardımcılar (cache-keys dahil)
+    tests/            src ve server yapısını izleyen Vitest testleri
 
-tests/            src ve server yapısını izleyen Vitest testleri
+tools/
+  mock-gw/        Bağımsız mock gateway (dev/test aracı)
 ```
+
+## Workspace
+
+Repo bir pnpm workspace'idir: platform paketleri (`packages/*`) bir kez yazılır, ürün uygulamaları
+(`apps/*`) bunları `workspace:*` bağımlılığı olarak tüketir ve ayrı deploy edilir. Paketler kaynak
+`.ts` export eder; ayrı bir derleme adımı yoktur — Vite/tsx/Vitest/tsc kaynağı doğrudan çözer.
+Bağımlılık yönü tek yönlüdür: `showroom → {core, renderer} → shared`. `core`, `react` ve `vanilla`
+birbirini import etmez — ikisi de `@originloom/shared`'daki kontratlara yaslanır, böylece sunucu runtime'ı
+UI framework'ünden bağımsız kalır. Ters yöndeki bir import ya da core/shared içinde bir React
+specifier'ı `pnpm check:cycles` tarafından reddedilir.
+
+### Paketleme ve sürüm
+
+Beş `@originloom/*` paketi **sabit grup**: hep aynı sürümü paylaşır ve birlikte çıkar (birbirlerine
+tam sürümle bağlılar, kısmi bir yayın tüketiciyi çözülemez bir kümeyle bırakır).
+
+```bash
+pnpm changeset          # değişiklik notu ekle (PR ile birlikte commit'lenir)
+pnpm changeset:version  # beş paketi birlikte yükselt, CHANGELOG yaz
+pnpm release:verify     # yerel Verdaccio'ya yayınla, temiz bir app'e kur, build + smoke
+```
+
+`release:verify` kapıdır: paketleri workspace'ten değil **registry'den** kurup uygulamayı ayağa
+kaldırır — `dist` derlemesi, `publishConfig.exports` haritası ve paketler arası sürümler ancak orada
+buluşur. CI'da her PR'da hem react hem vanilla için koşar.
+
+Ürün ekiplerinin yaşayacağı akışı (uygulama kendi reposunda, paketler registry'den kurulu) bugün
+yerel bir registry ile birebir deneyebilirsiniz:
+
+```bash
+pnpm registry:local     # kalıcı Verdaccio — http://localhost:4873
+pnpm registry:publish   # 5 paketi oraya yayınla
+```
+
+Kurumsal yayın hedefi **Nexus** private registry'sidir; yerel akış bilinçli olarak aynı şekle
+sahip, geçiş URL + kimlik bilgisi değişikliğinden ibaret. Sürümleme kararları, provanın adım adım
+ne yaptığı ve Nexus'a geçiş listesi: [docs/releasing.md](docs/releasing.md).
+
+Kök komutlar tüm workspace'i kapsar:
+
+```bash
+pnpm install
+pnpm dev            # apps/showroom dev stack (Vite + mock gateway + SSR server)
+pnpm build          # apps/showroom production build
+pnpm test           # tüm projeler (vitest projects)
+pnpm ci             # typecheck + cycles + lint + format + coverage + build + smoke
+pnpm create-app     # yeni ürün uygulaması üretir (standalone; --workspace ile apps/<ad>)
+                    # varsayılan renderer React; --vanilla ile UI framework'süz app
+```
+
+Aşağıdaki tablodaki uygulama komutları showroom kapsamındadır; kökten
+`pnpm --filter showroom <komut>` ile ya da `apps/showroom` dizininden çalıştırılır.
 
 ## Route kontratı
 
@@ -78,22 +150,22 @@ Ortam yapılandırması `.env.development`, `.env.staging` ve `.env.production` 
 yönetilir. Kişisel override'lar için `.env.local` (veya `.env.<ortam>.local`) kullanın; shell
 değişkenleri dosyalardan önceliklidir.
 
-| Komut                            | Ortam dosyası                                 | Cache   | Açıklama                                            |
-| -------------------------------- | ---------------------------------------------- | ------- | ---------------------------------------------------- |
-| `npm run dev`                    | `.env.development`                             | L1-only | Günlük geliştirme — Redis gerekmez                   |
-| `npm run dev:redis`              | `.env.development` + `.env.development.redis`  | L1+L2   | Docker Redis ile dağıtık cache testi                 |
-| `npm run compose:up`             | `.env.production` (Docker)                     | L1-only | Foreground stack; Ctrl+C sonrası container'lar kaldırılır |
-| `npm run compose:redis`          | + Redis overlay                                | L1+L2   | Redis overlay ile stack; çıkışta `compose down`        |
-| `npm run compose:clean`          | —                                              | —       | Dev + load-test compose container'larını kaldırır      |
-| `npm run start:local`            | `.env.production` + local mock gateway         | L1-only | **Yerel dry-run**: prod build, gerçek altyapı yok    |
-| `npm run start:local:redis`      | `.env.production` + local mock gateway         | L1+L2   | **Yerel dry-run**: + Docker Redis, gerçek altyapı yok |
-| `npm run start:staging:local`    | `.env.staging` + local mock gateway            | L1-only | **Yerel dry-run**: staging config, gerçek altyapı yok |
-| `npm run start:staging:local:redis` | `.env.staging` + local mock gateway         | L1+L2   | **Yerel dry-run**: + Docker Redis, gerçek altyapı yok |
-| `npm run start:memory`           | `.env.production` + memory overlay             | L1-only | Gerçek production build, Redis'siz tek pod deploy    |
-| `npm run start:staging`          | `.env.staging`                                 | redis   | Gerçek staging bundle (gerçek altyapıya bağlanır)    |
-| `npm run start`                  | `.env.production`                              | redis   | Gerçek production bundle (gerçek altyapıya bağlanır) |
+| Komut                            | Ortam dosyası                                 | Cache   | Açıklama                                                  |
+| -------------------------------- | --------------------------------------------- | ------- | --------------------------------------------------------- |
+| `pnpm dev`                       | `.env.development`                            | L1-only | Günlük geliştirme — Redis gerekmez                        |
+| `pnpm dev:redis`                 | `.env.development` + `.env.development.redis` | L1+L2   | Docker Redis ile dağıtık cache testi                      |
+| `pnpm compose:up`                | `.env.production` (Docker)                    | L1-only | Foreground stack; Ctrl+C sonrası container'lar kaldırılır |
+| `pnpm compose:redis`             | + Redis overlay                               | L1+L2   | Redis overlay ile stack; çıkışta `compose down`           |
+| `pnpm compose:clean`             | —                                             | —       | Dev + load-test compose container'larını kaldırır         |
+| `pnpm start:local`               | `.env.production` + local mock gateway        | L1-only | **Yerel dry-run**: prod build, gerçek altyapı yok         |
+| `pnpm start:local:redis`         | `.env.production` + local mock gateway        | L1+L2   | **Yerel dry-run**: + Docker Redis, gerçek altyapı yok     |
+| `pnpm start:staging:local`       | `.env.staging` + local mock gateway           | L1-only | **Yerel dry-run**: staging config, gerçek altyapı yok     |
+| `pnpm start:staging:local:redis` | `.env.staging` + local mock gateway           | L1+L2   | **Yerel dry-run**: + Docker Redis, gerçek altyapı yok     |
+| `pnpm start:memory`              | `.env.production` + memory overlay            | L1-only | Gerçek production build, Redis'siz tek pod deploy         |
+| `pnpm start:staging`             | `.env.staging`                                | redis   | Gerçek staging bundle (gerçek altyapıya bağlanır)         |
+| `pnpm start`                     | `.env.production`                             | redis   | Gerçek production bundle (gerçek altyapıya bağlanır)      |
 
-`start:local*` ve `start:staging:local*` komutları `npm run build` sonrası prod bundle'ı **yerel
+`start:local*` ve `start:staging:local*` komutları `pnpm build` sonrası prod bundle'ı **yerel
 mock gateway'e** karşı çalıştırır — `GATEWAY_URL`/`SITE_URL` her zaman `127.0.0.1`'e zorlanır, staging/
 production `.env` dosyalarındaki gerçek adresler asla kullanılmaz. `:redis` varyantı
 `docker-compose.redis.yml`'deki `redis` servisini otomatik ayağa kaldırır. Bunlar yalnız yerel
@@ -101,8 +173,8 @@ doğrulama/test amaçlıdır; gerçek deploy her zaman `start`, `start:staging` 
 kullanır ve altyapı adreslerini/secret'ları ortam değişkenlerinden veya secret manager'dan alır.
 
 ```bash
-npm ci
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Bu komut uygulamayı `http://127.0.0.1:3005`, bağımsız mock gateway'i ise
@@ -148,7 +220,7 @@ yazısına bakın.
 Gateway'i tek başına başlatmak için:
 
 ```bash
-npm run mock-gw
+pnpm mock-gw
 ```
 
 Çalışan CMS redirect/query merge örneği:
@@ -165,13 +237,13 @@ destination fragment'i redirect sonucuna taşınmaz.
 Redis/SWR/purge davranışını production'a yakın test etmek için (opsiyonel):
 
 ```bash
-npm run dev:redis
+pnpm dev:redis
 ```
 
 Bu script önce Compose'taki `app` ve `mock-gw` container'larını durdurur, yalnızca Redis'i
 `docker compose up -d --wait redis` ile hazırlar, `.env.development.redis` overlay'ini uygular ve
-sonra `npm run dev` çalıştırır. Script kapatıldığında (Ctrl+C) Redis container'ı da kaldırılır; kalıntı
-temizliği için `npm run compose:clean` kullanın.
+sonra `pnpm dev` çalıştırır. Script kapatıldığında (Ctrl+C) Redis container'ı da kaldırılır; kalıntı
+temizliği için `pnpm compose:clean` kullanın.
 
 `dev:local`, `dev:redis` için geriye dönük alias'tır.
 
@@ -206,13 +278,13 @@ yazısına bakın.
 ## Kontroller
 
 ```bash
-npm run typecheck
-npm run lint
-npm run format:check
-npm test
-npm run test:coverage
-npm run build
-npm run ci
+pnpm typecheck
+pnpm lint
+pnpm format:check
+ppnpm test
+ppnpm test:coverage
+pnpm build
+ppnpm install
 ```
 
 ## Yük testi ve pentest hazırlığı
@@ -220,19 +292,19 @@ npm run ci
 Docker üzerinde **2 vCPU / 4 GiB** sınırlı production build ile L1-only ve L1+Redis profil karşılaştırması:
 
 ```bash
-npm run loadtest:memory
-npm run loadtest:redis
-npm run loadtest:compare
+pnpm loadtest:memory
+pnpm loadtest:redis
+pnpm loadtest:compare
 ```
 
-Kapasite kırma (503/504 bilinçli): `npm run stress:memory` / `npm run stress:redis`. Kısa: `--quick`.
+Kapasite kırma (503/504 bilinçli): `pnpm stress:memory` / `pnpm stress:redis`. Kısa: `--quick`.
 
-Kılavuz: [load-testing.md](docs/load-testing.md), [load-test/README.md](load-test/README.md).
+Kılavuz: [load-testing.md](docs/load-testing.md), [load-test/README.md](apps/showroom/load-test/README.md).
 
 Staging pentest öncesi otomatik kontrol:
 
 ```bash
-BASE_URL=https://staging.example.com npm run pentest:readiness
+BASE_URL=https://staging.example.com pnpm pentest:readiness
 ```
 
 Rehber: [pentest-prep.md](docs/pentest-prep.md), firmaya iletilecek şablon:
@@ -244,7 +316,7 @@ Rehber: [pentest-prep.md](docs/pentest-prep.md), firmaya iletilecek şablon:
 shutdown sırasında exporter'ı flush eder. Bir OTLP collector bağlamak için:
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 npm run dev
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 pnpm dev
 ```
 
 Her HTTP isteği inbound trace context'ini devralan bir server span üretir. Loader, SSR render,
@@ -256,7 +328,7 @@ Structured loglar `service`, `releaseId`, aktif `traceId` ve `spanId` alanların
 latency histogramları, gateway timeout/error outcome'ları, bot analytics queue/drop/batch/drain
 metrikleri, event-loop lag, CPU, heap/RSS, uptime ve release bilgisi. Cache write'ları ayrıca route
 bazında body/key byte histogramı ile bounded distinct key observation gauge'i üretir; örnek alarmlar
-`k8s/prometheus-rules.yaml` içindedir. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı
+`apps/showroom/k8s/prometheus-rules.yaml` içindedir. `requestId`, raw URL ve kullanıcı bilgisi metric label'ı
 yapılmaz. Varsayılan operations listener `9090` portundadır; `/metrics`, cache purge ve referral stats
 bu listener'dadır. `origin-loom-operations` ClusterIP servisi yalnız monitoring/operations namespace'lerine
 NetworkPolicy ile açılır. Public application `Service` yalnız `3005` portunu yayınlar; public
@@ -270,7 +342,7 @@ Ingress/WAF sınırı ile stack retention/RBAC zorunlulukları
 
 ## Image ve font pipeline
 
-`npm run media`, `server/media.config.json` içindeki yerel görselleri build-time Sharp ile responsive
+`pnpm media`, `apps/showroom/server/media.config.json` içindeki yerel görselleri build-time Sharp ile responsive
 AVIF, WebP ve JPEG varyantlarına dönüştürür. Çıktılar içerik hash'li olarak
 `dist/client/assets/media/` altına, boyut/format bilgisi ise `asset-pipeline.json` manifest'ine yazılır.
 `ResponsiveImage` intrinsic `width`/`height` ve `sizes` olmadan kullanılamaz; normal görseller lazy,
@@ -297,15 +369,15 @@ manifest üzerinden üretir; font lisansı build çıktısına dahildir.
 
 Ortam dosyaları:
 
-| Dosya                    | Kullanım                                     |
-| ------------------------ | -------------------------------------------- |
-| `.env.development`       | `npm run dev` — L1-only, Redis gerekmez |
-| `.env.development.redis` | `npm run dev:redis` overlay — L1+L2 |
-| `.env.production.memory` | `npm run start:memory` — tek pod production |
-| `.env.development.redis` | `npm run dev:redis` overlay'i                |
-| `.env.staging`           | `npm run start:staging`                      |
-| `.env.production`        | `npm run start` şablonu                      |
-| `.env.local`             | Kişisel override (gitignore)                 |
+| Dosya                    | Kullanım                                 |
+| ------------------------ | ---------------------------------------- |
+| `.env.development`       | `pnpm dev` — L1-only, Redis gerekmez     |
+| `.env.development.redis` | `pnpm dev:redis` overlay — L1+L2         |
+| `.env.production.memory` | `pnpm start:memory` — tek pod production |
+| `.env.development.redis` | `pnpm dev:redis` overlay'i               |
+| `.env.staging`           | `pnpm start:staging`                     |
+| `.env.production`        | `pnpm start` şablonu                     |
+| `.env.local`             | Kişisel override (gitignore)             |
 
 Temel değişkenler:
 
@@ -314,8 +386,8 @@ Temel değişkenler:
 - `GATEWAY_URL` — path/credential/query içermeyen backend origin'i; production varsayılan HTTPS
 - `ALLOW_INSECURE_GATEWAY` — yalnız güvenilir internal HTTP gateway için açık production istisnası
 - `CACHE_BACKEND` — `memory` (L1-only) veya `redis` (L1 + opsiyonel L2); production'da ikisi de geçerli
-- `CACHE_REQUIRED` — yalnız *runtime* Redis kesintisini yönetir: `true` ise başlangıç ping'i başarısız olursa process patlar ve sonraki kesintilerde readiness düşer; pub/sub subscriber kurulumu her zaman best-effort'tur ve bağlantı sağlanınca kendiliğinden toparlanır. `false` (varsayılan) L1-only fallback ile devam eder
-- `REDIS_URL` — `CACHE_BACKEND=redis` iken *her zaman* zorunlu (startup'ta doğrulanır); `CACHE_REQUIRED` bu kontrolü etkilemez — eksikse process hiç başlamaz
+- `CACHE_REQUIRED` — yalnız _runtime_ Redis kesintisini yönetir: `true` ise başlangıç ping'i başarısız olursa process patlar ve sonraki kesintilerde readiness düşer; pub/sub subscriber kurulumu her zaman best-effort'tur ve bağlantı sağlanınca kendiliğinden toparlanır. `false` (varsayılan) L1-only fallback ile devam eder
+- `REDIS_URL` — `CACHE_BACKEND=redis` iken _her zaman_ zorunlu (startup'ta doğrulanır); `CACHE_REQUIRED` bu kontrolü etkilemez — eksikse process hiç başlamaz
 - `ALLOW_INSECURE_REDIS` — yalnız kontrollü internal ağ için açık production TLS istisnası
 - `CACHE_MAX_ENTRIES` — L1 memory kapasitesi (her pod)
 - `CACHE_PURGE_SECRET` — production purge endpoint yetkilendirmesi
@@ -373,7 +445,7 @@ Local Docker testinde `localhost:3005` gibi bare loopback image URL'leri otomati
 `GTM_CONTAINER_ID` boş olabilir; doluysa yalnız `GTM-` ile başlayan büyük harf/rakam container formatı
 kabul edilir. Değer inline script üretilmeden önce startup validation'dan geçer.
 
-Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. `mock-gw/` bağımsız bir Node servisi
+Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. `tools/mock-gw/` bağımsız bir Node servisi
 olarak 4002 portunda çalışır; Docker Compose uygulamayı bu servise bağlar. Gerçek gateway hazır
 olduğunda yalnızca `GATEWAY_URL` değiştirilir.
 

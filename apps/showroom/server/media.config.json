@@ -1,0 +1,42 @@
+{
+  "seoAssets": {
+    "openGraphSource": "src/assets/images/home-hero.svg",
+    "brandSource": "src/assets/svg/brand-mark.svg"
+  },
+  "images": [
+    {
+      "id": "home-hero",
+      "source": "src/assets/images/home-hero.svg",
+      "width": 1600,
+      "height": 900,
+      "widths": [480, 768, 1200, 1600],
+      "quality": 78
+    }
+  ],
+  "fonts": [
+    {
+      "id": "inter-latin",
+      "source": "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+      "family": "Inter",
+      "style": "normal",
+      "weight": "100 900",
+      "display": "swap",
+      "unicodeRange": "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD",
+      "preload": true,
+      "license": "node_modules/@fontsource-variable/inter/LICENSE",
+      "licenseFilename": "inter-OFL-1.1.txt"
+    },
+    {
+      "id": "inter-latin-ext",
+      "source": "node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2",
+      "family": "Inter",
+      "style": "normal",
+      "weight": "100 900",
+      "display": "swap",
+      "unicodeRange": "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF",
+      "preload": true,
+      "license": "node_modules/@fontsource-variable/inter/LICENSE",
+      "licenseFilename": "inter-OFL-1.1.txt"
+    }
+  ]
+}

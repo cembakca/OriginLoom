@@ -1,0 +1,89 @@
+# Load-test stack. App container is capped at 2 vCPU / 4 GiB to mimic a constrained pod.
+# Run via: npm run loadtest:memory | npm run loadtest:redis
+
+name: origin-loom-loadtest
+
+services:
+  mock-gw:
+    # The gateway test fixture, run under a plain Node image (bind-mounted, no build).
+    image: node:22-alpine
+    working_dir: /gw
+    command: ["node", "server.js"]
+    volumes:
+      - ../tests/fixtures/gateway:/gw:ro
+    cpus: 0.5
+    mem_limit: 256m
+    environment:
+      PORT: "4002"
+      MARKET_STREAM_TOKEN: loadtest-market-stream-token
+      MOCK_GW_QUIET: "1"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4002/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    cpus: 0.5
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  app:
+    build:
+      context: ../../..
+      dockerfile: apps/showroom/Dockerfile
+    cpus: 2.0
+    mem_limit: 4096m
+    mem_reservation: 512m
+    ports:
+      - "${LOADTEST_APP_PORT:-31005}:3005"
+      - "${LOADTEST_METRICS_PORT:-31090}:9090"
+    environment:
+      NODE_ENV: production
+      APP_ENV: loadtest
+      PORT: "3005"
+      METRICS_PORT: "9090"
+      RELEASE_ID: loadtest
+      GATEWAY_URL: http://mock-gw:4002
+      SITE_URL: http://127.0.0.1:${LOADTEST_APP_PORT:-31005}
+      ALLOW_INSECURE_GATEWAY: "true"
+      ALLOW_INSECURE_REDIS: "true"
+      CACHE_PURGE_SECRET: loadtest-purge-secret
+      REFERRAL_STATS_SECRET: loadtest-referral-stats-secret
+      MARKET_STREAM_TOKEN: loadtest-market-stream-token
+      AUTH_REFRESH_COORDINATION_SECRET: loadtest-auth-coordination-secret
+      CSP_ENFORCE: "true"
+      OTEL_SDK_DISABLED: "true"
+      TRUST_PROXY: "false"
+      SSR_MAX_CONCURRENCY: "32"
+      SSR_MAX_QUEUE: "64"
+      SSR_QUEUE_WAIT_MS: "250"
+      # Profile-specific values are injected by compose override files.
+    depends_on:
+      mock-gw:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3005/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+      start_period: 15s

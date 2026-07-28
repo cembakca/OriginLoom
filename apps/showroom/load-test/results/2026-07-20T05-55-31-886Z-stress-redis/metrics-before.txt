@@ -1,0 +1,146 @@
+# HELP ssr_http_requests_total HTTP requests
+# TYPE ssr_http_requests_total counter
+ssr_http_requests_total{status_class="2xx",cache="NONE",route="<health>"} 2
+# HELP ssr_http_request_duration_milliseconds HTTP request duration
+# TYPE ssr_http_request_duration_milliseconds histogram
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="1"} 1
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="5"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="10"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="25"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="50"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="100"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="250"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="500"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="1000"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="2500"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="5000"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="10000"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="15000"} 2
+ssr_http_request_duration_milliseconds_bucket{status_class="2xx",cache="NONE",route="<health>",le="+Inf"} 2
+ssr_http_request_duration_milliseconds_sum{status_class="2xx",cache="NONE",route="<health>"} 3.2943330000000515
+ssr_http_request_duration_milliseconds_count{status_class="2xx",cache="NONE",route="<health>"} 2
+# HELP ssr_cache_response_duration_milliseconds End-to-end response duration by cache state
+# TYPE ssr_cache_response_duration_milliseconds histogram
+# HELP ssr_gateway_requests_total Gateway requests by outcome
+# TYPE ssr_gateway_requests_total counter
+# HELP ssr_gateway_invalid_payload_total Gateway payloads rejected by the runtime contract
+# TYPE ssr_gateway_invalid_payload_total counter
+# HELP ssr_shell_degraded_total Non-critical shell components rendered with controlled fallback data
+# TYPE ssr_shell_degraded_total counter
+# HELP ssr_cache_fill_total Cold cache fill attempts
+# TYPE ssr_cache_fill_total counter
+# HELP ssr_cache_fill_duration_milliseconds Cold cache loader, render and write duration
+# TYPE ssr_cache_fill_duration_milliseconds histogram
+# HELP ssr_cache_coalesced_wait_total Requests coalesced behind an in-process or Redis cold fill
+# TYPE ssr_cache_coalesced_wait_total counter
+# HELP ssr_cache_coalesced_wait_duration_milliseconds Time spent waiting for a coalesced cold fill
+# TYPE ssr_cache_coalesced_wait_duration_milliseconds histogram
+# HELP ssr_cache_lock_timeout_total Cold miss waits that exhausted the Redis lock wait budget
+# TYPE ssr_cache_lock_timeout_total counter
+# HELP ssr_bot_analytics_enqueue_total Bot analytics enqueue decisions
+# TYPE ssr_bot_analytics_enqueue_total counter
+# HELP ssr_bot_analytics_dropped_total Bot analytics events dropped before delivery
+# TYPE ssr_bot_analytics_dropped_total counter
+# HELP ssr_bot_analytics_batches_total Bot analytics batch delivery outcomes
+# TYPE ssr_bot_analytics_batches_total counter
+# HELP ssr_bot_analytics_batch_duration_milliseconds Bot analytics batch gateway duration
+# TYPE ssr_bot_analytics_batch_duration_milliseconds histogram
+# HELP ssr_bot_analytics_batch_size Bot analytics events per delivered batch
+# TYPE ssr_bot_analytics_batch_size histogram
+# HELP ssr_bot_analytics_drains_total Bot analytics shutdown drain outcomes
+# TYPE ssr_bot_analytics_drains_total counter
+# HELP ssr_bot_analytics_queue_depth Bot analytics events currently waiting in memory
+# TYPE ssr_bot_analytics_queue_depth gauge
+ssr_bot_analytics_queue_depth 0
+# HELP ssr_bot_analytics_in_flight Bot analytics batches currently in flight
+# TYPE ssr_bot_analytics_in_flight gauge
+ssr_bot_analytics_in_flight 0
+# HELP ssr_client_error_telemetry_total Client runtime error ingestion outcomes
+# TYPE ssr_client_error_telemetry_total counter
+# HELP ssr_referral_redirects_total Server-issued bank referral redirects
+# TYPE ssr_referral_redirects_total counter
+# HELP ssr_referral_redirect_duration_milliseconds End-to-end referral redirect creation duration
+# TYPE ssr_referral_redirect_duration_milliseconds histogram
+# HELP ssr_referral_gateway_processing_milliseconds Gateway-reported referral ticket processing duration
+# TYPE ssr_referral_gateway_processing_milliseconds histogram
+# HELP request_timeout_total Requests terminated after exceeding their class deadline
+# TYPE request_timeout_total counter
+# HELP ssr_render_rejections_total SSR requests rejected by bounded render capacity
+# TYPE ssr_render_rejections_total counter
+# HELP ssr_render_queue_wait_milliseconds Time SSR requests spent waiting for render capacity
+# TYPE ssr_render_queue_wait_milliseconds histogram
+# HELP ssr_render_in_flight SSR requests currently holding render capacity
+# TYPE ssr_render_in_flight gauge
+ssr_render_in_flight 0
+# HELP ssr_render_queue_depth SSR requests currently waiting for render capacity
+# TYPE ssr_render_queue_depth gauge
+ssr_render_queue_depth 0
+# HELP ssr_market_stream_connections_total Market stream browser connection outcomes
+# TYPE ssr_market_stream_connections_total counter
+# HELP ssr_market_stream_events_total Market stream upstream event outcomes
+# TYPE ssr_market_stream_events_total counter
+# HELP ssr_market_stream_active_connections Active browser market stream connections
+# TYPE ssr_market_stream_active_connections gauge
+ssr_market_stream_active_connections 0
+# HELP ssr_gateway_request_duration_milliseconds Gateway request duration
+# TYPE ssr_gateway_request_duration_milliseconds histogram
+# HELP ssr_cache_operations_total Cache operations by backend
+# TYPE ssr_cache_operations_total counter
+ssr_cache_operations_total{backend="redis",operation="ping",outcome="success"} 2
+# HELP ssr_cache_operation_duration_milliseconds Cache operation duration
+# TYPE ssr_cache_operation_duration_milliseconds histogram
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="1"} 0
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="5"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="10"} 1
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="25"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="50"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="100"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="250"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="500"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="1000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="2500"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="5000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="10000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="15000"} 2
+ssr_cache_operation_duration_milliseconds_bucket{backend="redis",operation="ping",outcome="success",le="+Inf"} 2
+ssr_cache_operation_duration_milliseconds_sum{backend="redis",operation="ping",outcome="success"} 24.610001000000125
+ssr_cache_operation_duration_milliseconds_count{backend="redis",operation="ping",outcome="success"} 2
+# HELP ssr_cache_revalidations_total SWR revalidations
+# TYPE ssr_cache_revalidations_total counter
+# HELP ssr_cache_revalidation_duration_milliseconds SWR revalidation duration
+# TYPE ssr_cache_revalidation_duration_milliseconds histogram
+# HELP ssr_cache_entry_body_bytes Cache entry body size in bytes
+# TYPE ssr_cache_entry_body_bytes histogram
+# HELP ssr_cache_key_bytes Logical cache key size in bytes
+# TYPE ssr_cache_key_bytes histogram
+# HELP ssr_cache_distinct_keys_observed Distinct cache keys observed by this process since startup
+# TYPE ssr_cache_distinct_keys_observed gauge
+# HELP ssr_cache_cardinality_overflow_total Distinct cache keys exceeding the bounded 2000-key observation window
+# TYPE ssr_cache_cardinality_overflow_total counter
+# HELP ssr_event_loop_lag_p50_seconds Event loop delay p50
+# TYPE ssr_event_loop_lag_p50_seconds gauge
+ssr_event_loop_lag_p50_seconds 0.023969791
+# HELP ssr_event_loop_lag_p95_seconds Event loop delay p95
+# TYPE ssr_event_loop_lag_p95_seconds gauge
+ssr_event_loop_lag_p95_seconds 0.026345471
+# HELP ssr_event_loop_lag_p99_seconds Event loop delay p99
+# TYPE ssr_event_loop_lag_p99_seconds gauge
+ssr_event_loop_lag_p99_seconds 0.031014911
+# HELP process_resident_memory_bytes Resident memory size
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 129843200
+# HELP process_heap_used_bytes Process heap used
+# TYPE process_heap_used_bytes gauge
+process_heap_used_bytes 25946096
+# HELP process_uptime_seconds Process uptime
+# TYPE process_uptime_seconds gauge
+process_uptime_seconds 1.108745667
+# HELP process_cpu_user_seconds_total Total user CPU time
+# TYPE process_cpu_user_seconds_total counter
+process_cpu_user_seconds_total 0.440758
+# HELP process_cpu_system_seconds_total Total system CPU time
+# TYPE process_cpu_system_seconds_total counter
+process_cpu_system_seconds_total 0.246509
+# HELP ssr_release_info Build and service identity
+# TYPE ssr_release_info gauge
+ssr_release_info{service="ssr-kit",release="loadtest"} 1

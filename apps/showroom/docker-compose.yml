@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: apps/showroom/Dockerfile
+    ports:
+      - "3005:3005"
+    env_file:
+      - .env.production
+    environment:
+      # Override cluster-internal hostnames and secrets for local Docker simulation.
+      CACHE_BACKEND: memory
+      # Point at a gateway you run yourself. host.docker.internal reaches a gateway
+      # started on the host (e.g. the mock gateway: `pnpm --prefix ../mock-gw dev`).
+      GATEWAY_URL: ${GATEWAY_URL:-http://host.docker.internal:4002}
+      RELEASE_ID: docker-compose
+      SITE_URL: http://localhost:3005
+      CACHE_PURGE_SECRET: dev-purge-secret
+      REFERRAL_STATS_SECRET: dev-referral-stats-secret
+      MARKET_STREAM_TOKEN: dev-market-stream-token
+      ALLOW_INSECURE_GATEWAY: "true"
+      TRUSTED_PROXY_HOPS: "1"
+      TRUSTED_PROXY_CIDRS: "172.16.0.0/12"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

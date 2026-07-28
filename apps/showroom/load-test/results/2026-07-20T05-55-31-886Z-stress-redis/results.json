@@ -1,0 +1,680 @@
+{
+  "profile": "redis",
+  "suite": "stress",
+  "meta": {
+    "startedAt": "2026-07-20T05:55:31.886Z",
+    "finishedAt": "2026-07-20T06:13:21.849Z",
+    "appUrl": "http://127.0.0.1:31005",
+    "metricsUrl": "http://127.0.0.1:31090",
+    "quick": false,
+    "resourceLimits": "2 vCPU / 4 GiB (app)",
+    "ssrLimits": "SSR_MAX_CONCURRENCY=32, SSR_MAX_QUEUE=64"
+  },
+  "results": [
+    {
+      "id": "stress-baseline",
+      "requests": {
+        "total": 82323,
+        "average": 5488.34,
+        "p50": 6183,
+        "p99": 6815
+      },
+      "throughput": {
+        "average": 8155648,
+        "p50": 9191423,
+        "p99": 10125311
+      },
+      "latency": {
+        "average": 0.86,
+        "p50": 1,
+        "p90": 2,
+        "p99": 4,
+        "max": 702
+      },
+      "statusCodes": {
+        "200": 82323
+      },
+      "errors": {
+        "total": 0,
+        "ratePct": 0,
+        "timeouts": 0,
+        "non2xx": 0
+      },
+      "durationSec": 15.03
+    },
+    {
+      "id": "stress-ssr-saturation",
+      "requests": {
+        "total": 531920,
+        "average": 4433.2,
+        "p50": 4675,
+        "p99": 5031
+      },
+      "throughput": {
+        "average": 10931336.54,
+        "p50": 11452415,
+        "p99": 12566527
+      },
+      "latency": {
+        "average": 86.08,
+        "p50": 59,
+        "p90": 110,
+        "p99": 500,
+        "max": 785
+      },
+      "statusCodes": {
+        "200": 19296,
+        "503": 512624
+      },
+      "errors": {
+        "total": 512624,
+        "ratePct": 96.37,
+        "timeouts": 0,
+        "non2xx": 512624
+      },
+      "durationSec": 120.05
+    },
+    {
+      "id": "stress-bypass-calculator-storm",
+      "requests": {
+        "total": 89118,
+        "average": 990.2,
+        "p50": 951,
+        "p99": 1359
+      },
+      "throughput": {
+        "average": 6322574.23,
+        "p50": 6414335,
+        "p99": 7245823
+      },
+      "latency": {
+        "average": 221.43,
+        "p50": 69,
+        "p90": 704,
+        "p99": 886,
+        "max": 7992
+      },
+      "statusCodes": {
+        "200": 9405,
+        "503": 79713
+      },
+      "errors": {
+        "total": 79713,
+        "ratePct": 89.45,
+        "timeouts": 0,
+        "non2xx": 79713
+      },
+      "durationSec": 90.1
+    },
+    {
+      "id": "stress-cache-stampede",
+      "requests": {
+        "total": 251168,
+        "average": 3349.46,
+        "p50": 3439,
+        "p99": 3657
+      },
+      "throughput": {
+        "average": 13433186.99,
+        "p50": 13893631,
+        "p99": 15130623
+      },
+      "latency": {
+        "average": 71.08,
+        "p50": 40,
+        "p90": 82,
+        "p99": 429,
+        "max": 679
+      },
+      "statusCodes": {
+        "200": 18400,
+        "503": 232768
+      },
+      "errors": {
+        "total": 232768,
+        "ratePct": 92.67,
+        "timeouts": 0,
+        "non2xx": 232768
+      },
+      "durationSec": 75.04
+    },
+    {
+      "id": "stress-mixed-hostile",
+      "requests": {
+        "total": 719811,
+        "average": 3999.39,
+        "p50": 4093,
+        "p99": 4347
+      },
+      "throughput": {
+        "average": 11964416,
+        "p50": 12165119,
+        "p99": 12984319
+      },
+      "latency": {
+        "average": 63.49,
+        "p50": 36,
+        "p90": 73,
+        "p99": 404,
+        "max": 635
+      },
+      "statusCodes": {
+        "200": 47904,
+        "503": 671907
+      },
+      "errors": {
+        "total": 671907,
+        "ratePct": 93.34,
+        "timeouts": 0,
+        "non2xx": 671907
+      },
+      "durationSec": 180.06
+    },
+    {
+      "id": "stress-capacity-ramp-c96",
+      "requests": {
+        "total": 66624,
+        "average": 1480.54,
+        "p50": 1518,
+        "p99": 1587
+      },
+      "throughput": {
+        "average": 28431883.38,
+        "p50": 29163519,
+        "p99": 30490623
+      },
+      "latency": {
+        "average": 64.35,
+        "p50": 62,
+        "p90": 74,
+        "p99": 100,
+        "max": 245
+      },
+      "statusCodes": {
+        "200": 66624
+      },
+      "errors": {
+        "total": 0,
+        "ratePct": 0,
+        "timeouts": 0,
+        "non2xx": 0
+      },
+      "durationSec": 45.05
+    },
+    {
+      "id": "stress-capacity-ramp-c192",
+      "requests": {
+        "total": 225487,
+        "average": 3758.6,
+        "p50": 3819,
+        "p99": 4025
+      },
+      "throughput": {
+        "average": 14218035.2,
+        "p50": 14311423,
+        "p99": 15171583
+      },
+      "latency": {
+        "average": 50.53,
+        "p50": 24,
+        "p90": 236,
+        "p99": 281,
+        "max": 463
+      },
+      "statusCodes": {
+        "200": 25280,
+        "503": 200207
+      },
+      "errors": {
+        "total": 200207,
+        "ratePct": 88.79,
+        "timeouts": 0,
+        "non2xx": 200207
+      },
+      "durationSec": 60.04
+    },
+    {
+      "id": "stress-capacity-ramp-c384",
+      "requests": {
+        "total": 390658,
+        "average": 4341.25,
+        "p50": 4407,
+        "p99": 4819
+      },
+      "throughput": {
+        "average": 10680024.18,
+        "p50": 10862591,
+        "p99": 11968511
+      },
+      "latency": {
+        "average": 87.91,
+        "p50": 61,
+        "p90": 109,
+        "p99": 518,
+        "max": 1124
+      },
+      "statusCodes": {
+        "200": 14048,
+        "503": 376610
+      },
+      "errors": {
+        "total": 376610,
+        "ratePct": 96.4,
+        "timeouts": 0,
+        "non2xx": 376610
+      },
+      "durationSec": 90.05
+    },
+    {
+      "id": "stress-capacity-ramp-c512",
+      "requests": {
+        "total": 336858,
+        "average": 4491.94,
+        "p50": 4587,
+        "p99": 4991
+      },
+      "throughput": {
+        "average": 10173535.58,
+        "p50": 10436607,
+        "p99": 11386879
+      },
+      "latency": {
+        "average": 113.42,
+        "p50": 87,
+        "p90": 133,
+        "p99": 591,
+        "max": 2048
+      },
+      "statusCodes": {
+        "200": 8320,
+        "503": 328538
+      },
+      "errors": {
+        "total": 328538,
+        "ratePct": 97.53,
+        "timeouts": 0,
+        "non2xx": 328538
+      },
+      "durationSec": 75.05
+    },
+    {
+      "id": "stress-deadline-hammer",
+      "requests": {
+        "total": 227583,
+        "average": 2529.13,
+        "p50": 2561,
+        "p99": 3251
+      },
+      "throughput": {
+        "average": 14556205.52,
+        "p50": 14778367,
+        "p99": 16015359
+      },
+      "latency": {
+        "average": 118.14,
+        "p50": 102,
+        "p90": 197,
+        "p99": 237,
+        "max": 559
+      },
+      "statusCodes": {
+        "200": 86144,
+        "503": 141439
+      },
+      "errors": {
+        "total": 141439,
+        "ratePct": 62.15,
+        "timeouts": 0,
+        "non2xx": 141439
+      },
+      "durationSec": 90.08
+    },
+    {
+      "id": "stress-recovery",
+      "requests": {
+        "total": 69401,
+        "average": 1542.25,
+        "p50": 1580,
+        "p99": 1668
+      },
+      "throughput": {
+        "average": 29618449.07,
+        "p50": 30359551,
+        "p99": 32047103
+      },
+      "latency": {
+        "average": 15.06,
+        "p50": 14,
+        "p90": 18,
+        "p99": 30,
+        "max": 98
+      },
+      "statusCodes": {
+        "200": 69401
+      },
+      "errors": {
+        "total": 0,
+        "ratePct": 0,
+        "timeouts": 0,
+        "non2xx": 0
+      },
+      "durationSec": 45.03,
+      "expectRecovery": true,
+      "recoveryOk": true
+    }
+  ],
+  "metrics": {
+    "before": {
+      "scrapedAt": "2026-07-20T05:55:53.030Z",
+      "raw": "# HELP ssr_http_requests_total HTTP requests\n# TYPE ssr_http_requests_total counter\nssr_http_requests_total{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 2\n# HELP ssr_http_request_duration_milliseconds HTTP request duration\n# TYPE ssr_http_request_duration_milliseconds histogram\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1\"} 1\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"25\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"50\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"100\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"250\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"500\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1000\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"2500\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5000\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10000\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"15000\"} 2\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"+Inf\"} 2\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 3.2943330000000515\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 2\n# HELP ssr_cache_response_duration_milliseconds End-to-end response duration by cache state\n# TYPE ssr_cache_response_duration_milliseconds histogram\n# HELP ssr_gateway_requests_total Gateway requests by outcome\n# TYPE ssr_gateway_requests_total counter\n# HELP ssr_gateway_invalid_payload_total Gateway payloads rejected by the runtime contract\n# TYPE ssr_gateway_invalid_payload_total counter\n# HELP ssr_shell_degraded_total Non-critical shell components rendered with controlled fallback data\n# TYPE ssr_shell_degraded_total counter\n# HELP ssr_cache_fill_total Cold cache fill attempts\n# TYPE ssr_cache_fill_total counter\n# HELP ssr_cache_fill_duration_milliseconds Cold cache loader, render and write duration\n# TYPE ssr_cache_fill_duration_milliseconds histogram\n# HELP ssr_cache_coalesced_wait_total Requests coalesced behind an in-process or Redis cold fill\n# TYPE ssr_cache_coalesced_wait_total counter\n# HELP ssr_cache_coalesced_wait_duration_milliseconds Time spent waiting for a coalesced cold fill\n# TYPE ssr_cache_coalesced_wait_duration_milliseconds histogram\n# HELP ssr_cache_lock_timeout_total Cold miss waits that exhausted the Redis lock wait budget\n# TYPE ssr_cache_lock_timeout_total counter\n# HELP ssr_bot_analytics_enqueue_total Bot analytics enqueue decisions\n# TYPE ssr_bot_analytics_enqueue_total counter\n# HELP ssr_bot_analytics_dropped_total Bot analytics events dropped before delivery\n# TYPE ssr_bot_analytics_dropped_total counter\n# HELP ssr_bot_analytics_batches_total Bot analytics batch delivery outcomes\n# TYPE ssr_bot_analytics_batches_total counter\n# HELP ssr_bot_analytics_batch_duration_milliseconds Bot analytics batch gateway duration\n# TYPE ssr_bot_analytics_batch_duration_milliseconds histogram\n# HELP ssr_bot_analytics_batch_size Bot analytics events per delivered batch\n# TYPE ssr_bot_analytics_batch_size histogram\n# HELP ssr_bot_analytics_drains_total Bot analytics shutdown drain outcomes\n# TYPE ssr_bot_analytics_drains_total counter\n# HELP ssr_bot_analytics_queue_depth Bot analytics events currently waiting in memory\n# TYPE ssr_bot_analytics_queue_depth gauge\nssr_bot_analytics_queue_depth 0\n# HELP ssr_bot_analytics_in_flight Bot analytics batches currently in flight\n# TYPE ssr_bot_analytics_in_flight gauge\nssr_bot_analytics_in_flight 0\n# HELP ssr_client_error_telemetry_total Client runtime error ingestion outcomes\n# TYPE ssr_client_error_telemetry_total counter\n# HELP ssr_referral_redirects_total Server-issued bank referral redirects\n# TYPE ssr_referral_redirects_total counter\n# HELP ssr_referral_redirect_duration_milliseconds End-to-end referral redirect creation duration\n# TYPE ssr_referral_redirect_duration_milliseconds histogram\n# HELP ssr_referral_gateway_processing_milliseconds Gateway-reported referral ticket processing duration\n# TYPE ssr_referral_gateway_processing_milliseconds histogram\n# HELP request_timeout_total Requests terminated after exceeding their class deadline\n# TYPE request_timeout_total counter\n# HELP ssr_render_rejections_total SSR requests rejected by bounded render capacity\n# TYPE ssr_render_rejections_total counter\n# HELP ssr_render_queue_wait_milliseconds Time SSR requests spent waiting for render capacity\n# TYPE ssr_render_queue_wait_milliseconds histogram\n# HELP ssr_render_in_flight SSR requests currently holding render capacity\n# TYPE ssr_render_in_flight gauge\nssr_render_in_flight 0\n# HELP ssr_render_queue_depth SSR requests currently waiting for render capacity\n# TYPE ssr_render_queue_depth gauge\nssr_render_queue_depth 0\n# HELP ssr_market_stream_connections_total Market stream browser connection outcomes\n# TYPE ssr_market_stream_connections_total counter\n# HELP ssr_market_stream_events_total Market stream upstream event outcomes\n# TYPE ssr_market_stream_events_total counter\n# HELP ssr_market_stream_active_connections Active browser market stream connections\n# TYPE ssr_market_stream_active_connections gauge\nssr_market_stream_active_connections 0\n# HELP ssr_gateway_request_duration_milliseconds Gateway request duration\n# TYPE ssr_gateway_request_duration_milliseconds histogram\n# HELP ssr_cache_operations_total Cache operations by backend\n# TYPE ssr_cache_operations_total counter\nssr_cache_operations_total{backend=\"redis\",operation=\"ping\",outcome=\"success\"} 2\n# HELP ssr_cache_operation_duration_milliseconds Cache operation duration\n# TYPE ssr_cache_operation_duration_milliseconds histogram\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"1\"} 0\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"5\"} 1\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"10\"} 1\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"25\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"50\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"100\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"250\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"500\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"1000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"2500\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"5000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"10000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"15000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"+Inf\"} 2\nssr_cache_operation_duration_milliseconds_sum{backend=\"redis\",operation=\"ping\",outcome=\"success\"} 24.610001000000125\nssr_cache_operation_duration_milliseconds_count{backend=\"redis\",operation=\"ping\",outcome=\"success\"} 2\n# HELP ssr_cache_revalidations_total SWR revalidations\n# TYPE ssr_cache_revalidations_total counter\n# HELP ssr_cache_revalidation_duration_milliseconds SWR revalidation duration\n# TYPE ssr_cache_revalidation_duration_milliseconds histogram\n# HELP ssr_cache_entry_body_bytes Cache entry body size in bytes\n# TYPE ssr_cache_entry_body_bytes histogram\n# HELP ssr_cache_key_bytes Logical cache key size in bytes\n# TYPE ssr_cache_key_bytes histogram\n# HELP ssr_cache_distinct_keys_observed Distinct cache keys observed by this process since startup\n# TYPE ssr_cache_distinct_keys_observed gauge\n# HELP ssr_cache_cardinality_overflow_total Distinct cache keys exceeding the bounded 2000-key observation window\n# TYPE ssr_cache_cardinality_overflow_total counter\n# HELP ssr_event_loop_lag_p50_seconds Event loop delay p50\n# TYPE ssr_event_loop_lag_p50_seconds gauge\nssr_event_loop_lag_p50_seconds 0.023969791\n# HELP ssr_event_loop_lag_p95_seconds Event loop delay p95\n# TYPE ssr_event_loop_lag_p95_seconds gauge\nssr_event_loop_lag_p95_seconds 0.026345471\n# HELP ssr_event_loop_lag_p99_seconds Event loop delay p99\n# TYPE ssr_event_loop_lag_p99_seconds gauge\nssr_event_loop_lag_p99_seconds 0.031014911\n# HELP process_resident_memory_bytes Resident memory size\n# TYPE process_resident_memory_bytes gauge\nprocess_resident_memory_bytes 129843200\n# HELP process_heap_used_bytes Process heap used\n# TYPE process_heap_used_bytes gauge\nprocess_heap_used_bytes 25946096\n# HELP process_uptime_seconds Process uptime\n# TYPE process_uptime_seconds gauge\nprocess_uptime_seconds 1.108745667\n# HELP process_cpu_user_seconds_total Total user CPU time\n# TYPE process_cpu_user_seconds_total counter\nprocess_cpu_user_seconds_total 0.440758\n# HELP process_cpu_system_seconds_total Total system CPU time\n# TYPE process_cpu_system_seconds_total counter\nprocess_cpu_system_seconds_total 0.246509\n# HELP ssr_release_info Build and service identity\n# TYPE ssr_release_info gauge\nssr_release_info{service=\"ssr-kit\",release=\"loadtest\"} 1\n",
+      "summary": {
+        "ssr_http_requests_total": [
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 2"
+        ],
+        "ssr_http_request_duration_milliseconds": [
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1\"} 1",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"25\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"50\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"100\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"250\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"500\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1000\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"2500\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5000\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10000\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"15000\"} 2",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"+Inf\"} 2",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 3.2943330000000515",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 2"
+        ]
+      }
+    },
+    "after": {
+      "scrapedAt": "2026-07-20T06:13:21.848Z",
+      "raw": "# HELP ssr_http_requests_total HTTP requests\n# TYPE ssr_http_requests_total counter\nssr_http_requests_total{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\"} 9469\nssr_http_requests_total{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\"} 86322\nssr_http_requests_total{status_class=\"2xx\",cache=\"HIT\",route=\"/\"} 266283\nssr_http_requests_total{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\"} 18400\nssr_http_requests_total{status_class=\"2xx\",cache=\"MISS\",route=\"/\"} 16\nssr_http_requests_total{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\"} 32\nssr_http_requests_total{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 82649\nssr_http_requests_total{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\"} 32\nssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/\"} 2091295\nssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\"} 79837\nssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\"} 141561\nssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\"} 232976\n# HELP ssr_http_request_duration_milliseconds HTTP request duration\n# TYPE ssr_http_request_duration_milliseconds histogram\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"1\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"5\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"10\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"25\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"50\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"100\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"250\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"500\"} 3716\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"1000\"} 9469\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"2500\"} 9469\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"5000\"} 9469\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"10000\"} 9469\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"15000\"} 9469\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"+Inf\"} 9469\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\"} 5117927.433449981\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\"} 9469\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"1\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"5\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"10\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"25\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"50\"} 7999\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"100\"} 81926\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"250\"} 86263\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"500\"} 86322\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"1000\"} 86322\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"2500\"} 86322\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"5000\"} 86322\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"10000\"} 86322\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"15000\"} 86322\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"+Inf\"} 86322\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\"} 6039923.156232949\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\"} 86322\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"1\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"5\"} 3548\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"10\"} 50726\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"25\"} 84044\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"50\"} 129765\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"100\"} 150985\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"250\"} 179141\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"500\"} 261915\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"1000\"} 266283\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"2500\"} 266283\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"5000\"} 266283\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"10000\"} 266283\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"15000\"} 266283\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"+Inf\"} 266283\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"HIT\",route=\"/\"} 42087426.03521016\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"HIT\",route=\"/\"} 266283\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"1\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"5\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"10\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"25\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"50\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"100\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"250\"} 1117\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"500\"} 18336\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"1000\"} 18400\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"2500\"} 18400\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"5000\"} 18400\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"10000\"} 18400\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"15000\"} 18400\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"+Inf\"} 18400\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\"} 6244595.840153019\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\"} 18400\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"1\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"5\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"10\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"25\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"50\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"100\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"250\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"500\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"1000\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"2500\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"5000\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"10000\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"15000\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"+Inf\"} 16\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"MISS\",route=\"/\"} 2425.720255999997\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"MISS\",route=\"/\"} 16\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"1\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"5\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"10\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"25\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"50\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"100\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"250\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"500\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"1000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"2500\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"5000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"10000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"15000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"+Inf\"} 32\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\"} 17947.86604399985\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1\"} 82642\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5\"} 82646\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10\"} 82648\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"25\"} 82648\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"50\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"100\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"250\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"500\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1000\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"2500\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5000\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10000\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"15000\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"+Inf\"} 82649\nssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 1860.6903730011436\nssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 82649\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"1\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"5\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"10\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"25\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"50\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"100\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"250\"} 0\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"500\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"1000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"2500\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"5000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"10000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"15000\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"+Inf\"} 32\nssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\"} 8784.365338999953\nssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\"} 32\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"1\"} 2051331\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"5\"} 2053638\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"10\"} 2053701\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"25\"} 2053734\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"50\"} 2053740\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"100\"} 2053778\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"250\"} 2053962\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"500\"} 2091175\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"1000\"} 2091295\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"2500\"} 2091295\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"5000\"} 2091295\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"10000\"} 2091295\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"15000\"} 2091295\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"+Inf\"} 2091295\nssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/\"} 10952931.464979991\nssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/\"} 2091295\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"1\"} 70134\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"5\"} 70221\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"10\"} 70221\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"25\"} 70221\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"50\"} 70221\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"100\"} 70221\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"250\"} 70237\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"500\"} 79837\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"1000\"} 79837\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"2500\"} 79837\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"5000\"} 79837\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"10000\"} 79837\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"15000\"} 79837\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"+Inf\"} 79837\nssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\"} 2800381.7985949935\nssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\"} 79837\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"1\"} 141204\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"5\"} 141490\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"10\"} 141497\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"25\"} 141497\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"50\"} 141497\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"100\"} 141497\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"250\"} 141497\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"500\"} 141561\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"1000\"} 141561\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"2500\"} 141561\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"5000\"} 141561\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"10000\"} 141561\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"15000\"} 141561\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"+Inf\"} 141561\nssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\"} 27363.854859992513\nssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\"} 141561\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"1\"} 230059\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"5\"} 230417\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"10\"} 230427\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"25\"} 230428\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"50\"} 230429\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"100\"} 230429\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"250\"} 230494\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"500\"} 232976\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"1000\"} 232976\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"2500\"} 232976\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"5000\"} 232976\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"10000\"} 232976\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"15000\"} 232976\nssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"+Inf\"} 232976\nssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\"} 696591.7940889955\nssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\"} 232976\n# HELP ssr_cache_response_duration_milliseconds End-to-end response duration by cache state\n# TYPE ssr_cache_response_duration_milliseconds histogram\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"1\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"5\"} 3548\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"10\"} 50726\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"25\"} 84044\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"50\"} 129765\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"100\"} 150985\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"250\"} 179141\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"500\"} 261915\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"1000\"} 266283\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"2500\"} 266283\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"5000\"} 266283\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"10000\"} 266283\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"15000\"} 266283\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"+Inf\"} 266283\nssr_cache_response_duration_milliseconds_sum{state=\"HIT\",route=\"/\"} 42087426.03521016\nssr_cache_response_duration_milliseconds_count{state=\"HIT\",route=\"/\"} 266283\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"1\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"5\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"10\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"25\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"50\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"100\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"250\"} 1117\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"500\"} 18336\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"1000\"} 18400\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"2500\"} 18400\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"5000\"} 18400\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"10000\"} 18400\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"15000\"} 18400\nssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"+Inf\"} 18400\nssr_cache_response_duration_milliseconds_sum{state=\"HIT\",route=\"/housing-loans\"} 6244595.840153019\nssr_cache_response_duration_milliseconds_count{state=\"HIT\",route=\"/housing-loans\"} 18400\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"1\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"5\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"10\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"25\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"50\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"100\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"250\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"500\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"1000\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"2500\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"5000\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"10000\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"15000\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"+Inf\"} 16\nssr_cache_response_duration_milliseconds_sum{state=\"MISS\",route=\"/\"} 2425.720255999997\nssr_cache_response_duration_milliseconds_count{state=\"MISS\",route=\"/\"} 16\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"1\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"5\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"10\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"25\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"50\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"100\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"250\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"500\"} 0\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"1000\"} 32\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"2500\"} 32\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"5000\"} 32\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"10000\"} 32\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"15000\"} 32\nssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"+Inf\"} 32\nssr_cache_response_duration_milliseconds_sum{state=\"MISS\",route=\"/housing-loans\"} 17947.86604399985\nssr_cache_response_duration_milliseconds_count{state=\"MISS\",route=\"/housing-loans\"} 32\n# HELP ssr_gateway_requests_total Gateway requests by outcome\n# TYPE ssr_gateway_requests_total counter\nssr_gateway_requests_total{status_class=\"2xx\",outcome=\"success\"} 9471\nssr_gateway_requests_total{status_class=\"4xx\",outcome=\"client_error\"} 536\nssr_gateway_requests_total{status_class=\"error\",outcome=\"network_error\"} 32\n# HELP ssr_gateway_invalid_payload_total Gateway payloads rejected by the runtime contract\n# TYPE ssr_gateway_invalid_payload_total counter\n# HELP ssr_shell_degraded_total Non-critical shell components rendered with controlled fallback data\n# TYPE ssr_shell_degraded_total counter\n# HELP ssr_cache_fill_total Cold cache fill attempts\n# TYPE ssr_cache_fill_total counter\nssr_cache_fill_total{outcome=\"race_hit\"} 26680\nssr_cache_fill_total{outcome=\"success\"} 4\n# HELP ssr_cache_fill_duration_milliseconds Cold cache loader, render and write duration\n# TYPE ssr_cache_fill_duration_milliseconds histogram\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"1\"} 4830\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"5\"} 17395\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"10\"} 18318\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"25\"} 19769\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"50\"} 23735\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"100\"} 26564\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"250\"} 26668\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"500\"} 26680\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"1000\"} 26680\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"2500\"} 26680\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"5000\"} 26680\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"10000\"} 26680\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"15000\"} 26680\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"race_hit\",le=\"+Inf\"} 26680\nssr_cache_fill_duration_milliseconds_sum{outcome=\"race_hit\"} 403710.6209290008\nssr_cache_fill_duration_milliseconds_count{outcome=\"race_hit\"} 26680\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"1\"} 0\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"5\"} 2\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"10\"} 2\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"25\"} 2\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"50\"} 2\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"100\"} 3\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"250\"} 3\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"500\"} 4\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"1000\"} 4\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"2500\"} 4\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"5000\"} 4\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"10000\"} 4\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"15000\"} 4\nssr_cache_fill_duration_milliseconds_bucket{outcome=\"success\",le=\"+Inf\"} 4\nssr_cache_fill_duration_milliseconds_sum{outcome=\"success\"} 360.5081669999927\nssr_cache_fill_duration_milliseconds_count{outcome=\"success\"} 4\n# HELP ssr_cache_coalesced_wait_total Requests coalesced behind an in-process or Redis cold fill\n# TYPE ssr_cache_coalesced_wait_total counter\nssr_cache_coalesced_wait_total{scope=\"process\",outcome=\"cache_hit\"} 542348\nssr_cache_coalesced_wait_total{scope=\"process\",outcome=\"filled\"} 76\n# HELP ssr_cache_coalesced_wait_duration_milliseconds Time spent waiting for a coalesced cold fill\n# TYPE ssr_cache_coalesced_wait_duration_milliseconds histogram\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"1\"} 25907\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"5\"} 161927\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"10\"} 277867\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"25\"} 283704\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"50\"} 328883\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"100\"} 454493\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"250\"} 540946\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"500\"} 542310\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"1000\"} 542348\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"2500\"} 542348\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"5000\"} 542348\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"10000\"} 542348\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"15000\"} 542348\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"cache_hit\",le=\"+Inf\"} 542348\nssr_cache_coalesced_wait_duration_milliseconds_sum{scope=\"process\",outcome=\"cache_hit\"} 23601776.454962943\nssr_cache_coalesced_wait_duration_milliseconds_count{scope=\"process\",outcome=\"cache_hit\"} 542348\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"1\"} 0\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"5\"} 30\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"10\"} 30\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"25\"} 30\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"50\"} 30\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"100\"} 30\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"250\"} 45\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"500\"} 76\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"1000\"} 76\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"2500\"} 76\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"5000\"} 76\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"10000\"} 76\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"15000\"} 76\nssr_cache_coalesced_wait_duration_milliseconds_bucket{scope=\"process\",outcome=\"filled\",le=\"+Inf\"} 76\nssr_cache_coalesced_wait_duration_milliseconds_sum{scope=\"process\",outcome=\"filled\"} 12644.88383900001\nssr_cache_coalesced_wait_duration_milliseconds_count{scope=\"process\",outcome=\"filled\"} 76\n# HELP ssr_cache_lock_timeout_total Cold miss waits that exhausted the Redis lock wait budget\n# TYPE ssr_cache_lock_timeout_total counter\n# HELP ssr_bot_analytics_enqueue_total Bot analytics enqueue decisions\n# TYPE ssr_bot_analytics_enqueue_total counter\n# HELP ssr_bot_analytics_dropped_total Bot analytics events dropped before delivery\n# TYPE ssr_bot_analytics_dropped_total counter\n# HELP ssr_bot_analytics_batches_total Bot analytics batch delivery outcomes\n# TYPE ssr_bot_analytics_batches_total counter\n# HELP ssr_bot_analytics_batch_duration_milliseconds Bot analytics batch gateway duration\n# TYPE ssr_bot_analytics_batch_duration_milliseconds histogram\n# HELP ssr_bot_analytics_batch_size Bot analytics events per delivered batch\n# TYPE ssr_bot_analytics_batch_size histogram\n# HELP ssr_bot_analytics_drains_total Bot analytics shutdown drain outcomes\n# TYPE ssr_bot_analytics_drains_total counter\n# HELP ssr_bot_analytics_queue_depth Bot analytics events currently waiting in memory\n# TYPE ssr_bot_analytics_queue_depth gauge\nssr_bot_analytics_queue_depth 0\n# HELP ssr_bot_analytics_in_flight Bot analytics batches currently in flight\n# TYPE ssr_bot_analytics_in_flight gauge\nssr_bot_analytics_in_flight 0\n# HELP ssr_client_error_telemetry_total Client runtime error ingestion outcomes\n# TYPE ssr_client_error_telemetry_total counter\n# HELP ssr_referral_redirects_total Server-issued bank referral redirects\n# TYPE ssr_referral_redirects_total counter\n# HELP ssr_referral_redirect_duration_milliseconds End-to-end referral redirect creation duration\n# TYPE ssr_referral_redirect_duration_milliseconds histogram\n# HELP ssr_referral_gateway_processing_milliseconds Gateway-reported referral ticket processing duration\n# TYPE ssr_referral_gateway_processing_milliseconds histogram\n# HELP request_timeout_total Requests terminated after exceeding their class deadline\n# TYPE request_timeout_total counter\n# HELP ssr_render_rejections_total SSR requests rejected by bounded render capacity\n# TYPE ssr_render_rejections_total counter\nssr_render_rejections_total{reason=\"queue_full\"} 2495870\nssr_render_rejections_total{reason=\"request_aborted\"} 321\nssr_render_rejections_total{reason=\"wait_timeout\"} 49478\n# HELP ssr_render_queue_wait_milliseconds Time SSR requests spent waiting for render capacity\n# TYPE ssr_render_queue_wait_milliseconds histogram\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"1\"} 117024\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"5\"} 117110\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"10\"} 117133\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"25\"} 155745\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"50\"} 200362\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"100\"} 242481\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"250\"} 372095\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"500\"} 380554\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"1000\"} 380554\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"2500\"} 380554\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"5000\"} 380554\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"10000\"} 380554\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"15000\"} 380554\nssr_render_queue_wait_milliseconds_bucket{outcome=\"accepted\",le=\"+Inf\"} 380554\nssr_render_queue_wait_milliseconds_sum{outcome=\"accepted\"} 32330426.115549337\nssr_render_queue_wait_milliseconds_count{outcome=\"accepted\"} 380554\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"1\"} 0\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"5\"} 0\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"10\"} 1\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"25\"} 23\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"50\"} 23\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"100\"} 55\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"250\"} 323\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"500\"} 49679\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"1000\"} 49799\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"2500\"} 49799\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"5000\"} 49799\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"10000\"} 49799\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"15000\"} 49799\nssr_render_queue_wait_milliseconds_bucket{outcome=\"rejected\",le=\"+Inf\"} 49799\nssr_render_queue_wait_milliseconds_sum{outcome=\"rejected\"} 14351753.072299918\nssr_render_queue_wait_milliseconds_count{outcome=\"rejected\"} 49799\n# HELP ssr_render_in_flight SSR requests currently holding render capacity\n# TYPE ssr_render_in_flight gauge\nssr_render_in_flight 0\n# HELP ssr_render_queue_depth SSR requests currently waiting for render capacity\n# TYPE ssr_render_queue_depth gauge\nssr_render_queue_depth 0\n# HELP ssr_market_stream_connections_total Market stream browser connection outcomes\n# TYPE ssr_market_stream_connections_total counter\n# HELP ssr_market_stream_events_total Market stream upstream event outcomes\n# TYPE ssr_market_stream_events_total counter\n# HELP ssr_market_stream_active_connections Active browser market stream connections\n# TYPE ssr_market_stream_active_connections gauge\nssr_market_stream_active_connections 0\n# HELP ssr_gateway_request_duration_milliseconds Gateway request duration\n# TYPE ssr_gateway_request_duration_milliseconds histogram\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"1\"} 0\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"5\"} 0\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"10\"} 0\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"25\"} 27\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"50\"} 72\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"100\"} 146\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"250\"} 439\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"500\"} 536\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"1000\"} 536\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"2500\"} 536\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"5000\"} 536\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"10000\"} 536\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"15000\"} 536\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"client_error\",le=\"+Inf\"} 536\nssr_gateway_request_duration_milliseconds_sum{outcome=\"client_error\"} 87607.93524500038\nssr_gateway_request_duration_milliseconds_count{outcome=\"client_error\"} 536\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"1\"} 0\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"5\"} 0\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"10\"} 15\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"25\"} 16\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"50\"} 16\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"100\"} 16\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"250\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"500\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"1000\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"2500\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"5000\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"10000\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"15000\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"network_error\",le=\"+Inf\"} 32\nssr_gateway_request_duration_milliseconds_sum{outcome=\"network_error\"} 1995.0508819997776\nssr_gateway_request_duration_milliseconds_count{outcome=\"network_error\"} 32\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"1\"} 0\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"5\"} 1\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"10\"} 1\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"25\"} 1\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"50\"} 2152\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"100\"} 4309\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"250\"} 9239\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"500\"} 9471\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"1000\"} 9471\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"2500\"} 9471\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"5000\"} 9471\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"10000\"} 9471\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"15000\"} 9471\nssr_gateway_request_duration_milliseconds_bucket{outcome=\"success\",le=\"+Inf\"} 9471\nssr_gateway_request_duration_milliseconds_sum{outcome=\"success\"} 1085901.7487999995\nssr_gateway_request_duration_milliseconds_count{outcome=\"success\"} 9471\n# HELP ssr_cache_operations_total Cache operations by backend\n# TYPE ssr_cache_operations_total counter\nssr_cache_operations_total{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\"} 26684\nssr_cache_operations_total{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\"} 26684\nssr_cache_operations_total{backend=\"redis\",operation=\"ping\",outcome=\"success\"} 2\nssr_cache_operations_total{backend=\"redis\",operation=\"read\",outcome=\"success\"} 691923\nssr_cache_operations_total{backend=\"redis\",operation=\"write\",outcome=\"success\"} 5\n# HELP ssr_cache_operation_duration_milliseconds Cache operation duration\n# TYPE ssr_cache_operation_duration_milliseconds histogram\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"1\"} 3467\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"5\"} 26272\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"10\"} 26649\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"25\"} 26667\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"50\"} 26676\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"100\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"250\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"500\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"1000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"2500\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"5000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"10000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"15000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\",le=\"+Inf\"} 26684\nssr_cache_operation_duration_milliseconds_sum{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\"} 61855.62461599805\nssr_cache_operation_duration_milliseconds_count{backend=\"redis\",operation=\"cold_fill_lock.acquire\",outcome=\"success\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"1\"} 5817\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"5\"} 17804\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"10\"} 18325\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"25\"} 19781\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"50\"} 23569\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"100\"} 26517\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"250\"} 26666\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"500\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"1000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"2500\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"5000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"10000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"15000\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\",le=\"+Inf\"} 26684\nssr_cache_operation_duration_milliseconds_sum{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\"} 386443.5506540058\nssr_cache_operation_duration_milliseconds_count{backend=\"redis\",operation=\"cold_fill_lock.release\",outcome=\"success\"} 26684\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"1\"} 0\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"5\"} 1\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"10\"} 1\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"25\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"50\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"100\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"250\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"500\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"1000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"2500\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"5000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"10000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"15000\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"ping\",outcome=\"success\",le=\"+Inf\"} 2\nssr_cache_operation_duration_milliseconds_sum{backend=\"redis\",operation=\"ping\",outcome=\"success\"} 24.610001000000125\nssr_cache_operation_duration_milliseconds_count{backend=\"redis\",operation=\"ping\",outcome=\"success\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"1\"} 50311\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"5\"} 384549\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"10\"} 472379\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"25\"} 528247\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"50\"} 618275\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"100\"} 684475\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"250\"} 691911\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"500\"} 691923\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"1000\"} 691923\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"2500\"} 691923\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"5000\"} 691923\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"10000\"} 691923\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"15000\"} 691923\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"read\",outcome=\"success\",le=\"+Inf\"} 691923\nssr_cache_operation_duration_milliseconds_sum{backend=\"redis\",operation=\"read\",outcome=\"success\"} 11086095.906221576\nssr_cache_operation_duration_milliseconds_count{backend=\"redis\",operation=\"read\",outcome=\"success\"} 691923\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"1\"} 2\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"5\"} 3\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"10\"} 3\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"25\"} 4\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"50\"} 4\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"100\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"250\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"500\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"1000\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"2500\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"5000\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"10000\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"15000\"} 5\nssr_cache_operation_duration_milliseconds_bucket{backend=\"redis\",operation=\"write\",outcome=\"success\",le=\"+Inf\"} 5\nssr_cache_operation_duration_milliseconds_sum{backend=\"redis\",operation=\"write\",outcome=\"success\"} 107.80074999999488\nssr_cache_operation_duration_milliseconds_count{backend=\"redis\",operation=\"write\",outcome=\"success\"} 5\n# HELP ssr_cache_revalidations_total SWR revalidations\n# TYPE ssr_cache_revalidations_total counter\n# HELP ssr_cache_revalidation_duration_milliseconds SWR revalidation duration\n# TYPE ssr_cache_revalidation_duration_milliseconds histogram\n# HELP ssr_cache_entry_body_bytes Cache entry body size in bytes\n# TYPE ssr_cache_entry_body_bytes histogram\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"1024\"} 0\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"10240\"} 0\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"51200\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"102400\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"262144\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"524288\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"1048576\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"home\",le=\"+Inf\"} 1\nssr_cache_entry_body_bytes_sum{route=\"home\"} 17361\nssr_cache_entry_body_bytes_count{route=\"home\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"1024\"} 0\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"10240\"} 0\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"51200\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"102400\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"262144\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"524288\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"1048576\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"housing-loans\",le=\"+Inf\"} 1\nssr_cache_entry_body_bytes_sum{route=\"housing-loans\"} 29685\nssr_cache_entry_body_bytes_count{route=\"housing-loans\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"1024\"} 0\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"10240\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"51200\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"102400\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"262144\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"524288\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"1048576\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"menu\",le=\"+Inf\"} 1\nssr_cache_entry_body_bytes_sum{route=\"menu\"} 4003\nssr_cache_entry_body_bytes_count{route=\"menu\"} 1\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"1024\"} 0\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"10240\"} 2\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"51200\"} 2\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"102400\"} 2\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"262144\"} 2\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"524288\"} 2\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"1048576\"} 2\nssr_cache_entry_body_bytes_bucket{route=\"other\",le=\"+Inf\"} 2\nssr_cache_entry_body_bytes_sum{route=\"other\"} 5711\nssr_cache_entry_body_bytes_count{route=\"other\"} 2\n# HELP ssr_cache_key_bytes Logical cache key size in bytes\n# TYPE ssr_cache_key_bytes histogram\nssr_cache_key_bytes_bucket{route=\"home\",le=\"32\"} 1\nssr_cache_key_bytes_bucket{route=\"home\",le=\"64\"} 1\nssr_cache_key_bytes_bucket{route=\"home\",le=\"128\"} 1\nssr_cache_key_bytes_bucket{route=\"home\",le=\"256\"} 1\nssr_cache_key_bytes_bucket{route=\"home\",le=\"512\"} 1\nssr_cache_key_bytes_bucket{route=\"home\",le=\"1024\"} 1\nssr_cache_key_bytes_bucket{route=\"home\",le=\"+Inf\"} 1\nssr_cache_key_bytes_sum{route=\"home\"} 15\nssr_cache_key_bytes_count{route=\"home\"} 1\nssr_cache_key_bytes_bucket{route=\"housing-loans\",le=\"32\"} 0\nssr_cache_key_bytes_bucket{route=\"housing-loans\",le=\"64\"} 0\nssr_cache_key_bytes_bucket{route=\"housing-loans\",le=\"128\"} 1\nssr_cache_key_bytes_bucket{route=\"housing-loans\",le=\"256\"} 1\nssr_cache_key_bytes_bucket{route=\"housing-loans\",le=\"512\"} 1\nssr_cache_key_bytes_bucket{route=\"housing-loans\",le=\"1024\"} 1\nssr_cache_key_bytes_bucket{route=\"housing-loans\",le=\"+Inf\"} 1\nssr_cache_key_bytes_sum{route=\"housing-loans\"} 94\nssr_cache_key_bytes_count{route=\"housing-loans\"} 1\nssr_cache_key_bytes_bucket{route=\"menu\",le=\"32\"} 1\nssr_cache_key_bytes_bucket{route=\"menu\",le=\"64\"} 1\nssr_cache_key_bytes_bucket{route=\"menu\",le=\"128\"} 1\nssr_cache_key_bytes_bucket{route=\"menu\",le=\"256\"} 1\nssr_cache_key_bytes_bucket{route=\"menu\",le=\"512\"} 1\nssr_cache_key_bytes_bucket{route=\"menu\",le=\"1024\"} 1\nssr_cache_key_bytes_bucket{route=\"menu\",le=\"+Inf\"} 1\nssr_cache_key_bytes_sum{route=\"menu\"} 12\nssr_cache_key_bytes_count{route=\"menu\"} 1\nssr_cache_key_bytes_bucket{route=\"other\",le=\"32\"} 0\nssr_cache_key_bytes_bucket{route=\"other\",le=\"64\"} 2\nssr_cache_key_bytes_bucket{route=\"other\",le=\"128\"} 2\nssr_cache_key_bytes_bucket{route=\"other\",le=\"256\"} 2\nssr_cache_key_bytes_bucket{route=\"other\",le=\"512\"} 2\nssr_cache_key_bytes_bucket{route=\"other\",le=\"1024\"} 2\nssr_cache_key_bytes_bucket{route=\"other\",le=\"+Inf\"} 2\nssr_cache_key_bytes_sum{route=\"other\"} 72\nssr_cache_key_bytes_count{route=\"other\"} 2\n# HELP ssr_cache_distinct_keys_observed Distinct cache keys observed by this process since startup\n# TYPE ssr_cache_distinct_keys_observed gauge\nssr_cache_distinct_keys_observed{route=\"home\"} 1\nssr_cache_distinct_keys_observed{route=\"housing-loans\"} 1\nssr_cache_distinct_keys_observed{route=\"menu\"} 1\nssr_cache_distinct_keys_observed{route=\"other\"} 2\n# HELP ssr_cache_cardinality_overflow_total Distinct cache keys exceeding the bounded 2000-key observation window\n# TYPE ssr_cache_cardinality_overflow_total counter\n# HELP ssr_event_loop_lag_p50_seconds Event loop delay p50\n# TYPE ssr_event_loop_lag_p50_seconds gauge\nssr_event_loop_lag_p50_seconds 0.021364735\n# HELP ssr_event_loop_lag_p95_seconds Event loop delay p95\n# TYPE ssr_event_loop_lag_p95_seconds gauge\nssr_event_loop_lag_p95_seconds 0.029048831\n# HELP ssr_event_loop_lag_p99_seconds Event loop delay p99\n# TYPE ssr_event_loop_lag_p99_seconds gauge\nssr_event_loop_lag_p99_seconds 0.030621694999999997\n# HELP process_resident_memory_bytes Resident memory size\n# TYPE process_resident_memory_bytes gauge\nprocess_resident_memory_bytes 243036160\n# HELP process_heap_used_bytes Process heap used\n# TYPE process_heap_used_bytes gauge\nprocess_heap_used_bytes 58699304\n# HELP process_uptime_seconds Process uptime\n# TYPE process_uptime_seconds gauge\nprocess_uptime_seconds 1049.892831354\n# HELP process_cpu_user_seconds_total Total user CPU time\n# TYPE process_cpu_user_seconds_total counter\nprocess_cpu_user_seconds_total 989.701159\n# HELP process_cpu_system_seconds_total Total system CPU time\n# TYPE process_cpu_system_seconds_total counter\nprocess_cpu_system_seconds_total 116.335157\n# HELP ssr_release_info Build and service identity\n# TYPE ssr_release_info gauge\nssr_release_info{service=\"ssr-kit\",release=\"loadtest\"} 1\n",
+      "summary": {
+        "ssr_http_requests_total": [
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\"} 9469",
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\"} 86322",
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"HIT\",route=\"/\"} 266283",
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\"} 18400",
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"MISS\",route=\"/\"} 16",
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\"} 32",
+          "ssr_http_requests_total{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 82649",
+          "ssr_http_requests_total{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\"} 32",
+          "ssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/\"} 2091295",
+          "ssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\"} 79837",
+          "ssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\"} 141561",
+          "ssr_http_requests_total{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\"} 232976"
+        ],
+        "ssr_http_request_duration_milliseconds": [
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"1\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"5\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"10\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"25\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"50\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"100\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"250\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"500\"} 3716",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"1000\"} 9469",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"2500\"} 9469",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"5000\"} 9469",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"10000\"} 9469",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"15000\"} 9469",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\",le=\"+Inf\"} 9469",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\"} 5117927.433449981",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"BYPASS\",route=\"/araclar/kredi-hesaplama\"} 9469",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"1\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"5\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"10\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"25\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"50\"} 7999",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"100\"} 81926",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"250\"} 86263",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"500\"} 86322",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"1000\"} 86322",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"2500\"} 86322",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"5000\"} 86322",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"10000\"} 86322",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"15000\"} 86322",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\",le=\"+Inf\"} 86322",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\"} 6039923.156232949",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"BYPASS\",route=\"/hesabim\"} 86322",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"1\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"5\"} 3548",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"10\"} 50726",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"25\"} 84044",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"50\"} 129765",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"100\"} 150985",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"250\"} 179141",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"500\"} 261915",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"1000\"} 266283",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"2500\"} 266283",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"5000\"} 266283",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"10000\"} 266283",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"15000\"} 266283",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/\",le=\"+Inf\"} 266283",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"HIT\",route=\"/\"} 42087426.03521016",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"HIT\",route=\"/\"} 266283",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"1\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"5\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"10\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"25\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"50\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"100\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"250\"} 1117",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"500\"} 18336",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"1000\"} 18400",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"2500\"} 18400",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"5000\"} 18400",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"10000\"} 18400",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"15000\"} 18400",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\",le=\"+Inf\"} 18400",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\"} 6244595.840153019",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"HIT\",route=\"/housing-loans\"} 18400",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"1\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"5\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"10\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"25\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"50\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"100\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"250\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"500\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"1000\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"2500\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"5000\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"10000\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"15000\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/\",le=\"+Inf\"} 16",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"MISS\",route=\"/\"} 2425.720255999997",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"MISS\",route=\"/\"} 16",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"1\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"5\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"10\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"25\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"50\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"100\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"250\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"500\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"1000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"2500\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"5000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"10000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"15000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\",le=\"+Inf\"} 32",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\"} 17947.86604399985",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"MISS\",route=\"/housing-loans\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1\"} 82642",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5\"} 82646",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10\"} 82648",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"25\"} 82648",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"50\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"100\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"250\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"500\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"1000\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"2500\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"5000\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"10000\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"15000\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\",le=\"+Inf\"} 82649",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 1860.6903730011436",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"2xx\",cache=\"NONE\",route=\"<health>\"} 82649",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"1\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"5\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"10\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"25\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"50\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"100\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"250\"} 0",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"500\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"1000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"2500\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"5000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"10000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"15000\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\",le=\"+Inf\"} 32",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\"} 8784.365338999953",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"ERROR\",route=\"/araclar/kredi-hesaplama\"} 32",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"1\"} 2051331",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"5\"} 2053638",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"10\"} 2053701",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"25\"} 2053734",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"50\"} 2053740",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"100\"} 2053778",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"250\"} 2053962",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"500\"} 2091175",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"1000\"} 2091295",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"2500\"} 2091295",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"5000\"} 2091295",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"10000\"} 2091295",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"15000\"} 2091295",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/\",le=\"+Inf\"} 2091295",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/\"} 10952931.464979991",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/\"} 2091295",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"1\"} 70134",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"5\"} 70221",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"10\"} 70221",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"25\"} 70221",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"50\"} 70221",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"100\"} 70221",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"250\"} 70237",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"500\"} 79837",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"1000\"} 79837",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"2500\"} 79837",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"5000\"} 79837",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"10000\"} 79837",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"15000\"} 79837",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\",le=\"+Inf\"} 79837",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\"} 2800381.7985949935",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/araclar/kredi-hesaplama\"} 79837",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"1\"} 141204",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"5\"} 141490",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"10\"} 141497",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"25\"} 141497",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"50\"} 141497",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"100\"} 141497",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"250\"} 141497",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"500\"} 141561",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"1000\"} 141561",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"2500\"} 141561",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"5000\"} 141561",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"10000\"} 141561",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"15000\"} 141561",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\",le=\"+Inf\"} 141561",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\"} 27363.854859992513",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/hesabim\"} 141561",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"1\"} 230059",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"5\"} 230417",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"10\"} 230427",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"25\"} 230428",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"50\"} 230429",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"100\"} 230429",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"250\"} 230494",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"500\"} 232976",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"1000\"} 232976",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"2500\"} 232976",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"5000\"} 232976",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"10000\"} 232976",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"15000\"} 232976",
+          "ssr_http_request_duration_milliseconds_bucket{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\",le=\"+Inf\"} 232976",
+          "ssr_http_request_duration_milliseconds_sum{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\"} 696591.7940889955",
+          "ssr_http_request_duration_milliseconds_count{status_class=\"5xx\",cache=\"NONE\",route=\"/housing-loans\"} 232976"
+        ],
+        "ssr_cache_response_duration_milliseconds": [
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"1\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"5\"} 3548",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"10\"} 50726",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"25\"} 84044",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"50\"} 129765",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"100\"} 150985",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"250\"} 179141",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"500\"} 261915",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"1000\"} 266283",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"2500\"} 266283",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"5000\"} 266283",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"10000\"} 266283",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"15000\"} 266283",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/\",le=\"+Inf\"} 266283",
+          "ssr_cache_response_duration_milliseconds_sum{state=\"HIT\",route=\"/\"} 42087426.03521016",
+          "ssr_cache_response_duration_milliseconds_count{state=\"HIT\",route=\"/\"} 266283",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"1\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"5\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"10\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"25\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"50\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"100\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"250\"} 1117",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"500\"} 18336",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"1000\"} 18400",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"2500\"} 18400",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"5000\"} 18400",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"10000\"} 18400",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"15000\"} 18400",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"HIT\",route=\"/housing-loans\",le=\"+Inf\"} 18400",
+          "ssr_cache_response_duration_milliseconds_sum{state=\"HIT\",route=\"/housing-loans\"} 6244595.840153019",
+          "ssr_cache_response_duration_milliseconds_count{state=\"HIT\",route=\"/housing-loans\"} 18400",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"1\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"5\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"10\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"25\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"50\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"100\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"250\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"500\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"1000\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"2500\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"5000\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"10000\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"15000\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/\",le=\"+Inf\"} 16",
+          "ssr_cache_response_duration_milliseconds_sum{state=\"MISS\",route=\"/\"} 2425.720255999997",
+          "ssr_cache_response_duration_milliseconds_count{state=\"MISS\",route=\"/\"} 16",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"1\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"5\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"10\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"25\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"50\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"100\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"250\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"500\"} 0",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"1000\"} 32",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"2500\"} 32",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"5000\"} 32",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"10000\"} 32",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"15000\"} 32",
+          "ssr_cache_response_duration_milliseconds_bucket{state=\"MISS\",route=\"/housing-loans\",le=\"+Inf\"} 32",
+          "ssr_cache_response_duration_milliseconds_sum{state=\"MISS\",route=\"/housing-loans\"} 17947.86604399985",
+          "ssr_cache_response_duration_milliseconds_count{state=\"MISS\",route=\"/housing-loans\"} 32"
+        ],
+        "ssr_gateway_requests_total": [
+          "ssr_gateway_requests_total{status_class=\"2xx\",outcome=\"success\"} 9471",
+          "ssr_gateway_requests_total{status_class=\"4xx\",outcome=\"client_error\"} 536",
+          "ssr_gateway_requests_total{status_class=\"error\",outcome=\"network_error\"} 32"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "name": "@originloom/shared",
+  "version": "0.3.6",
+  "description": "Framework-neutral base for OriginLoom: route and request types, the routing engine, the metadata engine and the OriginRenderer contract.",
+  "license": "UNLICENSED",
+  "author": "Cem Bakca",
+  "homepage": "https://github.com/cembakca/OriginLoom/tree/main/packages/origin-shared#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cembakca/OriginLoom.git",
+    "directory": "packages/origin-shared"
+  },
+  "keywords": [
+    "originloom",
+    "ssr",
+    "routing",
+    "metadata",
+    "types"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    "./lib/*": "./src/lib/*.ts",
+    "./routing": "./src/routing/index.ts",
+    "./routing/*": "./src/routing/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.7.2",
+    "vite": "^8.1.5"
+  },
+  "publishConfig": {
+    "registry": "http://localhost:4873",
+    "exports": {
+      "./lib/*": {
+        "types": "./dist/lib/*.d.ts",
+        "default": "./dist/lib/*.js"
+      },
+      "./routing": {
+        "types": "./dist/routing/index.d.ts",
+        "default": "./dist/routing/index.js"
+      },
+      "./routing/*": {
+        "types": "./dist/routing/*.d.ts",
+        "default": "./dist/routing/*.js"
+      },
+      "./*": {
+        "types": "./dist/*.d.ts",
+        "default": "./dist/*.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "vite": "^8.1.5"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  }
+}

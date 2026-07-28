@@ -21,7 +21,7 @@ uyguladığı ayrıca doğrulanır.
 
 Production deploy aşağıdakiler tamamlanmadan onaylanmaz:
 
-1. `npm run ci`, `npm run audit:prod`, Trivy ve CodeQL başarılı.
+1. `ppnpm install`, `pnpm audit:prod`, Trivy ve CodeQL başarılı.
 2. Image digest ile deploy edilir; registry imzası/provenance ve SBOM release kaydına bağlanır.
 3. Secret manager gerçek `REDIS_URL`, operations token'ları, market token ve auth coordination
    anahtarını enjekte eder; manifestteki placeholder değerlerle startup denenmez.
@@ -38,9 +38,9 @@ Retry-After` verir. Kredi hesaplama ve SSE için yük/admission testi yapılır.
    browser üzerinden doğrulanır.
 9. Staging DAST ve bağımsız pentest bulgularında açık Critical/High kalmaz. Finansal mutation, ödeme
    veya kişisel veri eklendiğinde tehdit modeli ve pentest yeniden açılır. Pentest öncesi checklist:
-   [pentest-prep.md](./pentest-prep.md) ve `npm run pentest:readiness`.
+   [pentest-prep.md](./pentest-prep.md) ve `pnpm pentest:readiness`.
 10. Alert route, on-call sahibi, log/trace retention ve rollback tatbikatı kayıt altındadır.
-11. Release adayında Docker load test (`npm run loadtest:memory`, `npm run loadtest:redis`) regresyon
+11. Release adayında Docker load test (`pnpm loadtest:memory`, `pnpm loadtest:redis`) regresyon
     raporu eklenir — bkz. [load-testing.md](./load-testing.md).
 
 ## Secret rotation

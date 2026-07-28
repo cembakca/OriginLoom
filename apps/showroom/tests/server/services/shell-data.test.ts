@@ -1,0 +1,52 @@
+import { closeCache, initCache } from "@originloom/core/cache";
+import { renderMetrics } from "@originloom/core/metrics";
+import type { Ctx } from "@originloom/react/lib/types";
+import { buildShellData } from "@server/services/shell-data";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+describe("shell gateway degradation", () => {
+  beforeEach(async () => {
+    await closeCache();
+    await initCache();
+  });
+
+  afterEach(async () => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    await closeCache();
+  });
+
+  it("renders an empty non-critical menu when its contract is invalid", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          headerItems: [{ id: 1, name: "Unsafe", url: "javascript:alert(1)" }],
+        }),
+      ),
+    );
+
+    const shell = await buildShellData(context());
+
+    expect(shell.menu).toEqual({ headerItems: [], hamburgerItems: [], footerItems: [] });
+    expect(renderMetrics()).toContain(
+      'ssr_shell_degraded_total{component="menu",reason="invalid_payload"}',
+    );
+  });
+
+  it("renders a menu-less shell when the gateway is unavailable and no stale menu exists", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+
+    const shell = await buildShellData(context());
+
+    expect(shell.menu).toEqual({ headerItems: [], hamburgerItems: [], footerItems: [] });
+    expect(renderMetrics()).toContain(
+      'ssr_shell_degraded_total{component="menu",reason="gateway_error"}',
+    );
+  });
+});
+
+function context(): Ctx {
+  const url = new URL("http://localhost/");
+  return { request: new Request(url), params: {}, url, publicPath: "/" };
+}

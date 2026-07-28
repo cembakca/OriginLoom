@@ -8,9 +8,144 @@ Ana karar: **İsland Architecture** + **Shared HTML Cache** kombinasyonu. Vite, 
 
 ---
 
+## Workspace: Platform ve Ürün Ayrımı
+
+Repo bir pnpm workspace'idir. Amaç, aynı SSR altyapısını birden fazla ürün uygulamasının
+**kopyalamadan** kullanabilmesi: motor bir kez yazılır, gövde her üründe farklıdır.
+
+| Paket / uygulama                                  | Sorumluluk                                                                                                                                                                                                                                                              |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/origin-shared` (`@originloom/shared`)   | Framework-nötr taban: `Route`/`Ctx` tipleri, routing **engine**, metadata motoru, menu/device/media/cache-policy yardımcıları, client (DOM) yardımcıları ve **render kontratı** (`OriginRenderer`). Sıfır runtime dependency                                            |
+| `packages/origin-core` (`@originloom/core`)       | Platform sunucu runtime'ı: `createApp`, handler, SSR pipeline, cache (L1/L2/tiered/cold-fill/SWR/purge/fragment mekanizması), middleware, security, config + validation, metrik primitifleri, document orkestrasyonu, assets/manifest çözümü. **React bağımlılığı yok** |
+| `packages/origin-react` (`@originloom/react`)     | React adaptörü: island runtime (`Island`, mounter, bootstrap), `@originloom/react/server` render adaptörü (`createReactRenderer`), client query katmanı, Vite preset                                                                                                    |
+| `packages/origin-vanilla` (`@originloom/vanilla`) | Framework'süz adaptör: `html` tagged template (otomatik escape), `island()` marker'ı, `createHtmlRenderer`, düz TS island mounter'ı, Vite preset                                                                                                                        |
+| `packages/origin-tooling` (`@originloom/tooling`) | build/dev/env/compose/smoke/cycle-check bin'leri (`origin-*`)                                                                                                                                                                                                           |
+| `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s                                                                                                                         |
+| `tools/mock-gw`                                   | Bağımsız mock gateway (dev/test aracı)                                                                                                                                                                                                                                  |
+
+Bağımlılık yönü tek yönlüdür — `showroom → {core, renderer} → shared`. `core`, `react` ve
+`vanilla` birbirini **import etmez**: ikisi de `@originloom/shared`'daki kontratlara yaslanır. Ters yöndeki bir import
+`origin-check-cycles` tarafından katman ihlali olarak reddedilir. Aynı bekçi, `core` ve `shared`
+altında herhangi bir `react`/`react-dom`/`@originloom/react` specifier'ını — type-only import dahil —
+framework sınırı ihlali olarak reddeder.
+
+Paketler kaynak `.ts` export eder; ayrı derleme adımı yoktur. Vite/tsx/Vitest/tsc `exports`
+üzerinden kaynağı doğrudan çözer. Production server bundle'ı `ssr.noExternal: true` ile tamamen
+self-contained üretilir; container yalnız `dist/` taşır, `node_modules` gerekmez.
+
+### Runtime injection kontratı
+
+Platform, ürüne ait hiçbir modülü import etmez. Ürün, uygulamanın composition root'unda
+(`apps/showroom/server/index.ts`) tek bir registry kurar:
+
+```ts
+// packages/origin-core/src/runtime.ts
+export type OriginRuntime<Shell = unknown> = {
+  renderer: OriginRenderer<Shell>; // framework seam — bkz. "Render kontratı"
+  fragments: Record<string, FragmentDefinition<Shell>>;
+  buildShellData: (ctx: Ctx, opts?: { minimalChrome?: boolean }) => Promise<Shell>;
+  isShellUsableForFragments: (shell: Shell) => boolean;
+  document: DocumentShell; // htmlLang, bot tespiti, metadata — görünüm YOK
+  cacheKeys: { isKnownPageCachePrefix: (prefix: string) => boolean };
+  onBotVisit?: (visit: BotVisit) => void;
+  metricSources?: Array<() => string[]>;
+};
+
+installRuntime(productRuntime);
+```
+
+### Render kontratı — core neden React bilmiyor
+
+`@originloom/core` hiçbir UI framework'üne bağlı değildir: ne `react` dependency'si, ne `.tsx`
+dosyası, ne de bir JSX çağrısı vardır. Render, `@originloom/shared/render`'daki nötr arayüzden
+geçer:
+
+```ts
+// packages/origin-shared/src/render.ts
+export type FrameworkNode = unknown; // opaque: içine yalnız adaptör bakar
+
+export interface OriginRenderer<Shell = unknown> {
+  routeContent<T>(route: Route<T>, data: T, ctx: Ctx): FrameworkNode;
+  notFoundContent(ctx: Ctx, route?: Route): FrameworkNode;
+  errorContent(ctx: Ctx, route: Route, error: RouteError | null, status: number): FrameworkNode;
+  renderNode(node: FrameworkNode): string; // fragment / partial
+  renderDocument(input: DocumentRenderInput<Shell>): string; // <!DOCTYPE html> dahil
+  renderDocumentToStream(
+    input: DocumentRenderInput<Shell>,
+    options: DocumentStreamOptions,
+  ): Promise<StreamResult>;
+}
+```
+
+Kontrat `shared`'da durduğu için döngü oluşmaz: `react` onu **implement eder**, `core`
+**tüketir**. React tarafı `@originloom/react/server`'dadır ve ürünün görünümlerini alır:
+
+```ts
+// apps/showroom/server/product/renderer.tsx
+export const productRenderer = createReactRenderer<ShellData>({
+  NotFoundComponent: NotFoundPage,
+  ErrorComponent: RouteErrorPage,
+  renderHeadStart: ({ seo, cspNonce }) => <MetadataHead meta={seo} nonce={cspNonce} />,
+  renderHeadEnd: ({ cspNonce, isBot }) => <GtmBootstrap … />,
+  renderLayout: ({ shell, pageMeta, children }) => <RootLayout …>{children}</RootLayout>,
+});
+```
+
+İş bölümü: **core** neyin render edileceğine karar verir (route içeriği mi boundary mi, stream mi
+string mi, head asset'leri, cache ve fragment stitching); **adaptör** yalnız veriyi HTML'e çevirir.
+`Route.Component`'in döndürdüğü tip `Route<T, TNode>` ile parametriktir —
+`@originloom/react/lib/types` onu `ReactElement`'e sabitler (uygulama tarafında JSX tip kontrolü
+korunur), core ise yalnız `unknown` varsayılanını görür.
+
+Bunun pratik sonucu: ikinci bir adaptör yazmak `OriginRenderer`'ı implement etmekten ibarettir;
+core'da tek satır değişmez. `@originloom/vanilla` bunun çalışan örneğidir — UI framework'ü
+kullanmayan bir uygulama sayfalarını `html` tagged template'i ile yazar, island'ları düz TypeScript
+modülüdür, ve aynı cache/middleware/SSR hattını kullanır (`pnpm create-app <ad> --vanilla`):
+
+```ts
+// server/product/renderer.ts
+export const productRenderer = createHtmlRenderer<ShellData>({
+  notFoundPage,
+  errorPage,
+  renderHeadStart: ({ seo, cspNonce }) => metadataHead(seo, cspNonce),
+  renderLayout: ({ shell, children }) => layout(shell, children),
+});
+
+// src/pages/home.ts — interpolate edilen her değer otomatik escape edilir
+export function homePage({ data }: { data: { greeting: string } }) {
+  return html`<h1 class="text-3xl font-bold">${data.greeting}</h1>`;
+}
+```
+
+Vanilla adaptöründe streaming yoktur (erteleyecek boundary kavramı yok): `renderDocumentToStream`
+dokümanı tek parça verir, `route.streaming: true` çalışmaya devam eder ama erteleyecek bir şey
+bulamaz.
+
+Route tablosu, API/SEO mount'ları ve statik kök `createApp` seçenekleriyle verilir:
+
+```ts
+createApp({
+  assets,
+  routes, // zorunlu — platformda default route yok
+  mounts: { api: mountApi, seo: mountSeoRoutes },
+  isShuttingDown: () => shuttingDown,
+});
+```
+
+Routing kuralları da enjekte edilir (`configureRouting({ redirects, rewrites, createRewrites })`);
+engine generic, kurallar ürüne aittir. Aynı şekilde `createMetricsApp({ mounts })` ürünün internal
+operations endpoint'lerini alır, `readAssets({ eagerIslands, clientEntry, ... })` client build
+düzenini parametre olarak alır ve island registry'si uygulamanın `entry.client` tarafında
+`import.meta.glob` ile kurulur.
+
+Yeni bir ürün uygulaması bu yüzden ince kalır: route tablosu + `OriginRuntime` implementasyonu +
+`.env`; cache, auth, middleware ve SSR pipeline paketlerden gelir.
+
+---
+
 ## Katmanlar ve Sorumluluklar
 
-### 1. HTTP Katmanı — `server/index.ts`
+### 1. HTTP Katmanı — `apps/showroom/server/index.ts`
 
 Hono üzerinde çalışır, `@hono/node-server` ile Node.js HTTP server'a bağlanır. Şu endpoint'leri doğrudan yakalar:
 
@@ -38,7 +173,7 @@ Force-exit için `SHUTDOWN_TIMEOUT_MS` (default 10s) var.
 
 ---
 
-### 2. Middleware Pipeline — `server/middleware/pipeline.ts`
+### 2. Middleware Pipeline — `packages/origin-core/src/middleware/pipeline.ts`
 
 SSR HTML istekleri için çalışır. Sıralı, birikimli (accumulator pattern) çalışır; bir adım terminal response dönerse pipeline durur. Hono'ya doğrudan mount edilen BFF endpoint'leri bu genel pipeline'a girmez; korunan endpoint'ler aynı auth core'u `authenticateBffRequest()` üzerinden açıkça çağırır.
 
@@ -63,7 +198,7 @@ Her adım sadece ne değiştirmek istiyorsa onu döner, geri kalanına dokunmaz.
 
 ---
 
-### 3. Auth Akışı — `server/middleware/steps/auth/`
+### 3. Auth Akışı — `packages/origin-core/src/middleware/steps/auth/`
 
 Klasik **cookie-based JWT + server-side refresh** (BFF pattern).
 
@@ -100,7 +235,7 @@ production'da ayrı ve en az 32 karakterli olmak zorundadır.
 
 ---
 
-### 4. SSR Handler — `server/handler.ts`
+### 4. SSR Handler — `packages/origin-core/src/handler.ts`
 
 Tek bir `handle()` fonksiyonu. Yukarıdan aşağıya okunabilir, yan yol yok:
 
@@ -133,7 +268,7 @@ Tek bir `handle()` fonksiyonu. Yukarıdan aşağıya okunabilir, yan yol yok:
 
 ---
 
-### 5. Cache Sistemi — `server/cache/`
+### 5. Cache Sistemi — `packages/origin-core/src/cache/`
 
 #### CachePolicy
 
@@ -167,7 +302,7 @@ Gerçekten bütün route'ları etkileyen yeni bir bypass kuralı eklemek için:
 registerCacheBypassCheck(hasPid); // segment bazlı, PID cookie'si varsa bypass
 ```
 
-#### Katmanlı store — `server/cache/tiered.ts`
+#### Katmanlı store — `packages/origin-core/src/cache/tiered.ts`
 
 Her pod **her zaman** process-local L1 (`MemoryStore`) kullanır. `CACHE_BACKEND=redis` ve geçerli
 `REDIS_URL` varken opsiyonel L2 (`RedisStore`) devreye girer: cross-pod HTML truth, dağıtık
@@ -199,7 +334,7 @@ L2 hit'ler orijinal `freshUntil` / `staleUntil` ile L1'e promote edilir — prom
 Purge/delete/flush hem L2'de hem yerel L1'de uygulanır; L2 varsa Pub/Sub ile diğer pod'ların L1'i
 temizlenir. Subscriber reconnect olduğunda güvenlik için yerel L1 tamamen boşaltılır.
 
-#### Backend — `server/cache/memory.ts` ve `server/cache/redis.ts`
+#### Backend — `packages/origin-core/src/cache/memory.ts` ve `packages/origin-core/src/cache/redis.ts`
 
 Her iki backend de aynı `CacheStore` interface'ini implement eder:
 
@@ -324,7 +459,10 @@ TTL dolduğunda entry silinmez, `read()` sırasında kontrol edilir ve silinir (
 
 ### 6. Route Sistemi
 
-#### Route Tanımı — `src/lib/types.ts`
+#### Route Tanımı — `packages/origin-shared/src/lib/types.ts`
+
+Nötr tanım `Route<T, TNode>` şeklinde node tipinde parametriktir;
+`@originloom/react/lib/types` onu React'e sabitler ve uygulamalar bu facade'ı import eder:
 
 ```typescript
 type Route<T> = {
@@ -366,7 +504,7 @@ ile aynı auth/session/redirect pipeline'ından geçer. Shared cache hit'inde lo
 metadata'sını döner; miss'te `notFound`, `redirect`, `error`, custom status ve header kararlarını almak
 için loader'ı çalıştırır. React render, body üretimi, cache fill ve SWR başlatmaz.
 
-#### Rewrite/Redirect Kuralları — `src/routing/rules.ts`
+#### Rewrite/Redirect Kuralları — `apps/showroom/src/routing/rules.ts`
 
 Next.js `rewrites()` / `redirects()` ekvivalenti, statik dizi olarak tanımlanmış:
 
@@ -414,7 +552,7 @@ Sıfırdan yazılmış, segment bazlı matcher. `:param` ve `:param?` (optional)
 
 ---
 
-### 7. Island Architecture — `src/lib/island.tsx` + `src/entry.client.tsx`
+### 7. Island Architecture — `packages/origin-react/src/lib/island.tsx` + `apps/showroom/src/entry.client.tsx`
 
 #### Server Tarafı
 
@@ -504,7 +642,7 @@ lifecycle event'lerini sonsuza kadar tutmaz.
 
 ---
 
-### 8. BFF API Katmanı — `server/api/internal/`
+### 8. BFF API Katmanı — `apps/showroom/server/api/internal/`
 
 Client-side TanStack Query hook'ları bu endpoint'leri çağırır:
 
@@ -517,9 +655,9 @@ Client-side TanStack Query hook'ları bu endpoint'leri çağırır:
 
 Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanılır — pipeline'daki auth mantığını tekrar çalıştırır, gerekiyorsa refresh eder, Authorization inject eder.
 
-**401 retry pattern:** `src/lib/client/api-fetch.ts` client fetch'leri wrap'ler. 401 alınca `/api/internal/refresh` çağırır ve isteği tekrarlar.
+**401 retry pattern:** `packages/origin-shared/src/lib/client/api-fetch.ts` client fetch'leri wrap'ler. 401 alınca `/api/internal/refresh` çağırır ve isteği tekrarlar.
 
-### Bağımsız Mock Gateway — `mock-gw/`
+### Bağımsız Mock Gateway — `tools/mock-gw/`
 
 Uygulama process'i mock veri veya gateway fallback'i içermez. Local geliştirmede 4002 portunda
 çalışan dependency'siz Node.js `mock-gw` servisine normal HTTP üzerinden bağlanır. Menü, sayfa/SEO,
@@ -584,32 +722,32 @@ cluster ve IP connection limiti uygulanmalıdır.
 
 ```
 Dev:   Vite dev server (HMR/Fast Refresh) + tsx watch (Hono) + mock-gw
-       scripts/dev.mjs · .env.development (memory cache)
+       packages/origin-tooling/bin/dev.mjs · .env.development (memory cache)
        npm run dev:redis → .env.development.redis overlay + Docker Redis
-Prod:  scripts/build.mjs · .env.production
+Prod:  packages/origin-tooling/bin/build.mjs · .env.production
        npm run start / start:staging
        node dist/server/index.js
 ```
 
 Ortam dosyaları: `.env.development` (memory), `.env.staging`, `.env.production`. Kişisel
-override: `.env.local`. Yükleme: `scripts/load-env.mjs`; npm script'leri `scripts/run-with-env.mjs`
+override: `.env.local`. Yükleme: `packages/origin-tooling/bin/load-env.mjs`; npm script'leri `packages/origin-tooling/bin/run-with-env.mjs`
 üzerinden doğru dosyayı seçer.
 
 Development'ta server restart için `tsx`, client HMR için Vite dev server kullanılır. Production'da
-server TypeScript'i çalıştırılmaz; Vite `server/index.ts` entrypoint'ini `dist/server/index.js` olarak
+server TypeScript'i çalıştırılmaz; Vite `apps/showroom/server/index.ts` entrypoint'ini `dist/server/index.js` olarak
 bundle eder. Docker runtime katmanı yalnızca production bağımlılıklarını ve `dist/` çıktılarını içerir.
 
-Production client build `src/entry.client.tsx` başlangıç noktasıyla `dist/client/` altına island
+Production client build `apps/showroom/src/entry.client.tsx` başlangıç noktasıyla `dist/client/` altına island
 bundle'ları + CSS üretir. Manifest (`manifest.json`) sunucu tarafından okunarak HTML'e doğru hashed
-asset URL'leri enjekte edilir. `server/assets.ts`, `isEntry`, `isDynamicEntry`, `src`, `file` ve
+asset URL'leri enjekte edilir. `packages/origin-core/src/assets.ts`, `isEntry`, `isDynamicEntry`, `src`, `file` ve
 recursive `imports` alanlarını kullanarak global ve route-scoped island preload grafiğini çıkarır.
 Ortak dependency URL'leri document başına tek linke indirilir. CDN varsa `ASSET_CDN_URL` env ile asset
 base URL değiştirilir.
 
-Development bu manifest yolunu kullanmaz. `scripts/dev.mjs` Hono, mock gateway, Vite dev server ve
+Development bu manifest yolunu kullanmaz. `packages/origin-tooling/bin/dev.mjs` Hono, mock gateway, Vite dev server ve
 `tsx watch` süreçlerini tek lifecycle altında çalıştırır. Hono document'i Vite `/@vite/client`, React
-Refresh preamble ve source `src/entry.client.tsx` modülünü enjekte eder. Island/client değişiklikleri
-Fast Refresh ile uygulanır. SSR üreten `server/`, `src/features/` ve paylaşılan component değişiklikleri
+Refresh preamble ve source `apps/showroom/src/entry.client.tsx` modülünü enjekte eder. Island/client değişiklikleri
+Fast Refresh ile uygulanır. SSR üreten `server/`, `apps/showroom/src/features/` ve paylaşılan component değişiklikleri
 Hono restartından sonra Vite websocket üzerinden bilinçli full document reload üretir. Böylece client
 değişikliğinde gereksiz reload yapılmaz, SSR değişikliğinde eski HTML ile yeni client ağacı karışmaz.
 `VITE_DEV_SERVER_URL` production config doğrulamasında reddedilir; production manifest davranışı dev
@@ -617,7 +755,7 @@ runtime'dan bağımsız kalır.
 
 ### 10. Instrumentation, Tracing ve Metrikler
 
-`server/instrumentation.ts`, framework convention'ına bağlı olmayan process lifecycle noktasıdır.
+`packages/origin-core/src/instrumentation.ts`, framework convention'ına bağlı olmayan process lifecycle noktasıdır.
 Server request kabul etmeden önce OpenTelemetry SDK'yı kaydeder; graceful shutdown exporter kuyruğunu
 flush eder. `OTEL_EXPORTER_OTLP_ENDPOINT` tanımlı değilse tracing no-op kalır ve local geliştirme bir
 collector zorunluluğu taşımaz.
@@ -657,7 +795,7 @@ göre `BreadcrumbList`, `ItemList`, `Article`, `FAQPage`, `LoanOrCredit`, `Credi
 listesi düğümleri ekler. Gerçek review/rating/offer verisi yoksa sentetik rich-result alanı üretilmez.
 JSON-LD tek `@graph` olarak, embedded JSON escaping ve production CSP nonce'u ile yazılır.
 
-`server/seo.ts`, root seviyesinde `robots.txt` ve XML sitemap üretir. Sitemap yalnız canonical public
+`apps/showroom/server/seo.ts`, root seviyesinde `robots.txt` ve XML sitemap üretir. Sitemap yalnız canonical public
 URL'leri içerir; internal rewrite destination'ları, account/noindex/teknik demo route'ları, filtreler
 ve query pagination sayfaları dışarıda kalır. Ürün, kredi kartı ve makale detay envanteri
 `/seo/sitemap` gateway kontratından gelir; gerçek makale güncelleme tarihi `lastmod` olur. Gateway
@@ -671,8 +809,8 @@ deploy tarafından açıkça `ALLOW_INSECURE_GATEWAY=true` seçilirse kabul edil
 
 ### 11. Responsive Image ve Self-host Font Pipeline
 
-Image optimizasyonu request sırasında Node process'inde yapılmaz. `scripts/build-media.mjs`, client
-build'inden sonra `server/media.config.json` kaynaklarını Sharp ile işler:
+Image optimizasyonu request sırasında Node process'inde yapılmaz. `packages/origin-tooling/bin/build-media.mjs`, client
+build'inden sonra `apps/showroom/server/media.config.json` kaynaklarını Sharp ile işler:
 
 ```text
 src/assets/images/*

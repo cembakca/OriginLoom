@@ -40,3 +40,4 @@ lerna-debug.log*
 # misc
 .DS_Store
 dist
+.verdaccio/

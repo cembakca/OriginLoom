@@ -1,0 +1,9 @@
+{
+  "appUrl": "http://127.0.0.1:31005",
+  "metricsUrl": "http://127.0.0.1:31090",
+  "headerSample": {
+    "status": 200,
+    "cache": "MISS",
+    "requestId": "1d9fd845-e4dd-480c-bb4f-63cfe243349f"
+  }
+}

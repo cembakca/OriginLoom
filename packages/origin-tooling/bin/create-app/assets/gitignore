@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Env — commit .env.development / .env.production, keep local overrides out
+.env.local
+.env.*.local
+
+# Test / tooling
+coverage/
+.vite/
+
+# OS / editor
+.DS_Store
+*.log

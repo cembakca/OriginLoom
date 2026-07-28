@@ -1,0 +1,66 @@
+# @originloom/react
+
+The React renderer for [OriginLoom](https://github.com/cembakca/OriginLoom): island runtime,
+document rendering and the Vite preset. Implements the `OriginRenderer` contract from
+`@originloom/shared`, so `@originloom/core` stays framework-free.
+
+```bash
+pnpm add @originloom/core @originloom/react @originloom/shared react react-dom
+```
+
+## Renderer
+
+Register the product's views once; the core calls them through the neutral contract:
+
+```tsx
+import { createReactRenderer } from "@originloom/react/server";
+
+export const productRenderer = createReactRenderer<ShellData>({
+  NotFoundComponent: NotFoundPage,
+  ErrorComponent: RouteErrorPage,
+  renderHeadStart: ({ seo, cspNonce }) => <MetadataHead meta={seo} nonce={cspNonce} />,
+  renderHeadEnd: ({ cspNonce, isBot }) => <GtmBootstrap nonce={cspNonce} isBot={isBot} />,
+  renderLayout: ({ shell, pageMeta, children }) => (
+    <RootLayout shell={shell} pageMeta={pageMeta}>
+      {children}
+    </RootLayout>
+  ),
+});
+```
+
+`@originloom/react/server` pulls in `react-dom/server`; it belongs to the SSR bundle only and must
+never be reached from the client entry.
+
+## Islands
+
+The page is static HTML except for islands. `<Island>` emits the marker; the client mounter wakes
+it up:
+
+```tsx
+import { Island } from "@originloom/react/lib/island";
+
+<Island name="counter" props={{ start: 0 }}>
+  <button>0</button>
+</Island>;
+```
+
+```ts
+// src/hydrate.client.tsx
+import { createIslandMounter, type IslandModule } from "@originloom/react/lib/client/island-mount";
+
+export const mount = createIslandMounter({
+  modules: import.meta.glob<IslandModule>("./islands/*.tsx"),
+});
+```
+
+`mode="hydrate"` (default) is safe inside cached HTML; `mode="defer"` renders only a fallback and
+fetches its own data, which is where anything per-user belongs.
+
+## Other entries
+
+| Entry                                          | What it does                                     |
+| ---------------------------------------------- | ------------------------------------------------ |
+| `@originloom/react/lib/types`                  | `Route` / `defineRoute` pinned to `ReactElement` |
+| `@originloom/react/lib/metadata/metadata-head` | `<MetadataHead>` — metadata → head tags          |
+| `@originloom/react/lib/query/provider`         | TanStack Query provider for islands              |
+| `@originloom/react/vite`                       | Client and SSR Vite configs, dev-reload plugin   |

@@ -3,7 +3,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, master]
+    # multiproduct is where the monorepo work lands; drop it once it merges.
+    branches: [main, master, multiproduct]
   workflow_dispatch:
 
 permissions:
@@ -24,24 +25,27 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run quality, coverage, build and smoke checks
-        run: npm run ci
+        run: pnpm run ci
 
       - name: Audit production dependencies
-        run: npm run audit:prod
+        run: pnpm run audit:prod
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ github.run_id }}
           path: coverage/
@@ -49,7 +53,7 @@ jobs:
           retention-days: 7
 
       - name: Build production container
-        run: docker build --tag origin-loom-ci:${{ github.sha }} .
+        run: docker build --file apps/showroom/Dockerfile --tag origin-loom-ci:${{ github.sha }} .
 
       - name: Smoke test production container
         shell: bash
@@ -88,3 +92,37 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: HIGH,CRITICAL
+
+  # Everything above runs against the workspace, where the packages resolve to
+  # src/ through workspace:*. This job publishes them to a throwaway registry and
+  # builds an app that has never seen this repo — the only way the dist build,
+  # the publish export map and the cross-package versions get exercised.
+  release-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        renderer: [react, vanilla]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish to a local registry and build an installed app
+        run: pnpm run release:verify --renderer ${{ matrix.renderer }}

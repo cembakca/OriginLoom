@@ -6,19 +6,36 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 
 ## Klasör yapısı
 
-| Dizin                   | Amaç                                                            |
-| ----------------------- | --------------------------------------------------------------- |
-| `server/routes/`        | Loader, cache, metadata ve route tablosu                        |
-| `src/features/{name}/`  | Feature'a özel SSR-safe sunum/shell bileşenleri                 |
-| `src/islands/`          | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir |
-| `src/components/`       | Paylaşılan SSR-güvenli UI (hook yok)                            |
-| `src/assets/svg/`       | SVG kaynakları — `npm run icons` ile TSX'e dönüşür              |
-| `src/components/icons/` | Otomatik üretilen icon bileşenleri (elle düzenlenmez)           |
-| `src/lib/`              | Saf yardımcılar, kontratlar ve request helper'ları              |
-| `server/adapters/`      | Gateway ve dış sistem adapter'ları                              |
-| `server/services/`      | Cache/gateway kullanan server-only veri orkestrasyonu           |
-| `server/`               | HTTP runtime — production'da Vite ile Node.js bundle'ı olur     |
-| `tests/`                | `server/` ve `src/lib/` yapısını yansıtır                       |
+| Dizin                                 | Amaç                                                                               |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| `apps/showroom/server/routes/`        | Loader, cache, metadata ve route tablosu                                           |
+| `apps/showroom/server/services/`      | Cache/gateway kullanan server-only veri orkestrasyonu                              |
+| `apps/showroom/server/product/`       | Platforma enjekte edilen ürün kontratı (runtime, fragment, document shell, config) |
+| `apps/showroom/src/features/{name}/`  | Feature'a özel SSR-safe sunum/shell bileşenleri                                    |
+| `apps/showroom/src/islands/`          | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir                    |
+| `apps/showroom/src/components/`       | Paylaşılan SSR-güvenli UI (hook yok)                                               |
+| `apps/showroom/src/assets/svg/`       | SVG kaynakları — `pnpm icons` ile TSX'e dönüşür                                    |
+| `apps/showroom/src/components/icons/` | Otomatik üretilen icon bileşenleri (elle düzenlenmez)                              |
+| `apps/showroom/src/lib/`              | Ürüne özel yardımcılar, kontratlar ve cache-key registry                           |
+| `apps/showroom/tests/`                | `server/` ve `src/` yapısını yansıtır                                              |
+| `packages/origin-shared/src/`         | Framework-nötr taban — tipler, routing engine, metadata motoru, render kontratı    |
+| `packages/origin-core/src/`           | Platform runtime — cache, middleware, SSR pipeline, document orkestrasyonu         |
+| `packages/origin-core/src/adapters/`  | Gateway ve dış sistem adapter'ları                                                 |
+| `packages/origin-react/src/`          | React adaptörü — island runtime, `server/` render adaptörü, Vite preset            |
+| `packages/origin-vanilla/src/`        | Framework'süz adaptör — `html` template, `island()`, `createHtmlRenderer`          |
+| `packages/origin-tooling/bin/`        | build/dev/env/compose/smoke bin'leri                                               |
+| `tools/mock-gw/`                      | Bağımsız mock gateway                                                              |
+
+Ürün kodu platform paketlerini `@originloom/core`, `@originloom/react` ve `@originloom/shared`
+üzerinden import eder;
+uygulama içi importlar `~/` (src) ve `@server/` alias'larını kullanmaya devam eder. Platform paketleri
+ürün koduna **asla** import edemez — gereken her şey `OriginRuntime` üzerinden enjekte edilir.
+`@originloom/core` ayrıca hiçbir UI framework'üne bağlı değildir: render, `@originloom/shared`'daki
+`OriginRenderer` kontratından geçer ve ürünün React görünümleri
+`apps/showroom/server/product/renderer.tsx` içinde `createReactRenderer` ile tek yerde toplanır.
+React kullanmayan bir ürün aynı kontratı `@originloom/vanilla`'nın `createHtmlRenderer`'ı ile
+karşılar (`pnpm create-app <ad> --vanilla`)
+— detay: [ARCHITECTURE.md](../ARCHITECTURE.md#render-kontratı--core-neden-react-bilmiyor).
 
 ## İsimlendirme
 
@@ -29,11 +46,11 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 
 ## Yeni sayfa (route) ekleme
 
-1. `server/routes/{feature}.tsx` oluştur — `defineRoute()` kullan
-2. Sunum bileşenlerini `src/features/{feature}/` altında görev odaklı dosyalarda tut
-3. Veri erişimini `server/services/` üzerinden yap
-4. `server/routes/index.ts`'e kaydet — sıra önemli (ilk eşleşen kazanır)
-5. Etkileşim için: `src/islands/{name}.tsx` + route içinde `<Island />`
+1. `apps/showroom/server/routes/{feature}.tsx` oluştur — `defineRoute()` kullan
+2. Sunum bileşenlerini `apps/showroom/src/features/{feature}/` altında görev odaklı dosyalarda tut
+3. Veri erişimini `apps/showroom/server/services/` üzerinden yap
+4. `apps/showroom/server/routes/index.ts`'e kaydet — sıra önemli (ilk eşleşen kazanır)
+5. Etkileşim için: `apps/showroom/src/islands/{name}.tsx` + route içinde `<Island />`
 
 Loader normal içerikte `{ data }` döner. Terminal durumları exception yerine açık sonuçtur:
 
@@ -51,7 +68,7 @@ return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor
 
 ## Yeni island ekleme
 
-1. `src/islands/{kebab-name}.tsx` — default export
+1. `apps/showroom/src/islands/{kebab-name}.tsx` — default export
 2. Route'ta: `<Island name="kebab-name" mode="hydrate|defer" />`
 3. `entry.client.tsx`'i düzenleme — Vite glob yeni dosyayı otomatik bulur
 4. Kullanıcıya özel veri: SSR loader + `gatewayFetch`; kişisel alanı cached HTML'e koyma
@@ -89,26 +106,26 @@ Client bootstrap dayanıklılık kontratı:
 
 ## Paylaşılan bileşen ekleme
 
-1. `src/components/{category}/{name}.tsx` oluştur
+1. `apps/showroom/src/components/{category}/{name}.tsx` oluştur
 2. SSR-güvenli olmalı — `useState`, `useEffect`, browser API yok
 3. Route'lardan: `import { Header } from "~/components/layout/header"`
 
 ## API endpoint ekleme
 
-1. `server/api/{name}.ts` — handler fonksiyonu
-2. `server/api/index.ts` içinde mount et
-3. Server-side orkestrasyon gerekiyorsa `server/services/` çağır
+1. `apps/showroom/server/api/{name}.ts` — handler fonksiyonu
+2. `apps/showroom/server/api/index.ts` içinde mount et
+3. Server-side orkestrasyon gerekiyorsa `apps/showroom/server/services/` çağır
 
 ## Servis ekleme
 
-1. Paylaşılan kontratları `src/lib/contracts/` altında tut
-2. Tüm servis implementasyonlarını `server/services/` altında tut
+1. Paylaşılan kontratları `apps/showroom/src/lib/contracts/` altında tut
+2. Tüm servis implementasyonlarını `apps/showroom/server/services/` altında tut
 3. Client/island kodu yalnızca kontratları kullanır; server servisi import etmez
 
 ### Non-critical background dispatch
 
 Request başına `void gatewayFetch(...)` ile kontrolsüz background I/O başlatılmaz. Analytics gibi
-request sonucunu etkilemeyen event akışları `server/services/` altında lifecycle sahibi bounded bir
+request sonucunu etkilemeyen event akışları `apps/showroom/server/services/` altında lifecycle sahibi bounded bir
 dispatcher kullanır:
 
 - Enqueue senkrondur; request queue drain veya gateway response beklemez.
@@ -122,7 +139,7 @@ dispatcher kullanır:
   işler drop edilir, in-flight I/O abort edilir.
 - Raw path, user agent, tracking ID veya event içeriği metric label'ı yapılmaz.
 
-Bot trafiği için referans implementasyon `server/services/bot-analytics.ts`; gateway kontratı
+Bot trafiği için referans implementasyon `apps/showroom/server/services/bot-analytics.ts`; gateway kontratı
 `POST /analytics/bot` için `{ events: BotVisit[] }` biçimindedir.
 
 ### Gateway payload kontratı
@@ -130,11 +147,11 @@ Bot trafiği için referans implementasyon `server/services/bot-analytics.ts`; g
 Gateway'den gelen JSON TypeScript cast'iyle güvenilir hale gelmez. Yeni veya değişen her JSON
 endpoint'i şu kuralları uygular:
 
-1. `server/gateway-payload.ts` içindeki kapalı contract listesine endpoint ve byte bütçesi eklenir.
+1. `packages/origin-core/src/gateway-payload.ts` içindeki kapalı contract listesine endpoint ve byte bütçesi eklenir.
 2. Response yalnız `readGatewayJson()` ile okunur; doğrudan `response.json()` kullanılmaz.
-3. Guard/parser girdisi `unknown` kalır. `src/lib/runtime-schema.ts` ile string uzunluğu, collection
+3. Guard/parser girdisi `unknown` kalır. `packages/origin-shared/src/lib/runtime-schema.ts` ile string uzunluğu, collection
    item sayısı, finite/integer sayı ve nested depth sınırlandırılır.
-4. URL alanları ayrıca `src/lib/content-url.ts` veya metadata URL policy'sinden geçer.
+4. URL alanları ayrıca `packages/origin-shared/src/lib/content-url.ts` veya metadata URL policy'sinden geçer.
 5. Kritik route verisi invalid payload'da hata üretir. Yalnız önceden non-critical ilan edilmiş shell
    verisi servis sınırının üstünde kontrollü, shape-valid fallback'e düşebilir.
 6. Yeni kontrata happy-path fixture, limit testleri, malformed/oversized body ve mutation-fuzz corpus'u
@@ -196,7 +213,7 @@ Aynı Redis instance (veya geliştirmede bellek store) **iki ayrı cache katman�
 | **HTML cache**     | SSR ile üretilmiş tam sayfa HTML'i  | `home\0tr\0desktop` (route parçaları `\0` ile birleşir) | Route başına (ör. 300s – 3600s)      |
 | **Menü API cache** | Gateway'den gelen `IMenuItems` JSON | `menu:Desktop` / `menu:Tablet` / `menu:Mobile`          | `MENU_CACHE_TTL` (varsayılan 4 saat) |
 
-Redis'teki fiziksel key'ler release bazlı `ssr:<release-id>:` namespace'i ile saklanır (`server/cache/redis.ts`):
+Redis'teki fiziksel key'ler release bazlı `ssr:<release-id>:` namespace'i ile saklanır (`packages/origin-core/src/cache/redis.ts`):
 
 ```
 ssr:<release-id>:home\0tr\0desktop     → HTML gövdesi + freshUntil / staleUntil
@@ -205,13 +222,13 @@ ssr:<release-id>:menu:Desktop          → menü JSON
 
 ### Bellek vs Redis (katmanlı)
 
-| Ortam            | Ortam dosyası                    | `CACHE_BACKEND` | Topoloji        | Davranış |
-| ---------------- | -------------------------------- | --------------- | --------------- | -------- |
-| Yerel geliştirme | `.env.development`               | `memory`        | L1-only         | Tek process; restart'ta sıfırlanır |
-| Redis testi      | `.env.development.redis` overlay | `redis`         | L1 + L2 + Pub/Sub | Docker Redis; purge/SWR/cold-fill dağıtık |
-| Staging          | `.env.staging`                   | `redis`         | L1 + L2 (opsiyonel) | `CACHE_REQUIRED=false` — Redis kesintisinde L1 devam |
-| Production tek pod | `.env.production.memory` overlay | `memory`        | L1-only         | Redis gerekmez |
-| Production çok pod | `.env.production`                | `redis`         | L1 + L2 + Pub/Sub | Paylaşımlı HTML + cross-pod invalidation |
+| Ortam              | Ortam dosyası                    | `CACHE_BACKEND` | Topoloji            | Davranış                                             |
+| ------------------ | -------------------------------- | --------------- | ------------------- | ---------------------------------------------------- |
+| Yerel geliştirme   | `.env.development`               | `memory`        | L1-only             | Tek process; restart'ta sıfırlanır                   |
+| Redis testi        | `.env.development.redis` overlay | `redis`         | L1 + L2 + Pub/Sub   | Docker Redis; purge/SWR/cold-fill dağıtık            |
+| Staging            | `.env.staging`                   | `redis`         | L1 + L2 (opsiyonel) | `CACHE_REQUIRED=false` — Redis kesintisinde L1 devam |
+| Production tek pod | `.env.production.memory` overlay | `memory`        | L1-only             | Redis gerekmez                                       |
+| Production çok pod | `.env.production`                | `redis`         | L1 + L2 + Pub/Sub   | Paylaşımlı HTML + cross-pod invalidation             |
 
 İlgili env değişkenleri — yerel geliştirme (`.env.development`):
 
@@ -241,7 +258,7 @@ Kişisel override: `.env.local` veya `.env.<ortam>.local` (gitignore'da). Shell 
 dosyalardan önceliklidir.
 
 Docker Compose varsayılanı L1-only (`docker-compose.yml`). Redis overlay:
-`docker compose -f docker-compose.yml -f docker-compose.redis.yml up` veya `npm run compose:redis`.
+`docker compose -f docker-compose.yml -f docker-compose.redis.yml up` veya `pnpm compose:redis`.
 Her iki `compose:*` script'i de `--build` ile çalışır; imaj varsayılanı önbelleklenmiş halde
 kalmaz, kaynak her `up`'ta yeniden derlenir. Sağlık kontrolü: `GET /readyz` — L2 yapılandırılmamışsa
 veya `CACHE_REQUIRED=false` iken Redis kesintisi readiness'i düşürmez; `CACHE_REQUIRED=true` iken L2
@@ -255,11 +272,11 @@ host'taki mock gateway'e (`127.0.0.1:4002`) zorlayan, gerçek altyapıya asla do
 sağlar:
 
 ```bash
-npm run build                       # prod bundle gerekli
-npm run start:local                 # production config, L1-only, mock gateway
-npm run start:local:redis           # production config, L1+L2 (docker-compose.redis.yml → redis)
-npm run start:staging:local         # staging config, L1-only, mock gateway
-npm run start:staging:local:redis   # staging config, L1+L2, mock gateway
+pnpm build                       # prod bundle gerekli
+pnpm start:local                 # production config, L1-only, mock gateway
+pnpm start:local:redis           # production config, L1+L2 (docker-compose.redis.yml → redis)
+pnpm start:staging:local         # staging config, L1-only, mock gateway
+pnpm start:staging:local:redis   # staging config, L1+L2, mock gateway
 ```
 
 Bu komutlar yalnız yerel doğrulama içindir; gerçek deploy `start`/`start:staging`/`start:memory`
@@ -279,19 +296,19 @@ Production'da `CACHE_BACKEND=memory` geçerlidir (tek pod). Çok pod'da `redis` 
 Redis erişilemezken lock, ephemeral coordination ve rate-limit process-local implementasyona düşer;
 multi-pod garantisi kaybolur, istekler L1 ile fail-open devam eder.
 
-| Soru                                    | Cevap                                                                                                       |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Geliştirmede neden az key görüyorum?    | Varsayılan L1-only; process restart'ta sıfırlanır                                                           |
-| Prod'da Redis şart mı?                  | Tek pod: hayır (`memory` veya `start:memory`). Çok pod: `redis` + invalidation önerilir                     |
-| Eski load test sonuçları karşılaştırılır mı? | Hayır — tiered mimari önceki tek-store sonuçlarıyla birebir karşılaştırılamaz                          |
-| Key listesinde tüm route'lar neden yok? | Key yalnızca **anonim GET + cache MISS sonrası write** ile oluşur; ziyaret edilmemiş sayfa listede görünmez |
-| `/hesabim` neden yok?                   | `neverCache()` — HTML cache'e hiç yazılmaz                                                                  |
+| Soru                                         | Cevap                                                                                                       |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Geliştirmede neden az key görüyorum?         | Varsayılan L1-only; process restart'ta sıfırlanır                                                           |
+| Prod'da Redis şart mı?                       | Tek pod: hayır (`memory` veya `start:memory`). Çok pod: `redis` + invalidation önerilir                     |
+| Eski load test sonuçları karşılaştırılır mı? | Hayır — tiered mimari önceki tek-store sonuçlarıyla birebir karşılaştırılamaz                               |
+| Key listesinde tüm route'lar neden yok?      | Key yalnızca **anonim GET + cache MISS sonrası write** ile oluşur; ziyaret edilmemiş sayfa listede görünmez |
+| `/hesabim` neden yok?                        | `neverCache()` — HTML cache'e hiç yazılmaz                                                                  |
 
 Menü key'leri (`menu:Desktop` vb.) layout render sırasında oluşur; sayfa HTML key'leri ise o URL'e anonim istek gelince oluşur.
 
 ### Cache key registry
 
-Tüm mantıksal cache key tanımları merkezi config'te tutulur: [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts)
+Tüm mantıksal cache key tanımları merkezi config'te tutulur: [`apps/showroom/src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts)
 
 **Mimari:**
 
@@ -323,7 +340,7 @@ Yeni sayfa eklerken:
 
 Cache key'e giren request değeri yalnız sanitize edilmez; iş-domain otoritesinden doğrulanır. Şehir
 ve başvuru türü deployment env'i değildir. Gateway/CMS `/routing/domains` snapshot'ını sağlar;
-`server/services/route-domains.ts` shape, maksimum item sayısı ve 64 karakterlik lowercase slug
+`apps/showroom/server/services/route-domains.ts` shape, maksimum item sayısı ve 64 karakterlik lowercase slug
 sınırını doğrulayıp snapshot'ı Redis'te beş dakika cache'ler.
 
 Dynamic route bu kontrolü `validateParams(ctx)` ile tanımlar. Handler bu async preflight'ı page cache
@@ -351,7 +368,7 @@ document-level `rel=prev/next` ve SSR semantic page linkleriyle keşfedilir. Det
 Teknik demo route'ları production yüzeyine eklenmez; yalnız gerçek katalog ve içerik route'ları
 sitemap/canonical kontratına katılır.
 
-Merkezi crawler endpoint'lerinin tek otoritesi `server/seo.ts` dosyasıdır. Yeni indexable public route
+Merkezi crawler endpoint'lerinin tek otoritesi `apps/showroom/server/seo.ts` dosyasıdır. Yeni indexable public route
 eklenince gateway `/seo/sitemap` envanterine canonical public path eklenir; internal rewrite
 destination, `noindex` route, auth sayfası ve filtre/pagination query varyantı eklenmez. Dinamik ürün
 ve içerik URL'leri env allowlist'inden değil gateway/CMS katalog kontratından üretilir. `robots.txt`,
@@ -408,19 +425,19 @@ Mantıksal key = escape edilmiş parçaların `\0` (null) ile birleşimi. Örnek
 | `menu:Tablet`  | GW menü JSON (tablet)                | `MENU_CACHE_TTL` |
 | `menu:Mobile`  | GW menü JSON (mobile)                | `MENU_CACHE_TTL` |
 
-Menü fetch: [`server/services/menu.ts`](../server/services/menu.ts) — `menuCacheKey()` import eder, key tanımını tekrarlamaz.
+Menü fetch: [`apps/showroom/server/services/menu.ts`](../apps/showroom/server/services/menu.ts) — `menuCacheKey()` import eder, key tanımını tekrarlamaz.
 
 #### Key parçası kuralları
 
-| Parça                              | Ne zaman ekle                 | Fonksiyon                                                                                    |
-| ---------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| Sayfa kimliği                      | Her zaman (ilk segment)       | registry `id` veya sabit string                                                              |
-| `ctx.publicPath`                   | Canonical / rewrite farklıysa | route ctx                                                                                    |
-| `locale(ctx.request)`              | Çok dilli sayfa               | `~/lib/request`                                                                              |
-| `layoutCacheFragment(ctx)`         | Header/footer shell farklıysa | `~/lib/device` — **layout'lu sayfalarda zorunlu**                                            |
-| `deviceCacheFragment(ctx.request)` | Cihaza göre farklı HTML       | loan compare gibi                                                                            |
-| Query param                        | URL varyantı (page, amount…)  | `contentQueryParams` allowlist — [`cache-query-params.ts`](../src/lib/cache-query-params.ts) |
-| Cookie (theme vb.)                 | Tema/layout etkisi            | `cookie(ctx, Cookie.theme)`                                                                  |
+| Parça                              | Ne zaman ekle                 | Fonksiyon                                                                                                           |
+| ---------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Sayfa kimliği                      | Her zaman (ilk segment)       | registry `id` veya sabit string                                                                                     |
+| `ctx.publicPath`                   | Canonical / rewrite farklıysa | route ctx                                                                                                           |
+| `locale(ctx.request)`              | Çok dilli sayfa               | `~/lib/request`                                                                                                     |
+| `layoutCacheFragment(ctx)`         | Header/footer shell farklıysa | `~/lib/device` — **layout'lu sayfalarda zorunlu**                                                                   |
+| `deviceCacheFragment(ctx.request)` | Cihaza göre farklı HTML       | loan compare gibi                                                                                                   |
+| Query param                        | URL varyantı (page, amount…)  | `contentQueryParams` allowlist — [`cache-query-params.ts`](../packages/origin-shared/src/lib/cache-query-params.ts) |
+| Cookie (theme vb.)                 | Tema/layout etkisi            | `cookie(ctx, Cookie.theme)`                                                                                         |
 
 Kişisel veya oturumlu içerik key'e **girmez** — bypass registry ile cache atlanır.
 
@@ -446,16 +463,16 @@ Yani TTL dolunca cache anında “kırılmaz”; önce stale servis, arka planda
 
 ### Dosyalar
 
-| Dosya                       | Rol                                                            |
-| --------------------------- | -------------------------------------------------------------- |
-| `server/cache/index.ts`     | Store seçimi (memory / redis), read / write / cacheKey         |
-| `server/cache/cold-fill.ts` | Process/Redis cold-miss coalescing ve polling                  |
-| `server/cache/redis.ts`     | ioredis adapter, release bazlı `ssr:<release-id>:` namespace'i |
-| `server/cache/memory.ts`    | Geliştirme için in-memory adapter                              |
-| `src/lib/cache-keys.ts`     | Merkezi cache key registry + `pageCachePolicy`                 |
-| `src/lib/cache-policy.ts`   | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)          |
-| `server/services/menu.ts`   | Menü fetch + aynı cache store kullanımı                        |
-| `server/handler.ts`         | Cache okuma, cold-fill coalescing, SWR revalidate ve render    |
+| Dosya                                            | Rol                                                            |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| `packages/origin-core/src/cache/index.ts`        | Store seçimi (memory / redis), read / write / cacheKey         |
+| `packages/origin-core/src/cache/cold-fill.ts`    | Process/Redis cold-miss coalescing ve polling                  |
+| `packages/origin-core/src/cache/redis.ts`        | ioredis adapter, release bazlı `ssr:<release-id>:` namespace'i |
+| `packages/origin-core/src/cache/memory.ts`       | Geliştirme için in-memory adapter                              |
+| `apps/showroom/src/lib/cache-keys.ts`            | Merkezi cache key registry + `pageCachePolicy`                 |
+| `packages/origin-shared/src/lib/cache-policy.ts` | Bypass kuralları (`sharedUnlessBypass`, `neverCache`)          |
+| `apps/showroom/server/services/menu.ts`          | Menü fetch + aynı cache store kullanımı                        |
+| `packages/origin-core/src/handler.ts`            | Cache okuma, cold-fill coalescing, SWR revalidate ve render    |
 
 ---
 
@@ -546,7 +563,7 @@ Bellek backend'de (`CACHE_BACKEND=memory`): uygulamayı restart etmek cache'i s�
 
 ### 4. Belirli sayfa HTML'ini kırmak
 
-HTML cache key tanımı [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) içindeki `pageCacheRegistry`'dedir. Örneğin ana sayfa:
+HTML cache key tanımı [`apps/showroom/src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts) içindeki `pageCacheRegistry`'dedir. Örneğin ana sayfa:
 
 ```ts
 // pageCacheRegistry[PageCacheId.home].buildKey
@@ -554,7 +571,7 @@ HTML cache key tanımı [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) içi
 // → mantıksal key ≈ "home\0tr\0desktop"
 ```
 
-Yayın sonrası o sayfayı hemen tazelemek için purge API ile prefix veya tam key kullan. Prefix için ilk segment (`home`, `loan`, `menu:` …) yeterlidir; [`listPageCachePrefixes()`](../src/lib/cache-keys.ts) operasyon referansıdır.
+Yayın sonrası o sayfayı hemen tazelemek için purge API ile prefix veya tam key kullan. Prefix için ilk segment (`home`, `loan`, `menu:` …) yeterlidir; [`listPageCachePrefixes()`](../apps/showroom/src/lib/cache-keys.ts) operasyon referansıdır.
 
 ```bash
 docker compose exec redis redis-cli DEL "ssr:docker-compose:menu:Desktop" "ssr:docker-compose:menu:Tablet" "ssr:docker-compose:menu:Mobile"
@@ -602,7 +619,7 @@ Detaylı kullanım, örnekler ve operasyon senaryoları: **[`docs/cache-purge.md
 
 ## HTML cache — `pageCachePolicy`
 
-Detay: [`src/lib/cache-keys.ts`](../src/lib/cache-keys.ts) (registry) + [`src/lib/cache-policy.ts`](../src/lib/cache-policy.ts) (bypass)
+Detay: [`apps/showroom/src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts) (registry) + [`packages/origin-shared/src/lib/cache-policy.ts`](../packages/origin-shared/src/lib/cache-policy.ts) (bypass)
 
 ```ts
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
@@ -619,22 +636,22 @@ cache: (ctx) => pageCachePolicy(PageCacheId.housingLoans, ctx),
 - Key parçalarını route dosyasında **inline yazma** — registry'ye ekle
 - Bypass check'ler cache **key'e girmez** — yalnızca cache'e girip girmeme kararı verir
 - Kişisel veri cached HTML'de olmamalı; kişisel route'u `never` yap veya veriyi defer island'a taşı
-- Cookie isimleri: [`src/lib/cookies.ts`](../src/lib/cookies.ts)
+- Cookie isimleri: [`packages/origin-shared/src/lib/cookies.ts`](../packages/origin-shared/src/lib/cookies.ts)
 
 ---
 
 ## UI — Tailwind + Radix
 
-| Katman     | Teknoloji                             | Not                                                         |
-| ---------- | ------------------------------------- | ----------------------------------------------------------- |
-| Stil       | Tailwind CSS v4 (`@tailwindcss/vite`) | `src/styles/globals.css` — Vite build → SSR HTML class'ları |
-| Primitives | Radix UI                              | Sheet, Accordion, DropdownMenu                              |
-| UI kit     | `src/components/ui/`                  | Button, Card, Badge, Sheet, Accordion, DropdownMenu         |
-| Utils      | `cn()` — `src/lib/utils.ts`           | clsx + tailwind-merge                                       |
+| Katman     | Teknoloji                                         | Not                                                                       |
+| ---------- | ------------------------------------------------- | ------------------------------------------------------------------------- |
+| Stil       | Tailwind CSS v4 (`@tailwindcss/vite`)             | `apps/showroom/src/styles/globals.css` — Vite build → SSR HTML class'ları |
+| Primitives | Radix UI                                          | Sheet, Accordion, DropdownMenu                                            |
+| UI kit     | `apps/showroom/src/components/ui/`                | Button, Card, Badge, Sheet, Accordion, DropdownMenu                       |
+| Utils      | `cn()` — `packages/origin-react/src/lib/utils.ts` | clsx + tailwind-merge                                                     |
 
 **Radix nerede?** Interaktif chrome island'larda: `mobile-menu` (Sheet), `footer-accordion` (Accordion), `user-chrome` (DropdownMenu). Header/Footer gövdesi SSR + Tailwind.
 
-**Yeni UI bileşeni:** `src/components/ui/` altına ekle; Radix primitive + Tailwind + `cn()`.
+**Yeni UI bileşeni:** `apps/showroom/src/components/ui/` altına ekle; Radix primitive + Tailwind + `cn()`.
 
 ---
 
@@ -646,29 +663,29 @@ Next.js'teki `@svgr/webpack` yerine build-time codegen kullanılır. Üretilen b
 
 ```
 src/assets/svg/brand-mark.svg     ← yalnızca bunu ekle / güncelle
-        ↓  npm run icons  (dev & build otomatik çalıştırır)
+        ↓  pnpm icons  (dev & build otomatik çalıştırır)
 src/components/icons/brand-mark.tsx
 src/components/icons/index.ts     ← barrel export (BrandMark)
 ```
 
-| Kural       | Detay                                                                       |
-| ----------- | --------------------------------------------------------------------------- |
-| Kaynak      | `src/assets/svg/{kebab-name}.svg` — elle TSX yazma                          |
-| Çıktı       | `src/components/icons/{kebab-name}.tsx` — generated banner, commit et       |
-| Import      | `import { BrandMark } from "~/components/icons"`                            |
-| Renk        | SVGR `currentColor` — `className="text-brand-600"` ile boya                 |
-| UI ikonları | Chevron, menu vb. için `lucide-react` yeterli; marka/logo için SVG pipeline |
-| Silme       | SVG silinince codegen eski `.tsx`'i de temizler                             |
+| Kural       | Detay                                                                               |
+| ----------- | ----------------------------------------------------------------------------------- |
+| Kaynak      | `apps/showroom/src/assets/svg/{kebab-name}.svg` — elle TSX yazma                    |
+| Çıktı       | `apps/showroom/src/components/icons/{kebab-name}.tsx` — generated banner, commit et |
+| Import      | `import { BrandMark } from "~/components/icons"`                                    |
+| Renk        | SVGR `currentColor` — `className="text-brand-600"` ile boya                         |
+| UI ikonları | Chevron, menu vb. için `lucide-react` yeterli; marka/logo için SVG pipeline         |
+| Silme       | SVG silinince codegen eski `.tsx`'i de temizler                                     |
 
 ### Komutlar
 
 ```bash
-npm run icons          # manuel regenerate
-npm run dev            # icons → Vite HMR + tsx watch + mock gateway
-npm run build          # icons → vite build
+pnpm icons          # manuel regenerate
+pnpm dev            # icons → Vite HMR + tsx watch + mock gateway
+pnpm build          # icons → vite build
 ```
 
-`npm run dev` build-watch değildir. Vite 5173'te source modülleri, HMR websocket'i ve React Refresh
+`pnpm dev` build-watch değildir. Vite 5173'te source modülleri, HMR websocket'i ve React Refresh
 runtime'ını servis eder; Hono 3005'te SSR HTML/API sunar. Browser her zaman Hono URL'inde açılır.
 Island/client değişiklikleri Fast Refresh olur. SSR dosyaları `tsx watch` ile restart edilir ve Hono
 hazır olduğunda yalnız bu değişiklikler full document reload tetikler. Production asset manifest'i bu
@@ -716,12 +733,12 @@ Tablet → mobile shell; API'ye yine `Tablet` gider.
 
 ### MenuItem modeli
 
-`src/lib/menu/types.ts` — `MenuItem`, `IMenuItems`.
+`packages/origin-shared/src/lib/menu/types.ts` — `MenuItem`, `IMenuItems`.
 
 ### Gateway content URL kontratı
 
 Gateway/CMS URL'lerini component içinde doğrudan güvenli varsayma. Tek giriş noktası
-[`src/lib/content-url.ts`](../src/lib/content-url.ts):
+[`packages/origin-shared/src/lib/content-url.ts`](../packages/origin-shared/src/lib/content-url.ts):
 
 - Internal navigation root-relative olmalıdır; absolute same-origin değer relative biçime normalize
   edilir.
@@ -732,26 +749,26 @@ Gateway/CMS URL'lerini component içinde doğrudan güvenli varsayma. Tek giriş
 - Canonical ve `og:url` daima `SITE_URL` origin'inde kalır. Dış HTTPS yalnız metadata image alanında
   kullanılabilir.
 
-[`server/services/menu.ts`](../server/services/menu.ts) yalnız array kontrolü yapmaz. Her item'ın
+[`apps/showroom/server/services/menu.ts`](../apps/showroom/server/services/menu.ts) yalnız array kontrolü yapmaz. Her item'ın
 zorunlu tiplerini ve string sınırlarını doğrular; maksimum derinlik `3`, seviye başına item `50`, tüm
 payload için item `200` sınırıdır. Cross-origin link domain listesini env'e koyma: dış link olma
 kararı gateway/CMS item'ındaki açık `external` alanının iş kontratıdır; uygulamanın teknik policy'si
 ise yalnız HTTPS gibi güvenlik invariant'larını uygular.
 
-CMS SEO nesnesi [`src/lib/metadata/schema.ts`](../src/lib/metadata/schema.ts) ile runtime'da parse
-edilir. [`src/lib/metadata/merge.ts`](../src/lib/metadata/merge.ts) policy'yi final head üretiminde
+CMS SEO nesnesi [`packages/origin-shared/src/lib/metadata/schema.ts`](../packages/origin-shared/src/lib/metadata/schema.ts) ile runtime'da parse
+edilir. [`packages/origin-shared/src/lib/metadata/merge.ts`](../packages/origin-shared/src/lib/metadata/merge.ts) policy'yi final head üretiminde
 tekrar uygular. Böylece eski cache payload'ı veya route override'ı unsafe canonical/OG URL üretemez.
 
 ### İlgili dosyalar
 
-| Dosya                           | Rol                                                      |
-| ------------------------------- | -------------------------------------------------------- |
-| `server/services/menu.ts`       | GW fetch + menü API cache                                |
-| `src/lib/device.ts`             | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
-| `src/lib/menu/utils.ts`         | sort, filter, label                                      |
-| `src/components/layout/header/` | Desktop / Mobile shell                                   |
-| `src/components/layout/footer/` | Grid / accordion                                         |
-| `src/islands/user-chrome.tsx`   | Auth dropdown (defer, lazy chunk)                        |
+| Dosya                                          | Rol                                                      |
+| ---------------------------------------------- | -------------------------------------------------------- |
+| `apps/showroom/server/services/menu.ts`        | GW fetch + menü API cache                                |
+| `packages/origin-shared/src/lib/device.ts`     | `getDeviceType`, `getDeviceShell`, `layoutCacheFragment` |
+| `packages/origin-shared/src/lib/menu/utils.ts` | sort, filter, label                                      |
+| `apps/showroom/src/components/layout/header/`  | Desktop / Mobile shell                                   |
+| `apps/showroom/src/components/layout/footer/`  | Grid / accordion                                         |
+| `apps/showroom/src/islands/user-chrome.tsx`    | Auth dropdown (defer, lazy chunk)                        |
 
 ---
 
@@ -761,13 +778,13 @@ Next.js'teki **Metadata API** + **manuel `<head>`** ayrımının karşılığı.
 
 ### Kanal 1 — Metadata API (`generateMetadata`)
 
-| Katman         | Dosya                                   | Ne                                                           |
-| -------------- | --------------------------------------- | ------------------------------------------------------------ |
-| Site defaults  | `src/lib/metadata/site-defaults.ts`     | title template, identity, OG/Twitter, icons, robots          |
-| GW parser      | `src/lib/metadata/schema.ts`            | bounded `seoInfo`, URL/date/image/editorial validation       |
-| Route override | `route.generateMetadata(data, ctx)`     | canonical, robots, social metadata ve route JSON-LD          |
-| Merge          | `src/lib/metadata/merge.ts`             | defaults ⊎ page, URL policy, base structured-data graph      |
-| HTML           | `src/components/head/metadata-head.tsx` | meta, canonical, prev/next, verification ve JSON-LD `@graph` |
+| Katman         | Dosya                                                      | Ne                                                           |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| Site defaults  | `apps/showroom/src/lib/metadata/site-defaults.ts`          | title template, identity, OG/Twitter, icons, robots          |
+| GW parser      | `packages/origin-shared/src/lib/metadata/schema.ts`        | bounded `seoInfo`, URL/date/image/editorial validation       |
+| Route override | `route.generateMetadata(data, ctx)`                        | canonical, robots, social metadata ve route JSON-LD          |
+| Merge          | `packages/origin-shared/src/lib/metadata/merge.ts`         | defaults ⊎ page, URL policy, base structured-data graph      |
+| HTML           | `packages/origin-react/src/lib/metadata/metadata-head.tsx` | meta, canonical, prev/next, verification ve JSON-LD `@graph` |
 
 ```ts
 loader: async (ctx) => {
@@ -822,13 +839,13 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 
 ### Dosya haritası
 
-| Next.js             | OriginLoom                                | Sorumluluk                   |
-| ------------------- | ---------------------------------------- | ---------------------------- |
-| `app/layout.tsx`    | `server/document.tsx` + `RootLayout`     | HTML shell, GTM bootstrap    |
-| `layout.client.tsx` | `src/islands/layout-client.tsx`          | Chrome + store seed          |
-| `page.tsx`          | `server/routes/*.tsx` + `src/features/*` | Loader/metadata + SSR UI     |
-| `page.client.tsx`   | `src/islands/page-analytics.tsx`         | Yalnızca page-view dataLayer |
-| Container           | route `Component` + `<Island />`         | UI + etkileşim               |
+| Next.js             | OriginLoom                                                           | Sorumluluk                   |
+| ------------------- | -------------------------------------------------------------------- | ---------------------------- |
+| `app/layout.tsx`    | `packages/origin-core/src/document.ts` + `RootLayout`                | HTML shell, GTM bootstrap    |
+| `layout.client.tsx` | `apps/showroom/src/islands/layout-client.tsx`                        | Chrome + store seed          |
+| `page.tsx`          | `apps/showroom/server/routes/*.tsx` + `apps/showroom/src/features/*` | Loader/metadata + SSR UI     |
+| `page.client.tsx`   | `apps/showroom/src/islands/page-analytics.tsx`                       | Yalnızca page-view dataLayer |
+| Container           | route `Component` + `<Island />`                                     | UI + etkileşim               |
 
 ### Cache + analytics
 
@@ -843,7 +860,7 @@ Next.js `layout.tsx` + `page.client.tsx` karşılığı.
 ### HTML'e embedded JSON ve crawler-visible URL'ler
 
 HTML içine hydration, analytics veya bootstrap verisi gömülüyorsa doğrudan `JSON.stringify()`
-kullanmak yasaktır. Tek otorite `src/lib/embedded-json.ts` içindeki `serializeEmbeddedJson()`
+kullanmak yasaktır. Tek otorite `packages/origin-shared/src/lib/embedded-json.ts` içindeki `serializeEmbeddedJson()`
 fonksiyonudur.
 
 ```tsx
@@ -882,7 +899,7 @@ GTM_CONTAINER_ID=GTM-XXXXXX   # boş = GTM devre dışı
 ```
 
 ID inline JavaScript'e girmeden önce `^GTM-[A-Z0-9]{4,20}$` kontratından geçer. EventQueue'nun tek
-production implementasyonu `src/components/analytics/gtm-bootstrap.tsx` içindeki inline script
+production implementasyonu `apps/showroom/src/components/analytics/gtm-bootstrap.tsx` içindeki inline script
 builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder'ı çalıştırır.
 
 ### Yeni route checklist
@@ -890,7 +907,7 @@ builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder
 1. `defineRoute()` + `pageCachePolicy(PageCacheId.*, ctx)` — registry entry + `contentQueryParams` allowlist
 2. `pageMeta` — pageview kategorisi
 3. `Component` — yalnızca sayfa içeriği (header/footer yok)
-4. Etkileşim → `src/islands/` + `<Island mode="hydrate" />`
+4. Etkileşim → `apps/showroom/src/islands/` + `<Island mode="hydrate" />`
 5. Method kontratı varsayılan `GET, HEAD` — mutation gerekiyorsa SSR route değil `/api/internal/*`
 6. Indexable ise gateway `/seo/sitemap` canonical inventory'sini güncelle
 7. Görünür içerikle bire bir eşleşen Breadcrumb/Article/Product/ItemList JSON-LD düğümlerini ekle;
@@ -915,14 +932,14 @@ kişisel panel gibi client verileri için **TanStack Query v5** kullanılır.
 
 ### Katmanlar
 
-| Katman       | Dosya                            | Rol                                                        |
-| ------------ | -------------------------------- | ---------------------------------------------------------- |
-| Query client | `src/lib/query/client.ts`        | Singleton `QueryClient` (island'lar arası paylaşımlı)      |
-| Provider     | `src/lib/query/provider.tsx`     | `AppQueryProvider` — `entry.client.tsx` her island'ı sarar |
-| Query keys   | `src/lib/query/keys.ts`          | Merkezi key factory                                        |
-| Hooks        | `src/lib/query/hooks/*`          | `useAccountSummary`                                        |
-| Client fetch | `src/lib/client/api-fetch.ts`    | `credentials: "include"` ile BFF çağrısı                   |
-| BFF (auth)   | `server/api/internal/account.ts` | `GET /api/internal/account/summary` — cookie auth          |
+| Katman       | Dosya                                                | Rol                                                        |
+| ------------ | ---------------------------------------------------- | ---------------------------------------------------------- |
+| Query client | `packages/origin-react/src/lib/query/client.ts`      | Singleton `QueryClient` (island'lar arası paylaşımlı)      |
+| Provider     | `packages/origin-react/src/lib/query/provider.tsx`   | `AppQueryProvider` — `entry.client.tsx` her island'ı sarar |
+| Query keys   | `apps/showroom/src/lib/query/keys.ts`                | Merkezi key factory                                        |
+| Hooks        | `apps/showroom/src/lib/query/hooks/*`                | `useAccountSummary`                                        |
+| Client fetch | `packages/origin-shared/src/lib/client/api-fetch.ts` | `credentials: "include"` ile BFF çağrısı                   |
+| BFF (auth)   | `apps/showroom/server/api/internal/account.ts`       | `GET /api/internal/account/summary` — cookie auth          |
 
 ### Ne zaman hangi mod?
 
@@ -935,7 +952,7 @@ kişisel panel gibi client verileri için **TanStack Query v5** kullanılır.
 
 ### Örnekler
 
-**Hesabım paneli** — `src/islands/account-dashboard.tsx`
+**Hesabım paneli** — `apps/showroom/src/islands/account-dashboard.tsx`
 
 - SSR: yalnızca fallback shell (`defer`)
 - Client: `useAccountSummary` → `GET /api/internal/account/summary`
@@ -943,10 +960,10 @@ kişisel panel gibi client verileri için **TanStack Query v5** kullanılır.
 
 ### Yeni client query eklerken
 
-1. `src/lib/query/keys.ts` — key factory ekle
-2. `src/lib/query/hooks/use-*.ts` — hook yaz
-3. Gerekirse `server/api/*` BFF endpoint
-4. `src/islands/*.tsx` — `defer` veya `hydrate` island
+1. `apps/showroom/src/lib/query/keys.ts` — key factory ekle
+2. `apps/showroom/src/lib/query/hooks/use-*.ts` — hook yaz
+3. Gerekirse `apps/showroom/server/api/*` BFF endpoint
+4. `apps/showroom/src/islands/*.tsx` — `defer` veya `hydrate` island
 5. Route'ta `<Island mode="defer" props={…}>` + SSR fallback
 
 Loader'ı React Query ile değiştirme — HTML cache mimarisi bozulur.
@@ -955,17 +972,17 @@ Loader'ı React Query ile değiştirme — HTML cache mimarisi bozulur.
 
 ## Middleware pipeline
 
-Next.js `middleware.ts` karşılığı: [`server/middleware/pipeline.ts`](../server/middleware/pipeline.ts)
+Next.js `middleware.ts` karşılığı: [`packages/origin-core/src/middleware/pipeline.ts`](../packages/origin-core/src/middleware/pipeline.ts)
 
 **Sıra:** auth → session/tracking → CMS redirect → (handler) static rules.ts → SSR
 
-| Adım           | Dosya                                  | Ne yapar                                             |
-| -------------- | -------------------------------------- | ---------------------------------------------------- |
-| Auth           | `server/middleware/steps/auth/`        | Token oku/yenile, `Authorization` inject, cookie yaz |
-| Session        | `server/middleware/steps/session/`     | gclid/utm/theme → cookie, tracking UUID              |
-| CMS redirect   | `server/middleware/steps/redirection/` | GW redirect map, 410/301                             |
-| Static routing | `src/routing/rules.ts`                 | Config redirect/rewrite/proxy                        |
-| SSR loader     | `server/services/*` + gateway adapter  | GW'ye token ile istek                                |
+| Adım           | Dosya                                                    | Ne yapar                                             |
+| -------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| Auth           | `packages/origin-core/src/middleware/steps/auth/`        | Token oku/yenile, `Authorization` inject, cookie yaz |
+| Session        | `packages/origin-core/src/middleware/steps/session/`     | gclid/utm/theme → cookie, tracking UUID              |
+| CMS redirect   | `packages/origin-core/src/middleware/steps/redirection/` | GW redirect map, 410/301                             |
+| Static routing | `apps/showroom/src/routing/rules.ts`                     | Config redirect/rewrite/proxy                        |
+| SSR loader     | `apps/showroom/server/services/*` + gateway adapter      | GW'ye token ile istek                                |
 
 ### Matcher (2 seviye)
 
@@ -1018,9 +1035,9 @@ korur. Process içi Promise dedup'a ek olarak Redis lock + AES-GCM şifreli kıs
 same-origin guard ve Redis-backed rate limit'ten geçer. Yeni browser mutation'ı bu guard olmadan
 mount edilmez.
 
-Local fixture'lar uygulama servislerine gömülmez. `mock-gw/` 4002 portunda ayrı process olarak
+Local fixture'lar uygulama servislerine gömülmez. `tools/mock-gw/` 4002 portunda ayrı process olarak
 çalışır ve gerçek gateway ile aynı HTTP sınırından çağrılır. Yeni geçici backend cevabı gerekiyorsa
-uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/server.js` içine ekle.
+uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `tools/mock-gw/server.js` içine ekle.
 
 ### Banka yönlendirmesi
 
@@ -1028,7 +1045,7 @@ uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/ser
   `/api/referrals` adresine `POST` eder; yalnız gerçek kullanıcı aktivasyonu ölçüm üretir.
 - UI yalnız public ürün tipi ve slug gönderir. Banka hedefi server-side gateway cevabından alınır,
   merkezi URL policy ile doğrulanır ve `303 See Other` ile açılır.
-- Ürün tipi dallanmalarını route veya component içinde çoğaltma. `src/lib/referral-products.ts`
+- Ürün tipi dallanmalarını route veya component içinde çoğaltma. `apps/showroom/src/lib/referral-products.ts`
   registry'sine kayıt ekle; taşıt/ihtiyaç kredisi gibi yeni domainler aynı akışı kullanır.
 - Benzersiz kullanıcı metriği değildir: `HttpOnly referral_session`, kişisel veri içermeyen yaklaşık
   benzersiz browser/session ölçümüdür ve auth kararı vermez.
@@ -1063,9 +1080,9 @@ uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `mock-gw/ser
 
 ## Routing — rewrite, redirect, proxy
 
-Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](../src/routing/rules.ts)
+Next.js `rewrites()` / `redirects()` karşılığı: [`apps/showroom/src/routing/rules.ts`](../apps/showroom/src/routing/rules.ts)
 
-| Next.js                 | OriginLoom                           | Davranış                            |
+| Next.js                 | OriginLoom                          | Davranış                            |
 | ----------------------- | ----------------------------------- | ----------------------------------- |
 | `redirects()`           | `redirects[]`                       | Tarayıcı URL değişir (301/308)      |
 | `rewrites()` (internal) | `rewrites[]` + internal destination | URL aynı, route internal path görür |
@@ -1073,7 +1090,7 @@ Next.js `rewrites()` / `redirects()` karşılığı: [`src/routing/rules.ts`](..
 
 **Pipeline sırası:** public URL normalization → redirect → rewrite/proxy → route match → SSR
 
-[`normalizePublicUrl()`](../src/routing/public-url.ts) route matching, CMS/static redirect, rewrite ve
+[`normalizePublicUrl()`](../packages/origin-shared/src/routing/public-url.ts) route matching, CMS/static redirect, rewrite ve
 cache lookup'tan önce çalışır:
 
 - `/foo/`, `/foo//` ve `//foo///` tek slash/trailing-slash politikasına göre 308 ile canonical path'e
@@ -1095,7 +1112,7 @@ korunur ve destination query ile birleştirilir, çakışmada destination değer
 `pathname` ve `search` alanlarını ayrı taşır. Parametreler URL-safe encode edilir; yalnız `:path*`
 birden fazla segmenti koruyabilir.
 
-Query birleştirme yalnız statik rules için yazılmaz. [`mergeSearchParams()`](../src/routing/query.ts)
+Query birleştirme yalnız statik rules için yazılmaz. [`mergeSearchParams()`](../packages/origin-shared/src/routing/query.ts)
 statik redirect, internal/external rewrite ve CMS redirect'in ortak utility'sidir. Kontrat:
 
 - Incoming anahtarlar korunur.
@@ -1130,19 +1147,19 @@ Katı TypeScript, ESLint 9 (flat config), Prettier ve EditorConfig. CI'da hepsi 
 
 ### TypeScript
 
-| Dosya                 | Amaç                                          |
-| --------------------- | --------------------------------------------- |
-| `tsconfig.base.json`  | Paylaşılan `compilerOptions` (sıkı bayraklar) |
-| `tsconfig.json`       | Uygulama kodu — `src`, `server`, `tests`      |
-| `tsconfig.node.json`  | Vite / Vitest / ESLint config dosyaları       |
-| `tests/tsconfig.json` | Vitest globals                                |
+| Dosya                               | Amaç                                          |
+| ----------------------------------- | --------------------------------------------- |
+| `tsconfig.base.json`                | Paylaşılan `compilerOptions` (sıkı bayraklar) |
+| `tsconfig.json`                     | Uygulama kodu — `src`, `server`, `tests`      |
+| `tsconfig.node.json`                | Vite / Vitest / ESLint config dosyaları       |
+| `apps/showroom/tests/tsconfig.json` | Vitest globals                                |
 
 ### Path alias
 
-| Alias       | Hedef      | Kullanım                |
-| ----------- | ---------- | ----------------------- |
-| `~/*`       | `src/*`    | Uygulama kodu, testler  |
-| `@server/*` | `server/*` | Server runtime, testler |
+| Alias       | Hedef                    | Kullanım                      |
+| ----------- | ------------------------ | ----------------------------- |
+| `~/*`       | `apps/showroom/src/*`    | Uygulama kodu, testler        |
+| `@server/*` | `apps/showroom/server/*` | Uygulama server kodu, testler |
 
 **Kural:** `../` ile üst dizine çıkan import **yasak**. Aynı klasör içi `./` serbest.
 
@@ -1161,22 +1178,22 @@ import { handle } from "@server/handler";
 
 ### Mimari sınırlar (ESLint)
 
-| Kaynak                                  | Yasak hedef      | Gerekçe                          |
-| --------------------------------------- | ---------------- | -------------------------------- |
-| `server/**`                             | `src/islands/**` | Server client bundle'a girmemeli |
-| `src/components/**`, `server/routes/**` | `src/islands/**` | Island wrapper üzerinden kullan  |
-| `src/lib/**`                            | `server/**`      | Katman sınırı                    |
-| `src/islands/**`                        | `server/**`      | Client server kodu okumaz        |
+| Kaynak                                                              | Yasak hedef                    | Gerekçe                          |
+| ------------------------------------------------------------------- | ------------------------------ | -------------------------------- |
+| `server/**`                                                         | `apps/showroom/src/islands/**` | Server client bundle'a girmemeli |
+| `apps/showroom/src/components/**`, `apps/showroom/server/routes/**` | `apps/showroom/src/islands/**` | Island wrapper üzerinden kullan  |
+| `apps/showroom/src/lib/**`                                          | `server/**`                    | Katman sınırı                    |
+| `apps/showroom/src/islands/**`                                      | `server/**`                    | Client server kodu okumaz        |
 
-Uygulama runtime env'i `server/config.ts` tarafından okunur; yalnız OpenTelemetry'nin standart
-`OTEL_*` bootstrap değişkenleri `server/instrumentation.ts` tarafından doğrudan okunur. Public origin
-gibi gerekli değerler saf `src/lib` fonksiyonlarına context üzerinden aktarılır.
+Uygulama runtime env'i `packages/origin-core/src/config.ts` (platform) ve `apps/showroom/server/product/config.ts` (ürün) tarafından okunur; yalnız OpenTelemetry'nin standart
+`OTEL_*` bootstrap değişkenleri `packages/origin-core/src/instrumentation.ts` tarafından doğrudan okunur. Public origin
+gibi gerekli değerler saf lib fonksiyonlarına context üzerinden aktarılır.
 
 ---
 
 ## Observability kontratı
 
-- Yeni server I/O sınırları `server/observability.ts` içindeki `withSpan()` ile ölçülür.
+- Yeni server I/O sınırları `packages/origin-core/src/observability.ts` içindeki `withSpan()` ile ölçülür.
 - Span adı bounded olmalıdır; token, kullanıcı ID'si, cache key veya kontrolsüz query içermez.
 - Gateway çağrısında `injectActiveTrace()` korunur; request ID `correlationid` olarak iletilir.
 - Yeni metric label değerleri sınırlı bir enum olmalıdır. Raw path/request ID metric label'ı değildir.
@@ -1184,7 +1201,7 @@ gibi gerekli değerler saf `src/lib` fonksiyonlarına context üzerinden aktarı
   fire-and-forget Promise request middleware'inde bırakılmaz.
 - Release kimliği deploy sırasında `RELEASE_ID` ile sağlanır; log, trace resource ve
   `ssr_release_info` metriğinde aynı değer görünür.
-- OpenTelemetry SDK yalnız `server/instrumentation.ts` tarafından başlatılır ve kapatılır. Service,
+- OpenTelemetry SDK yalnız `packages/origin-core/src/instrumentation.ts` tarafından başlatılır ve kapatılır. Service,
   route veya adapter içinde SDK/provider oluşturulmaz.
 
 Tracing için local collector zorunlu değildir. `OTEL_EXPORTER_OTLP_ENDPOINT` yoksa span API no-op
@@ -1210,7 +1227,7 @@ Vite build çıktısı (`dist/client/assets/*`) hash'li dosyalardır — uzun s�
 ### Akış
 
 ```
-npm run build → dist/client/.vite/manifest.json
+pnpm build → dist/client/.vite/manifest.json
        ↓
 readAssets() → assetUrl() ile JS/CSS URL'leri
        ↓
@@ -1219,12 +1236,12 @@ renderDocument → <link>/<script> href'leri CDN veya origin
 CDN (veya origin /assets/*) → Cache-Control: immutable, max-age=31536000
 ```
 
-| Dosya                                | Rol                                              |
-| ------------------------------------ | ------------------------------------------------ |
-| `server/assets.ts`                   | `readAssets()`, `assetUrl()`, `assetCdnOrigin()` |
-| `server/document.tsx`                | CDN `preconnect` + manifest URL'leri             |
-| `server/middleware/static-assets.ts` | Origin `/assets/*` için immutable header         |
-| `server/config.ts`                   | `ASSET_CDN_URL`                                  |
+| Dosya                                                  | Rol                                              |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| `packages/origin-core/src/assets.ts`                   | `readAssets()`, `assetUrl()`, `assetCdnOrigin()` |
+| `packages/origin-core/src/document.ts`                 | CDN `preconnect` + manifest URL'leri             |
+| `packages/origin-core/src/middleware/static-assets.ts` | Origin `/assets/*` için immutable header         |
+| `packages/origin-core/src/config.ts`                   | `ASSET_CDN_URL`                                  |
 
 ### Env
 
@@ -1242,10 +1259,10 @@ ASSET_CDN_URL=https://cdn.hangikredi.com
 
 ### Responsive image ekleme
 
-1. Orijinal dosyayı `src/assets/images/` altına koy.
-2. Intrinsic `width`, `height`, responsive width allowlist ve kaliteyi `server/media.config.json`
+1. Orijinal dosyayı `apps/showroom/src/assets/images/` altına koy.
+2. Intrinsic `width`, `height`, responsive width allowlist ve kaliteyi `apps/showroom/server/media.config.json`
    içine ekle.
-3. `npm run media` çalıştır; source metadata config boyutuyla uyuşmazsa build fail eder.
+3. `pnpm media` çalıştır; source metadata config boyutuyla uyuşmazsa build fail eder.
 4. Server route loader'ında `responsiveImage(id)` ile manifest kaydını al.
 5. UI'da `ResponsiveImage` kullan ve gerçek layout'a uygun `sizes` ver.
 6. Yalnız gerçek LCP adayı için `priority` ve route `preloadImages` tanımla.
@@ -1273,24 +1290,24 @@ uzak hostlara uygulanmaz; production CDN ve transformer URL'leri HTTPS olmalıd�
 ### Font ekleme
 
 Font kaynağı local WOFF2 olmalı ve lisansı bilinmelidir. Gerekli dil subsetlerini
-`server/media.config.json` içinde ayrı unicode-range ile tanımla. Bütün weight dosyalarını preload
+`apps/showroom/server/media.config.json` içinde ayrı unicode-range ile tanımla. Bütün weight dosyalarını preload
 etmek yerine variable font veya gerçekten kullanılan weight'leri seç. Font preload, `@font-face` ve
 asset URL'si elle kopyalanmaz; `asset-pipeline.json` tek otoritedir.
 
 ### SSR vs island
 
-| Alan                                                       | Browser API        |
-| ---------------------------------------------------------- | ------------------ |
-| `server/routes/**`, `src/features/**`, `src/components/**` | **Yasak** (ESLint) |
-| `src/islands/**`, `entry.client.tsx`                       | Serbest            |
+| Alan                                                                                                 | Browser API        |
+| ---------------------------------------------------------------------------------------------------- | ------------------ |
+| `apps/showroom/server/routes/**`, `apps/showroom/src/features/**`, `apps/showroom/src/components/**` | **Yasak** (ESLint) |
+| `apps/showroom/src/islands/**`, `entry.client.tsx`                                                   | Serbest            |
 
 ### Komutlar
 
 ```bash
-npm run typecheck
-npm run lint
-npm run lint:fix
-npm run format
-npm run format:check
-npm run ci    # typecheck → lint → format:check → test → build → smoke
+pnpm typecheck
+pnpm lint
+pnpm lint:fix
+pnpm format
+pnpm format:check
+ppnpm install    # typecheck → lint → format:check → test → build → smoke
 ```

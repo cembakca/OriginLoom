@@ -7,12 +7,12 @@ toplamaktır.
 
 ## Amaç ve kapsam dışı
 
-| Dahil | Kapsam dışı |
-| --- | --- |
-| Production build (`npm run build` image) | Gerçek gateway latency/contract |
-| App container: **2 vCPU / 4 GiB** | Çok pod / horizontal scale |
-| mock-gw ile uçtan uca SSR | CDN / edge cache |
-| memory vs redis cache profili | Finans prod cutover onayı |
+| Dahil                                 | Kapsam dışı                     |
+| ------------------------------------- | ------------------------------- |
+| Production build (`pnpm build` image) | Gerçek gateway latency/contract |
+| App container: **2 vCPU / 4 GiB**     | Çok pod / horizontal scale      |
+| mock-gw ile uçtan uca SSR             | CDN / edge cache                |
+| memory vs redis cache profili         | Finans prod cutover onayı       |
 
 Mutlak RPS sayıları yalnızca staging (gerçek gateway + cluster Redis) tekrarında anlam kazanır.
 Buradaki değerler **göreli karşılaştırma** içindir.
@@ -63,27 +63,27 @@ altında saklanır (gitignore).
 
 Senaryolar `load-test/scenarios.mjs` içinde sıralıdır; cache HIT ölçümlerinden önce warmup yapılır.
 
-| Grup | Senaryolar | İzlenecek sinyal |
-| --- | --- | --- |
-| Baseline | `warmup-health` | Liveness, düşük latency |
-| Shared cache | `cache-miss-home`, `cache-hit-home`, `cache-hit-bank`, `cache-short-bist` | `x-cache`, p99, HIT oranı |
-| Fragmentation | `cache-miss-housing-catalog`, `mixed-catalog` | Query key cardinality |
-| BYPASS | `cache-bypass-calculator`, `cache-bypass-account` | SSR yükü, gateway çağrıları |
-| Kapasite | `capacity-ramp` | `503`, `504`, `ssr_ssr_capacity_rejected_total` |
-| BFF | `referral-post` | Same-origin guard; başarılı yanıt **303** (autocannon'da hata sayılmaz) |
+| Grup          | Senaryolar                                                                | İzlenecek sinyal                                                        |
+| ------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Baseline      | `warmup-health`                                                           | Liveness, düşük latency                                                 |
+| Shared cache  | `cache-miss-home`, `cache-hit-home`, `cache-hit-bank`, `cache-short-bist` | `x-cache`, p99, HIT oranı                                               |
+| Fragmentation | `cache-miss-housing-catalog`, `mixed-catalog`                             | Query key cardinality                                                   |
+| BYPASS        | `cache-bypass-calculator`, `cache-bypass-account`                         | SSR yükü, gateway çağrıları                                             |
+| Kapasite      | `capacity-ramp`                                                           | `503`, `504`, `ssr_ssr_capacity_rejected_total`                         |
+| BFF           | `referral-post`                                                           | Same-origin guard; başarılı yanıt **303** (autocannon'da hata sayılmaz) |
 
 ## Referans kapasite (tek pod, 2 vCPU / 4 GiB, mock-gw)
 
 Stress koşularından türetilmiş **üst limit tahminleri** — prod gateway ile %20–40 düşebilir.
 
-| Profil / trafik | Rahat çalışma | Sert tavan |
-| --- | ---: | ---: |
-| Hard concurrent SSR | — | **96** (32+64 kuyruk) |
-| Memory + cache HIT (L1-only) | ~1.200 req/s | ~1.600 req/s |
-| L1+Redis sıcak L1 HIT | ~1.200 req/s | ~1.600 req/s |
-| L1+Redis soğuk L2 miss | ~800–1.000 req/s | ~1.480 req/s (yüksek conn'da 503) |
-| BYPASS rotalar | ~80–100 req/s | ~150 req/s |
-| Karışık (finans benzeri) | ~800–1.000 req/s | ~1.200 req/s |
+| Profil / trafik              |    Rahat çalışma |                        Sert tavan |
+| ---------------------------- | ---------------: | --------------------------------: |
+| Hard concurrent SSR          |                — |             **96** (32+64 kuyruk) |
+| Memory + cache HIT (L1-only) |     ~1.200 req/s |                      ~1.600 req/s |
+| L1+Redis sıcak L1 HIT        |     ~1.200 req/s |                      ~1.600 req/s |
+| L1+Redis soğuk L2 miss       | ~800–1.000 req/s | ~1.480 req/s (yüksek conn'da 503) |
+| BYPASS rotalar               |    ~80–100 req/s |                        ~150 req/s |
+| Karışık (finans benzeri)     | ~800–1.000 req/s |                      ~1.200 req/s |
 
 Redis profili (L1+L2) ~96 eşzamanlı SSR altında L1-only ile benzer steady-state HIT davranışı gösterir;
 soğuk pod / L2 miss path'te ek round-trip nedeniyle daha erken 503 üretebilir.
@@ -91,37 +91,37 @@ soğuk pod / L2 miss path'te ek round-trip nedeniyle daha erken 503 üretebilir.
 Karşılaştırma:
 
 ```bash
-npm run loadtest:compare      # benchmark
-npm run stress:compare        # stress
+pnpm loadtest:compare      # benchmark
+pnpm stress:compare        # stress
 ```
 
 ## Çalıştırma
 
 ```bash
 # Tam suite (~15–25 dk / profil)
-npm run loadtest:memory
-npm run loadtest:redis
+pnpm loadtest:memory
+pnpm loadtest:redis
 
 # Hızlı smoke (~5 dk)
-npm run loadtest:memory -- --quick
+pnpm loadtest:memory -- --quick
 
 # Image zaten var
-npm run loadtest:redis -- --skip-build
+pnpm loadtest:redis -- --skip-build
 
 # Stack debug
-npm run loadtest:memory -- --keep-stack
+pnpm loadtest:memory -- --keep-stack
 ```
 
 ## Raporlama
 
 Her koşu `load-test/results/<timestamp>-<profile>/` oluşturur:
 
-| Dosya | İçerik |
-| --- | --- |
-| `report.md` | Özet tablo, yorum rehberi |
-| `results.json` | Ham autocannon + meta |
-| `metrics-before.txt` / `metrics-after.txt` | Prometheus scrape |
-| `preflight.json` | İlk istek header örneği |
+| Dosya                                      | İçerik                    |
+| ------------------------------------------ | ------------------------- |
+| `report.md`                                | Özet tablo, yorum rehberi |
+| `results.json`                             | Ham autocannon + meta     |
+| `metrics-before.txt` / `metrics-after.txt` | Prometheus scrape         |
+| `preflight.json`                           | İlk istek header örneği   |
 
 ### Kabul eşikleri (regresyon)
 
@@ -136,36 +136,36 @@ Staging gate öncesi iç kontrol önerisi:
 
 ## Release döngüsü önerisi
 
-1. CI yeşil (`npm run ci`)
+1. CI yeşil (`ppnpm install`)
 2. `loadtest:memory` + `loadtest:redis` ardışık
 3. Raporları release ticket'a ekle
 4. Staging'de aynı URL seti + gerçek gateway ile tekrar (mutlak sayılar)
-5. Pentest readiness (`npm run pentest:readiness`) staging URL ile
+5. Pentest readiness (`pnpm pentest:readiness`) staging URL ile
 
 ## Stres testi (stress suite)
 
 Benchmark suite (`loadtest:*`) steady-state regresyon içindir. **Ciddi stres** için ayrı suite:
 
 ```bash
-npm run stress:memory
-npm run stress:redis
-npm run stress:memory -- --quick
+pnpm stress:memory
+pnpm stress:redis
+pnpm stress:memory -- --quick
 ```
 
 Stress suite bilinçli olarak `SSR_MAX_CONCURRENCY=32` + `SSR_MAX_QUEUE=64` sınırını aşar (384–512
 eşzamanlı bağlantı). Beklenen sinyaller: `503` (capacity rejected), `504` (deadline). Soğuma
 senaryosu (`stress-recovery`) sonrası hata oranı <%1 olmalıdır.
 
-| Faz | Bağlantı | Süre | Amaç |
-| --- | ---: | ---: | --- |
-| SSR saturation | 384 | 120s | Tek route queue dolumu |
-| BYPASS storm | 220 | 90s | Gateway + SSR bypass yükü |
-| Cache stampede | 240 | 75s | Benzersiz query key cold-fill |
-| Mixed hostile soak | 256 | 180s | Karışık trafik altında dayanıklılık |
-| Capacity ramp | 96→512 | 4 faz | Kademeli kırılma noktası |
-| Recovery | 24 | 45s | Steady-state'e dönüş doğrulama |
+| Faz                | Bağlantı |  Süre | Amaç                                |
+| ------------------ | -------: | ----: | ----------------------------------- |
+| SSR saturation     |      384 |  120s | Tek route queue dolumu              |
+| BYPASS storm       |      220 |   90s | Gateway + SSR bypass yükü           |
+| Cache stampede     |      240 |   75s | Benzersiz query key cold-fill       |
+| Mixed hostile soak |      256 |  180s | Karışık trafik altında dayanıklılık |
+| Capacity ramp      |   96→512 | 4 faz | Kademeli kırılma noktası            |
+| Recovery           |       24 |   45s | Steady-state'e dönüş doğrulama      |
 
 Sonuçlar: `load-test/results/<timestamp>-stress-<profile>/`
 
-İlgili: [load-test/README.md](../load-test/README.md), [production-security.md](./production-security.md),
+İlgili: [load-test/README.md](../apps/showroom/load-test/README.md), [production-security.md](./production-security.md),
 [pentest-prep.md](./pentest-prep.md)
