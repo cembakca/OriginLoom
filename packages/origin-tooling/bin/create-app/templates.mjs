@@ -336,7 +336,6 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
       devDependencies: {
         "@eslint/js": "^9.39.5",
         "@originloom/tooling": originloom,
-        ...(renderer === "vanilla" ? {} : { "@svgr/cli": "^8.1.0" }),
         "@types/node": "^22.10.2",
         ...(renderer === "vanilla"
           ? {}

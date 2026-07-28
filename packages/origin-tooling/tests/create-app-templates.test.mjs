@@ -648,7 +648,10 @@ describe("renderTemplates — product config, public API and media", () => {
     const [, react] = modes[0];
     const [, vanilla] = modes[1];
     expect(react).toHaveProperty([".svgrrc.cjs"]);
-    expect(JSON.parse(react["package.json"]).devDependencies["@svgr/cli"]).toBeDefined();
+    expect(JSON.parse(react["package.json"]).scripts.icons).toBe("origin-generate-icons");
+    // The transformer belongs to the tooling that runs it. An app carrying its
+    // own copy also carried @svgr/cli's deprecated glob chain for nothing.
+    expect(JSON.parse(react["package.json"]).devDependencies["@svgr/cli"]).toBeUndefined();
     // svgr emits React components; a vanilla app would never compile them.
     expect(vanilla).not.toHaveProperty([".svgrrc.cjs"]);
     expect(JSON.parse(vanilla["package.json"]).scripts.icons).toBeUndefined();

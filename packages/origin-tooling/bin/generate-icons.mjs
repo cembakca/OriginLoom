@@ -4,9 +4,13 @@
  * Kaynak: src/assets/svg/*.svg
  * Çıktı:  src/components/icons/*.tsx + index.ts
  */
+import { transform } from "@svgr/core";
+import jsxPlugin from "@svgr/plugin-jsx";
+import svgoPlugin from "@svgr/plugin-svgo";
 import { execFileSync } from "node:child_process";
-import { readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
 const SVG_DIR = join(ROOT, "src/assets/svg");
@@ -57,30 +61,48 @@ async function removeStaleOutputs(svgFiles) {
   );
 }
 
+/**
+ * SVGR's transform, called directly rather than through @svgr/cli.
+ *
+ * The CLI's job is walking directories and naming outputs, and this file
+ * already does both — all that was left was the transform. Shelling out to it
+ * also meant every generated app had to carry @svgr/cli as a devDependency,
+ * and with it a deprecated glob/inflight chain that nothing here ever ran.
+ */
 async function runSvgr(svgFiles) {
+  await mkdir(OUT_DIR, { recursive: true });
   if (svgFiles.length === 0) {
     await writeFile(join(OUT_DIR, "index.ts"), `${BANNER}// No SVG sources in src/assets/svg\n`);
     return;
   }
 
-  const svgrBin = join(ROOT, "node_modules/@svgr/cli/bin/svgr");
-  execFileSync(
-    process.execPath,
-    [
-      svgrBin,
-      "--config-file",
-      join(ROOT, ".svgrrc.cjs"),
-      "--out-dir",
-      OUT_DIR,
-      "--filename-case",
-      "kebab",
-      "--ext",
-      "tsx",
-      "--no-index",
-      SVG_DIR,
-    ],
-    { cwd: ROOT, stdio: "inherit" },
-  );
+  const config = await readSvgrConfig();
+  for (const name of svgFiles) {
+    const stem = svgStem(name);
+    const code = await transform(
+      await readFile(join(SVG_DIR, name), "utf8"),
+      // svgo runs first so the JSX is built from the optimised tree.
+      { ...config, plugins: [svgoPlugin, jsxPlugin] },
+      // SVGR's own naming: the prefix keeps the generated output identical to
+      // what @svgr/cli produced, so upgrading does not rewrite every icon.
+      { componentName: `Svg${toPascalCase(stem)}`, filePath: join(SVG_DIR, name) },
+    );
+    await writeFile(join(OUT_DIR, `${stem}.tsx`), code);
+  }
+}
+
+/** The app owns how its icons are generated; without a config SVGR's defaults apply. */
+async function readSvgrConfig() {
+  const configPath = join(ROOT, ".svgrrc.cjs");
+  try {
+    const module = await import(pathToFileURL(configPath).href);
+    return module.default ?? {};
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "ERR_MODULE_NOT_FOUND") {
+      return {};
+    }
+    throw err;
+  }
 }
 
 async function stampGeneratedFiles(svgFiles) {
