@@ -62,6 +62,79 @@ renderHeadEnd: ({ cspNonce, isBot }) =>
 3. **`isBot`'a bak.** Crawler'a analytics yüklemek hem ölçümü kirletir hem tarama bütçesi harcar:
    yukarıdaki örnekte bot için `html``` `` dönülüyor.
 
+## Sıra
+
+Analytics ekipleri sık sık "önce şu, o bitince şu" ister. İyi haber: **klasik script'ler
+`<head>`e yazdığın sırayla çalışır ve her biri bitmeden sonraki başlamaz.** Bu bir HTML garantisi.
+Sırayla yaz, `async` verme, bitti:
+
+```ts
+renderHeadEnd: ({ cspNonce }) => html`
+  <script nonce="${cspNonce ?? ""}" src="https://cdn.vendor.example/consent.js"></script>
+  <script nonce="${cspNonce ?? ""}">
+    ${raw(dataLayerBootstrap)}
+  </script>
+  <script nonce="${cspNonce ?? ""}" src="https://www.googletagmanager.com/gtm.js?id=GTM-XXXX"></script>
+`,
+```
+
+Bunu iki şey bozar ve `sequencedScript` tam olarak bunlar için var:
+
+- **`async`**: çalışma sırasını "ağdan ilk dönen" belirler. Tek bir `async` bütün sırayı sessizce
+  bozar, hiçbir yerde hata çıkmaz.
+- **"Bitmek" her zaman "çalışmak" değildir.** Bir consent aracı ya da tag manager hemen çalışıp
+  ancak kendi konfigürasyonunu çektikten sonra kullanılabilir hâle gelebilir. Doküman sırası bunu
+  bekleyemez — `<script>` çalıştı, ama araç henüz hazır değil.
+
+Ayrıca yukarıdaki blok **parser'ı bloklar**: her satıcı script'i indirilene kadar sayfa bekler.
+
+```tsx
+import { sequencedScript } from "@originloom/shared/head-scripts";
+
+const analyticsSequence = sequencedScript(
+  [
+    // 1) Satıcı script'i — çalışması yetmez, hazır olduğunu bildirmesini bekle.
+    { src: "https://cdn.vendor.example/consent.js", awaitEvent: "consent:ready" },
+    // 2) Ancak consent kararı belliyken dataLayer'ı kur.
+    { code: `window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"app.ready"});` },
+    // 3) Tag manager, dataLayer hazırken.
+    { src: "https://www.googletagmanager.com/gtm.js?id=GTM-XXXX" },
+    // 4) Kendi ölçüm isteğin, en sonda.
+    { code: `navigator.sendBeacon("/api/collect")` },
+  ],
+  { timeoutMs: 4_000 },
+);
+
+renderHeadEnd: ({ cspNonce, isBot }) =>
+  isBot
+    ? html``
+    : html`<script nonce="${cspNonce ?? ""}">
+        ${raw(analyticsSequence)}
+      </script>`,
+```
+
+Ne yapar:
+
+- Adımları **sırayla** yükler, ama parser'ı bloklamaz (kendisi enjekte eder, `async=false` ile).
+- Dış adım `load` olunca biter; `awaitEvent` verilmişse o olay `window`da tetiklenene kadar
+  sonraki adım başlamaz.
+- Inline adım eklendiği anda çalışır ve hemen biter.
+- **Her adımın açılma bütçesi vardır.** Yüklenemeyen ya da hazır sinyali hiç gelmeyen bir satıcı
+  arkasındaki adımları kilitlemez: süre dolunca zincir devam eder. Ölçüm sayfadan daha değerli
+  değildir; siteyi bekleten analytics, analytics'in hatasıdır.
+- Kendi nonce'unu `document.currentScript.nonce` üzerinden okuyup enjekte ettiği her script'e
+  koyar, böylece zincirin tamamı nonce tabanlı CSP'den geçer.
+
+Sınırlar, peşinen: satıcının hazır olduğunu **bir olayla** bildirmesi gerekir. Callback'li API'ler
+için araya kendi inline adımını koyup olayı sen tetikle:
+
+```ts
+{ code: `window.vendor.onReady(function(){ dispatchEvent(new Event("vendor:ready")) })` },
+```
+
+`awaitEvent` dinlenmeye başlamadan **önce** tetiklenen bir olay kaçırılır ve o adım süre dolunca
+geçilir — satıcı senkron hazır oluyorsa `awaitEvent` kullanma, gerek yok.
+
 ## Nonce taşıyamayan script'ler
 
 Bir satıcı script'i sayfaya kendi inline script'ini enjekte ediyorsa (GTM'in yaptığı budur) o
