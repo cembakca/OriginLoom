@@ -96,10 +96,12 @@ export function renderTemplates({
     "server/seo.ts": seoRoutes(),
     "server/metrics/catalog.ts": productMetrics(),
     "server/product/config.ts": productConfigFile(),
+    "server/product/analytics.ts": productAnalytics(),
     "server/api/items.ts": publicItemsApi(),
     "server/api/session.ts": sessionApi(),
     "server/media.config.json": mediaConfig(),
     "src/assets/images/og-cover.svg": ogCoverSvg(title),
+    "src/assets/images/hero.svg": heroSvg(title),
     "src/assets/images/brand-mark.svg": brandMarkSvg(),
     // React icon codegen: src/assets/svg → src/components/icons (pnpm icons).
     ".svgrrc.cjs": svgrConfig(),
@@ -107,6 +109,8 @@ export function renderTemplates({
     "server/routes/index.ts": routesIndex(),
     "server/routes/home.tsx": homeRoute(title),
     "server/routes/showcase.tsx": showcaseRoute(),
+    "server/routes/media.tsx": mediaRoute(),
+    "src/features/media/media-page.tsx": mediaPage(),
     "server/routes/catalog.tsx": catalogRoute(),
     "server/routes/item-detail.tsx": itemDetailRoute(),
     "server/routes/account.tsx": accountRoute(),
@@ -134,6 +138,7 @@ export function renderTemplates({
     "src/features/items/item-detail-page.tsx": itemDetailPage(),
     "src/features/live/live-page.tsx": livePage(),
     "src/components/layout/root-layout.tsx": rootLayout(title),
+    "src/components/ui/responsive-image.tsx": responsiveImageComponent(),
     "src/lib/shell-data.ts": libShellData(),
     "src/lib/cache-keys.ts": cacheKeys(),
     "src/lib/pagination.ts": paginationLib(),
@@ -199,10 +204,12 @@ function vanillaTemplates({
     "server/seo.ts": seoRoutes(),
     "server/metrics/catalog.ts": productMetrics(),
     "server/product/config.ts": productConfigFile(),
+    "server/product/analytics.ts": productAnalytics(),
     "server/api/items.ts": publicItemsApi(),
     "server/api/session.ts": sessionApi(),
     "server/media.config.json": mediaConfig(),
     "src/assets/images/og-cover.svg": ogCoverSvg(title),
+    "src/assets/images/hero.svg": heroSvg(title),
     "src/assets/images/brand-mark.svg": brandMarkSvg(),
     "server/routes/index.ts": vanilla.routesIndex(),
     "server/routes/home.ts": vanilla.homeRoute(title),
@@ -566,6 +573,17 @@ CATALOG_PAGE_SIZE=3
 # Graceful shutdown budget for in-flight requests.
 # SHUTDOWN_TIMEOUT_MS=10000
 #
+# The consent tool the analytics sequence starts with. In development the mock
+# gateway plays that part so the chain really runs; point this at your vendor.
+ANALYTICS_VENDOR_URL=http://127.0.0.1:4002/vendor/consent.js
+
+# Serving images and assets from a CDN. With IMAGE_TRANSFORM_URL set,
+# responsiveImage() rewrites its candidates through it and the pages do not
+# change at all; the CSP img-src picks up these origins on its own.
+# ASSET_CDN_URL=https://cdn.example.com
+# IMAGE_CDN_URL=https://images.example.com
+# IMAGE_TRANSFORM_URL=https://images.example.com/transform
+
 # Tracing. server/index.ts already calls register() and shuts the SDK down on
 # exit; it stays a no-op until an endpoint is set, so nothing is exported until
 # you point it somewhere. /metrics works either way.
@@ -613,6 +631,7 @@ import { validateRoutingRules } from "@originloom/shared/routing/validate";
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
 import { mountApi } from "./api";
+import { analyticsCsp } from "./product/analytics";
 import { validateProductConfig } from "./product/config";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
@@ -643,6 +662,8 @@ async function main() {
     // /api/ticks streams until the client leaves, so it manages its own
     // lifetime — arming a request deadline on it would cut a healthy stream.
     longLivedRoutes: ["/api/ticks"],
+    // Origins the document reaches that are not this app's own.
+    csp: analyticsCsp,
     isShuttingDown: () => shuttingDown,
   });
 
@@ -710,6 +731,170 @@ main().catch(async (err) => {
 });
 `;
 
+const mediaPage =
+  () => `import type { ResponsiveImageData, UnoptimizedImageData } from "@originloom/shared/lib/media";
+
+import { ResponsiveImage, UnoptimizedImage } from "~/components/ui/responsive-image";
+
+export const MEDIA_DEMO_SIZES = "(min-width: 1024px) 50vw, 100vw";
+
+export type MediaPageData = {
+  responsive: ResponsiveImageData;
+  unoptimized: UnoptimizedImageData;
+  imageCdnEnabled: boolean;
+  transformEnabled: boolean;
+};
+
+/**
+ * The same source image delivered two ways, side by side, so the difference is
+ * visible in the network panel rather than only in documentation.
+ */
+export function MediaPage({ data }: { data: MediaPageData }) {
+  return (
+    <div className="space-y-8">
+      <header className="max-w-3xl space-y-3">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Görsel pipeline</h1>
+        <p className="text-slate-600">
+          \`pnpm media\` tek bir kaynaktan avif/webp/jpeg adayları üretir. Aşağıdaki iki kart aynı
+          görseli farklı sözleşmelerle sunuyor; tarayıcının hangisini indirdiğini Network
+          panelinde görebilirsiniz.
+        </p>
+        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+          <Status enabled={data.imageCdnEnabled} label="IMAGE_CDN_URL" />
+          <Status enabled={data.transformEnabled} label="IMAGE_TRANSFORM_URL" />
+        </div>
+      </header>
+
+      <section className="grid gap-6 lg:grid-cols-2">
+        <article className="overflow-hidden rounded-lg border border-slate-200">
+          <ResponsiveImage
+            image={data.responsive}
+            sizes={MEDIA_DEMO_SIZES}
+            priority
+            alt=""
+            className="aspect-video w-full bg-slate-900 object-cover"
+          />
+          <div className="space-y-3 p-4">
+            <h2 className="font-semibold text-slate-900">Responsive teslim</h2>
+            <p className="text-sm leading-6 text-slate-600">
+              Tarayıcı, gerçek slot genişliği ve cihaz piksel oranına göre adaylardan birini seçer.
+              Bu sayfada 1280 px genişlikte 960 px'lik avif iner — 1440'lık değil.
+            </p>
+            <Contract
+              values={[
+                "srcset + sizes + <picture>",
+                "Zorunlu intrinsic width / height",
+                "LCP preload + fetchPriority=high",
+                data.transformEnabled ? "CDN transformer aktif" : "Build-time Sharp varyantları",
+              ]}
+            />
+            <code className="block overflow-x-auto rounded bg-slate-900 p-3 text-xs text-slate-200">
+              {data.responsive.srcSet}
+            </code>
+          </div>
+        </article>
+
+        <article className="overflow-hidden rounded-lg border border-slate-200">
+          <UnoptimizedImage
+            image={data.unoptimized}
+            alt=""
+            className="aspect-video w-full bg-slate-900 object-cover"
+          />
+          <div className="space-y-3 p-4">
+            <h2 className="font-semibold text-slate-900">Dönüşümsüz teslim</h2>
+            <p className="text-sm leading-6 text-slate-600">
+              Dosya yeniden encode edilmez, srcset üretilmez, runtime proxy'ye girmez. CDN prefix'i
+              varsa kaynağın önüne eklenir. Logo gibi zaten optimize edilmiş varlıklar için.
+            </p>
+            <Contract
+              values={[
+                "Tek src, dönüşüm ve srcset yok",
+                "width / height yine zorunlu",
+                data.imageCdnEnabled ? "IMAGE_CDN_URL prefix aktif" : "Origin path kullanılıyor",
+                "Varsayılan native lazy loading",
+              ]}
+            />
+            <code className="block overflow-x-auto rounded bg-slate-900 p-3 text-xs text-slate-200">
+              {data.unoptimized.src}
+            </code>
+          </div>
+        </article>
+      </section>
+
+      <section className="space-y-2 rounded-lg border border-slate-200 p-4">
+        <h2 className="font-semibold text-slate-900">Font'lar</h2>
+        <p className="text-sm leading-6 text-slate-600">
+          Aynı pipeline self-host font da üretir: \`server/media.config.json\` içindeki \`fonts\`
+          dizisine bir kaynak eklediğinizde WOFF2 subset'i hash'lenir, \`@font-face\` kuralı
+          dokümana yazılır ve preload edilir. Bu uygulama şu an sistem fontlarıyla geliyor, o
+          yüzden dizi boş.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function Status({ enabled, label }: { enabled: boolean; label: string }) {
+  return (
+    <span
+      className={
+        enabled
+          ? "rounded-full bg-emerald-100 px-3 py-1 text-emerald-800"
+          : "rounded-full bg-slate-200 px-3 py-1 text-slate-600"
+      }
+    >
+      {label}: {enabled ? "aktif" : "kapalı"}
+    </span>
+  );
+}
+
+function Contract({ values }: { values: string[] }) {
+  return (
+    <ul className="grid gap-2 text-sm text-slate-600">
+      {values.map((value) => (
+        <li key={value} className="flex gap-2">
+          <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-slate-400" />
+          {value}
+        </li>
+      ))}
+    </ul>
+  );
+}
+`;
+
+const mediaRoute = () => `import { config } from "@originloom/core/config";
+import { responsiveImage, unoptimizedImage } from "@originloom/core/media";
+import { defineRoute } from "@originloom/react/lib/types";
+import { imagePreload } from "@originloom/shared/lib/media";
+
+import { MEDIA_DEMO_SIZES, MediaPage, type MediaPageData } from "~/features/media/media-page";
+import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+export default defineRoute<MediaPageData>({
+  path: "/media",
+  cache: (ctx) => pageCachePolicy(PageCacheId.media, ctx),
+  loader: async () => ({
+    data: {
+      // Both come from the same manifest entry: one gets format and width
+      // candidates, the other the original file.
+      responsive: responsiveImage("hero"),
+      unoptimized: unoptimizedImage("hero"),
+      imageCdnEnabled: Boolean(config.imageCdnUrl),
+      transformEnabled: Boolean(config.imageTransformUrl),
+    },
+  }),
+  generateMetadata: () => ({
+    title: "Görsel pipeline",
+    // A technical demo has no business in search results.
+    robots: { index: false, follow: false },
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "media"),
+  preloadImages: (data) => [imagePreload(data.responsive, MEDIA_DEMO_SIZES)],
+  Component: MediaPage,
+});
+`;
+
 const routesIndex = () => `import type { Route } from "@originloom/react/lib/types";
 
 import account from "./account";
@@ -717,24 +902,33 @@ import catalog from "./catalog";
 import home from "./home";
 import itemDetail from "./item-detail";
 import live from "./live";
+import media from "./media";
 import showcase from "./showcase";
 
 /** The route table. Order matters: the first match wins. */
-export const routes: Route[] = [home, catalog, itemDetail, account, live, showcase];
+export const routes: Route[] = [home, catalog, itemDetail, account, live, media, showcase];
 `;
 
-const homeRoute = (title) => `import { defineRoute } from "@originloom/react/lib/types";
+const homeRoute = (title) => `import { responsiveImage } from "@originloom/core/media";
+import { defineRoute } from "@originloom/react/lib/types";
+import type { ResponsiveImageData } from "@originloom/shared/lib/media";
+import { imagePreload } from "@originloom/shared/lib/media";
 
-import { HomePage } from "~/features/home/home-page";
+import { HERO_SIZES, HomePage } from "~/features/home/home-page";
 import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
-type Data = { greeting: string };
+type Data = { greeting: string; hero: ResponsiveImageData };
 
 export default defineRoute<Data>({
   path: "/",
   cache: (ctx) => pageCachePolicy(PageCacheId.home, ctx),
-  loader: async () => ({ data: { greeting: "${title}" } }),
+  // Built from the media manifest, so the same call yields local files or CDN
+  // URLs depending on IMAGE_TRANSFORM_URL — the page never knows which.
+  loader: async () => ({ data: { greeting: "${title}", hero: responsiveImage("hero") } }),
+  // The hero is the LCP element: preloading it in the head starts the download
+  // before the browser has parsed the body it lives in.
+  preloadImages: (data) => [imagePreload(data.hero, HERO_SIZES)],
   title: () => "${title}",
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "home"),
   Component: HomePage,
@@ -1355,9 +1549,52 @@ export const productDocumentShell: DocumentShell = {
 };
 `;
 
+const productAnalytics = () => `import { config } from "@originloom/core/config";
+import type { CspSources } from "@originloom/core/middleware/security";
+import { sequencedScript } from "@originloom/shared/head-scripts";
+
+/**
+ * Third-party scripts that have to run in a fixed order.
+ *
+ * Plain scripts written in head order already run in that order — this exists
+ * for the two cases where that is not enough: a step whose readiness comes
+ * later than its execution (a consent tool fetching its own configuration),
+ * and not wanting to block the parser on every vendor round trip.
+ *
+ * In development the vendor is the mock gateway, so the sequence really runs.
+ * Point ANALYTICS_VENDOR_URL at the real one and the shape does not change.
+ */
+const vendorUrl =
+  process.env.ANALYTICS_VENDOR_URL?.trim() || \`\${config.gatewayUrl}/vendor/consent.js\`;
+
+export const analyticsSequence = sequencedScript(
+  [
+    // 1. The consent tool. It executes immediately and is only usable once it
+    //    has decided, so the chain waits for the event rather than the load.
+    { src: vendorUrl, awaitEvent: "consent:ready" },
+    // 2. Now the decision exists, so the dataLayer can be built from it.
+    {
+      code: \`window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"app.ready",consent:window.__consent===true});\`,
+    },
+    // 3. Your tag manager belongs here, after the dataLayer it will read.
+    //    { src: "https://www.googletagmanager.com/gtm.js?id=GTM-XXXX" },
+    // 4. Your own measurement, last, so it can report what the steps decided.
+    { code: \`navigator.sendBeacon("/api/collect", JSON.stringify(window.dataLayer))\` },
+  ],
+  // A vendor that never answers must not strand the steps behind it.
+  { timeoutMs: 4_000 },
+);
+
+/** The origins the sequence reaches. Without these the browser refuses to load them. */
+export const analyticsCsp: CspSources = {
+  scriptSrc: [new URL(vendorUrl).origin],
+};
+`;
+
 const productRenderer =
   () => `import { MetadataHead } from "@originloom/react/lib/metadata/metadata-head";
 import { createReactRenderer } from "@originloom/react/server";
+import { analyticsSequence } from "@server/product/analytics";
 
 import { RootLayout } from "~/components/layout/root-layout";
 import type { ShellData } from "~/lib/shell-data";
@@ -1370,13 +1607,15 @@ export const productRenderer = createReactRenderer<ShellData>({
   ErrorComponent: RouteErrorPage,
   renderHeadStart: ({ seo, cspNonce }) => <MetadataHead meta={seo} nonce={cspNonce} />,
   /**
-   * Where a GTM/analytics/consent bootstrap goes. Two things make it work:
-   * \`nonce={cspNonce}\` on every inline script, and the vendor's host declared
-   * in \`createApp({ csp })\` — the platform blesses no vendor. Whatever is
-   * rendered here enters the shared HTML cache, so nothing user-specific may
-   * appear in it. See .claude/skills/third-party-scripts.
+   * The analytics chain. Two things make it work: the nonce on the inline
+   * script, and the vendor's host in \`createApp({ csp })\` — the platform
+   * blesses no vendor. Nothing user-specific may appear here, because this
+   * markup enters the shared HTML cache. See .claude/skills/third-party-scripts.
    */
-  renderHeadEnd: () => null,
+  renderHeadEnd: ({ cspNonce, isBot }) =>
+    isBot ? null : (
+      <script nonce={cspNonce} dangerouslySetInnerHTML={{ __html: analyticsSequence }} />
+    ),
   renderLayout: ({ shell, pageMeta, children }) => (
     <RootLayout shell={shell} pageMeta={pageMeta}>
       {children}
@@ -1462,10 +1701,27 @@ export default function Counter({ start = 0 }: { start?: number }) {
 `;
 
 const homePage = () => `import { Island } from "@originloom/react/lib/island";
+import type { ResponsiveImageData } from "@originloom/shared/lib/media";
 
-export function HomePage({ data }: { data: { greeting: string } }) {
+import { ResponsiveImage } from "~/components/ui/responsive-image";
+
+/**
+ * Declared next to the markup that decides it, and imported by the route so the
+ * head preload asks for exactly the candidate the layout will use. Two copies
+ * of this string is how a preload downloads a second, unused file.
+ */
+export const HERO_SIZES = "(min-width: 1024px) 960px, 100vw";
+
+export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveImageData } }) {
   return (
     <div className="space-y-6">
+      <ResponsiveImage
+        image={data.hero}
+        sizes={HERO_SIZES}
+        priority
+        alt=""
+        className="w-full rounded-lg"
+      />
       <h1 className="text-3xl font-bold tracking-tight text-slate-900">{data.greeting}</h1>
       <p className="max-w-2xl text-slate-600">
         Bu sayfa sunucuda render edildi. Aşağıdaki buton bağımsız bir island olarak hydrate olur —
@@ -1504,6 +1760,12 @@ export function HomePage({ data }: { data: { greeting: string } }) {
               /live
             </a>{" "}
             — sunucu streaming (Suspense) + SSE island
+          </li>
+          <li>
+            <a className="hover:underline" href="/media">
+              /media
+            </a>{" "}
+            — görsel pipeline: responsive vs dönüşümsüz teslim, CDN durumu
           </li>
           <li>
             <a className="hover:underline" href="/showcase">
@@ -1627,6 +1889,7 @@ export const PageCacheId = {
   catalog: "catalog",
   itemDetail: "item-detail",
   account: "account",
+  media: "media",
   showcase: "showcase",
 } as const;
 
@@ -1690,6 +1953,14 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     // Personal page: never written to the shared HTML cache.
     strategy: "never",
     buildKey: () => ["account"],
+  },
+  [PageCacheId.media]: {
+    id: PageCacheId.media,
+    description: "Görsel pipeline demosu",
+    path: "/media",
+    strategy: "shared",
+    ttl: 3600,
+    buildKey: (ctx) => ["media", locale(ctx.request), layoutCacheFragment(ctx)],
   },
   [PageCacheId.showcase]: {
     id: PageCacheId.showcase,
@@ -2004,6 +2275,16 @@ const server = createServer((req, res) => {
   if (detail) {
     const item = ITEMS.find((entry) => entry.slug === decodeURIComponent(detail[1]));
     return item ? json(res, 200, item) : json(res, 404, { error: "not_found" });
+  }
+
+  // Stands in for a consent tool: it executes at once and decides a moment
+  // later, which is the case document order cannot express. See
+  // server/product/analytics.ts.
+  if (url.pathname === "/vendor/consent.js") {
+    res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+    return res.end(
+      'setTimeout(function(){window.__consent=true;dispatchEvent(new Event("consent:ready"));},150);',
+    );
   }
 
   // The real gateway decides who the caller is from the bearer token. Here any
@@ -2346,6 +2627,98 @@ const brandMarkSvg =
 </svg>
 `;
 
+const responsiveImageComponent =
+  () => `import type { ResponsiveImageData, UnoptimizedImageData } from "@originloom/shared/lib/media";
+import type { ImgHTMLAttributes } from "react";
+
+type Props = Omit<
+  ImgHTMLAttributes<HTMLImageElement>,
+  "src" | "srcSet" | "width" | "height" | "loading" | "decoding" | "fetchPriority" | "sizes"
+> & {
+  image: ResponsiveImageData;
+  /**
+   * How wide the image will actually be rendered, per breakpoint. The browser
+   * picks a candidate from srcset before layout exists, so without this it
+   * assumes full viewport width and downloads the largest file every time.
+   */
+  sizes: string;
+  /** The LCP image: load it eagerly and ask for priority. */
+  priority?: boolean;
+};
+
+/**
+ * \`responsiveImage()\` produced the candidates — locally from the media
+ * manifest, or rewritten through IMAGE_TRANSFORM_URL when one is configured.
+ * This component only spends them; the same markup works either way.
+ */
+export function ResponsiveImage({ image, sizes, priority = false, alt, ...props }: Props) {
+  return (
+    <picture>
+      {image.sources.map((source) => (
+        <source key={source.type} type={source.type} srcSet={source.srcSet} sizes={sizes} />
+      ))}
+      <img
+        {...props}
+        src={image.src}
+        srcSet={image.srcSet}
+        sizes={sizes}
+        // Both are always set: a missing intrinsic size is a layout shift.
+        width={image.width}
+        height={image.height}
+        alt={alt}
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : "auto"}
+        decoding="async"
+      />
+    </picture>
+  );
+}
+
+type UnoptimizedProps = Omit<
+  ImgHTMLAttributes<HTMLImageElement>,
+  "src" | "srcSet" | "width" | "height" | "loading" | "decoding" | "fetchPriority"
+> & {
+  image: UnoptimizedImageData;
+  priority?: boolean;
+};
+
+/**
+ * The original file, served as it is: no re-encode, no srcset, no runtime
+ * proxy. With IMAGE_CDN_URL set it is prefixed with the CDN; otherwise it comes
+ * from this origin. Intrinsic size is still required — the layout shift does
+ * not care how the bytes were produced.
+ */
+export function UnoptimizedImage({ image, priority = false, alt, ...props }: UnoptimizedProps) {
+  return (
+    <img
+      {...props}
+      src={image.src}
+      width={image.width}
+      height={image.height}
+      alt={alt}
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : "auto"}
+      decoding="async"
+    />
+  );
+}
+`;
+
+const heroSvg = (
+  title,
+) => `<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="720" viewBox="0 0 1440 720">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="720" fill="url(#g)" />
+  <text x="96" y="380" font-family="system-ui, sans-serif" font-size="84" font-weight="700" fill="#f8fafc">${title}</text>
+  <text x="96" y="452" font-family="system-ui, sans-serif" font-size="34" fill="#cbd5f5">\`pnpm media\` bu kaynaktan avif/webp/jpeg üretir</text>
+</svg>
+`;
+
 const ogCoverSvg = (
   title,
 ) => `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
@@ -2370,6 +2743,16 @@ const mediaConfig = () =>
           height: 630,
           widths: [600, 1200],
           quality: 78,
+        },
+        {
+          // The home page hero. Widths are the ones the layout actually asks
+          // for; generating sizes nobody requests only slows the build down.
+          id: "hero",
+          source: "src/assets/images/hero.svg",
+          width: 1440,
+          height: 720,
+          widths: [640, 960, 1440],
+          quality: 72,
         },
       ],
       // Self-hosted fonts go here; each entry is subsetted and emitted with a

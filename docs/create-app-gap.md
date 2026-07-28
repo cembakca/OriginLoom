@@ -103,6 +103,30 @@ limiti, cross-origin yazma reddi). Doğrulandı: 65 istekte 58×200, 7×429 + `r
 `registerCspScriptHashes` eklenmedi — üretilen app'te inline script yok, ölü kod olurdu; skill'de
 anlatılıyor.
 
+### A11. Yapılanların örnekteki karşılığı ✅ yapıldı
+
+Pipeline'lar vardı ama üretilen app'te kullanan yoktu: `pnpm media` responsive varyantlar
+üretiyordu, hiçbir sayfa `responsiveImage()` çağırmıyordu; CSP seam'i açılmıştı, hiçbir uygulama
+kendi origin'ini bildirmiyordu; script sıralayıcı yazılmıştı, örneği yoktu.
+
+**Çözüm:**
+
+- **Hero görseli** ana sayfada: `responsiveImage("hero")` + `preloadImages` + `sizes`. Tarayıcı
+  1280 px'te tek dosya indiriyor (960 avif) ve preload tam o adayı işaret ediyor.
+- **`/media` demo sayfası** — showroom'un `/medya-pipeline` sayfasının karşılığı: aynı kaynak
+  görselin responsive ve dönüşümsüz teslimi yan yana, `IMAGE_CDN_URL` / `IMAGE_TRANSFORM_URL`
+  durum rozetleriyle ve üretilen srcset'in kendisi ekranda. `noindex` — teknik demonun arama
+  sonuçlarında işi yok.
+- **CDN yolu** env ile: `IMAGE_TRANSFORM_URL` verilince aynı sayfa hiç değişmeden CDN URL'leri
+  üretiyor, CSP `img-src`'ye origin'ler kendiliğinden ekleniyor.
+- **Sıralı analytics** (`server/product/analytics.ts`): consent → dataLayer → tag → kendi beacon'ın.
+  Mock gateway consent aracını canlandırıyor, yani zincir dev'de gerçekten çalışıyor;
+  `createApp({ csp })` satıcı origin'ini bildiriyor.
+
+Bu tur şablonlarda üç kez import sırası hatası çıktı — şablon bir string olduğu için bu repo'nun
+lint'i içine bakmıyor, yalnız üretilen app'in CI'ı yakalıyor. Artık şablon testi hem modül hem de
+süslü parantez içi isim sırasını doğruluyor.
+
 ### A10. Medya / ikon pipeline ✅ yapıldı
 
 `pnpm icons` (SVG → bileşen) ve `pnpm media` (görsel/font manifest'i) showroom'da script'ti;

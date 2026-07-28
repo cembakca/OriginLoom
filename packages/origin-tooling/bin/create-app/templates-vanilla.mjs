@@ -560,9 +560,9 @@ body {
 
 export const apiIndex =
   () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { mountPublicItemsApi } from "@server/api/items";
 import { mountSessionApi } from "@server/api/session";
-import type { AppVariables } from "@originloom/core/middleware/request-id";
 import type { Hono } from "hono";
 
 /**

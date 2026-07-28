@@ -103,6 +103,51 @@ describe("renderTemplates — shared shape", () => {
     expect(files[".env.development"]).toContain("METRICS_PORT=10200");
   });
 
+  it("emits import blocks in the order the generated app's own lint demands", () => {
+    // A template is a string, so this repo's lint never sees inside it — only
+    // the generated app's does, and it fails the whole run over import order.
+    // simple-import-sort's groups, then plain alphabetical within each.
+    const group = (specifier) => {
+      if (specifier.startsWith("node:")) return 0;
+      if (/^@?\w/.test(specifier)) return 1;
+      if (specifier.startsWith(".")) return 3;
+      return 2;
+    };
+    const sortsBefore = (a, b) => (group(a) !== group(b) ? group(a) < group(b) : a <= b);
+
+    for (const renderer of ["react", "vanilla"]) {
+      const files = standalone({ renderer });
+      for (const [path, contents] of Object.entries(files)) {
+        if (!/\.tsx?$/.test(path) || typeof contents !== "string") continue;
+        for (const block of contents.split("\n\n")) {
+          const specifiers = [...block.matchAll(/^import\s[^"']*["']([^"']+)["'];$/gm)].map(
+            (match) => match[1],
+          );
+          // simple-import-sort orders the names inside the braces too.
+          for (const named of block.matchAll(/^import\s*\{([^}]+)\}/gm)) {
+            const names = named[1]
+              .split(",")
+              .map((name) => name.trim().replace(/^type\s+/, ""))
+              .filter(Boolean);
+            // Case-insensitive, with case only as a tiebreaker — the order the
+            // rule actually produces (counterLines before CounterMap).
+            const sorted = [...names].sort(
+              (a, b) =>
+                a.toLowerCase().localeCompare(b.toLowerCase(), "en") || a.localeCompare(b, "en"),
+            );
+            expect(names, `${renderer}: ${path} — named imports out of order`).toEqual(sorted);
+          }
+          for (let index = 1; index < specifiers.length; index++) {
+            expect(
+              sortsBefore(specifiers[index - 1], specifiers[index]),
+              `${renderer}: ${path} — "${specifiers[index - 1]}" must not precede "${specifiers[index]}"`,
+            ).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
   it("ships deployment assets only when they are asked for", () => {
     for (const renderer of ["react", "vanilla"]) {
       const plain = standalone({ renderer });
