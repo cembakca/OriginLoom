@@ -103,6 +103,44 @@ describe("renderTemplates — shared shape", () => {
     expect(files[".env.development"]).toContain("METRICS_PORT=10200");
   });
 
+  it("ships deployment assets only when they are asked for", () => {
+    for (const renderer of ["react", "vanilla"]) {
+      const plain = standalone({ renderer });
+      expect(Object.keys(plain).some((path) => path.startsWith("k8s/"))).toBe(false);
+      expect(plain["docker-compose.yml"]).toBeUndefined();
+      expect(JSON.parse(plain["package.json"]).scripts["compose:up"]).toBeUndefined();
+
+      const ops = standalone({
+        renderer,
+        withOps: true,
+        name: "pay-web",
+        port: 3040,
+        metricsPort: 9040,
+      });
+      // The compose file names are what origin-compose-up looks for.
+      expect(ops["docker-compose.yml"]).toContain('"3040:3040"');
+      expect(ops["docker-compose.redis.yml"]).toContain("CACHE_BACKEND: redis");
+      expect(ops["k8s/deployment.yaml"]).toContain("name: pay-web");
+      expect(ops["k8s/deployment.yaml"]).toContain("containerPort: 3040");
+      // The operations port carries /metrics and purge, and must stay off the ingress.
+      expect(ops["k8s/network-policy.yaml"]).toContain("port: 9040");
+      expect(ops["OPERATIONS.md"]).toContain("pay-web");
+      expect(JSON.parse(ops["package.json"]).scripts["compose:redis"]).toBe(
+        "origin-compose-up --redis",
+      );
+    }
+  });
+
+  it("keeps one product's endpoints out of the generated alert rules", () => {
+    const rules = standalone({ withOps: true })["k8s/prometheus-rules.yaml"];
+
+    // The alerts fire on metrics the platform exports, so they work for any app.
+    expect(rules).toContain("ssr_cache_cardinality_overflow_total");
+    expect(rules).toContain("ssr_render_rejected_total");
+    expect(rules).not.toContain("market_stream");
+    expect(rules).not.toContain("bot_analytics");
+  });
+
   it("points the icons at assets the media pipeline actually produces", () => {
     for (const renderer of ["react", "vanilla"]) {
       const defaults = standalone({ renderer })["src/lib/metadata/site-defaults.ts"];

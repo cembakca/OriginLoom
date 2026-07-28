@@ -26,6 +26,7 @@
  *   origin-create-app landing-web --vanilla        # no UI framework
  *   origin-create-app landing-web --port 3020      # Vite follows on 5020
  *   origin-create-app landing-web --registry http://localhost:4873
+ *   origin-create-app payments-web --with-ops    # + compose, k8s, load test
  */
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -88,6 +89,7 @@ async function main() {
     mode: options.workspace ? "workspace" : "standalone",
     version: options.version ?? DEFAULT_VERSION_RANGE,
     renderer: options.renderer,
+    withOps: options.withOps,
     ...(options.registry ? { registry: options.registry } : {}),
   });
 
@@ -136,6 +138,10 @@ function report(o) {
   console.log("  pnpm dev\n");
   console.log(`The app will serve on http://127.0.0.1:${o.port}.`);
   console.log("Set GATEWAY_URL in .env.development to point at your gateway.\n");
+  if (o.withOps) {
+    console.log("Deployment assets are in k8s/, docker-compose*.yml and load-test/.");
+    console.log("Read OPERATIONS.md first — image, hosts and secrets are placeholders.\n");
+  }
 }
 
 /**
@@ -175,11 +181,12 @@ function assertValidRenderer(value) {
 }
 
 function parseArgs(argv) {
-  const options = { workspace: false, renderer: "react" };
+  const options = { workspace: false, renderer: "react", withOps: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--workspace") options.workspace = true;
     else if (arg === "--vanilla") options.renderer = "vanilla";
+    else if (arg === "--with-ops") options.withOps = true;
     else if (arg === "--renderer") options.renderer = assertValidRenderer(argv[++i]);
     else if (arg === "--port") options.port = Number(argv[++i]);
     else if (arg === "--vite-port") options.vitePort = Number(argv[++i]);

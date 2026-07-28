@@ -9,15 +9,16 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { renderSkills } from "./skills.mjs";
+import { renderOpsTemplates } from "./templates-ops.mjs";
 import * as vanilla from "./templates-vanilla.mjs";
 
-/** Reads a verbatim asset shipped alongside the generator (packed via files: ["bin"]). */
 /** Dev-server port for the client bundle, derived from the app port (3010 → 5010). */
 export const VITE_PORT_OFFSET = 2000;
 
 /** Scoped registry for the platform packages; everything else stays on the default. */
 const npmrc = (registry) => `@originloom:registry=${registry}\n`;
 
+/** Reads a verbatim asset shipped alongside the generator (packed via files: ["bin"]). */
 const asset = (name) =>
   readFileSync(fileURLToPath(new URL(`./assets/${name}`, import.meta.url)), "utf8");
 
@@ -44,6 +45,7 @@ export function renderTemplates({
   renderer = "react",
   vitePort = port + VITE_PORT_OFFSET,
   registry,
+  withOps = false,
 }) {
   // Standalone apps live in their own repo and depend on the published
   // @originloom/* packages; workspace apps sit in apps/<name> and link them
@@ -62,13 +64,14 @@ export function renderTemplates({
       standalone,
       version,
       registry,
+      withOps,
     });
   }
   return {
     // npm config is not inherited from parent directories, so an app that
     // installs @originloom/* from somewhere other than npmjs carries its own.
     ...(registry ? { ".npmrc": npmrc(registry) } : {}),
-    "package.json": packageJson(name, { standalone, version }),
+    "package.json": packageJson(name, { standalone, version, withOps }),
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
     ".prettierrc.json": asset("prettierrc.json"),
@@ -85,6 +88,8 @@ export function renderTemplates({
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
     ".github/workflows/ci.yml": githubWorkflow(name),
+    // Opt-in deployment assets: compose, k8s manifests, a load generator.
+    ...(withOps ? renderOpsTemplates({ name, port, metricsPort }) : {}),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/api/index.ts": apiIndex(),
@@ -165,10 +170,11 @@ function vanillaTemplates({
   standalone,
   version,
   registry,
+  withOps,
 }) {
   return {
     ...(registry ? { ".npmrc": npmrc(registry) } : {}),
-    "package.json": packageJson(name, { standalone, version, renderer: "vanilla" }),
+    "package.json": packageJson(name, { standalone, version, renderer: "vanilla", withOps }),
     "tsconfig.json": tsconfig(standalone, "vanilla"),
     "eslint.config.js": eslintConfig(),
     ".prettierrc.json": asset("prettierrc.json"),
@@ -185,6 +191,8 @@ function vanillaTemplates({
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
     ".github/workflows/ci.yml": githubWorkflow(name),
+    // Opt-in deployment assets: compose, k8s manifests, a load generator.
+    ...(withOps ? renderOpsTemplates({ name, port, metricsPort }) : {}),
 
     "server/index.ts": serverIndex("/src/entry.client.ts"),
     "server/api/index.ts": vanilla.apiIndex(),
@@ -263,7 +271,7 @@ const claudeSettings = () =>
   )}\n`;
 
 /** @param {{ standalone: boolean; version: string; renderer?: "react" | "vanilla" }} opts */
-const packageJson = (name, { standalone, version, renderer = "react" }) => {
+const packageJson = (name, { standalone, version, renderer = "react", withOps = false }) => {
   // workspace apps link the packages by workspace:*; standalone apps pin the
   // published version range passed via --version.
   const originloom = standalone ? version : "workspace:*";
@@ -297,6 +305,17 @@ const packageJson = (name, { standalone, version, renderer = "react" }) => {
         format: "prettier --write .",
         "format:check": "prettier --check .",
         test: "vitest run",
+        // Deployment helpers, generated only with --with-ops.
+        ...(withOps
+          ? {
+              "compose:up": "origin-compose-up",
+              "compose:redis": "origin-compose-up --redis",
+              "compose:clean": "origin-docker-clean",
+              "dev:redis": "origin-dev-local",
+              "start:local:redis": "origin-run-local production --redis",
+              loadtest: "node load-test/run.mjs",
+            }
+          : {}),
         // What CI runs, in one command, so it can be run locally too.
         ci: "pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build && pnpm run smoke",
       },
@@ -403,7 +422,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     // Dev fixtures and scripts run in plain Node, not in the browser.
-    files: ["mock-gateway/**/*.mjs", "scripts/**/*.mjs"],
+    files: ["mock-gateway/**/*.mjs", "scripts/**/*.mjs", "load-test/**/*.mjs"],
     languageOptions: { globals: globals.node },
   },
   {

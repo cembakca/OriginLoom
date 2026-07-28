@@ -116,20 +116,36 @@ işi olduğu için lisans yolu artık config'teki `fonts[].license` alanından g
 
 ---
 
-## B. Ops varlıkları → **tercihe bağlı, bayrakla verilebilir**
+## B. Ops varlıkları → **`--with-ops` bayrağı ile** ✅ yapıldı
 
-| Varlık                                                                              | Showroom                                  | Üretilen app                         |
-| ----------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------ |
-| `Dockerfile`                                                                        | var                                       | **var**                              |
-| `docker-compose.yml` (+ redis overlay)                                              | var                                       | yok                                  |
-| k8s manifestleri (deployment, hpa, ingress, pdb, network-policy, prometheus-rules…) | 12 dosya                                  | yok                                  |
-| load-test + stress + karşılaştırma                                                  | `load-test/`                              | yok                                  |
-| pentest hazırlık scriptleri                                                         | `scripts/`                                | yok                                  |
-| CI workflow                                                                         | repo kökünde                              | **var** — `.github/workflows/ci.yml` |
-| Redis ile lokal çalışma                                                             | `dev:redis`, `start:local:redis`, compose | yok (yalnız memory)                  |
+Hepsini her uygulamaya basmak şişkinlik yaratırdı; kimsenin okumadığı yirmi YAML dosyası hiçbir şey
+öğretmez. Bu yüzden opt-in: `origin-create-app odeme-web --with-ops`.
 
-Hepsini her uygulamaya basmak şişkinlik yaratır; `--with-ops` gibi bir bayrak veya ayrı bir
-"production hardening" belgesi daha uygun olabilir.
+| Varlık                               | Showroom                     | Üretilen app                                                              |
+| ------------------------------------ | ---------------------------- | ------------------------------------------------------------------------- |
+| `Dockerfile`                         | var                          | **var** (bayraksız da)                                                    |
+| CI workflow                          | repo kökünde                 | **var** (bayraksız da)                                                    |
+| `docker-compose.yml` + redis overlay | var                          | **`--with-ops`**                                                          |
+| k8s manifestleri                     | 12 dosya                     | **`--with-ops`** — 12 dosya                                               |
+| load-test                            | 8 dosyalık paket             | **`--with-ops`** — tek dosyalık kapalı döngü üreteci                      |
+| Redis ile lokal çalışma              | `dev:redis`, `compose:redis` | **`--with-ops`** — aynı script'ler                                        |
+| pentest scriptleri                   | `scripts/`                   | **yok** — showroom'un kendi hazırlık kontrolleri, platform yeteneği değil |
+
+Taşırken ürün sızıntıları ayıklandı: showroom'un configmap'indeki `MARKET_STREAM_*` ve
+`BOT_ANALYTICS_*` anahtarları ile aynı alan adlarına dayanan alarm kuralları çıkarıldı. Kalan
+alarmlar platformun kendi metriklerine bakıyor (`ssr_cache_cardinality_overflow_total`,
+`ssr_render_rejected_total`, `ssr_gateway_invalid_payload_total` …), yani her uygulamada çalışır.
+
+`OPERATIONS.md` de üretiliyor: uygulamadan önce mutlaka değiştirilmesi gerekenler (imaj digest'i,
+host adları, secret'lar), iki portun neden ayrı olduğu ve `RELEASE_ID`'nin cache'i neden isim
+alanına ayırdığı.
+
+Doğrulandı: 14 YAML dosyasının hepsi geçerli; üretilen app `--with-ops` ile kendi CI'ını geçiyor;
+yük aracı gerçek bir production build'e karşı 3730 istek/s, p50 1.9 ms, %100 cache HIT ölçtü ve
+sunucu kapalıyken çökmek yerine ne yapılması gerektiğini söyleyip 1 ile çıkıyor.
+
+**Denenmedi:** `pnpm compose:up` / `compose:redis` — bu makinede Docker daemon çalışmıyor. Compose
+dosyaları geçerli YAML ve tooling'in beklediği adlarda, ama ilk çalıştıran doğrulamalı.
 
 ---
 
