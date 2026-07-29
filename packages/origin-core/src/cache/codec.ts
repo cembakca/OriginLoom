@@ -3,6 +3,7 @@ import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib";
 import { findSsrFragmentMarkers, type SsrFragmentMarker } from "@originloom/shared/fragment-markup";
 
 import { logger } from "../logger.js";
+import { hasUnsafeConcreteCachedNonce } from "./csp-nonce.js";
 import type { CacheEntry } from "./types.js";
 
 /**
@@ -77,6 +78,7 @@ export function decodeCacheEntry(buf: Buffer): CacheEntry | null {
           ? utf8Decoder.decode(brotliDecompressSync(payload))
           : null;
     if (body === null || !validTimestamps(freshUntil, staleUntil)) return null;
+    if (isHtmlDocument(body) && hasUnsafeConcreteCachedNonce(body)) return null;
     const fragmentMarkers =
       encodedMarkers ??
       ((encodedFlags & FRAGMENT_FLAG) !== 0 || version === LEGACY_BINARY_VERSION

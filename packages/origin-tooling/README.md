@@ -183,21 +183,21 @@ oluşturur, sonra güncel fixed group'a migrate eder ve generated pnpm ci kapıs
 
 ## Binaries
 
-| Komut                   | Görevi                                                          |
-| ----------------------- | --------------------------------------------------------------- |
-| `origin-create-app`     | Standalone veya workspace uygulaması üretir                     |
-| `origin-dev`            | Vite, SSR ve isteğe bağlı mock gateway'i birlikte çalıştırır    |
-| `origin-dev-local`      | Local cache/Redis geliştirme topolojisini başlatır              |
-| `origin-build`          | Client bundle ve self-contained SSR bundle üretir               |
-| `origin-build-media`    | Image/font manifest pipeline'ını çalıştırır                     |
-| `origin-generate-icons` | SVG kaynaklarından typed React icon component'leri üretir       |
-| `origin-smoke`          | Built server'ı ve isteğe bağlı gateway'i başlatıp probe eder    |
-| `origin-check-cycles`   | Import cycle, package layering ve renderer sınırlarını denetler |
-| `origin-run-with-env`   | Komutu `.env.<app-env>` yükleyerek çalıştırır                   |
-| `origin-run-local`      | Production bundle'ı local cache seçenekleriyle çalıştırır       |
-| `origin-start-memory`   | Uygulamayı memory cache topolojisiyle başlatır                  |
-| `origin-local-redis`    | Local Redis yardımcısını çalıştırır                             |
-| `origin-compose-up`     | Generated Docker Compose stack'ini başlatır                     |
-| `origin-docker-clean`   | Generated local Compose kaynaklarını temizler                   |
-| `origin-doctor`         | Template, fixed-group ve migration sağlığını read-only denetler |
-| `origin-migrate`        | Upgrade planını dry-run gösterir ve güvenli biçimde uygular     |
+| Komut                   | Görevi                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `origin-create-app`     | Standalone veya workspace uygulaması üretir                                          |
+| `origin-dev`            | Vite, SSR ve isteğe bağlı mock gateway'i birlikte çalıştırır                         |
+| `origin-dev-local`      | Local cache/Redis geliştirme topolojisini başlatır                                   |
+| `origin-build`          | Bundle, registry tabanlı route/cache özeti ve `dist/originloom-manifest.json` üretir |
+| `origin-build-media`    | Image/font manifest pipeline'ını çalıştırır                                          |
+| `origin-generate-icons` | SVG kaynaklarından typed React icon component'leri üretir                            |
+| `origin-smoke`          | Built server'ı ve isteğe bağlı gateway'i başlatıp probe eder                         |
+| `origin-check-cycles`   | Import cycle, package layering ve renderer sınırlarını denetler                      |
+| `origin-run-with-env`   | Komutu `.env.<app-env>` yükleyerek çalıştırır                                        |
+| `origin-run-local`      | Production bundle'ı local cache seçenekleriyle çalıştırır                            |
+| `origin-start-memory`   | Uygulamayı memory cache topolojisiyle başlatır                                       |
+| `origin-local-redis`    | Local Redis yardımcısını çalıştırır                                                  |
+| `origin-compose-up`     | Generated Docker Compose stack'ini başlatır                                          |
+| `origin-docker-clean`   | Generated local Compose kaynaklarını temizler                                        |
+| `origin-doctor`         | Template, fixed-group ve migration sağlığını read-only denetler                      |
+| `origin-migrate`        | Upgrade planını dry-run gösterir ve güvenli biçimde uygular                          |

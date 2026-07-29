@@ -8,7 +8,7 @@ import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata
 import { getHousingLoan } from "@server/services/financial-products";
 
 import { HousingLoanDetailPage } from "~/features/financial-products/housing-loan-detail";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import type { HousingLoanDetail } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
 import { housingLoanJsonLd } from "~/lib/metadata/jsonld-finance";
@@ -17,7 +17,7 @@ import { defaultPageMeta } from "~/lib/shell-data";
 export default defineRoute<HousingLoanDetail>({
   path: "/housing-loans/:slug",
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
-  cache: (ctx) => pageCachePolicy(PageCacheId.housingLoanDetail, ctx),
+  cache: pageCache(PageCacheId.housingLoanDetail),
   loader: async (ctx) => {
     const data = await getHousingLoan(
       ctx.params.slug ?? "",

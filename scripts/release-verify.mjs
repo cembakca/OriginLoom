@@ -33,6 +33,8 @@ import {
 const options = parseArgs(process.argv.slice(2));
 const workDir = mkdtempSync(join(tmpdir(), "originloom-release-"));
 const registryPort = await freePort();
+const appPort = await freePortInRange(10_000, 50_000);
+const mockGatewayPort = await freePortInRange(10_000, 50_000);
 const registry = `http://localhost:${registryPort}`;
 
 const npmrcPath = writeNpmrc(join(workDir, ".npmrc"), registry);
@@ -74,6 +76,8 @@ try {
       "Verify",
       "--target-dir",
       join(workDir, "app"),
+      "--port",
+      String(appPort),
       ...(options.renderer === "vanilla" ? ["--vanilla"] : []),
     ],
     { cwd: workDir },
@@ -129,7 +133,13 @@ try {
       cwd: appDir,
       env: npmEnv,
     });
-    run("pnpm", ["exec", "playwright", "test"], { cwd: appDir, env: npmEnv });
+    // Never attach to a server left behind by another local test or project.
+    // CI mode disables Playwright's reuseExistingServer path; the generated app
+    // also receives a free port above, so this run owns everything it exercises.
+    run("pnpm", ["exec", "playwright", "test"], {
+      cwd: appDir,
+      env: { ...npmEnv, CI: "true", E2E_MOCK_GATEWAY_PORT: String(mockGatewayPort) },
+    });
     run("pnpm", ["run", "lighthouse"], { cwd: appDir, env: npmEnv });
   }
 
@@ -179,6 +189,19 @@ function freePort() {
       server.close(() => resolve(port));
     });
   });
+}
+
+async function freePortInRange(min, max) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const port = Math.floor(Math.random() * (max - min + 1)) + min;
+    const available = await new Promise((resolve) => {
+      const server = createServer();
+      server.once("error", () => resolve(false));
+      server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
+    });
+    if (available) return port;
+  }
+  throw new Error(`Could not find a free app port between ${min} and ${max}`);
 }
 
 async function startVerdaccio(port, root) {

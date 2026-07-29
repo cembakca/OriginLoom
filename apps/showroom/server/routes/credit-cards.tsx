@@ -13,7 +13,7 @@ import {
 import { getCreditCards } from "@server/services/financial-products";
 
 import { CreditCardListPage } from "~/features/financial-products/credit-card-list";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import type { CreditCardList } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -22,10 +22,11 @@ const QUERY = ["bank", "cardType", "annualFee", "network", "sortBy", "page"] as 
 
 export default defineRoute<CreditCardList>({
   path: "/kredi-kartlari",
-  cache: (ctx) =>
+  cache: pageCache(PageCacheId.creditCards, (ctx) =>
     resolvePageParam(ctx.url.searchParams.get("page")).kind === "valid"
       ? pageCachePolicy(PageCacheId.creditCards, ctx)
       : neverCache(),
+  ),
   loader: async (ctx) => {
     const page = resolvePageParam(ctx.url.searchParams.get("page"));
     if (page.kind === "invalid") return notFound();

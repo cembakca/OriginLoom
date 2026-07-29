@@ -553,7 +553,7 @@ describe("renderTemplates — example routes", () => {
     const service = files["server/services/featured-items.ts"];
 
     expect(route).toContain('path: "/data-cache"');
-    expect(route).toContain("cache: () => neverCache()");
+    expect(route).toContain("cache: neverCache");
     expect(route).toContain("getFeaturedItems(ctx.request)");
     expect(service).toContain('FEATURED_ITEMS_CACHE_KEY = "items:featured:v1"');
     expect(service).toContain('cacheStatus: "miss"');

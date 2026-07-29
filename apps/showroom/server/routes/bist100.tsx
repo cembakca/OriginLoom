@@ -9,7 +9,7 @@ import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata
 import { getBist100 } from "@server/services/markets";
 
 import { Bist100Page } from "~/features/markets/bist100-page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import type { StockList } from "~/lib/contracts/markets";
 import { marketSearch } from "~/lib/market-query";
 import { stockItemListJsonLd } from "~/lib/metadata/jsonld-market";
@@ -17,14 +17,14 @@ import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<StockList>({
   path: "/piyasalar/bist-100",
-  cache: (ctx) => {
+  cache: pageCache(PageCacheId.bist100, (ctx) => {
     const page = resolvePageParam(ctx.url.searchParams.get("page"));
     return page.kind === "valid" &&
       !ctx.url.searchParams.has("q") &&
       !ctx.url.searchParams.has("sector")
       ? pageCachePolicy(PageCacheId.bist100, ctx)
       : neverCache();
-  },
+  }),
   loader: async (ctx) => {
     const page = resolvePageParam(ctx.url.searchParams.get("page"));
     if (page.kind === "invalid") return notFound();

@@ -39,3 +39,8 @@ await run("server", [
   "--config",
   "vite.server.config.ts",
 ]);
+await run("route manifest", [
+  "--import",
+  "tsx/esm",
+  new URL("./route-manifest.mjs", import.meta.url).pathname,
+]);

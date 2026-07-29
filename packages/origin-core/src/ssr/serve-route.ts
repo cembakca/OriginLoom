@@ -5,6 +5,7 @@ import type { CachePolicy, Ctx, LoaderResult, Route } from "@originloom/shared/l
 
 import type { Assets } from "../assets.js";
 import { coalesceColdMiss } from "../cache/cold-fill.js";
+import { materializeCachedHtmlNonce, normalizeCachedHtmlNonce } from "../cache/csp-nonce.js";
 import * as cache from "../cache/index.js";
 import { scheduleRevalidation } from "../cache/revalidation.js";
 import { stitchCachedHtml } from "../cache/stitch-fragments.js";
@@ -55,6 +56,7 @@ export async function serveRoute(options: ServeRouteOptions): Promise<Response> 
         work: async () =>
           toColdFillResult(
             await executeRouteWithBudget(options.route, options.routeCtx, options.assets),
+            options.routeCtx.cspNonce,
           ),
         isTimeout: (error) => error instanceof CacheFillTimeoutError,
       });
@@ -86,19 +88,23 @@ async function cachedResponse(
 ): Promise<Response> {
   if (state === "STALE") scheduleRouteRevalidation(options);
   logOutcome(options, 200, state);
-  const body = hasFragments
+  const stitchedBody = hasFragments
     ? await stitchCachedHtml(cachedBody, options.route, options.routeCtx, true, fragmentMarkers)
     : cachedBody;
+  const body = materializeCachedHtmlNonce(stitchedBody, options.routeCtx.cspNonce);
   return htmlResponse(body, 200, options.policy, state, undefined, options.requestId);
 }
 
-function toColdFillResult(value: RouteExecution) {
+function toColdFillResult(value: RouteExecution, cspNonce: string | undefined) {
   const status = "status" in value.result ? (value.result.status ?? 200) : 200;
   const terminal =
     (value.result.kind !== undefined && value.result.kind !== "data") || status !== 200;
+  const body =
+    value.body === undefined ? undefined : normalizeCachedHtmlNonce(value.body, cspNonce);
+  const normalizedValue = body === undefined || body === value.body ? value : { ...value, body };
   return {
-    value,
-    ...(value.body !== undefined ? { body: value.body } : {}),
+    value: normalizedValue,
+    ...(body !== undefined ? { body } : {}),
     cacheable: !terminal,
     terminal,
   };
@@ -130,7 +136,13 @@ async function respondToExecution(
     );
   }
 
-  const body = await stitchCachedHtml(execution.body ?? "", options.route, options.routeCtx, false);
+  const stitchedBody = await stitchCachedHtml(
+    execution.body ?? "",
+    options.route,
+    options.routeCtx,
+    false,
+  );
+  const body = materializeCachedHtmlNonce(stitchedBody, options.routeCtx.cspNonce);
   return htmlResponse(body, status, options.policy, state, result.headers, options.requestId);
 }
 

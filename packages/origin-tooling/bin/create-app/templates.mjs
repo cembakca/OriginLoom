@@ -678,6 +678,8 @@ const playwrightConfig = (
 const isCI = Boolean(process.env.CI);
 const useExternalServer = process.env.E2E_EXTERNAL_SERVER === "1";
 const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:${port}";
+const mockGatewayPort = Number(process.env.E2E_MOCK_GATEWAY_PORT ?? 4002);
+const mockGatewayURL = "http://127.0.0.1:" + mockGatewayPort;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -714,10 +716,10 @@ export default defineConfig({
         webServer: [
           {
             command: "pnpm run mock-gw",
-            url: "http://127.0.0.1:4002/items?perPage=1",
+            url: mockGatewayURL + "/items?perPage=1",
             reuseExistingServer: !isCI,
             timeout: 60_000,
-            env: { MOCK_GATEWAY_PORT: "4002", MOCK_GW_QUIET: "1" },
+            env: { MOCK_GATEWAY_PORT: String(mockGatewayPort), MOCK_GW_QUIET: "1" },
           },
           {
             command: "pnpm run e2e:server",
@@ -730,7 +732,7 @@ export default defineConfig({
               PORT: "${port}",
               METRICS_PORT: "${metricsPort}",
               SITE_URL: baseURL,
-              GATEWAY_URL: "http://127.0.0.1:4002",
+              GATEWAY_URL: mockGatewayURL,
               ALLOW_INSECURE_GATEWAY: "true",
               RELEASE_ID: "e2e",
               AUTH_REFRESH_COORDINATION_SECRET: "0123456789abcdef0123456789abcdef",
@@ -752,16 +754,38 @@ const criticalPathsE2e = (port, metricsPort) => `import { expect, test } from "@
 test.describe("SSR and island critical paths", () => {
   test("serves an enforced CSP and hydrates the counter island", async ({ page }) => {
     const clientErrors: string[] = [];
+    const cspErrors: string[] = [];
     page.on("request", (request) => {
       if (request.url().endsWith("/api/internal/client-errors")) clientErrors.push(request.url());
     });
-    const response = await page.goto("/");
+    page.on("console", (message) => {
+      if (message.type() === "error" && message.text().includes("Content Security Policy")) {
+        cspErrors.push(message.text());
+      }
+    });
+    let response = await page.goto("/");
 
     expect(response?.status()).toBe(200);
-    const headers = response?.headers() ?? {};
+    let headers = response?.headers() ?? {};
     expect(headers["content-security-policy"]).toContain("script-src");
     expect(headers["content-security-policy-report-only"]).toBeUndefined();
     expect(headers["x-content-type-options"]).toBe("nosniff");
+
+    // The first anonymous response establishes tracking state, the next fills
+    // the shared HTML cache, and the third exercises a cache HIT. Every body
+    // must carry the nonce authorized by its own response header.
+    for (let visit = 0; visit < 2; visit++) {
+      response = await page.goto("/");
+      expect(response?.status()).toBe(200);
+    }
+    headers = response?.headers() ?? {};
+    const headerNonce = headers["content-security-policy"]?.match(/'nonce-([^']+)'/)?.[1];
+    expect(headerNonce).toBeTruthy();
+    const scriptNonces = await page.locator("script[nonce]").evaluateAll((scripts) =>
+      scripts.map((script) => (script as HTMLScriptElement).nonce),
+    );
+    expect(scriptNonces.length).toBeGreaterThan(0);
+    expect(new Set(scriptNonces)).toEqual(new Set([headerNonce]));
 
     const counter = page.getByRole("button", { name: "Tıklandı: 0" });
     await expect(counter).toBeVisible();
@@ -769,6 +793,7 @@ test.describe("SSR and island critical paths", () => {
     await counter.click();
     await expect(page.getByRole("button", { name: "Tıklandı: 1" })).toBeVisible();
     expect(clientErrors).toEqual([]);
+    expect(cspErrors).toEqual([]);
   });
 
   test("keeps redirect query parameters and preserves the public rewrite URL", async ({
@@ -1350,12 +1375,12 @@ import { defineRoute } from "@originloom/react/lib/types";
 import { imagePreload } from "@originloom/shared/lib/media";
 
 import { MEDIA_DEMO_SIZES, MediaPage, type MediaPageData } from "~/features/media/media-page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<MediaPageData>({
   path: "/media",
-  cache: (ctx) => pageCachePolicy(PageCacheId.media, ctx),
+  cache: pageCache(PageCacheId.media),
   loader: async () => ({
     data: {
       // Both come from the same manifest entry: one gets format and width
@@ -1407,14 +1432,14 @@ import type { ResponsiveImageData } from "@originloom/shared/lib/media";
 import { imagePreload } from "@originloom/shared/lib/media";
 
 import { HERO_SIZES, HomePage } from "~/features/home/home-page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 type Data = { greeting: string; hero: ResponsiveImageData };
 
 export default defineRoute<Data>({
   path: "/",
-  cache: (ctx) => pageCachePolicy(PageCacheId.home, ctx),
+  cache: pageCache(PageCacheId.home),
   // Built from the media manifest, so the same call yields local files or CDN
   // URLs depending on IMAGE_TRANSFORM_URL — the page never knows which.
   loader: async () => ({ data: { greeting: "${title}", hero: responsiveImage("hero") } }),
@@ -1430,14 +1455,14 @@ export default defineRoute<Data>({
 const showcaseRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
 
 import { ShowcasePage } from "~/features/showcase/showcase-page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 type Data = { renderedAt: string };
 
 export default defineRoute<Data>({
   path: "/showcase",
-  cache: (ctx) => pageCachePolicy(PageCacheId.showcase, ctx),
+  cache: pageCache(PageCacheId.showcase),
   loader: async () => ({ data: { renderedAt: new Date().toISOString() } }),
   title: () => "Fragment örneği",
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "showcase"),
@@ -2347,7 +2372,7 @@ import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata
 import { getItem, type Item } from "@server/services/items";
 
 import { ItemDetailPage } from "~/features/items/item-detail-page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 type Data = { item: Item };
@@ -2357,7 +2382,7 @@ export default defineRoute<Data>({
   // Reject unbounded / garbage slugs before any cache lookup or render.
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
   // The slug is part of the cache key (see cache-keys.ts), so each item caches on its own.
-  cache: (ctx) => pageCachePolicy(PageCacheId.itemDetail, ctx),
+  cache: pageCache(PageCacheId.itemDetail),
   loader: async (ctx) => {
     const item = await getItem(ctx.params.slug ?? "", ctx.request.signal);
     // Terminal result, not a thrown error — an unknown slug is a 404, never cached.
@@ -2409,7 +2434,7 @@ export function ItemDetailPage({ data }: { data: { item: Item } }) {
 const accountRoute = () => `import { Island } from "@originloom/react/lib/island";
 import { defineRoute } from "@originloom/react/lib/types";
 
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 /**
@@ -2419,7 +2444,7 @@ import { defaultPageMeta } from "~/lib/shell-data";
  */
 export default defineRoute({
   path: "/account",
-  cache: (ctx) => pageCachePolicy(PageCacheId.account, ctx),
+  cache: pageCache(PageCacheId.account),
   loader: async () => ({ data: {} }),
   generateMetadata: () => ({
     title: "Hesabım",
@@ -2546,7 +2571,7 @@ export default defineRoute<Data>({
   path: "/data-cache",
   // Deliberately render the document on every request. Only the validated
   // upstream payload in getFeaturedItems() is shared between requests.
-  cache: () => neverCache(),
+  cache: neverCache,
   loader: async (ctx) => ({
     data: {
       apiData: await getFeaturedItems(ctx.request),
@@ -2637,7 +2662,7 @@ import { productConfig } from "@server/product/config";
 import { type Item, listItems } from "@server/services/items";
 
 import { CatalogPage } from "~/features/catalog/catalog-page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { pageParam } from "~/lib/pagination";
 import { defaultPageMeta } from "~/lib/shell-data";
 
@@ -2646,7 +2671,7 @@ type Data = { items: Item[]; page: number; totalPages: number };
 export default defineRoute<Data>({
   path: "/catalog",
   // Only the normalized ?page value changes the HTML, so only it enters the key.
-  cache: (ctx) => pageCachePolicy(PageCacheId.catalog, ctx),
+  cache: pageCache(PageCacheId.catalog),
   loader: async (ctx) => {
     const page = pageParam(ctx.url);
     const perPage = productConfig.catalogPageSize;
@@ -2732,7 +2757,7 @@ export default defineRoute<Data>({
   path: "/live",
   // Progressive HTML: the shell streams first, Suspense boundaries fill in later.
   streaming: true,
-  cache: () => neverCache(),
+  cache: neverCache,
   loader: async () => ({
     data: {
       // Resolves after the shell has already streamed — Suspense fills it in.
@@ -3599,8 +3624,16 @@ export function defaultPageMeta(
 }
 `;
 
-const cacheKeys = () => `import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
-import { neverCache, sharedUnlessBypass } from "@originloom/shared/lib/cache-policy";
+const cacheKeys = () => `import type {
+  CachePolicy,
+  Ctx,
+  RouteCacheResolver,
+} from "@originloom/react/lib/types";
+import {
+  describeRouteCache,
+  neverCache,
+  sharedUnlessBypass,
+} from "@originloom/shared/lib/cache-policy";
 import {
   contentQueryCacheFragment,
   type ContentQueryConfig,
@@ -3727,6 +3760,24 @@ export function pageCachePolicy(id: PageCacheId, ctx: Ctx): CachePolicy {
   return sharedUnlessBypass(ctx, entry.buildKey(ctx), {
     ttl: entry.ttl ?? DEFAULT_TTL,
     swr: entry.swr ?? DEFAULT_SWR,
+  });
+}
+
+/** Route resolver plus build-readable metadata; runtime policy remains authoritative. */
+export function pageCache(id: PageCacheId): RouteCacheResolver {
+  const entry = pageCacheRegistry[id];
+  if (entry.strategy === "never") {
+    return describeRouteCache(() => neverCache(), {
+      mode: "none",
+      label: entry.description,
+    });
+  }
+  return describeRouteCache((ctx) => pageCachePolicy(id, ctx), {
+    mode: "conditional",
+    ttl: entry.ttl ?? DEFAULT_TTL,
+    swr: entry.swr ?? DEFAULT_SWR,
+    ...(entry.contentQuery?.include.length ? { vary: entry.contentQuery.include } : {}),
+    label: entry.description,
   });
 }
 
@@ -3981,7 +4032,7 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 | \`pnpm typecheck\`      | TypeScript kontrolü                                          |
 | \`pnpm check:cycles\`   | Import cycle ve katman sınırlarını kontrol eder              |
 | \`pnpm test\`           | Unit/integration testlerini çalıştırır                       |
-| \`pnpm build\`          | Client ve self-contained server bundle üretir                |
+| \`pnpm build\`          | Bundle, gerçek route/cache özeti ve \`dist/originloom-manifest.json\` üretir |
 | \`pnpm contracts:fixtures\` | Fixture'ları OpenAPI consumer contract'ına karşı doğrular |
 | \`pnpm budget:bundle\`  | Island/client gzip bütçelerini kontrol eder                   |
 | \`pnpm lighthouse\`     | Route performance ve accessibility bütçelerini çalıştırır    |
@@ -4025,11 +4076,12 @@ ${
 ## Yeni sayfa ekleme
 
 1. Cache'lenecekse \`src/lib/cache-keys.ts\` içine bounded vary parçalarıyla cache tanımı ekleyin.
-2. \`server/routes/<sayfa>.tsx\` içinde \`defineRoute\` ile loader, cache ve metadata'yı tanımlayın.
+2. \`server/routes/<sayfa>.tsx\` içinde \`defineRoute\` ile loader, \`pageCache(...)\` ve metadata'yı tanımlayın.
 3. Gateway payload'ını \`server/services/\` içinde boyut limiti ve runtime guard ile doğrulayın.
 4. Route'u \`server/routes/index.ts\` tablosuna ekleyin; ilk eşleşmenin kazandığını unutmayın.
 5. UI'ı \`src/features/\` altına koyun; etkileşim gerekiyorsa küçük bir \`<Island />\` kullanın.
 6. Cache, redirect/notFound ve payload rejection davranışları için test ekleyip \`pnpm ci\` çalıştırın.
+7. \`pnpm build\` özetinde yeni route'un ve cache stratejisinin göründüğünü doğrulayın.
 
 ## Routing ekleme
 

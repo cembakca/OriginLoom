@@ -9,12 +9,12 @@ import {
   type MediaPipelineData,
   MediaPipelinePage,
 } from "~/features/media-pipeline/page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<MediaPipelineData>({
   path: "/medya-pipeline",
-  cache: (ctx) => pageCachePolicy(PageCacheId.mediaPipeline, ctx),
+  cache: pageCache(PageCacheId.mediaPipeline),
   loader: async () => ({
     data: {
       responsive: responsiveImage("home-hero"),

@@ -2,14 +2,14 @@ import { Island } from "@originloom/react/lib/island";
 import { defineRoute } from "@originloom/react/lib/types";
 
 import { AccountDashboardShell } from "~/features/account/dashboard-shell";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 /** SSR shell — kişisel veri defer island + TanStack Query BFF'den gelir. */
 export default defineRoute({
   path: "/hesabim",
-  cache: (ctx) => pageCachePolicy(PageCacheId.account, ctx),
+  cache: pageCache(PageCacheId.account),
   loader: async () => ({ data: {} }),
   generateMetadata: (_data, ctx) => ({
     ...generateMetaDataForPageWithDummySeoInfo("/hesabim", ctx),

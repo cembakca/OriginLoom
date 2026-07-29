@@ -1,6 +1,7 @@
 import type { Ctx, Route } from "@originloom/shared/lib/types";
 
 import type { Assets } from "../assets.js";
+import { cachedHtmlCspNonce } from "../cache/csp-nonce.js";
 import { config } from "../config.js";
 import { renderDocument, renderDocumentToStream, streamToString } from "../document.js";
 import { logError } from "../logger.js";
@@ -107,6 +108,11 @@ export async function runRender<T>(
   routeCtx: Ctx,
   phase: RenderPhase,
 ): Promise<string> {
+  const cacheNonce = cachedHtmlCspNonce(routeCtx.cspNonce);
+  const renderCtx =
+    phase === "request" || cacheNonce === undefined
+      ? routeCtx
+      : { ...routeCtx, cspNonce: cacheNonce };
   return withSpan(
     "ssr.render",
     {
@@ -116,7 +122,7 @@ export async function runRender<T>(
     async () => {
       const started = performance.now();
       if (!route.streaming) {
-        const body = await renderDocument(route, data, assets, { routeCtx });
+        const body = await renderDocument(route, data, assets, { routeCtx: renderCtx });
         observeSerialization("document_render", route.path, performance.now() - started);
         observePayloadSize("html", route.path, Buffer.byteLength(body));
         return body;
@@ -126,7 +132,7 @@ export async function runRender<T>(
         route,
         data,
         assets,
-        { routeCtx },
+        { routeCtx: renderCtx },
         (error) => {
           logError(error, {
             requestId: routeCtx.trackingId,

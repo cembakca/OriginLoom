@@ -1,5 +1,9 @@
-import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
-import { neverCache, sharedUnlessBypass } from "@originloom/shared/lib/cache-policy";
+import type { CachePolicy, Ctx, RouteCacheResolver } from "@originloom/react/lib/types";
+import {
+  describeRouteCache,
+  neverCache,
+  sharedUnlessBypass,
+} from "@originloom/shared/lib/cache-policy";
 import {
   contentQueryCacheFragment,
   type ContentQueryConfig,
@@ -256,6 +260,24 @@ export function pageCachePolicy(id: PageCacheId, ctx: Ctx): CachePolicy {
   return sharedUnlessBypass(ctx, entry.buildKey(ctx), {
     ttl: entry.ttl ?? DEFAULT_TTL,
     swr: entry.swr ?? DEFAULT_SWR,
+  });
+}
+
+/** Runtime cache resolver carrying the same registry metadata used by build output. */
+export function pageCache(
+  id: PageCacheId,
+  resolver: (ctx: Ctx) => CachePolicy = (ctx) => pageCachePolicy(id, ctx),
+): RouteCacheResolver {
+  const entry = pageCacheRegistry[id];
+  if (entry.strategy === "never") {
+    return describeRouteCache(resolver, { mode: "none", label: entry.description });
+  }
+  return describeRouteCache(resolver, {
+    mode: "conditional",
+    ttl: entry.ttl ?? DEFAULT_TTL,
+    swr: entry.swr ?? DEFAULT_SWR,
+    ...(entry.contentQueryParams?.length ? { vary: entry.contentQueryParams } : {}),
+    label: entry.description,
   });
 }
 

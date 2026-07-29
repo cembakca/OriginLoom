@@ -1,6 +1,12 @@
 import { Cookie } from "./cookies.js";
 import { cookie } from "./request.js";
-import type { CachePolicy, Ctx } from "./types.js";
+import {
+  type CachePolicy,
+  type Ctx,
+  type RouteCacheDescription,
+  routeCacheDescriptionSymbol,
+  type RouteCacheResolver,
+} from "./types.js";
 
 /**
  * Return true → HTML cache BYPASS (loader runs every time).
@@ -76,3 +82,33 @@ export function sharedUnlessBypass(
 export function neverCache(): CachePolicy {
   return { kind: "none" };
 }
+
+/**
+ * Attaches build-readable metadata to the real runtime resolver. The resolver
+ * remains the source of truth; an unannotated resolver is reported as runtime-defined.
+ */
+export function describeRouteCache(
+  resolver: (ctx: Ctx) => CachePolicy,
+  description: RouteCacheDescription,
+): RouteCacheResolver {
+  Object.defineProperty(resolver, routeCacheDescriptionSymbol, {
+    value: Object.freeze(description),
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  return resolver;
+}
+
+export function routeCacheDescription(
+  resolver: ((ctx: Ctx) => CachePolicy) | undefined,
+): RouteCacheDescription | undefined {
+  return (resolver as RouteCacheResolver | undefined)?.[routeCacheDescriptionSymbol];
+}
+
+Object.defineProperty(neverCache, routeCacheDescriptionSymbol, {
+  value: Object.freeze({ mode: "none" } satisfies RouteCacheDescription),
+  enumerable: false,
+  configurable: false,
+  writable: false,
+});

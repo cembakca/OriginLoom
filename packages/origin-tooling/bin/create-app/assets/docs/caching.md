@@ -32,8 +32,14 @@ document ve data cache'in birbirinden bağımsız olduğunu gözle görünür bi
 ## HTML cache registry'si
 
 `src/lib/cache-keys.ts`, HTML cache kimliklerinin tek kaynağıdır. Cache'lenen her route burada
-tanımlanmalı ve route yalnız `pageCachePolicy(PageCacheId..., ctx)` çağırmalıdır. Böylece purge
-allowlist'i, metric route label'ları, TTL/SWR ve key üretimi birbirinden kopmaz.
+tanımlanmalı ve route `cache: pageCache(PageCacheId...)` kullanmalıdır. Bu resolver gerçek runtime
+policy'sini üretirken aynı registry metadata'sını `pnpm build` özetine taşır. Böylece purge
+allowlist'i, metric route label'ları, TTL/SWR, build özeti ve key üretimi birbirinden kopmaz.
+
+Registry dışında özel bir cache resolver yazılabilir. Route yine build özetinde otomatik görünür;
+ancak resolver `describeRouteCache(...)` ile açıklanmamışsa cache sütunu dürüst biçimde
+`runtime-defined` gösterilir. Build cache fonksiyonunu sahte request ile çalıştırıp TTL tahmin etmez.
+Makine tarafından okunabilir karşılık `dist/originloom-manifest.json` dosyasındadır.
 
 Key'e yalnız üretilen HTML'i gerçekten değiştiren, normalize edilmiş ve bounded değerler girebilir:
 

@@ -6,7 +6,7 @@ import { locale } from "@originloom/shared/lib/request";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ResponsiveImage } from "~/components/ui/responsive-image";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
@@ -43,7 +43,7 @@ const HERO_SIZES = "(min-width: 1024px) 42vw, 100vw";
 
 export default defineRoute<Data>({
   path: "/",
-  cache: (ctx) => pageCachePolicy(PageCacheId.home, ctx),
+  cache: pageCache(PageCacheId.home),
   loader: async (ctx) => ({
     data: { locale: locale(ctx.request), hero: responsiveImage("home-hero") },
   }),
