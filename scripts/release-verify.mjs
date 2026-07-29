@@ -89,7 +89,9 @@ try {
   step("doctor, typecheck, build and smoke the installed app");
   run("pnpm", ["exec", "origin-doctor", "--strict"], { cwd: appDir });
   run("pnpm", ["exec", "tsc", "--noEmit"], { cwd: appDir });
+  if (options.renderer === "react") run("pnpm", ["run", "contracts:fixtures"], { cwd: appDir });
   run("pnpm", ["exec", "origin-build"], { cwd: appDir });
+  if (options.renderer === "react") run("pnpm", ["run", "budget:bundle"], { cwd: appDir });
   run("pnpm", ["exec", "origin-smoke"], { cwd: appDir, env: smokeEnv(appDir) });
 
   if (options.renderer === "react") {
@@ -99,6 +101,7 @@ try {
       env: npmEnv,
     });
     run("pnpm", ["exec", "playwright", "test"], { cwd: appDir, env: npmEnv });
+    run("pnpm", ["run", "lighthouse"], { cwd: appDir, env: npmEnv });
   }
 
   step("done — the published packages install, build, serve and pass their release checks");

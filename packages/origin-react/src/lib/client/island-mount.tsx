@@ -5,6 +5,7 @@ import {
   IslandRuntimeError,
   loadIslandModule,
 } from "@originloom/shared/lib/client/island-runtime";
+import { reportIslandMount } from "@originloom/shared/lib/client/performance-telemetry";
 import { parseEmbeddedJson } from "@originloom/shared/lib/embedded-json";
 import { type ComponentType, type ReactNode, useEffect } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
@@ -63,6 +64,7 @@ export function createIslandMounter(options: {
   }
 
   return async function mount(el: HTMLElement) {
+    const startedAt = performance.now();
     const island = el.dataset.island ?? "unknown";
     const load = byName.get(island);
     if (!load) {
@@ -100,6 +102,7 @@ export function createIslandMounter(options: {
       });
       const markCommitted = () => {
         cancelMountTimeout();
+        reportIslandMount(island, performance.now() - startedAt);
         // A deterministic readiness signal for browser tests, monitoring and
         // progressive UI. Presence means React committed, not merely that the
         // server-rendered fallback was visible.

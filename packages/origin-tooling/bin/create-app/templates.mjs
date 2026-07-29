@@ -101,6 +101,7 @@ export function renderTemplates({
     "docs/auth.md": asset("docs/auth.md"),
     "docs/background-workers.md": asset("docs/background-workers.md"),
     "docs/caching.md": asset("docs/caching.md"),
+    "docs/capacity.md": asset("docs/capacity.md"),
     "docs/configuration.md": asset("docs/configuration.md"),
     "docs/dynamic-shell.md": asset("docs/dynamic-shell.md"),
     "docs/features.md": asset("docs/features.md"),
@@ -110,6 +111,8 @@ export function renderTemplates({
     "docs/seo.md": asset("docs/seo.md"),
     "docs/streaming.md": asset("docs/streaming.md"),
     "docs/testing.md": asset("docs/testing.md"),
+    "docs/contracts.md": asset("docs/contracts.md"),
+    "docs/performance.md": asset("docs/performance.md"),
     "docs/upgrading.md": asset("docs/upgrading.md"),
     Dockerfile: dockerfile(name, port, standalone),
     ".dockerignore": asset("dockerignore"),
@@ -118,7 +121,11 @@ export function renderTemplates({
     ".editorconfig": asset("editorconfig"),
     ".github/workflows/ci.yml": githubWorkflow(name, "react"),
     // Opt-in deployment assets: compose, k8s manifests, a load generator.
-    ...(withOps ? renderOpsTemplates({ name, port, metricsPort }) : {}),
+    ...(withOps ? renderOpsTemplates({ name, port, metricsPort, includeCapacity: true }) : {}),
+    "load-test/capacity.mjs": asset("load-test/capacity.mjs"),
+    "load-test/capacity-metrics.mjs": asset("load-test/capacity-metrics.mjs"),
+    "load-test/capacity-report.mjs": asset("load-test/capacity-report.mjs"),
+    "load-test/capacity-scenarios.mjs": asset("load-test/capacity-scenarios.mjs"),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/api/index.ts": apiIndex(),
@@ -144,6 +151,7 @@ export function renderTemplates({
     "server/routes/media.tsx": mediaRoute(),
     "src/features/media/media-page.tsx": mediaPage(),
     "server/routes/catalog.tsx": catalogRoute(),
+    "server/routes/data-cache.tsx": dataCacheRoute(),
     "server/routes/item-detail.tsx": itemDetailRoute(),
     "server/routes/account.tsx": accountRoute(),
     "server/routes/live.tsx": liveRoute(),
@@ -151,8 +159,17 @@ export function renderTemplates({
     "server/services/menu.ts": menuService(),
     "server/services/bot-analytics.ts": botAnalyticsService(),
     "server/services/items.ts": itemsService(),
+    "server/services/featured-items.ts": featuredItemsService(),
     "server/services/profile.ts": profileService(),
     "server/services/gateway-contracts.ts": gatewayContracts(),
+    "contracts/openapi.json": gatewayOpenApi(),
+    "contracts/gateway-contracts.json": gatewayContractConfig(),
+    "contracts/fixtures/items-page.json": gatewayItemsPageFixture(),
+    "contracts/fixtures/item.json": gatewayItemFixture(),
+    "contracts/fixtures/menu.json": gatewayMenuFixture(),
+    "performance-budgets.json": performanceBudgets(),
+    "lighthouserc.json": lighthouseConfig(port),
+    ".github/workflows/contract-staging.yml": stagingContractWorkflow(name),
     "mock-gateway/server.mjs": mockGateway(true),
     "server/product/runtime.ts": productRuntime(),
     "server/product/document-shell.ts": productDocumentShell(title),
@@ -169,6 +186,7 @@ export function renderTemplates({
     "src/features/showcase/showcase-page.tsx": showcasePage(),
     "src/features/showcase/server-time-fragment.tsx": serverTimeFragment(),
     "src/features/catalog/catalog-page.tsx": catalogPage(),
+    "src/features/data-cache/data-cache-page.tsx": dataCachePage(),
     "src/features/items/item-detail-page.tsx": itemDetailPage(),
     "src/features/live/live-page.tsx": livePage(),
     "src/components/layout/root-layout.tsx": rootLayout(title),
@@ -189,6 +207,7 @@ export function renderTemplates({
     "tests/live-stream-admission.test.ts": liveStreamAdmissionTest(),
     "tests/live-stream-api.test.ts": liveStreamApiTest(),
     "tests/menu-cache.test.ts": menuCacheTest(),
+    "tests/featured-items-cache.test.ts": featuredItemsCacheTest(),
     "tests/pagination.test.ts": paginationTest(),
     "tests/bot-analytics.test.ts": botAnalyticsTest(),
     "tests/cache-key-codec.test.ts": cacheKeyCodecTest(),
@@ -253,7 +272,7 @@ function vanillaTemplates({
     ".editorconfig": asset("editorconfig"),
     ".github/workflows/ci.yml": githubWorkflow(name, "vanilla"),
     // Opt-in deployment assets: compose, k8s manifests, a load generator.
-    ...(withOps ? renderOpsTemplates({ name, port, metricsPort }) : {}),
+    ...(withOps ? renderOpsTemplates({ name, port, metricsPort, includeCapacity: false }) : {}),
 
     "server/index.ts": serverIndex("/src/entry.client.ts"),
     "server/api/index.ts": vanilla.apiIndex(),
@@ -366,6 +385,17 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
         smoke: "origin-smoke --gateway mock-gateway/server.mjs",
         typecheck: "tsc --noEmit",
         "check:cycles": "origin-check-cycles",
+        ...(renderer === "vanilla"
+          ? {}
+          : {
+              capacity: "node load-test/capacity.mjs",
+              "capacity:quick": "node load-test/capacity.mjs --profile quick",
+              "contracts:fixtures": "origin-check-contracts",
+              "contracts:staging": "origin-check-contracts --require-base-url",
+              "budget:bundle": "origin-check-budgets",
+              "quality:server": "origin-quality-server --gateway mock-gateway/server.mjs",
+              lighthouse: "origin-lighthouse",
+            }),
         // Icon codegen emits React components, so it ships with that renderer only.
         ...(renderer === "vanilla" ? {} : { icons: "origin-generate-icons" }),
         media: "origin-build-media",
@@ -402,7 +432,7 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
         ci:
           renderer === "vanilla"
             ? "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build && pnpm run smoke"
-            : "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run e2e && pnpm run smoke",
+            : "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run contracts:fixtures && pnpm run build && pnpm run budget:bundle && pnpm run e2e && pnpm run lighthouse && pnpm run smoke",
       },
       dependencies: {
         "@hono/node-server": "^2.0.12",
@@ -413,6 +443,7 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
           : { "@originloom/react": originloom }),
         "@tailwindcss/vite": "^4.3.3",
         ...(renderer === "vanilla" ? {} : { "@tanstack/react-query": "^5.101.4" }),
+        ...(renderer === "vanilla" ? {} : { "web-vitals": "^6.0.1" }),
         ...(renderer === "vanilla" ? {} : { clsx: "^2.1.1" }),
         hono: "^4.12.32",
         ...(renderer === "vanilla" ? {} : { react: "^19.2.8", "react-dom": "^19.2.8" }),
@@ -435,6 +466,8 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
               "@types/react": "^19.2.17",
               "@types/react-dom": "^19.2.3",
               "@vitejs/plugin-react": "^6.0.4",
+              autocannon: "^8.0.0",
+              lighthouse: "^12.8.2",
             }),
         eslint: "^10.8.0",
         "eslint-config-prettier": "^10.1.8",
@@ -801,6 +834,20 @@ test.describe("SSR and island critical paths", () => {
     expect(sessionCalls).toBe(3);
   });
 
+  test("renders HTML again while reusing the public API data snapshot", async ({ page }) => {
+    const firstResponse = await page.goto("/data-cache");
+    expect(firstResponse?.headers()["x-cache"]).toBe("BYPASS");
+    const firstRenderedAt = await page.getByTestId("page-rendered-at").textContent();
+    const firstFetchedAt = await page.getByTestId("api-fetched-at").textContent();
+
+    await page.waitForTimeout(10);
+    const secondResponse = await page.reload();
+    expect(secondResponse?.headers()["x-cache"]).toBe("BYPASS");
+    await expect(page.getByTestId("api-cache-status")).toContainText("FRESH");
+    await expect(page.getByTestId("page-rendered-at")).not.toHaveText(firstRenderedAt ?? "");
+    await expect(page.getByTestId("api-fetched-at")).toHaveText(firstFetchedAt ?? "");
+  });
+
   test("opens the SSE stream and releases its server-side lease on navigation", async ({
     page,
     request,
@@ -837,7 +884,7 @@ test.describe("SSR and island critical paths", () => {
 const accessibilityE2e = () => `import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-for (const path of ["/", "/catalog", "/account"] as const) {
+for (const path of ["/", "/catalog", "/data-cache", "/account"] as const) {
   test(\`\${path} has no serious or critical accessibility violations\`, async ({ page }) => {
     await page.goto(path);
     await page.locator("main").waitFor();
@@ -885,6 +932,8 @@ BOT_ANALYTICS_DRAIN_TIMEOUT_MS=3000
 `;
 const menuCacheEnv = `MENU_CACHE_TTL=14400
 MENU_CACHE_SWR=86400
+FEATURED_ITEMS_CACHE_TTL=10
+FEATURED_ITEMS_CACHE_SWR=30
 `;
 
 const envDevelopment = (
@@ -1286,6 +1335,7 @@ const routesIndex = () => `import type { Route } from "@originloom/react/lib/typ
 
 import account from "./account";
 import catalog from "./catalog";
+import dataCache from "./data-cache";
 import home from "./home";
 import itemDetail from "./item-detail";
 import live from "./live";
@@ -1293,7 +1343,16 @@ import media from "./media";
 import showcase from "./showcase";
 
 /** The route table. Order matters: the first match wins. */
-export const routes: Route[] = [home, catalog, itemDetail, account, live, media, showcase];
+export const routes: Route[] = [
+  home,
+  catalog,
+  dataCache,
+  itemDetail,
+  account,
+  live,
+  media,
+  showcase,
+];
 `;
 
 const homeRoute = (title) => `import { responsiveImage } from "@originloom/core/media";
@@ -1511,6 +1570,104 @@ describe("menu data cache", () => {
       href: "/",
     });
     expect(mocks.write).not.toHaveBeenCalled();
+  });
+});
+`;
+
+const featuredItemsCacheTest =
+  () => `import { getFeaturedItems } from "@server/services/featured-items";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  deleteKey: vi.fn(),
+  listItems: vi.fn(),
+  read: vi.fn(),
+  warn: vi.fn(),
+  write: vi.fn(),
+}));
+
+vi.mock("@originloom/core/cache", () => ({
+  cacheKey: (policy: { key: string[] }) => policy.key.join("\\0"),
+  deleteKey: mocks.deleteKey,
+  read: mocks.read,
+  write: mocks.write,
+}));
+vi.mock("@originloom/core/logger", () => ({ logger: { warn: mocks.warn } }));
+vi.mock("@server/services/items", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@server/services/items")>()),
+  listItems: mocks.listItems,
+}));
+
+const page = {
+  items: [
+    {
+      slug: "alpha",
+      name: "Alpha",
+      blurb: "İlk örnek kayıt.",
+      seo: { title: "Alpha", description: "Alpha detay sayfası." },
+    },
+  ],
+  total: 1,
+};
+
+describe("featured items API data cache", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.deleteKey.mockResolvedValue(true);
+    mocks.listItems.mockResolvedValue(page);
+    mocks.read.mockResolvedValue(null);
+    mocks.write.mockResolvedValue(true);
+  });
+
+  it("serves a fresh snapshot without calling the gateway service", async () => {
+    const snapshot = { ...page, fetchedAt: "2026-01-01T00:00:00.000Z" };
+    mocks.read.mockResolvedValue({ body: JSON.stringify(snapshot), state: "fresh" });
+
+    await expect(getFeaturedItems(new Request("http://app.local/data-cache"))).resolves.toEqual({
+      ...snapshot,
+      cacheStatus: "fresh",
+    });
+    expect(mocks.listItems).not.toHaveBeenCalled();
+  });
+
+  it("fills the shared data cache after a cold miss", async () => {
+    const result = await getFeaturedItems(new Request("http://app.local/data-cache"));
+
+    expect(result).toMatchObject({ ...page, cacheStatus: "miss" });
+    expect(result.fetchedAt).toEqual(expect.any(String));
+    expect(mocks.listItems).toHaveBeenCalledWith(1, 3);
+    expect(mocks.write).toHaveBeenCalledWith(
+      "items:featured:v1",
+      expect.any(String),
+      expect.objectContaining({ kind: "shared", key: ["items:featured:v1"] }),
+    );
+  });
+
+  it("returns stale data immediately and coalesces background refreshes", async () => {
+    const snapshot = { ...page, fetchedAt: "2026-01-01T00:00:00.000Z" };
+    mocks.read.mockResolvedValue({ body: JSON.stringify(snapshot), state: "stale" });
+
+    await expect(
+      Promise.all([
+        getFeaturedItems(new Request("http://app.local/data-cache?one")),
+        getFeaturedItems(new Request("http://app.local/data-cache?two")),
+      ]),
+    ).resolves.toEqual([
+      { ...snapshot, cacheStatus: "stale" },
+      { ...snapshot, cacheStatus: "stale" },
+    ]);
+    await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
+    expect(mocks.listItems).toHaveBeenCalledOnce();
+  });
+
+  it("deletes an invalid cache entry before refilling it", async () => {
+    mocks.read.mockResolvedValue({ body: '{"items":"invalid"}', state: "fresh" });
+
+    await expect(
+      getFeaturedItems(new Request("http://app.local/data-cache")),
+    ).resolves.toMatchObject({ cacheStatus: "miss" });
+    expect(mocks.deleteKey).toHaveBeenCalledWith("items:featured:v1");
+    expect(mocks.listItems).toHaveBeenCalledOnce();
   });
 });
 `;
@@ -1754,9 +1911,11 @@ const INVALID = "Items gateway returned an invalid payload";
 export async function listItems(
   page: number,
   perPage: number,
-  signal: AbortSignal,
+  signal?: AbortSignal,
 ): Promise<ItemPage> {
-  const response = await gatewayFetch(\`/items?page=\${page}&perPage=\${perPage}\`, { signal });
+  const response = await gatewayFetch(\`/items?page=\${page}&perPage=\${perPage}\`,
+    signal ? { signal } : {},
+  );
   if (!response.ok) throw new Error(\`Items gateway returned \${response.status}\`);
 
   // Bounded read against this endpoint's contract, then a runtime guard: gateway
@@ -1787,7 +1946,7 @@ function isItem(value: unknown): value is Item {
   );
 }
 
-function isItemPage(value: unknown): value is ItemPage {
+export function isItemPage(value: unknown): value is ItemPage {
   return (
     isRecord(value) &&
     isBoundedArray(value.items, 100, isItem) &&
@@ -1797,7 +1956,116 @@ function isItemPage(value: unknown): value is ItemPage {
 }
 `;
 
+const featuredItemsService = () => `import * as cache from "@originloom/core/cache";
+import { logger } from "@originloom/core/logger";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import { productConfig } from "@server/product/config";
+
+import { isItemPage, type ItemPage, listItems } from "./items";
+
+type FeaturedItemsSnapshot = ItemPage & { fetchedAt: string };
+export type FeaturedItemsCacheStatus = "fresh" | "miss" | "stale";
+export type FeaturedItemsResult = FeaturedItemsSnapshot & {
+  cacheStatus: FeaturedItemsCacheStatus;
+};
+
+const FEATURED_ITEMS_CACHE_KEY = "items:featured:v1";
+const FEATURED_ITEMS_CACHE_POLICY = {
+  kind: "shared" as const,
+  ttl: productConfig.featuredItemsCacheTtl,
+  swr: productConfig.featuredItemsCacheSwr,
+  key: [FEATURED_ITEMS_CACHE_KEY],
+};
+let refreshInFlight: Promise<FeaturedItemsSnapshot> | undefined;
+
+/**
+ * Demonstrates endpoint-data caching independently from document caching.
+ * The caller may render uncached HTML while this validated public snapshot is
+ * shared by every request. User identity and authorization never enter the key.
+ */
+export async function getFeaturedItems(request: Request): Promise<FeaturedItemsResult> {
+  const key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY);
+  if (!key) throw new Error("Featured items cache policy must be shared");
+
+  const hit = await cache.read(key);
+  if (hit) {
+    const cached = parseSnapshot(hit.body);
+    if (cached) {
+      if (hit.state === "stale") scheduleRefresh();
+      return { ...cached, cacheStatus: hit.state };
+    }
+    try {
+      await cache.deleteKey(key);
+    } catch (error) {
+      logger.warn("invalid featured-items cache entry could not be deleted", {
+        error: errorMessage(error),
+      });
+    }
+  }
+
+  const snapshot = await waitForRequest(refresh(key), request.signal);
+  return { ...snapshot, cacheStatus: "miss" };
+}
+
+function refresh(key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY)): Promise<FeaturedItemsSnapshot> {
+  if (refreshInFlight) return refreshInFlight;
+  if (!key) return Promise.reject(new Error("Featured items cache policy must be shared"));
+
+  const pending = listItems(1, productConfig.catalogPageSize)
+    .then(async (page) => {
+      const snapshot = { ...page, fetchedAt: new Date().toISOString() };
+      await cache.write(key, JSON.stringify(snapshot), FEATURED_ITEMS_CACHE_POLICY);
+      return snapshot;
+    })
+    .finally(() => {
+      if (refreshInFlight === pending) refreshInFlight = undefined;
+    });
+  refreshInFlight = pending;
+  return pending;
+}
+
+function scheduleRefresh(): void {
+  void refresh().catch((error: unknown) => {
+    logger.warn("stale featured-items refresh failed", { error: errorMessage(error) });
+  });
+}
+
+function parseSnapshot(body: string): FeaturedItemsSnapshot | null {
+  try {
+    const value: unknown = JSON.parse(body);
+    return isFeaturedItemsSnapshot(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function isFeaturedItemsSnapshot(value: unknown): value is FeaturedItemsSnapshot {
+  return isRecord(value) && isBoundedString(value.fetchedAt, 100) && isItemPage(value);
+}
+
+function waitForRequest<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Request aborted"));
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new Error("Request aborted"));
+    const settle = <TValue>(fn: (value: TValue) => void, value: TValue) => {
+      signal.removeEventListener("abort", abort);
+      fn(value);
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    void work.then(
+      (value) => settle(resolve, value),
+      (error: unknown) => settle(reject, error),
+    );
+  });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+`;
+
 const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
+import { mountClientMetricApi } from "@originloom/core/api/client-metrics";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { mountPublicItemsApi } from "@server/api/items";
 import { mountLiveStreamApi } from "@server/api/live-stream";
@@ -1812,6 +2080,7 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   // The island runtime reports client-side failures here. Without it every
   // browser error turns into a 404 in the console instead of a server log.
   mountClientErrorApi(app);
+  mountClientMetricApi(app);
 
   mountPublicItemsApi(app);
 
@@ -2197,6 +2466,103 @@ export function useSessionQuery() {
       return failureCount < 1;
     },
   });
+}
+`;
+
+const dataCacheRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
+import { type FeaturedItemsResult, getFeaturedItems } from "@server/services/featured-items";
+
+import { DataCachePage } from "~/features/data-cache/data-cache-page";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+type Data = { apiData: FeaturedItemsResult; pageRenderedAt: string };
+
+export default defineRoute<Data>({
+  path: "/data-cache",
+  // Deliberately render the document on every request. Only the validated
+  // upstream payload in getFeaturedItems() is shared between requests.
+  cache: () => neverCache(),
+  loader: async (ctx) => ({
+    data: {
+      apiData: await getFeaturedItems(ctx.request),
+      pageRenderedAt: new Date().toISOString(),
+    },
+  }),
+  generateMetadata: () => ({
+    title: "API data cache örneği",
+    robots: { index: false, follow: false },
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "data-cache"),
+  Component: DataCachePage,
+});
+`;
+
+const dataCachePage =
+  () => `import type { FeaturedItemsResult } from "@server/services/featured-items";
+
+type Props = { data: { apiData: FeaturedItemsResult; pageRenderedAt: string } };
+
+const CACHE_STATUS_LABEL = {
+  fresh: "FRESH — veri cache'ten geldi",
+  miss: "MISS — gateway çağrıldı ve cache dolduruldu",
+  stale: "STALE — eski veri sunuldu, arkada tek refresh başladı",
+} as const;
+
+export function DataCachePage({ data }: Props) {
+  return (
+    <div className="space-y-6">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">API data cache</h1>
+        <p className="max-w-3xl text-slate-600">
+          Bu sayfanın HTML'i cache'lenmez. SSR her istekte yeniden çalışır; yalnız doğrulanmış
+          gateway payload'ı sunucu tarafındaki read-through cache'te paylaşılır.
+        </p>
+      </header>
+
+      <dl className="grid gap-3 rounded-lg border border-slate-200 p-4 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="font-medium text-slate-900">HTML render zamanı</dt>
+          <dd data-testid="page-rendered-at" className="mt-1 font-mono text-slate-600">
+            {data.pageRenderedAt}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-slate-900">Gateway veri zamanı</dt>
+          <dd data-testid="api-fetched-at" className="mt-1 font-mono text-slate-600">
+            {data.apiData.fetchedAt}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="font-medium text-slate-900">Data cache sonucu</dt>
+          <dd data-testid="api-cache-status" className="mt-1 text-slate-600">
+            {CACHE_STATUS_LABEL[data.apiData.cacheStatus]}
+          </dd>
+        </div>
+      </dl>
+
+      <section aria-labelledby="featured-items-heading" className="space-y-3">
+        <h2 id="featured-items-heading" className="text-xl font-semibold text-slate-900">
+          Cache'lenen API verisi
+        </h2>
+        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-4">
+          {data.apiData.items.map((item) => (
+            <li key={item.slug} className="py-3">
+              <a className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
+                {item.name}
+              </a>
+              <p className="text-sm text-slate-500">{item.blurb}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <p className="text-sm leading-6 text-slate-500">
+        Sayfayı yenilediğinizde HTML render zamanı değişir. Veri zamanı TTL boyunca aynı kalır;
+        response <code>x-cache: BYPASS</code> taşırken API verisi FRESH veya STALE olabilir.
+      </p>
+    </div>
+  );
 }
 `;
 
@@ -2867,9 +3233,15 @@ const entryClient = () => `import "./styles/globals.css";
 
 import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
 import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
+import { reportWebVital } from "@originloom/shared/lib/client/performance-telemetry";
 import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
+import { onCLS, onINP, onLCP } from "web-vitals";
 
 installReloadButtons();
+
+for (const observe of [onCLS, onINP, onLCP]) {
+  observe(({ name, value, rating }) => reportWebVital({ name, value, rating }));
+}
 
 runIslandBootstrap(
   (element) => {
@@ -2986,6 +3358,12 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
               /account
             </a>{" "}
             — kişisel sayfa: <code>neverCache</code> + defer island
+          </li>
+          <li>
+            <a className="hover:underline" href="/data-cache">
+              /data-cache
+            </a>{" "}
+            — HTML her istekte render edilir, public gateway verisi read-through cache'ten gelir
           </li>
           <li>
             <a className="hover:underline" href="/live">
@@ -3481,6 +3859,7 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 
 - \`/catalog\`: normalize query paramı cache key'e giren sayfalı liste
 - \`/items/alpha\`: param validation, \`notFound()\`, CMS SEO ve JSON-LD içeren dinamik route
+- \`/data-cache\`: cache'siz HTML içinde TTL/SWR ile cache'lenen doğrulanmış gateway verisi
 - \`/account\`: never-cache document, BFF session ve defer island
 - Dynamic menu: fresh/stale endpoint cache, single-flight refresh ve safe fallback
 - \`/live\`: progressive SSR, bounded SSE ve graceful shutdown
@@ -3502,6 +3881,11 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 | \`pnpm check:cycles\`   | Import cycle ve katman sınırlarını kontrol eder              |
 | \`pnpm test\`           | Unit/integration testlerini çalıştırır                       |
 | \`pnpm build\`          | Client ve self-contained server bundle üretir                |
+| \`pnpm contracts:fixtures\` | Fixture'ları OpenAPI consumer contract'ına karşı doğrular |
+| \`pnpm budget:bundle\`  | Island/client gzip bütçelerini kontrol eder                   |
+| \`pnpm lighthouse\`     | Route performance ve accessibility bütçelerini çalıştırır    |
+| \`pnpm capacity\`       | Tüm route'larda kademeli kapasite testi ve Markdown/JSON raporu üretir |
+| \`pnpm capacity:quick\` | Kapasite runner'ının kısa doğrulama profilini çalıştırır      |
 | \`pnpm smoke\`          | Built server'ı mock gateway ile probe eder                   |
 | \`pnpm ci\`             | Typecheck, cycle, lint, format, test, build ve smoke çalıştırır |
 | \`pnpm media\`          | Responsive image/font manifestini üretir                     |
@@ -3556,6 +3940,7 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 
 - [Auth ve BFF](docs/auth.md)
 - [Cache ve fragment stitching](docs/caching.md)
+- [Kademeli kapasite testi ve raporlama](docs/capacity.md)
 - [Configuration](docs/configuration.md)
 - [Dynamic shell](docs/dynamic-shell.md)
 - [Background workers](docs/background-workers.md)
@@ -3565,6 +3950,8 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 - [Observability](docs/observability.md)
 - [TanStack Query kullanımı ve kaldırma](docs/react-query.md)
 - [Testing](docs/testing.md)
+- [Gateway contract drift](docs/contracts.md)
+- [Performance ve accessibility bütçeleri](docs/performance.md)
 - [Sürüm yükseltme ve migration](docs/upgrading.md)
 
 ## Browser E2E
@@ -3674,6 +4061,18 @@ ${
 `
     : ""
 }
+${
+  renderer === "react"
+    ? `      - name: Upload Lighthouse reports
+        if: always() && hashFiles('.lighthouseci/reports/**') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/reports/
+          retention-days: 14
+`
+    : ""
+}
       - name: Build container
         run: docker build --tag ${name}:\${{ github.sha }} .
 `;
@@ -3689,6 +4088,8 @@ const mockGateway = (includeRoutingExamples = false) => `#!/usr/bin/env node
 import { createServer } from "node:http";
 
 const PORT = Number(process.env.MOCK_GATEWAY_PORT ?? 4002);
+const DELAY_MS = Math.max(0, Number(process.env.MOCK_GATEWAY_DELAY_MS ?? 0) || 0);
+const stats = { startedAt: new Date().toISOString(), total: 0, byPath: Object.create(null) };
 
 const ITEMS = [
   { slug: "alpha", name: "Alpha", blurb: "İlk örnek kayıt.", seo: { title: "Alpha", description: "Alpha detay sayfası." } },
@@ -3702,6 +4103,7 @@ const ITEMS = [
 const MENU = [
   { label: "Ana sayfa", href: "/" },
   { label: "Katalog", href: "/catalog" },
+  { label: "API cache", href: "/data-cache" },
   { label: "Canlı veri", href: "/live" },
 ];
 ${
@@ -3715,6 +4117,22 @@ ${
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", \`http://\${req.headers.host ?? "localhost"}\`);
+
+  // Local capacity runner instrumentation. It counts real mock-gateway work so
+  // thousands of page requests can be proven to collapse into one data-cache fill.
+  if (url.pathname === "/__originloom__/stats") {
+    if (req.method === "DELETE") {
+      stats.startedAt = new Date().toISOString();
+      stats.total = 0;
+      stats.byPath = Object.create(null);
+      return json(res, 200, { ok: true });
+    }
+    return json(res, 200, stats);
+  }
+
+  stats.total++;
+  stats.byPath[url.pathname] = (stats.byPath[url.pathname] ?? 0) + 1;
+  if (DELAY_MS) await new Promise((resolveDelay) => setTimeout(resolveDelay, DELAY_MS));
 
   if (url.pathname === "/items") {
     const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
@@ -3844,6 +4262,228 @@ export const GatewayContracts = {
   menu: defineGatewayContract("menu", 32_768),
   profile: defineGatewayContract("profile", 16_384),
 } as const;
+`;
+
+const gatewayOpenApi = () =>
+  JSON.stringify(
+    {
+      openapi: "3.1.0",
+      info: { title: "OriginLoom consumer gateway contract", version: "1.0.0" },
+      paths: {
+        "/items": {
+          get: {
+            responses: {
+              200: {
+                description: "Item page",
+                content: {
+                  "application/json": { schema: { $ref: "#/components/schemas/ItemPage" } },
+                },
+              },
+            },
+          },
+        },
+        "/items/{slug}": {
+          get: {
+            responses: {
+              200: {
+                description: "Item detail",
+                content: { "application/json": { schema: { $ref: "#/components/schemas/Item" } } },
+              },
+            },
+          },
+        },
+        "/menu": {
+          get: {
+            responses: {
+              200: {
+                description: "Menu",
+                content: { "application/json": { schema: { $ref: "#/components/schemas/Menu" } } },
+              },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          ItemSeo: {
+            type: "object",
+            required: ["title", "description"],
+            properties: {
+              title: { type: "string", maxLength: 200 },
+              description: { type: "string", maxLength: 500 },
+            },
+            additionalProperties: true,
+          },
+          Item: {
+            type: "object",
+            required: ["slug", "name", "blurb", "seo"],
+            properties: {
+              slug: { type: "string", maxLength: 100 },
+              name: { type: "string", maxLength: 200 },
+              blurb: { type: "string", maxLength: 1000 },
+              seo: { $ref: "#/components/schemas/ItemSeo" },
+            },
+            additionalProperties: true,
+          },
+          ItemPage: {
+            type: "object",
+            required: ["items", "total"],
+            properties: {
+              items: { type: "array", maxItems: 100, items: { $ref: "#/components/schemas/Item" } },
+              total: { type: "number", minimum: 0 },
+            },
+            additionalProperties: true,
+          },
+          Menu: {
+            type: "array",
+            maxItems: 100,
+            items: {
+              type: "object",
+              required: ["label", "href"],
+              properties: {
+                label: { type: "string", maxLength: 100 },
+                href: { type: "string", maxLength: 500 },
+              },
+              additionalProperties: true,
+            },
+          },
+        },
+      },
+    },
+    null,
+    2,
+  ) + "\n";
+
+const gatewayContractConfig = () =>
+  JSON.stringify(
+    {
+      schemaVersion: 2,
+      schema: "openapi.json",
+      authProfiles: {},
+      contracts: [
+        {
+          id: "items-page",
+          operationId: "catalog.list",
+          request: { method: "GET", path: "/items?page=1&perPage=3" },
+          response: {
+            status: 200,
+            contentType: "application/json",
+            fixture: "fixtures/items-page.json",
+            schema: "#/components/schemas/ItemPage",
+          },
+        },
+        {
+          id: "item-detail",
+          operationId: "catalog.detail",
+          request: { method: "GET", path: "/items/alpha" },
+          response: {
+            status: 200,
+            contentType: "application/json",
+            fixture: "fixtures/item.json",
+            schema: "#/components/schemas/Item",
+          },
+        },
+        {
+          id: "menu",
+          operationId: "shell.menu",
+          request: { method: "GET", path: "/menu" },
+          response: {
+            status: 200,
+            contentType: "application/json",
+            fixture: "fixtures/menu.json",
+            schema: "#/components/schemas/Menu",
+          },
+        },
+      ],
+    },
+    null,
+    2,
+  ) + "\n";
+
+const fixtureItem = {
+  slug: "alpha",
+  name: "Alpha",
+  blurb: "İlk örnek kayıt.",
+  seo: { title: "Alpha", description: "Alpha detay sayfası." },
+};
+const gatewayItemsPageFixture = () =>
+  JSON.stringify({ items: [fixtureItem], total: 7 }, null, 2) + "\n";
+const gatewayItemFixture = () => JSON.stringify(fixtureItem, null, 2) + "\n";
+const gatewayMenuFixture = () =>
+  JSON.stringify(
+    [
+      { label: "Ana sayfa", href: "/" },
+      { label: "Katalog", href: "/catalog" },
+      { label: "API cache", href: "/data-cache" },
+      { label: "Canlı veri", href: "/live" },
+    ],
+    null,
+    2,
+  ) + "\n";
+
+const performanceBudgets = () =>
+  JSON.stringify(
+    {
+      assetRoot: "dist/client/assets",
+      assets: [
+        { name: "hydration runtime", pattern: "^hydrate\\.client-.*\\.js$", maxGzipBytes: 70_000 },
+        {
+          name: "React Query provider",
+          pattern: "^QueryClientProvider-.*\\.js$",
+          maxGzipBytes: 20_000,
+        },
+        { name: "counter island", pattern: "^counter-.*\\.js$", maxGzipBytes: 5_000 },
+        { name: "account island", pattern: "^account-panel-.*\\.js$", maxGzipBytes: 20_000 },
+        { name: "live island", pattern: "^live-ticks-.*\\.js$", maxGzipBytes: 5_000 },
+      ],
+    },
+    null,
+    2,
+  ) + "\n";
+
+const lighthouseConfig = (port) =>
+  JSON.stringify(
+    {
+      urls: [`http://127.0.0.1:${port}/`, `http://127.0.0.1:${port}/catalog?page=1`],
+      runs: 2,
+      thresholds: {
+        performanceScore: 0.85,
+        accessibilityScore: 1,
+        largestContentfulPaintMs: 2_500,
+        cumulativeLayoutShift: 0.1,
+        totalBlockingTimeMs: 300,
+        scriptTransferBytes: 160_000,
+      },
+    },
+    null,
+    2,
+  ) + "\n";
+
+const stagingContractWorkflow = (name) => `name: Staging gateway contracts
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1-5"
+
+jobs:
+  contracts:
+    if: \${{ vars.ENABLE_STAGING_CONTRACT_TESTS == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CONTRACT_BASE_URL: \${{ secrets.STAGING_GATEWAY_URL }}
+      CONTRACT_BEARER_TOKEN: \${{ secrets.STAGING_GATEWAY_BEARER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify ${name} consumer contracts against staging
+        run: pnpm run contracts:staging
 `;
 
 const profileService =
@@ -4106,6 +4746,9 @@ ${
     ? `  /** Public endpoint-data cache: fresh TTL followed by stale-while-revalidate window. */
   menuCacheTtl: numberEnv("MENU_CACHE_TTL", 14_400),
   menuCacheSwr: numberEnv("MENU_CACHE_SWR", 86_400),
+  /** Short demo TTL: uncached /data-cache HTML keeps using this public API snapshot. */
+  featuredItemsCacheTtl: numberEnv("FEATURED_ITEMS_CACHE_TTL", 10),
+  featuredItemsCacheSwr: numberEnv("FEATURED_ITEMS_CACHE_SWR", 30),
 `
     : ""
 }  /** Shown in the footer; optional in development, required in production. */
@@ -4133,6 +4776,13 @@ ${
     ? `  assertPositiveInteger("MENU_CACHE_TTL", productConfig.menuCacheTtl);
   if (!Number.isFinite(productConfig.menuCacheSwr) || productConfig.menuCacheSwr < 0) {
     throw new Error("MENU_CACHE_SWR must be a non-negative number");
+  }
+  assertPositiveInteger("FEATURED_ITEMS_CACHE_TTL", productConfig.featuredItemsCacheTtl);
+  if (
+    !Number.isFinite(productConfig.featuredItemsCacheSwr) ||
+    productConfig.featuredItemsCacheSwr < 0
+  ) {
+    throw new Error("FEATURED_ITEMS_CACHE_SWR must be a non-negative number");
   }
 `
     : ""

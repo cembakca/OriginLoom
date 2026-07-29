@@ -8,6 +8,8 @@ uyarlamak için kullanın.
 | ------------------------------------ | -------------------------------------------------------- | ------------------------------------------------ |
 | SSR route, loader ve boundary        | `server/routes/`                                         | `README.md`                                      |
 | L1/L2 HTML cache, SWR ve purge       | `src/lib/cache-keys.ts`                                  | [caching.md](./caching.md)                       |
+| Cache'siz HTML + API data cache      | `/data-cache`, `server/services/featured-items.ts`       | [caching.md](./caching.md)                       |
+| Kademeli kapasite ve cache provası   | `pnpm capacity`, `load-test/`                            | [capacity.md](./capacity.md)                     |
 | Hydrate/defer island ve BFF auth     | `src/islands/account-panel.tsx`                          | [auth.md](./auth.md)                             |
 | Client server-state ve query cache   | `src/lib/query/`, `account-panel.tsx`                    | [react-query.md](./react-query.md)               |
 | Progressive HTML ve güvenli SSE      | `server/routes/live.tsx`, `server/api/live-stream/`      | [streaming.md](./streaming.md)                   |

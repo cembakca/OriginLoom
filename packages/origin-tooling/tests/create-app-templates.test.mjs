@@ -176,11 +176,30 @@ describe("renderTemplates — shared shape", () => {
       if (renderer === "react") {
         expect(ops["README.md"]).toContain("pnpm pentest:readiness");
         expect(ops["README.md"]).toContain("OPERATIONS.md");
+        expect(ops).toHaveProperty(["load-test/capacity.mjs"]);
+        expect(ops).toHaveProperty(["load-test/capacity-report.mjs"]);
+        expect(ops["OPERATIONS.md"]).toContain("pnpm capacity");
+        expect(JSON.parse(ops["package.json"]).scripts.capacity).toBe(
+          "node load-test/capacity.mjs",
+        );
+        expect(JSON.parse(ops["package.json"]).devDependencies.autocannon).toBe("^8.0.0");
+      } else {
+        expect(ops).not.toHaveProperty(["load-test/capacity.mjs"]);
+        expect(JSON.parse(ops["package.json"]).scripts).not.toHaveProperty("capacity");
       }
       expect(JSON.parse(ops["package.json"]).scripts["compose:redis"]).toBe(
         "origin-compose-up --redis",
       );
     }
+  });
+
+  it("instruments the mock gateway for capacity cache-collapse assertions", () => {
+    const mockGateway = standalone()["mock-gateway/server.mjs"];
+
+    expect(mockGateway).toContain('url.pathname === "/__originloom__/stats"');
+    expect(mockGateway).toContain('req.method === "DELETE"');
+    expect(mockGateway).toContain("MOCK_GATEWAY_DELAY_MS");
+    expect(mockGateway).toContain("stats.byPath[url.pathname]");
   });
 
   it("keeps one product's endpoints out of the generated alert rules", () => {
@@ -449,6 +468,8 @@ describe("renderTemplates — browser E2E", () => {
     expect(critical).toContain("/old-catalog?source=e2e");
     expect(critical).toContain("/products/alpha?source=e2e");
     expect(critical).toContain("app_live_stream_active_connections");
+    expect(critical).toContain('page.getByTestId("api-fetched-at")');
+    expect(critical).toContain('headers()["x-cache"]).toBe("BYPASS")');
     expect(critical).toContain("Oturum bilgisi şu an alınamıyor.");
     expect(files["e2e/accessibility.spec.ts"]).toContain("AxeBuilder");
     expect(files["e2e/ssr.no-js.spec.ts"]).toContain("JavaScript is disabled");
@@ -484,12 +505,15 @@ describe("renderTemplates — example routes", () => {
     const files = standalone();
     for (const path of [
       "server/routes/catalog.tsx",
+      "server/routes/data-cache.tsx",
       "server/routes/item-detail.tsx",
       "server/routes/account.tsx",
       "server/routes/live.tsx",
       "server/services/items.ts",
+      "server/services/featured-items.ts",
       "server/api/index.ts",
       "src/features/catalog/catalog-page.tsx",
+      "src/features/data-cache/data-cache-page.tsx",
       "src/features/items/item-detail-page.tsx",
       "src/features/live/live-page.tsx",
       "src/islands/account-panel.tsx",
@@ -499,7 +523,7 @@ describe("renderTemplates — example routes", () => {
       expect(files, `missing ${path}`).toHaveProperty([path]);
     }
     const routeTable = files["server/routes/index.ts"];
-    for (const id of ["catalog", "itemDetail", "account", "live"]) {
+    for (const id of ["catalog", "dataCache", "itemDetail", "account", "live"]) {
       expect(routeTable, `route ${id} not registered`).toContain(id);
     }
   });
@@ -517,6 +541,22 @@ describe("renderTemplates — example routes", () => {
     const cacheKeys = standalone()["src/lib/cache-keys.ts"];
     expect(cacheKeys).toMatch(/account[\s\S]*?strategy: "never"/);
     expect(standalone()["server/routes/account.tsx"]).toContain('mode="defer"');
+  });
+
+  it("demonstrates cached API data inside an uncached HTML route", () => {
+    const files = standalone();
+    const route = files["server/routes/data-cache.tsx"];
+    const service = files["server/services/featured-items.ts"];
+
+    expect(route).toContain('path: "/data-cache"');
+    expect(route).toContain("cache: () => neverCache()");
+    expect(route).toContain("getFeaturedItems(ctx.request)");
+    expect(service).toContain('FEATURED_ITEMS_CACHE_KEY = "items:featured:v1"');
+    expect(service).toContain('cacheStatus: "miss"');
+    expect(service).toContain('hit.state === "stale"');
+    expect(files["tests/featured-items-cache.test.ts"]).toContain("coalesces background refreshes");
+    expect(files[".env.development"]).toContain("FEATURED_ITEMS_CACHE_TTL=10");
+    expect(files[".env.development"]).toContain("FEATURED_ITEMS_CACHE_SWR=30");
   });
 
   it("wires streaming + SSE: streaming route, Suspense, EventSource island, /api/ticks mount", () => {
@@ -746,6 +786,7 @@ describe("renderTemplates — production reference coverage", () => {
       "docs/auth.md",
       "docs/background-workers.md",
       "docs/caching.md",
+      "docs/capacity.md",
       "docs/configuration.md",
       "docs/dynamic-shell.md",
       "docs/routing.md",
@@ -754,11 +795,73 @@ describe("renderTemplates — production reference coverage", () => {
       "docs/observability.md",
       "docs/react-query.md",
       "docs/testing.md",
+      "docs/contracts.md",
+      "docs/performance.md",
       "docs/upgrading.md",
     ]) {
       expect(files, `missing ${path}`).toHaveProperty([path]);
     }
     expect(files["README.md"]).toContain("docs/features.md");
+  });
+
+  it("ships contract drift and frontend quality gates", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+    const contracts = JSON.parse(files["contracts/gateway-contracts.json"]);
+    expect(files).toHaveProperty(["contracts/openapi.json"]);
+    expect(files).toHaveProperty(["contracts/gateway-contracts.json"]);
+    expect(files).toHaveProperty(["performance-budgets.json"]);
+    expect(files).toHaveProperty(["lighthouserc.json"]);
+    expect(files).toHaveProperty([".github/workflows/contract-staging.yml"]);
+    expect(pkg.scripts["contracts:fixtures"]).toBe("origin-check-contracts");
+    expect(pkg.scripts["budget:bundle"]).toBe("origin-check-budgets");
+    expect(pkg.scripts.lighthouse).toBe("origin-lighthouse");
+    expect(pkg.devDependencies.lighthouse).toBe("^12.8.2");
+    expect(pkg.devDependencies).not.toHaveProperty("@lhci/cli");
+    expect(contracts.schemaVersion).toBe(2);
+    expect(contracts.contracts[0]).toMatchObject({
+      operationId: "catalog.list",
+      request: { method: "GET", path: "/items?page=1&perPage=3" },
+      response: {
+        status: 200,
+        contentType: "application/json",
+        fixture: "fixtures/items-page.json",
+        schema: "#/components/schemas/ItemPage",
+      },
+    });
+    expect(pkg.scripts.ci).toContain("contracts:fixtures");
+    expect(pkg.scripts.ci).toContain("budget:bundle");
+    expect(pkg.scripts.ci).toContain("lighthouse");
+  });
+
+  it("ships the full capacity runner in every React project", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+
+    expect(files).toHaveProperty(["load-test/capacity.mjs"]);
+    expect(files).toHaveProperty(["load-test/capacity-metrics.mjs"]);
+    expect(files).toHaveProperty(["load-test/capacity-report.mjs"]);
+    expect(files).toHaveProperty(["load-test/capacity-scenarios.mjs"]);
+    expect(pkg.scripts.capacity).toBe("node load-test/capacity.mjs");
+    expect(pkg.scripts["capacity:quick"]).toContain("--profile quick");
+    expect(pkg.devDependencies.autocannon).toBe("^8.0.0");
+    expect(files["docs/capacity.md"]).toContain("10 → 25 → 50 → 100 → 200 → 400");
+    expect(files[".gitignore"]).toContain("load-test/reports/");
+
+    const vanilla = standalone({ renderer: "vanilla" });
+    expect(vanilla).not.toHaveProperty(["load-test/capacity.mjs"]);
+    expect(JSON.parse(vanilla["package.json"]).scripts).not.toHaveProperty("capacity");
+    expect(JSON.parse(vanilla["package.json"]).devDependencies).not.toHaveProperty("autocannon");
+  });
+
+  it("keeps React-only quality assets out of the vanilla template", () => {
+    const files = standalone({ renderer: "vanilla" });
+    const pkg = JSON.parse(files["package.json"]);
+    expect(files).not.toHaveProperty(["contracts/openapi.json"]);
+    expect(files).not.toHaveProperty(["lighthouserc.json"]);
+    expect(pkg.scripts).not.toHaveProperty("contracts:fixtures");
+    expect(pkg.scripts).not.toHaveProperty("lighthouse");
+    expect(pkg.devDependencies).not.toHaveProperty("lighthouse");
   });
 
   it("records template provenance and makes upgrade health part of CI", () => {
@@ -844,6 +947,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.map");
     expect(files["tests/menu-cache.test.ts"]).toContain("does not cache the local fallback");
     expect(files[".env.production"]).toContain("MENU_CACHE_TTL=14400");
+    expect(files[".env.production"]).toContain("FEATURED_ITEMS_CACHE_TTL=10");
     expect(standalone({ renderer: "vanilla" })[".env.production"]).not.toContain("MENU_CACHE_TTL");
   });
 
@@ -857,6 +961,8 @@ describe("renderTemplates — production reference coverage", () => {
     expect(guide).toContain("CACHE_REQUIRED=true");
     expect(guide).toContain('{"pageIds":["catalog"]}');
     expect(guide).toContain('{"prefix":"menu:"}');
+    expect(guide).toContain('{"prefix":"items:featured:"}');
+    expect(guide).toContain("Cache'siz HTML içinde cache'li public API verisi");
     expect(guide).toContain("keysEncoded");
     expect(guide).toContain("ssr_cache_l2_healthy");
     expect(guide).toContain("## Deploy ve içerik değişikliği runbook'u");

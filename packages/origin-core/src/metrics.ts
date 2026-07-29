@@ -17,6 +17,7 @@ const DURATION_BUCKETS_MS = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_00
 const BODY_SIZE_BUCKETS_BYTES = [1_024, 10_240, 51_200, 102_400, 262_144, 524_288, 1_048_576];
 const KEY_SIZE_BUCKETS_BYTES = [32, 64, 128, 256, 512, 1_024];
 const MAX_DISTINCT_KEYS_PER_ROUTE = 2_000;
+const MAX_DISTINCT_CLIENT_ISLANDS = 100;
 const requests: CounterMap = new Map();
 const gatewayRequests: CounterMap = new Map();
 const cacheOperations: CounterMap = new Map();
@@ -33,9 +34,13 @@ const botAnalyticsDrops: CounterMap = new Map();
 const botAnalyticsBatches: CounterMap = new Map();
 const botAnalyticsDrains: CounterMap = new Map();
 const clientErrorTelemetry: CounterMap = new Map();
+const clientRuntimeErrors: CounterMap = new Map();
+const clientMetricIngestion: CounterMap = new Map();
+const clientWebVitals: CounterMap = new Map();
 const requestTimeouts: CounterMap = new Map();
 const ssrCapacityRejections: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
+const distinctClientIslands = new Set<string>();
 const requestDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheResponseDurations = new Histogram(DURATION_BUCKETS_MS);
 const gatewayDurations = new Histogram(DURATION_BUCKETS_MS);
@@ -48,6 +53,7 @@ const coalescedWaitDurations = new Histogram(DURATION_BUCKETS_MS);
 const botAnalyticsBatchDurations = new Histogram(DURATION_BUCKETS_MS);
 const botAnalyticsBatchSizes = new Histogram([1, 5, 10, 25, 50, 100]);
 const ssrQueueWaitDurations = new Histogram(DURATION_BUCKETS_MS);
+const clientIslandMountDurations = new Histogram(DURATION_BUCKETS_MS);
 let botAnalyticsQueueDepth = 0;
 let botAnalyticsInFlight = 0;
 let ssrRenderInFlight = 0;
@@ -169,6 +175,38 @@ export function observeClientErrorTelemetry(
     "accepted" | "invalid" | "sampled" | "rate_limited" | "ip_rate_limited" | "global_rate_limited",
 ): void {
   increment(clientErrorTelemetry, `outcome="${outcome}"`);
+}
+
+export function observeClientRuntimeError(source: string): void {
+  increment(clientRuntimeErrors, `source="${escapeLabel(source)}"`);
+}
+
+export function observeClientMetricIngestion(
+  outcome: "accepted" | "invalid" | "rate_limited",
+): void {
+  increment(clientMetricIngestion, `outcome="${outcome}"`);
+}
+
+export function observeClientPerformance(
+  metric:
+    | {
+        kind: "web-vital";
+        name: "CLS" | "INP" | "LCP";
+        value: number;
+        rating: "good" | "needs-improvement" | "poor";
+      }
+    | { kind: "island-mount"; name: string; value: number },
+): void {
+  if (metric.kind === "web-vital") {
+    increment(clientWebVitals, `name="${metric.name}",rating="${metric.rating}"`);
+  } else {
+    const knownIsland = distinctClientIslands.has(metric.name);
+    if (!knownIsland && distinctClientIslands.size < MAX_DISTINCT_CLIENT_ISLANDS) {
+      distinctClientIslands.add(metric.name);
+    }
+    const island = knownIsland || distinctClientIslands.has(metric.name) ? metric.name : "other";
+    clientIslandMountDurations.observe(`island="${escapeLabel(island)}"`, metric.value);
+  }
 }
 
 export function observeRequestTimeout(requestClass: "api" | "proxy" | "ssr", route: string): void {
@@ -331,6 +369,25 @@ export function renderMetrics(): string {
       "ssr_client_error_telemetry_total",
       "Client runtime error ingestion outcomes",
       clientErrorTelemetry,
+    ),
+    ...counterLines(
+      "ssr_client_runtime_errors_total",
+      "Accepted client runtime errors by source",
+      clientRuntimeErrors,
+    ),
+    ...counterLines(
+      "ssr_client_metric_ingestion_total",
+      "Client performance metric ingestion outcomes",
+      clientMetricIngestion,
+    ),
+    ...counterLines(
+      "ssr_client_web_vitals_total",
+      "Core Web Vitals observations by rating",
+      clientWebVitals,
+    ),
+    ...clientIslandMountDurations.lines(
+      "ssr_client_island_mount_duration_milliseconds",
+      "Successful island mount duration",
     ),
     ...counterLines(
       "request_timeout_total",

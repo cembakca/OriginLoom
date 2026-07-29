@@ -112,9 +112,9 @@ Sırasıyla şunu yapar:
 5. Registry'den kurar, sonra doğrular: beş paketin de kurulduğunu, core'un `src/` değil `dist/`
    gönderdiğini.
 6. Kurulan uygulamayı `origin-doctor --strict` + `tsc --noEmit` + `origin-build` + `origin-smoke`
-   ile sürer.
-7. React provasında Chromium'u kurar ve template'in Playwright suite'ini production bundle'a karşı
-   çalıştırır. Vanilla provası browser bağımlılığı taşımaz.
+   ile sürer. React provası ayrıca fixture contract ve bundle bütçesi kapılarını çalıştırır.
+7. React provasında Chromium'u kurar; template'in Playwright/Axe suite'ini ve Lighthouse route
+   bütçelerini production bundle'a karşı çalıştırır. Vanilla provası browser bağımlılığı taşımaz.
 8. Verdaccio'yu kapatır, geçici dizini siler.
 
 **Neden gerekli:** repodaki diğer tüm kontroller paketleri `workspace:*` üzerinden `src/`'den

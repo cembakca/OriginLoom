@@ -11,7 +11,7 @@
  * Everything here is a starting point to be reviewed, not a config to apply as
  * is — image digests, hostnames and secrets are placeholders on purpose.
  */
-export function renderOpsTemplates({ name, port, metricsPort }) {
+export function renderOpsTemplates({ name, port, metricsPort, includeCapacity = false }) {
   return {
     "docker-compose.yml": dockerCompose(name, port),
     "docker-compose.redis.yml": dockerComposeRedis(),
@@ -31,7 +31,7 @@ export function renderOpsTemplates({ name, port, metricsPort }) {
     "load-test/stress.mjs": stressTest(),
     "load-test/compare.mjs": compareResults(),
     "scripts/pentest-readiness.mjs": pentestReadiness(port, metricsPort),
-    "OPERATIONS.md": operationsDoc(name, port, metricsPort),
+    "OPERATIONS.md": operationsDoc(name, port, metricsPort, includeCapacity),
   };
 }
 
@@ -683,7 +683,7 @@ console.log(\`\\n\${failures.length ? failures.length + " failed" : "all checks 
 if (failures.length) process.exitCode = 1;
 `;
 
-const operationsDoc = (name, port, metricsPort) => `# ${name} — çalıştırma
+const operationsDoc = (name, port, metricsPort, includeCapacity) => `# ${name} — çalıştırma
 
 \`--with-ops\` ile üretilen dosyalar. Hepsi **başlangıç noktası**: imaj digest'i,
 host adları ve secret'lar bilinçli olarak yer tutucu.
@@ -711,6 +711,34 @@ pnpm stress -- --path /catalog
 pnpm loadtest:compare -- load-test/results/memory.json load-test/results/redis.json
 pnpm pentest:readiness
 \`\`\`
+
+${
+  includeCapacity
+    ? `### Tek komutluk kapsamlı kapasite testi
+
+\`pnpm capacity\` production build'i alır; çakışmayan geçici portlarda uygulama ve mock gateway'i
+başlatır; bütün React örnek route'larını 10, 25, 50, 100, 200 ve 400 bağlantıda üçer kez ölçer.
+Her route için 30 saniye warm-up yapar; her kademeyi 60 saniye ve üç tekrar ölçer. Cold-burst, warm
+data-cache, stale single-flight ve origin data-cache olmayan public API deneylerini ayrıca çalıştırır.
+Varsayılan full profil yaklaşık dört saat sürer.
+
+\`load-test/reports/latest.md\` okunabilir özet; yanındaki \`latest.json\` bütün ham tekrarları,
+status dağılımlarını, app/generator CPU, RSS/heap, event-loop, cache ve gateway delta'larını içerir.
+Timestamp'li kopyalar aynı klasörde tutulur. Bu klasör gitignore'dadır.
+
+\`\`\`bash
+pnpm capacity                 # kapsamlı profil
+pnpm capacity:quick           # kısa wiring kontrolü
+pnpm capacity -- --only catalog,data-cache --connections 25,50,100
+pnpm capacity -- --gateway-delay-ms 20
+\`\`\`
+
+Runner ve uygulama aynı makinede CPU paylaşır. Rapor bunu açıkça işaretler ve yalnız uygulama
+process'ine ait kaynak metriklerini operations portundan ayrıca toplar. Sonuçları production kapasite
+taahhüdü değil; aynı makinede regression, cache koruması ve saturation knee analizi olarak kullanın.
+`
+    : ""
+}
 
 Dev sunucusuna karşı ölçme: dev talep üzerine derler, çıkan sayı Vite'ı ölçer.
 Önce bir kez \`memory\` backend ile, sonra \`pnpm compose:redis\` ile ölçüp

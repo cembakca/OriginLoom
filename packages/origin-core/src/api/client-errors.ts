@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 
 import { logger } from "../logger.js";
-import { observeClientErrorTelemetry } from "../metrics.js";
+import { observeClientErrorTelemetry, observeClientRuntimeError } from "../metrics.js";
 import { contextRequest } from "../middleware/request-deadline.js";
 import type { AppVariables } from "../middleware/request-id.js";
 import {
@@ -88,6 +88,7 @@ export function mountClientErrorApi(
 
     const sanitized = sanitizeClientErrorPayload(payload);
     observeClientErrorTelemetry("accepted");
+    observeClientRuntimeError(sanitized.source);
     logger.warn("client runtime error", {
       ...sanitized,
       requestId: c.get("requestId"),

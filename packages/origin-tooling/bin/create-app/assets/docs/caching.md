@@ -5,7 +5,7 @@ Bu projede dört ayrı cache katmanı vardır. Aynı problemi çözmezler:
 | Katman                  | Örnek                              | Nerede çalışır?                                | Ne zaman kullanılır?                                          |
 | ----------------------- | ---------------------------------- | ---------------------------------------------- | ------------------------------------------------------------- |
 | HTML/document cache     | `/`, `/catalog`, `/items/:slug`    | SSR sunucusu; L1 memory, isteğe bağlı L2 Redis | Aynı public HTML'i birçok ziyaretçi paylaşabiliyorsa          |
-| Data/read-through cache | `server/services/menu.ts`          | SSR sunucusu; document cache ile aynı store    | Bir endpoint sonucu birçok sayfada yeniden kullanılıyorsa     |
+| Data/read-through cache | `/data-cache`, menu servisi        | SSR sunucusu; document cache ile aynı store    | Bir endpoint sonucu birçok request'te yeniden kullanılıyorsa  |
 | Fragment cache          | `/showcase` içindeki header/footer | SSR sunucusu                                   | Uzun ömürlü document içindeki bir bölüm farklı TTL istiyorsa  |
 | Client query cache      | account island'ındaki React Query  | Tarayıcı                                       | Kullanıcıya özel veya etkileşimle yenilenen istemci verisinde |
 
@@ -15,18 +15,19 @@ ve React Query kullanın.
 
 ## Template'teki çalışan örnekler
 
-| Route/dosya               | Strateji                             | Neyi gösterir?                                        |
-| ------------------------- | ------------------------------------ | ----------------------------------------------------- |
-| `/`                       | `shared`, 1 saat TTL                 | Locale ve cihaz shell varyantı olan public sayfa      |
-| `/catalog?page=2`         | `shared`, 5 dakika TTL + 1 saat SWR  | Allowlist ve normalize edilmiş query parametresi      |
-| `/items/:slug`            | `shared`, 5 dakika TTL + 1 saat SWR  | Dinamik path parametresinin key'e girmesi             |
-| `/account`                | `never`                              | Kişisel HTML ve defer island                          |
-| `/live`                   | `never`                              | Stream response'un cache dışında kalması              |
-| `/showcase`               | 1 saat document + 15 saniye fragment | Birbirinden bağımsız page/fragment ömrü               |
-| `server/services/menu.ts` | 4 saat TTL + 24 saat SWR             | Doğrulanan endpoint sonucunda read-through data cache |
+| Route/dosya               | Strateji                                 | Neyi gösterir?                                     |
+| ------------------------- | ---------------------------------------- | -------------------------------------------------- |
+| `/`                       | `shared`, 1 saat TTL                     | Locale ve cihaz shell varyantı olan public sayfa   |
+| `/catalog?page=2`         | `shared`, 5 dakika TTL + 1 saat SWR      | Allowlist ve normalize edilmiş query parametresi   |
+| `/items/:slug`            | `shared`, 5 dakika TTL + 1 saat SWR      | Dinamik path parametresinin key'e girmesi          |
+| `/data-cache`             | HTML `never`; data 10 sn TTL + 30 sn SWR | Cache'siz HTML içinde cache'li public API verisi   |
+| `/account`                | `never`                                  | Kişisel HTML ve defer island                       |
+| `/live`                   | `never`                                  | Stream response'un cache dışında kalması           |
+| `/showcase`               | 1 saat document + 15 saniye fragment     | Birbirinden bağımsız page/fragment ömrü            |
+| `server/services/menu.ts` | 4 saat TTL + 24 saat SWR                 | Birçok sayfanın paylaştığı read-through data cache |
 
-Yeni bir cache davranışı eklemeden önce bu örneklerden en yakın olanı temel alın. Aynı stratejiyi
-göstermek için yeni bir demo sayfası açmak gerekmez.
+Yeni bir cache davranışı eklemeden önce bu örneklerden en yakın olanı temel alın. `/data-cache`,
+document ve data cache'in birbirinden bağımsız olduğunu gözle görünür biçimde doğrulamak içindir.
 
 ## HTML cache registry'si
 
@@ -99,6 +100,36 @@ sonra `x-cache`, latency, revalidation hataları ve içerik tazeliği SLO'suna g
 `CACHE_FILL_TIMEOUT_MS` loader + render + write bütçesidir. `CACHE_FILL_WAIT_MS` bundan küçük olamaz;
 `CACHE_FILL_POLL_MS` de wait süresini aşamaz. Bu değerleri upstream timeout ve
 `SSR_REQUEST_TIMEOUT_MS` ile birlikte değiştirin; bağımsız knob'lar gibi düşünmeyin.
+
+## Endpoint/data cache: görünür `/data-cache` örneği
+
+`/data-cache` route'u `neverCache()` kullanır; bu nedenle response `x-cache: BYPASS` taşır ve
+`pageRenderedAt` her istekte değişir. Loader'ın çağırdığı `server/services/featured-items.ts` ise
+doğrulanmış `/items` gateway payload'ını `items:featured:v1` key'iyle paylaşır.
+
+Development varsayılanı 10 saniye TTL + 30 saniye SWR'dir. Sayfayı birkaç kez yenileyerek üç durumu
+görebilirsiniz:
+
+1. İlk istek `MISS`: gateway çağrılır, `fetchedAt` üretilir ve snapshot cache'e yazılır.
+2. TTL içindeki istek `FRESH`: HTML yeniden render edilir ama `fetchedAt` değişmez.
+3. TTL sonrasındaki istek `STALE`: eski snapshot hemen döner ve process içinde tek background refresh
+   başlar. Sonraki istekte yeni `fetchedAt` görünür.
+
+Bu cache'e yalnız public, bounded ve runtime contract'tan geçmiş veri yazılır. Request cookie,
+authorization, session veya kullanıcı id'si key'e ya da payload'a eklenmez. Bozuk cache entry'si
+silinip cold miss olarak yeniden doldurulur. `FEATURED_ITEMS_CACHE_TTL` ve
+`FEATURED_ITEMS_CACHE_SWR` örneğin hızını ayarlar; gerçek projede ürünün kabul edilebilir veri
+eskiliğine göre değiştirilmelidir.
+
+```bash
+# HTML hiçbir zaman HIT olmamalı; veri zamanı TTL boyunca aynı kalmalı.
+curl -si http://127.0.0.1:3010/data-cache | rg "x-cache|HTML render|Gateway veri"
+
+# Yalnız örnek data cache entry'lerini temizle.
+curl -sS -X POST http://127.0.0.1:9010/api/internal/cache/purge \
+  -H "content-type: application/json" \
+  --data '{"prefix":"items:featured:"}'
+```
 
 ## Endpoint/data cache: menu örneği
 
