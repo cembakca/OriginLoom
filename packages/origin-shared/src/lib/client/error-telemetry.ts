@@ -6,6 +6,7 @@ export type ClientErrorSource =
   | "island-mount-timeout"
   | "island-props"
   | "market-stream"
+  | "performance-telemetry"
   | "react-caught"
   | "react-recoverable"
   | "react-uncaught";

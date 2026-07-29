@@ -6,8 +6,9 @@ etkileşimden sonra yenilenen veri ise island içindeki query hook'unda kalır.
 
 ## Template'teki çalışan örnek
 
-- `src/hydrate.client.tsx`, her island'ı `AppQueryProvider` ile sarar. Provider bütün island'ların
-  aynı browser `QueryClient` örneğini paylaşmasını sağlar.
+- `src/islands/account-panel.tsx`, yalnız query kullanan island'ı `AppQueryProvider` ile sarar.
+  Provider'ların kullandığı browser `QueryClient` singleton olduğu için ileride eklenen query
+  island'ları cache'i paylaşır; query kullanmayan island'lar provider chunk'ını indirmez.
 - `src/lib/query/keys.ts`, query key'lerini merkezi ve tip güvenli tutar.
 - `src/lib/query/hooks/use-session.ts`, `/api/session` BFF endpoint'ini `useQuery` ile çağırır.
 - `src/islands/account-panel.tsx`, loading, signed-out, error, retry ve success durumlarını gösterir.
@@ -46,17 +47,13 @@ tamamen kaldırır.
    src/lib/query/keys.ts
    ```
 
-3. `src/hydrate.client.tsx` dosyasından şu import'u kaldırın:
+3. `src/islands/account-panel.tsx` dosyasından şu import'u kaldırın:
 
    ```ts
    import { AppQueryProvider } from "@originloom/react/lib/query/provider";
    ```
 
-   Aynı dosyadaki `createIslandMounter` seçeneklerinden şu satırı da kaldırın:
-
-   ```ts
-   Wrapper: AppQueryProvider,
-   ```
+   Aynı dosyada `AccountPanelContent` çevresindeki `<AppQueryProvider>` wrapper'ını kaldırın.
 
 4. Bağımlılığı kaldırın ve lockfile'ı yenileyin:
 

@@ -14,10 +14,12 @@ export class Histogram {
     };
     current.count++;
     current.sum += safeValue;
-    for (let index = 0; index < this.boundaries.length; index++) {
-      if (safeValue <= this.boundaries[index]!) {
-        current.buckets[index] = (current.buckets[index] ?? 0) + 1;
-      }
+    // Keep non-cumulative buckets on the request path: one increment instead
+    // of one per matching Prometheus boundary. Cumulative values are expanded
+    // only when /metrics is scraped.
+    const bucket = this.boundaries.findIndex((boundary) => safeValue <= boundary);
+    if (bucket >= 0) {
+      current.buckets[bucket] = (current.buckets[bucket] ?? 0) + 1;
     }
     this.values.set(labels, current);
   }
@@ -25,10 +27,10 @@ export class Histogram {
   lines(name: string, help: string): string[] {
     const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} histogram`];
     for (const [labels, value] of [...this.values.entries()].sort()) {
+      let cumulative = 0;
       for (let index = 0; index < this.boundaries.length; index++) {
-        lines.push(
-          `${name}_bucket{${labels},le="${this.boundaries[index]}"} ${value.buckets[index]}`,
-        );
+        cumulative += value.buckets[index] ?? 0;
+        lines.push(`${name}_bucket{${labels},le="${this.boundaries[index]}"} ${cumulative}`);
       }
       lines.push(`${name}_bucket{${labels},le="+Inf"} ${value.count}`);
       lines.push(`${name}_sum{${labels}} ${finite(value.sum)}`);

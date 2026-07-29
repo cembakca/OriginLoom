@@ -6,6 +6,8 @@ import type { ReactElement, ReactNode } from "react";
 
 import type { ReactRendererConfig } from "./types.js";
 
+const fontCssCache = new WeakMap<readonly FontAsset[], string>();
+
 export type DocumentLayoutProps<Shell> = {
   input: DocumentRenderInput<Shell>;
   config: ReactRendererConfig<Shell>;
@@ -115,7 +117,9 @@ window.__vite_plugin_react_preamble_installed__ = true;`;
 }
 
 function fontFaceCss(fonts: FontAsset[]): string {
-  return fonts
+  const cached = fontCssCache.get(fonts);
+  if (cached !== undefined) return cached;
+  const css = fonts
     .map(
       (font) =>
         `@font-face{font-family:${cssString(font.family)};src:url(${cssString(
@@ -125,6 +129,8 @@ function fontFaceCss(fonts: FontAsset[]): string {
         };unicode-range:${font.unicodeRange}}`,
     )
     .join("");
+  fontCssCache.set(fonts, css);
+  return css;
 }
 
 function cssString(value: string): string {

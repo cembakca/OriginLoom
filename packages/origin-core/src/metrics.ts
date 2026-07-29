@@ -18,6 +18,18 @@ const BODY_SIZE_BUCKETS_BYTES = [1_024, 10_240, 51_200, 102_400, 262_144, 524_28
 const KEY_SIZE_BUCKETS_BYTES = [32, 64, 128, 256, 512, 1_024];
 const MAX_DISTINCT_KEYS_PER_ROUTE = 2_000;
 const MAX_DISTINCT_CLIENT_ISLANDS = 100;
+const MAX_COMPILED_REQUEST_LABELS = 1_000;
+const KNOWN_CACHE_STATES = new Set([
+  "HIT",
+  "MISS",
+  "STALE",
+  "BYPASS",
+  "ERROR",
+  "NONE",
+  "REDIRECT",
+  "PROXY",
+]);
+const compiledRequestLabels = new Map<string, { request: string; cache?: string }>();
 const requests: CounterMap = new Map();
 const gatewayRequests: CounterMap = new Map();
 const cacheOperations: CounterMap = new Map();
@@ -54,6 +66,8 @@ const botAnalyticsBatchDurations = new Histogram(DURATION_BUCKETS_MS);
 const botAnalyticsBatchSizes = new Histogram([1, 5, 10, 25, 50, 100]);
 const ssrQueueWaitDurations = new Histogram(DURATION_BUCKETS_MS);
 const clientIslandMountDurations = new Histogram(DURATION_BUCKETS_MS);
+const serializationDurations = new Histogram(DURATION_BUCKETS_MS);
+const payloadSizes = new Histogram(BODY_SIZE_BUCKETS_BYTES);
 let botAnalyticsQueueDepth = 0;
 let botAnalyticsInFlight = 0;
 let ssrRenderInFlight = 0;
@@ -70,23 +84,11 @@ export function observeRequest(
   durationMs: number,
   route: string,
 ): void {
-  const knownCacheStates = new Set([
-    "HIT",
-    "MISS",
-    "STALE",
-    "BYPASS",
-    "ERROR",
-    "NONE",
-    "REDIRECT",
-    "PROXY",
-  ]);
-  const cache = knownCacheStates.has(cacheState) ? cacheState : "NONE";
-  const labels = `status_class="${statusClass(status)}",cache="${cache}",route="${escapeLabel(route)}"`;
-  increment(requests, labels);
-  requestDurations.observe(labels, durationMs);
-  if (cache === "HIT" || cache === "MISS" || cache === "STALE") {
-    cacheResponseDurations.observe(`state="${cache}",route="${escapeLabel(route)}"`, durationMs);
-  }
+  const cache = KNOWN_CACHE_STATES.has(cacheState) ? cacheState : "NONE";
+  const labels = requestMetricLabels(statusClass(status), cache, route);
+  increment(requests, labels.request);
+  requestDurations.observe(labels.request, durationMs);
+  if (labels.cache) cacheResponseDurations.observe(labels.cache, durationMs);
 }
 
 export function observeGatewayRequest(
@@ -104,6 +106,27 @@ export function observeInvalidGatewayPayload(
   reason: "json" | "schema" | "size",
 ): void {
   increment(invalidGatewayPayloads, `contract="${escapeLabel(contract)}",reason="${reason}"`);
+}
+
+/** Bounded route/contract labels only; never pass a raw URL or user-controlled value. */
+export function observeSerialization(
+  kind: "document_render" | "gateway_json_parse",
+  label: string,
+  durationMs: number,
+): void {
+  serializationDurations.observe(
+    `kind="${kind}",label="${escapeLabel(label)}"`,
+    Math.max(0, durationMs),
+  );
+}
+
+/** Payload size before HTTP compression, labelled by a declared route or gateway contract. */
+export function observePayloadSize(
+  kind: "html" | "gateway_json",
+  label: string,
+  bytes: number,
+): void {
+  payloadSizes.observe(`kind="${kind}",label="${escapeLabel(label)}"`, Math.max(0, bytes));
 }
 
 export function observeShellDegradation(
@@ -278,6 +301,29 @@ function gatewayOutcome(status: number): GatewayOutcome {
   return "success";
 }
 
+function requestMetricLabels(
+  status: string,
+  cache: string,
+  route: string,
+): { request: string; cache?: string } {
+  const key = `${status}\0${cache}\0${route}`;
+  const existing = compiledRequestLabels.get(key);
+  if (existing) return existing;
+  const escapedRoute = escapeLabel(route);
+  const compiled = {
+    request: `status_class="${status}",cache="${cache}",route="${escapedRoute}"`,
+    ...((cache === "HIT" || cache === "MISS" || cache === "STALE") && {
+      cache: `state="${cache}",route="${escapedRoute}"`,
+    }),
+  };
+  // Route labels come from the declared route table. The cap is defense in
+  // depth if an app violates that contract; the hot set remains precompiled.
+  if (compiledRequestLabels.size < MAX_COMPILED_REQUEST_LABELS) {
+    compiledRequestLabels.set(key, compiled);
+  }
+  return compiled;
+}
+
 function cacheCardinalityLines(): string[] {
   const lines = [
     "# HELP ssr_cache_distinct_keys_observed Distinct cache keys observed by this process since startup",
@@ -302,6 +348,14 @@ export function renderMetrics(): string {
       "ssr_gateway_invalid_payload_total",
       "Gateway payloads rejected by the runtime contract",
       invalidGatewayPayloads,
+    ),
+    ...serializationDurations.lines(
+      "ssr_serialization_duration_milliseconds",
+      "Document render and gateway JSON parse duration",
+    ),
+    ...payloadSizes.lines(
+      "ssr_payload_size_bytes",
+      "Uncompressed SSR HTML and gateway JSON payload size",
     ),
     ...counterLines(
       "ssr_shell_degraded_total",

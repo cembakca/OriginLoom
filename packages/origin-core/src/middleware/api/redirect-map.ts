@@ -1,6 +1,6 @@
 import { isRecord } from "@originloom/shared/lib/runtime-schema";
 
-import { gatewayFetch } from "../../adapters/gateway.js";
+import { gatewayFetch, releaseGatewayResponse } from "../../adapters/gateway.js";
 import { config } from "../../config.js";
 import {
   defineGatewayContract,
@@ -72,6 +72,8 @@ export async function lookupRedirect(
         parseRule,
         "Redirect gateway returned an invalid payload",
       );
+    } else {
+      await releaseGatewayResponse(res);
     }
   } catch (error) {
     if (isRequestDeadlineError(signal?.reason)) throw signal.reason;

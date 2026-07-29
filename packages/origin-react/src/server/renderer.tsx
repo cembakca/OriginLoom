@@ -8,7 +8,7 @@ import type {
   StreamResult,
 } from "@originloom/shared/render";
 import type { ComponentType, ReactElement } from "react";
-import { renderToString } from "react-dom/server";
+import { renderToStaticMarkup, renderToString } from "react-dom/server";
 
 import { DocumentLayout } from "./document-layout.js";
 import { renderTreeToStream } from "./stream.js";
@@ -44,7 +44,9 @@ export function createReactRenderer<Shell>(
     },
 
     renderNode(node: FrameworkNode) {
-      return renderToString(node as ReactElement);
+      // Independently stitched fragments are never hydrated as a React root.
+      // Static markup avoids hydration-only annotations/work on their cold fill.
+      return renderToStaticMarkup(node as ReactElement);
     },
 
     renderDocument(input: DocumentRenderInput<Shell>) {

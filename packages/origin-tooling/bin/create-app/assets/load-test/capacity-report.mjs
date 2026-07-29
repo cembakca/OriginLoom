@@ -99,6 +99,12 @@ function summarizeGroup(group) {
     cache: mergeCounts(group.runs.map((run) => run.cacheStates)),
     appCpuPercentMedian: median(group.runs.map((run) => run.metrics.appCpuPercent)),
     generatorCpuPercentMedian: median(group.runs.map((run) => run.metrics.generatorCpuPercent)),
+    documentRenderP95Median: median(
+      group.runs.map((run) => run.metrics.documentRender?.quantile ?? 0),
+    ),
+    gatewayJsonParseP95Median: median(
+      group.runs.map((run) => run.metrics.gatewayJsonParse?.quantile ?? 0),
+    ),
     resource: {
       rssPeakBytes: Math.max(...group.runs.map((run) => run.resource.rssPeakBytes)),
       heapPeakBytes: Math.max(...group.runs.map((run) => run.resource.heapPeakBytes)),
@@ -109,12 +115,19 @@ function summarizeGroup(group) {
 }
 
 function renderMarkdown(report) {
+  const cvLimit = report.performancePolicy?.reliability?.maxCoefficientOfVariationPercent ?? 10;
+  const generatorCpuLimit = report.performancePolicy?.reliability?.generatorCpuLimitPercent ?? 90;
   const failures = report.runs.filter((run) => !run.valid);
-  const unstable = report.aggregates.filter((group) => group.rpsCvPercent > 10);
+  const unstable = report.aggregates.filter((group) => group.rpsCvPercent > cvLimit);
   const generatorLimited = report.aggregates.filter(
-    (group) => group.generatorCpuPercentMedian >= 90,
+    (group) => group.generatorCpuPercentMedian >= generatorCpuLimit,
   );
   const cacheFailures = report.cacheExperiments.filter((experiment) => !experiment.passed);
+  const payloadFailures = (report.payloadBudgetResults ?? []).filter(({ passed }) => !passed);
+  const runtimeBudgetFailures = (report.runtimeBudgetResults ?? []).filter(({ passed }) => !passed);
+  const baselineFailures = (report.baselineComparison?.results ?? []).filter(
+    ({ passed }) => !passed,
+  );
   const lines = [
     "# OriginLoom kapasite raporu",
     "",
@@ -130,10 +143,13 @@ function renderMarkdown(report) {
     `- Süre: **${formatDuration(report.durationSeconds)}**`,
     `- Toplam istek: **${integer(sum(report.runs.map((run) => run.requests)))}**`,
     `- Geçersiz ölçüm: **${failures.length}**`,
-    `- Değişkenliği yüksek kademe (CV > %10): **${unstable.length}**`,
-    `- Olası load-generator sınırı (CPU >= %90): **${generatorLimited.length}**`,
+    `- Değişkenliği yüksek kademe (CV > %${number(cvLimit)}): **${unstable.length}**`,
+    `- Olası load-generator sınırı (CPU >= %${number(generatorCpuLimit)}): **${generatorLimited.length}**`,
     `- Cache deneyi başarısız: **${cacheFailures.length}**`,
-    `- Genel durum: **${failures.length || cacheFailures.length ? "İNCELE" : "GEÇTİ"}**`,
+    `- Payload bütçesi başarısız: **${payloadFailures.length}**`,
+    `- Serialization bütçesi başarısız: **${runtimeBudgetFailures.length}**`,
+    `- Baseline regresyonu: **${baselineFailures.length}**`,
+    `- Genel durum: **${failures.length || unstable.length || generatorLimited.length || cacheFailures.length || payloadFailures.length || runtimeBudgetFailures.length || baselineFailures.length ? "İNCELE" : "GEÇTİ"}**`,
     "",
     "## Önerilen eşzamanlılık ve knee",
     "",
@@ -147,16 +163,16 @@ function renderMarkdown(report) {
     "Knee; hata/timeout, 100 ms üzeri event-loop p99 veya RPS artışı <%10 iken p99 artışı >%25",
     "koşullarından ilkiyle işaretlenir. Bu otomatik öneri uygulama SLO'sunun yerine geçmez.",
     generatorLimited.length
-      ? "Load-generator CPU'su %90'a ulaşan kademeler aynı makine sınırı nedeniyle ihtiyatla yorumlanmalıdır."
-      : "Load-generator CPU'sunda %90 eşiğine ulaşan bir kademe görülmedi.",
+      ? `Load-generator CPU'su %${number(generatorCpuLimit)} eşiğine ulaşan kademeler aynı makine sınırı nedeniyle ihtiyatla yorumlanmalıdır.`
+      : `Load-generator CPU'sunda %${number(generatorCpuLimit)} eşiğine ulaşan bir kademe görülmedi.`,
     "",
     "## Ayrıntılı matris",
     "",
-    "| Route | Conn | RPS median | CV | Avg | p95 | p99 | Max | App CPU | Gen CPU | EL p99 | RSS | Hata |",
+    "| Route | Conn | RPS median | CV | Avg | p95 | p99 | Render p95 | App CPU | Gen CPU | EL p99 | RSS | Hata |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...report.aggregates.map(
       (group) =>
-        `| ${escapeCell(group.route.title)} | ${group.connections} | ${number(group.rpsMedian)} | %${number(group.rpsCvPercent)} | ${number(group.latencyAverageMedian)} | ${number(group.latencyP95Median)} | ${number(group.latencyP99Median)} | ${number(group.latencyMax)} | %${number(group.appCpuPercentMedian)} | %${number(group.generatorCpuPercentMedian)} | ${number(group.resource.eventLoopP99PeakMs)} ms | ${mib(group.resource.rssPeakBytes)} MiB | ${group.valid ? "0" : "VAR"} |`,
+        `| ${escapeCell(group.route.title)} | ${group.connections} | ${number(group.rpsMedian)} | %${number(group.rpsCvPercent)} | ${number(group.latencyAverageMedian)} | ${number(group.latencyP95Median)} | ${number(group.latencyP99Median)} | ${number(group.documentRenderP95Median)} ms | %${number(group.appCpuPercentMedian)} | %${number(group.generatorCpuPercentMedian)} | ${number(group.resource.eventLoopP99PeakMs)} ms | ${mib(group.resource.rssPeakBytes)} MiB | ${group.valid ? "0" : "VAR"} |`,
     ),
     "",
     "## Cache ve gateway deneyleri",
@@ -167,6 +183,33 @@ function renderMarkdown(report) {
       (experiment) =>
         `| ${escapeCell(experiment.title)} | ${integer(experiment.requests)} | ${integer(experiment.gatewayItemsRequests)} | ${integer(experiment.gatewayTotalRequests)} | ${experiment.passed ? "GEÇTİ" : "BAŞARISIZ"} | ${escapeCell(experiment.detail)} |`,
     ),
+    "",
+    "## Payload ve serialization bütçeleri",
+    "",
+    "| Route | HTML | Island props toplam | En büyük island props | Sonuç |",
+    "| --- | ---: | ---: | ---: | --- |",
+    ...(report.payloads ?? []).map((payload) => {
+      const passed = (report.payloadBudgetResults ?? [])
+        .filter(({ route }) => route === payload.route)
+        .every((result) => result.passed);
+      return `| ${escapeCell(payload.route)} | ${kib(payload.htmlBytes)} KiB | ${kib(payload.islandPropsBytes)} KiB | ${kib(payload.largestIslandPropsBytes)} KiB | ${passed ? "GEÇTİ" : "BAŞARISIZ"} |`;
+    }),
+    "",
+    `Baseline karşılaştırması: **${baselineStatus(report.baselineComparison)}**.`,
+    ...(report.baselineComparison?.incompatibilities?.length
+      ? [`Uyumsuzluk: ${report.baselineComparison.incompatibilities.map(escapeCell).join(", ")}`]
+      : []),
+    ...(baselineFailures.length
+      ? [
+          "",
+          "| Route | Kademe | Metrik | Değişim | Limit |",
+          "| --- | ---: | --- | ---: | ---: |",
+          ...baselineFailures.map(
+            (result) =>
+              `| ${escapeCell(result.route)} | ${result.connections ?? "-"} | ${result.metric} | ${signed(result.changePercent)} | %${number(result.limitPercent)} |`,
+          ),
+        ]
+      : []),
     "",
     "## Ortam",
     "",
@@ -235,6 +278,21 @@ function integer(value) {
 
 function mib(bytes) {
   return number((bytes ?? 0) / 1_048_576);
+}
+
+function kib(bytes) {
+  return number((bytes ?? 0) / 1_024);
+}
+
+function signed(value) {
+  return `${value >= 0 ? "+" : ""}${number(value)}%`;
+}
+
+function baselineStatus(comparison) {
+  if (!comparison || comparison.status === "missing") return "BASELINE YOK";
+  if (comparison.status === "incompatible") return "UYUMSUZ / KARŞILAŞTIRILMADI";
+  if (comparison.status === "inconclusive") return "KARARSIZ / YENİDEN ÇALIŞTIR";
+  return comparison.status === "passed" ? "GEÇTİ" : "BAŞARISIZ";
 }
 
 function formatDuration(seconds) {

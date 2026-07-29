@@ -183,6 +183,9 @@ describe("renderTemplates — shared shape", () => {
           "node load-test/capacity.mjs",
         );
         expect(JSON.parse(ops["package.json"]).devDependencies.autocannon).toBe("^8.0.0");
+        expect(JSON.parse(ops["package.json"]).pnpm.overrides).toEqual({
+          "autocannon>hyperid": "^4.0.0",
+        });
       } else {
         expect(ops).not.toHaveProperty(["load-test/capacity.mjs"]);
         expect(JSON.parse(ops["package.json"]).scripts).not.toHaveProperty("capacity");
@@ -237,14 +240,15 @@ describe("renderTemplates — standalone mode", () => {
     expect(specs).not.toContain("workspace:*");
   });
 
-  it("approves the native build scripts its dep tree pulls in", () => {
+  it("approves native builds and scopes the unsupported uuid escape hatch", () => {
     // A standalone repo is its own pnpm root, so it must list these itself —
     // otherwise `pnpm install` warns about ignored build scripts.
     const pkg = JSON.parse(standalone()["package.json"]);
     expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
       expect.arrayContaining(["esbuild", "sharp", "@tailwindcss/oxide", "protobufjs"]),
     );
-    expect(pkg.pnpm.overrides).toBeUndefined();
+    expect(pkg.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
+    expect(Object.keys(pkg.pnpm.overrides)).toHaveLength(1);
     expect(pkg.devDependencies["@napi-rs/wasm-runtime"]).toBe("1.1.6");
   });
 
@@ -401,7 +405,7 @@ describe("renderTemplates — project features", () => {
     expect(pkg.scripts.lint).toBe("eslint .");
     expect(pkg.scripts.test).toBe("vitest run tests");
     expect(pkg.scripts.format).toBe("prettier --write .");
-    expect(pkg.engines.node).toBe(">=22.13.0");
+    expect(pkg.engines.node).toBe(">=22.19.0");
     expect(pkg.devDependencies["@eslint/js"]).toBe("^10.0.1");
     expect(pkg.devDependencies.eslint).toBe("^10.8.0");
     expect(pkg.devDependencies).toHaveProperty("typescript-eslint");
@@ -741,6 +745,27 @@ describe("renderTemplates — gateway wiring", () => {
       "ctx.request.signal",
     );
   });
+
+  it("react: configures and drains the bounded gateway transport", () => {
+    const files = standalone();
+    expect(files["server/index.ts"]).toContain("closeGatewayTransport()");
+    expect(files["server/index.ts"].indexOf("closeGatewayTransport()")).toBeGreaterThan(
+      files["server/index.ts"].indexOf("drainBotAnalytics()"),
+    );
+    expect(files["server/services/menu.ts"]).toContain("memoizeRequestValue");
+    expect(files["server/services/items.ts"]).toContain("requireGatewayOk");
+    expect(files[".env.production"]).toContain("GATEWAY_MAX_CONNECTIONS=64");
+    expect(files[".env.production"]).toContain("GATEWAY_CONNECT_TIMEOUT_MS=1000");
+  });
+
+  it("react: documents log sampling, precompression and CDN delivery", () => {
+    const files = standalone();
+    expect(files[".env.production"]).toContain("REQUEST_LOG_SAMPLE_RATE=0.1");
+    expect(files[".env.production"]).toContain("HTTP_COMPRESSION_THRESHOLD_BYTES=1024");
+    expect(files["docs/runtime-performance.md"]).toContain("Gateway bağlantı yönetimi");
+    expect(files["docs/runtime-performance.md"]).toContain("Compression stratejisi");
+    expect(files["docs/runtime-performance.md"]).toContain("Static asset ve CDN teslimi");
+  });
 });
 
 describe("renderTemplates — SEO, cache purge and product metrics", () => {
@@ -797,11 +822,15 @@ describe("renderTemplates — production reference coverage", () => {
       "docs/testing.md",
       "docs/contracts.md",
       "docs/performance.md",
+      "docs/performance-acceptance.md",
+      "docs/runtime-performance.md",
       "docs/upgrading.md",
     ]) {
       expect(files, `missing ${path}`).toHaveProperty([path]);
     }
     expect(files["README.md"]).toContain("docs/features.md");
+    expect(files["docs/runtime-performance.md"]).toContain("Cache-hit hızlı yolu");
+    expect(files["docs/features.md"]).toContain("runtime-performance.md");
   });
 
   it("ships contract drift and frontend quality gates", () => {
@@ -816,7 +845,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(pkg.scripts["contracts:fixtures"]).toBe("origin-check-contracts");
     expect(pkg.scripts["budget:bundle"]).toBe("origin-check-budgets");
     expect(pkg.scripts.lighthouse).toBe("origin-lighthouse");
-    expect(pkg.devDependencies.lighthouse).toBe("^12.8.2");
+    expect(pkg.devDependencies.lighthouse).toBe("^13.4.1");
     expect(pkg.devDependencies).not.toHaveProperty("@lhci/cli");
     expect(contracts.schemaVersion).toBe(2);
     expect(contracts.contracts[0]).toMatchObject({
@@ -842,16 +871,27 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files).toHaveProperty(["load-test/capacity-metrics.mjs"]);
     expect(files).toHaveProperty(["load-test/capacity-report.mjs"]);
     expect(files).toHaveProperty(["load-test/capacity-scenarios.mjs"]);
+    expect(files).toHaveProperty(["load-test/performance-policy.mjs"]);
+    expect(files).toHaveProperty(["load-test/performance.mjs"]);
+    expect(files).toHaveProperty(["load-test/profile.mjs"]);
+    expect(files).toHaveProperty(["load-test/profile-target.mjs"]);
+    expect(files).toHaveProperty(["performance-policy.json"]);
     expect(pkg.scripts.capacity).toBe("node load-test/capacity.mjs");
     expect(pkg.scripts["capacity:quick"]).toContain("--profile quick");
+    expect(pkg.scripts["capacity:profile"]).toContain("profile.mjs");
+    expect(pkg.scripts["performance:compare"]).toContain("performance.mjs");
+    expect(pkg.scripts["performance:accept"]).toContain("--accept");
     expect(pkg.devDependencies.autocannon).toBe("^8.0.0");
+    expect(pkg.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
     expect(files["docs/capacity.md"]).toContain("10 → 25 → 50 → 100 → 200 → 400");
     expect(files[".gitignore"]).toContain("load-test/reports/");
 
     const vanilla = standalone({ renderer: "vanilla" });
     expect(vanilla).not.toHaveProperty(["load-test/capacity.mjs"]);
+    expect(vanilla).not.toHaveProperty(["performance-policy.json"]);
     expect(JSON.parse(vanilla["package.json"]).scripts).not.toHaveProperty("capacity");
     expect(JSON.parse(vanilla["package.json"]).devDependencies).not.toHaveProperty("autocannon");
+    expect(JSON.parse(vanilla["package.json"]).pnpm.overrides).toBeUndefined();
   });
 
   it("keeps React-only quality assets out of the vanilla template", () => {
@@ -906,16 +946,25 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files["docs/auth.md"]).toContain("HttpOnly");
   });
 
-  it("installs and wires TanStack Query for every React island", () => {
+  it("loads TanStack Query only with the island that uses it", () => {
     const files = standalone();
     const pkg = JSON.parse(files["package.json"]);
     expect(pkg.dependencies["@tanstack/react-query"]).toBe("^5.101.4");
-    expect(files["src/hydrate.client.tsx"]).toContain(
+    expect(files["src/hydrate.client.tsx"]).not.toContain("AppQueryProvider");
+    expect(files["src/islands/account-panel.tsx"]).toContain(
       'import { AppQueryProvider } from "@originloom/react/lib/query/provider"',
     );
-    expect(files["src/hydrate.client.tsx"]).toContain("Wrapper: AppQueryProvider");
+    expect(files["src/islands/account-panel.tsx"]).toContain("<AppQueryProvider>");
     expect(files["src/lib/query/keys.ts"]).toContain('["session", "current"]');
     expect(files["docs/react-query.md"]).toContain("React Query'yi tamamen kaldırma");
+  });
+
+  it("defers Web Vitals without delaying first paint or island hydration", () => {
+    const entry = standalone()["src/entry.client.tsx"];
+
+    expect(entry).toContain('import("web-vitals")');
+    expect(entry).toContain("requestIdleCallback");
+    expect(entry).not.toContain('from "web-vitals"');
   });
 
   it("normalizes content query params before they enter a cache key", () => {

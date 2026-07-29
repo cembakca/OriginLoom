@@ -5,6 +5,7 @@ const SOURCES = new Set([
   "island-mount",
   "island-mount-timeout",
   "island-props",
+  "performance-telemetry",
   "react-caught",
   "react-recoverable",
   "react-uncaught",

@@ -1,6 +1,6 @@
 import crypto, { randomBytes } from "node:crypto";
 
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 
 import { config } from "../config.js";
@@ -104,37 +104,40 @@ export function createSecurityMiddleware(
     ...(config.cspReportUri ? { reportUri: [config.cspReportUri] } : {}),
   };
   const appScriptSrc = sources.scriptSrc ?? [];
+  const nonceSource = (c: Context<{ Variables: AppVariables }>) => `'nonce-${c.get("cspNonce")}'`;
+  const cspDirectives = {
+    ...baseCspDirectives,
+    scriptSrc: [
+      "'self'",
+      ...appScriptSrc,
+      ...cspOrigins.asset,
+      ...hashes,
+      ...(config.isProduction ? [nonceSource] : []),
+      ...devScripts,
+      ...devViteUrls,
+    ],
+  };
+  // secureHeaders compiles directive names, fixed values and all other header
+  // strings here. The only request-time callback substitutes the nonce.
+  const securityHeaders = secureHeaders({
+    xContentTypeOptions: "nosniff",
+    xFrameOptions: "DENY",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+    },
+    ...(config.cspEnforce
+      ? { contentSecurityPolicy: cspDirectives }
+      : { contentSecurityPolicyReportOnly: cspDirectives }),
+  });
 
   return async (c, next) => {
     // A nonce/hash source makes browsers ignore 'unsafe-inline'. Development intentionally relies on
     // 'unsafe-inline' for Vite/React Refresh, so nonce must be a production-only contract.
     const nonce = config.isProduction ? randomBytes(18).toString("base64") : undefined;
     if (nonce) c.set("cspNonce", nonce);
-    const cspDirectives = {
-      ...baseCspDirectives,
-      scriptSrc: [
-        "'self'",
-        ...appScriptSrc,
-        ...cspOrigins.asset,
-        ...hashes,
-        ...(nonce ? [`'nonce-${nonce}'`] : []),
-        ...devScripts,
-        ...devViteUrls,
-      ],
-    };
-    const middleware = secureHeaders({
-      xContentTypeOptions: "nosniff",
-      xFrameOptions: "DENY",
-      referrerPolicy: "strict-origin-when-cross-origin",
-      permissionsPolicy: {
-        camera: [],
-        microphone: [],
-        geolocation: [],
-      },
-      ...(config.cspEnforce
-        ? { contentSecurityPolicy: cspDirectives }
-        : { contentSecurityPolicyReportOnly: cspDirectives }),
-    });
-    return middleware(c, next);
+    return securityHeaders(c, next);
   };
 }

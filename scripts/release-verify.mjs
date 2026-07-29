@@ -16,7 +16,7 @@
  *   node scripts/release-verify.mjs [--renderer react|vanilla] [--keep]
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -85,14 +85,43 @@ try {
   step("install from the registry");
   run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: appDir, env: npmEnv });
   assertInstalledFromRegistry(appDir, options.renderer);
+  assertNoUnsupportedUuid(appDir);
+  run("pnpm", ["audit", "--audit-level", "low"], { cwd: appDir, env: npmEnv });
 
-  step("doctor, typecheck, build and smoke the installed app");
+  step("doctor, static checks, tests, build and smoke the installed app");
   run("pnpm", ["exec", "origin-doctor", "--strict"], { cwd: appDir });
   run("pnpm", ["exec", "tsc", "--noEmit"], { cwd: appDir });
+  run("pnpm", ["run", "check:cycles"], { cwd: appDir });
+  run("pnpm", ["run", "lint"], { cwd: appDir });
+  run("pnpm", ["run", "format:check"], { cwd: appDir });
+  run("pnpm", ["run", "test"], { cwd: appDir });
   if (options.renderer === "react") run("pnpm", ["run", "contracts:fixtures"], { cwd: appDir });
   run("pnpm", ["exec", "origin-build"], { cwd: appDir });
   if (options.renderer === "react") run("pnpm", ["run", "budget:bundle"], { cwd: appDir });
   run("pnpm", ["exec", "origin-smoke"], { cwd: appDir, env: smokeEnv(appDir) });
+  if (options.renderer === "react") {
+    step("exercise the installed load generator against the production bundle");
+    run(
+      "pnpm",
+      [
+        "run",
+        "capacity:quick",
+        "--",
+        "--only",
+        "home",
+        "--connections",
+        "5",
+        "--duration",
+        "1",
+        "--repeats",
+        "1",
+        "--warmup",
+        "0",
+        "--no-build",
+      ],
+      { cwd: appDir, env: npmEnv },
+    );
+  }
 
   if (options.renderer === "react") {
     step("install Chromium and exercise the published app in a real browser");
@@ -186,6 +215,16 @@ function assertInstalledFromRegistry(appDir, renderer) {
   }
   if (!existsSync(join(core, "dist/app.js"))) {
     throw new Error("@originloom/core is missing dist/app.js");
+  }
+}
+
+function assertNoUnsupportedUuid(appDir) {
+  const lockfile = readFileSync(join(appDir, "pnpm-lock.yaml"), "utf8");
+  const unsupported = [...lockfile.matchAll(/^\s{2}uuid@(\d+)\.[^:]+:/gm)]
+    .map((match) => Number(match[1]))
+    .filter((major) => major <= 10);
+  if (unsupported.length) {
+    throw new Error(`unsupported uuid major(s) installed: ${[...new Set(unsupported)].join(", ")}`);
   }
 }
 

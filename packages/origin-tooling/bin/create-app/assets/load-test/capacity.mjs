@@ -9,6 +9,7 @@ import autocannon from "autocannon";
 import {
   createResourceSummary,
   fetchMetrics,
+  histogramDelta,
   metricDelta,
   observeResources,
   sumMetric,
@@ -19,6 +20,14 @@ import {
   CAPACITY_ROUTES,
   estimateDurationSeconds,
 } from "./capacity-scenarios.mjs";
+import {
+  comparePerformance,
+  evaluatePayloadBudgets,
+  evaluateRuntimeBudgets,
+  inspectRoutePayloads,
+  loadPerformancePolicy,
+  readBaseline,
+} from "./performance-policy.mjs";
 
 const options = parseArgs(process.argv.slice(2));
 const profile = resolveProfile(options);
@@ -45,6 +54,10 @@ let environment;
 try {
   environment = options.external ? externalEnvironment(options) : await startLocalEnvironment();
   await verifyEnvironment(environment);
+  const performancePolicy = await loadPerformancePolicy(options.policy);
+  console.log("Payload bütçeleri ölçülüyor...");
+  const payloads = await inspectRoutePayloads(environment.baseUrl, routes);
+  const payloadBudgetResults = evaluatePayloadBudgets(payloads, performancePolicy);
 
   const runs = [];
   console.log("Route warm-up başlıyor...");
@@ -101,8 +114,9 @@ try {
 
   const aggregates = aggregateRuns(runs);
   const analysis = analyzeCapacity(aggregates);
+  const runtimeBudgetResults = evaluateRuntimeBudgets(aggregates, performancePolicy);
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     startedAt,
     finishedAt: new Date().toISOString(),
     durationSeconds: (performance.now() - started) / 1_000,
@@ -121,14 +135,48 @@ try {
     aggregates,
     analysis,
     cacheExperiments,
+    payloads,
+    payloadBudgetResults,
+    runtimeBudgetResults,
+    performancePolicy,
   };
+  const baseline = await readBaseline(options.baseline);
+  report.baselineComparison = baseline
+    ? comparePerformance(report, baseline, performancePolicy)
+    : { status: "missing", incompatibilities: [], results: [] };
   const paths = await writeCapacityReports(report, outputDirectory);
   console.log(`\nMarkdown rapor → ${paths.markdown}`);
   console.log(`JSON rapor     → ${paths.json}`);
   console.log(`Son rapor      → ${paths.latestMarkdown}\n`);
 
+  if (options.profileOnKnee) {
+    if (options.external) throw new Error("--profile-on-knee managed-local modunda kullanılabilir");
+    const knees = analysis.filter(({ knee }) => knee);
+    if (!knees.length) {
+      console.log("Profiling atlandı: ölçülen aralıkta knee bulunmadı.\n");
+    } else {
+      await stopChildren();
+      for (const { route, knee } of knees) {
+        console.log(`Profiler tekrar çalışıyor: ${route.id} c=${knee.connections}`);
+        runCommand(process.execPath, [
+          "load-test/profile.mjs",
+          "--route",
+          route.id,
+          "--connections",
+          String(knee.connections),
+          "--duration",
+          String(options.profileDurationSeconds),
+          "--no-build",
+        ]);
+      }
+    }
+  }
+
   if (
     cacheExperiments.some(({ passed }) => !passed) ||
+    payloadBudgetResults.some(({ passed }) => !passed) ||
+    runtimeBudgetResults.some(({ passed }) => !passed) ||
+    ["failed", "inconclusive"].includes(report.baselineComparison.status) ||
     (options.strict && runs.some((run) => !run.valid))
   ) {
     process.exitCode = 1;
@@ -269,6 +317,16 @@ async function measuredRun({ environment: env, route, connections, duration, rep
     cannon.timeouts === 0 &&
     Object.values(unexpectedStatuses).every((count) => count === 0);
 
+  const documentRender = histogramDelta(before, after, "ssr_serialization_duration_milliseconds", {
+    kind: "document_render",
+  });
+  const gatewayJsonParse = histogramDelta(
+    before,
+    after,
+    "ssr_serialization_duration_milliseconds",
+    { kind: "gateway_json_parse" },
+  );
+
   return {
     route,
     connections,
@@ -287,6 +345,8 @@ async function measuredRun({ environment: env, route, connections, duration, rep
       appCpuPercent: (appCpuSeconds / elapsedSeconds) * 100,
       generatorCpuPercent: ((generatorCpu.user + generatorCpu.system) / 1e6 / elapsedSeconds) * 100,
       rssEndBytes: sumMetric(after, "process_resident_memory_bytes"),
+      documentRender,
+      gatewayJsonParse,
     },
     mockGateway,
   };
@@ -369,11 +429,15 @@ async function runCacheExperiments(env, selectedProfile) {
   });
 
   await resetMockStats(env.mockGatewayUrl);
+  // This experiment proves the absence of origin data-cache; it is not an API
+  // capacity test. Stay below the template's public per-IP rate-limit so 429s
+  // do not get mistaken for cache protection.
+  const uncachedConnections = Math.min(connections, 20);
   const uncached = await measuredRun({
     environment: env,
     route: publicApi,
-    connections,
-    amount: connections * 2,
+    connections: uncachedConnections,
+    amount: uncachedConnections * 2,
     repeat: 1,
   });
   const uncachedItems = pathCount(uncached.mockGateway, "/items");
@@ -540,6 +604,10 @@ function parseArgs(argv) {
     external: false,
     noBuild: false,
     strict: false,
+    policy: "performance-policy.json",
+    baseline: "performance-baseline.json",
+    profileOnKnee: false,
+    profileDurationSeconds: 30,
   };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
@@ -556,6 +624,11 @@ function parseArgs(argv) {
     else if (arg === "--external") parsed.external = true;
     else if (arg === "--no-build") parsed.noBuild = true;
     else if (arg === "--strict") parsed.strict = true;
+    else if (arg === "--policy") parsed.policy = argv[++index];
+    else if (arg === "--baseline") parsed.baseline = argv[++index];
+    else if (arg === "--profile-on-knee") parsed.profileOnKnee = true;
+    else if (arg === "--profile-duration")
+      parsed.profileDurationSeconds = positiveNumber(argv[++index], arg);
     else if (arg === "--base") parsed.baseUrl = stripSlash(argv[++index]);
     else if (arg === "--ops") parsed.opsUrl = stripSlash(argv[++index]);
     else if (arg === "--mock-gateway") parsed.mockGatewayUrl = stripSlash(argv[++index]);

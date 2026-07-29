@@ -33,6 +33,30 @@ export function metricDelta(before, after, name, labels = {}) {
   return Math.max(0, sumMetric(after, name, labels) - sumMetric(before, name, labels));
 }
 
+export function histogramDelta(before, after, name, labels = {}, quantile = 0.95) {
+  const count = metricDelta(before, after, `${name}_count`, labels);
+  const sum = metricDelta(before, after, `${name}_sum`, labels);
+  if (!count) return { count: 0, average: 0, quantile: 0 };
+  const buckets = after
+    .filter(
+      (sample) =>
+        sample.name === `${name}_bucket` &&
+        Object.entries(labels).every(([key, value]) => sample.labels[key] === value),
+    )
+    .map((sample) => ({
+      le: sample.labels.le === "+Inf" ? Number.POSITIVE_INFINITY : Number(sample.labels.le),
+      count: metricDelta(before, after, `${name}_bucket`, { ...labels, le: sample.labels.le }),
+    }))
+    .sort((left, right) => left.le - right.le);
+  const target = count * quantile;
+  const bucket = buckets.find((entry) => entry.count >= target);
+  return {
+    count,
+    average: sum / count,
+    quantile: Number.isFinite(bucket?.le) ? bucket.le : (buckets.at(-2)?.le ?? 0),
+  };
+}
+
 export async function fetchMetrics(opsBase) {
   const response = await fetch(`${opsBase}/metrics`, { signal: AbortSignal.timeout(2_000) });
   if (!response.ok) throw new Error(`metrics endpoint returned HTTP ${response.status}`);

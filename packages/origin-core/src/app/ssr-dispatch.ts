@@ -38,10 +38,11 @@ export function createSsrDispatch({
     const requestId = c.get("requestId");
     const cspNonce = c.get("cspNonce");
     const request = contextRequest(c);
-    const pathname = new URL(request.url).pathname;
+    const preparedRequest = c.get("preparedRequest");
+    const pathname = preparedRequest?.url.pathname ?? new URL(request.url).pathname;
     const clientIp = c.get("clientIp") ?? "127.0.0.1";
     const method = request.method.toUpperCase();
-    const ssrRoute = isSsrRouteRequest(request, routes);
+    const ssrRoute = isSsrRouteRequest(request, routes, preparedRequest);
 
     if (ssrRoute && method !== "GET" && method !== "HEAD") {
       setActiveHttpRoute(method, "<method-not-allowed>");
@@ -61,6 +62,7 @@ export function createSsrDispatch({
         pathname,
         routes,
         assets,
+        ...stripUndefined({ preparedRequest }),
       });
 
     if (c.get("requestClass") !== "ssr") return execute();
@@ -82,16 +84,31 @@ async function executeRequest(options: {
   pathname: string;
   routes: Route[];
   assets: Assets;
+  preparedRequest?: NonNullable<AppVariables["preparedRequest"]>;
 }): Promise<Response> {
-  const { request, requestId, clientIp, cspNonce, method, pathname, routes, assets } = options;
-  const context = { requestId, clientIp, ...stripUndefined({ cspNonce }) };
+  const {
+    request,
+    requestId,
+    clientIp,
+    cspNonce,
+    method,
+    pathname,
+    routes,
+    assets,
+    preparedRequest,
+  } = options;
+  const context = {
+    requestId,
+    clientIp,
+    ...stripUndefined({ cspNonce, preparedRequest }),
+  };
   if (!shouldUsePipeline(pathname)) {
     return method === "HEAD"
       ? handleHead(request, routes, context)
       : handle(request, routes, assets, context);
   }
 
-  const pipeline = await runPipeline(request, requestId, clientIp);
+  const pipeline = await runPipeline(request, requestId, clientIp, preparedRequest?.url);
   if (pipeline.response) {
     const response =
       method === "HEAD"

@@ -10,6 +10,11 @@ Komut production build'i alır, boş portlar seçer, uygulamayı ve template moc
 başlatır. Mevcut `pnpm dev`, `pnpm start` veya 4002 portundaki başka bir mock gateway'e dokunmaz.
 Tamamlandığında geçici process'leri kapatır.
 
+React standalone template, güncel Autocannon 8'in eski `hyperid@3 → uuid@8` zincirini çekmemesi için
+yalnız `autocannon>hyperid` kenarını API-uyumlu `hyperid@4` sürümüne sabitler. Bu genel bir dependency
+override değildir; production runtime'a girmez ve `pnpm audit --prod` sonucunu etkilemez. Autocannon
+bu bağımlılık aralığını upstream'de güncellediğinde override kaldırılmalıdır.
+
 ## Full profil
 
 Varsayılan profil bütün örnek HTML route'larını şu bağlantı sayılarında çalıştırır:
@@ -78,6 +83,7 @@ pnpm capacity -- --only catalog,data-cache
 pnpm capacity -- --connections 25,50,100 --duration 60 --repeats 5
 pnpm capacity -- --gateway-delay-ms 20
 pnpm capacity -- --strict # herhangi bir geçersiz matriste non-zero exit
+pnpm capacity -- --profile-on-knee
 ```
 
 `--gateway-delay-ms`, mock gateway'e kontrollü latency ekleyerek cache korumasını sıfır-latency lokal
@@ -105,3 +111,6 @@ Bu test şu konularda güvenilirdir:
 
 Gerçek production kapasitesi için daha sonra ayrı load-generator makinesi, gerçek gateway latency,
 TLS/load balancer ve production Redis topolojisiyle aynı profil tekrarlanmalıdır.
+
+Payload/serialization hard budget'ları, baseline kabulü ve ayrı-process CPU/heap profiling akışı için
+[performans kabul politikası](./performance-acceptance.md) dokümanına bakın.

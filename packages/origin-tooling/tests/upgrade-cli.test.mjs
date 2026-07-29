@@ -79,6 +79,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.5.14-upgrade-contract-v1");
     expect(metadata.appliedMigrations).toContain("0.5.17-eslint-10");
     expect(metadata.appliedMigrations).toContain("0.5.18-vitest-scope");
+    expect(metadata.appliedMigrations).toContain("0.5.34-react-quality-security");
     expect(existsSync(join(root, "docs/upgrading.md"))).toBe(true);
     expect(
       existsSync(join(root, ".originloom/backups", "0.5.12-to-" + TOOLING_VERSION, "package.json")),
@@ -98,6 +99,22 @@ describe("origin-migrate", () => {
     const result = run(MIGRATE, ["--cwd", root, "--apply"]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("otomatik migration desteklenmiyor");
+  });
+
+  it("migrates React quality dependencies away from unsupported and vulnerable chains", () => {
+    const root = project({ version: "0.5.33", metadata: true });
+    const manifestPath = join(root, "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.devDependencies.lighthouse = "^12.8.2";
+    manifest.devDependencies.autocannon = "^8.0.0";
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+
+    const result = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(result.status).toBe(0);
+    const migrated = JSON.parse(readFileSync(manifestPath, "utf8"));
+    expect(migrated.engines.node).toBe(">=22.19.0");
+    expect(migrated.devDependencies.lighthouse).toBe("^13.4.1");
+    expect(migrated.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
   });
 });
 
@@ -151,6 +168,7 @@ function project({ version, metadata }) {
             "0.5.14-upgrade-contract-v1",
             "0.5.17-eslint-10",
             "0.5.18-vitest-scope",
+            ...(version === TOOLING_VERSION ? ["0.5.34-react-quality-security"] : []),
           ],
         },
         null,

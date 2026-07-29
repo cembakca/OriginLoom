@@ -4,6 +4,7 @@ import type { Assets } from "../assets.js";
 import { config } from "../config.js";
 import { renderDocument, renderDocumentToStream, streamToString } from "../document.js";
 import { logError } from "../logger.js";
+import { observePayloadSize, observeSerialization } from "../metrics.js";
 import { SpanKind, withSpan } from "../observability.js";
 import { renderRouteErrorDocument } from "../route-boundary.js";
 import { getRuntime } from "../runtime.js";
@@ -113,7 +114,13 @@ export async function runRender<T>(
       attributes: { "http.route": route.path, "ssr.phase": phase },
     },
     async () => {
-      if (!route.streaming) return renderDocument(route, data, assets, { routeCtx });
+      const started = performance.now();
+      if (!route.streaming) {
+        const body = await renderDocument(route, data, assets, { routeCtx });
+        observeSerialization("document_render", route.path, performance.now() - started);
+        observePayloadSize("html", route.path, Buffer.byteLength(body));
+        return body;
+      }
 
       const streamResult = await renderDocumentToStream(
         route,
@@ -129,7 +136,10 @@ export async function runRender<T>(
         },
       );
       await streamResult.allReady;
-      return streamToString(streamResult.stream);
+      const body = await streamToString(streamResult.stream);
+      observeSerialization("document_render", route.path, performance.now() - started);
+      observePayloadSize("html", route.path, Buffer.byteLength(body));
+      return body;
     },
   );
 }

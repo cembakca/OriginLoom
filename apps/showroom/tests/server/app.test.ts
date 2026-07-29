@@ -1,3 +1,8 @@
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { brotliCompressSync } from "node:zlib";
+
 import { createApp } from "@originloom/core/app";
 import { closeCache, initCache } from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
@@ -162,6 +167,47 @@ describe("Hono application integration", () => {
       expect(response.headers.get(cspHeader)).not.toContain("'nonce-");
       expect(response.headers.get(cspHeader)).not.toContain("sha256-");
     }
+  });
+
+  it("serves immutable precompressed assets without runtime compression work", async () => {
+    const root = await mkdtemp(join(tmpdir(), "originloom-static-"));
+    const assetsRoot = join(root, "assets");
+    await mkdir(assetsRoot, { recursive: true });
+    const source = Buffer.from("export const value = 'originloom';\n".repeat(100));
+    await writeFile(join(assetsRoot, "entry.js"), source);
+    await writeFile(join(assetsRoot, "entry.js.br"), brotliCompressSync(source));
+    const app = appWith([], { staticRoot: root });
+
+    const response = await app.request("http://localhost/assets/entry.js", {
+      headers: { "accept-encoding": "br, gzip" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-encoding")).toBe("br");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("vary")).toContain("Accept-Encoding");
+
+    const identity = await app.request("http://localhost/assets/entry.js");
+    expect(identity.headers.get("content-encoding")).toBeNull();
+    expect(identity.headers.get("vary")).toBeNull();
+  });
+
+  it("varies dynamically compressed HTML by Accept-Encoding", async () => {
+    const route: Route = {
+      path: "/compressed",
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("main", null, "compressible content ".repeat(200)),
+      minimalChrome: true,
+    };
+    const app = appWith([route]);
+
+    const response = await app.request("http://localhost/compressed", {
+      headers: { "accept-encoding": "gzip" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-encoding")).toBe("gzip");
+    expect(response.headers.get("vary")).toContain("Accept-Encoding");
   });
 
   it("keeps GET and HEAD status/headers aligned without a HEAD body", async () => {

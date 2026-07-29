@@ -41,3 +41,6 @@ Prometheus serileri:
 Island failure oranını, island error source'larının rate'ini başarılı mount count + error count'a
 bölerek hesaplayın. Web Vital değeri structured log'da tutulur; Prometheus etiketi yalnız bounded
 `name/rating` değerleridir, URL veya metric id label yapılmaz.
+
+Server payload bütçeleri, kapasite baseline'ı ve profiling release akışı
+[performans kabul politikası](./performance-acceptance.md) dokümanında tanımlıdır.

@@ -6,6 +6,8 @@ import { decodeCacheEntry, encodeCacheEntry } from "./codec.js";
 import {
   buildCacheEntry,
   type CacheEntry,
+  cacheEntryFragmentMarkers,
+  type CacheReadResult,
   type CacheStore,
   type ListKeysOptions,
   type ListKeysResult,
@@ -37,9 +39,16 @@ export class RedisStore implements CacheStore {
     return prefix ? `${this.prefix}${prefix}*` : `${this.prefix}*`;
   }
 
-  async read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null> {
+  async read(key: string): Promise<CacheReadResult | null> {
     const hit = await this.readEntry(key);
-    return hit ? { body: hit.entry.body, state: hit.state } : null;
+    if (!hit) return null;
+    const fragmentMarkers = cacheEntryFragmentMarkers(hit.entry);
+    return {
+      body: hit.entry.body,
+      state: hit.state,
+      hasFragments: fragmentMarkers.length > 0,
+      fragmentMarkers,
+    };
   }
 
   async readEntry(key: string): Promise<{ entry: CacheEntry; state: "fresh" | "stale" } | null> {

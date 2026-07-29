@@ -1,6 +1,7 @@
 import type { LoaderResult, Route } from "@originloom/shared/lib/types";
 
 import * as cache from "../cache/index.js";
+import { config } from "../config.js";
 import { logger } from "../logger.js";
 
 type CachePolicy = ReturnType<NonNullable<Route["cache"]>>;
@@ -69,8 +70,28 @@ export function logRequest(
   requestId: string | undefined,
   fields: { path: string; status: number; cache: string; durationMs: number },
 ): void {
-  logger.info("request", {
+  if (
+    fields.status < 400 &&
+    fields.cache !== "ERROR" &&
+    !sampleRequestLog(requestId, config.requestLogSampleRate)
+  ) {
+    return;
+  }
+  logger.info("request", () => ({
     ...fields,
     ...(requestId !== undefined ? { requestId } : {}),
-  });
+  }));
+}
+
+/** Stable sampling keeps all decisions for one request ID consistent across pods. */
+export function sampleRequestLog(requestId: string | undefined, rate: number): boolean {
+  if (rate >= 1) return true;
+  if (rate <= 0) return false;
+  const value = requestId ?? "missing-request-id";
+  let hash = 2_166_136_261;
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return (hash >>> 0) / 4_294_967_296 < rate;
 }

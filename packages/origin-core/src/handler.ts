@@ -8,6 +8,7 @@ import type { Assets } from "./assets.js";
 import { config } from "./config.js";
 import { errorResponse } from "./error.js";
 import { logError } from "./logger.js";
+import type { PreparedRequest } from "./middleware/prepared-request.js";
 import { rethrowRequestDeadline } from "./ssr/context.js";
 import { resolveSsrRequest } from "./ssr/request-resolution.js";
 import { logRequest } from "./ssr/response.js";
@@ -18,7 +19,12 @@ export { drainRevalidations } from "./cache/revalidation.js";
 export { handleHead } from "./ssr/head.js";
 export type { HandleContext } from "./ssr/types.js";
 
-export function isSsrRouteRequest(request: Request, routeTable: Route[]): boolean {
+export function isSsrRouteRequest(
+  request: Request,
+  routeTable: Route[],
+  prepared?: PreparedRequest,
+): boolean {
+  if (prepared) return prepared.matched !== null;
   const resolution = resolveRoute(new URL(request.url), config.gatewayUrl);
   if (resolution.kind === "redirect" || resolution.kind === "proxy") return false;
   return match(routeTable, resolution.pathname) !== null;

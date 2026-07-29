@@ -1,7 +1,8 @@
-import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+import { gatewayFetchForRequest, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
 import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-payload";
+import { memoizeRequestValue } from "@originloom/core/observability";
 import {
   normalizeMetadataImageUrl,
   normalizeNavigationUrl,
@@ -20,9 +21,14 @@ const MAX_ITEMS_PER_LEVEL = 50;
 const MAX_LABEL_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 500;
 const INVALID_MENU = "Menu gateway returned an invalid payload";
+const parsedSnapshots = new Map<DeviceType, { body: string; menu: IMenuItems }>();
 
 /** Public menu endpoint — device header ile tek fetch; uzun TTL API cache. */
-export async function fetchMenuList(request: Request, device: DeviceType): Promise<IMenuItems> {
+export function fetchMenuList(request: Request, device: DeviceType): Promise<IMenuItems> {
+  return memoizeRequestValue(`gateway:menu:${device}`, () => loadMenuList(request, device));
+}
+
+async function loadMenuList(request: Request, device: DeviceType): Promise<IMenuItems> {
   const key = menuCacheKey(device);
   const policy = {
     kind: "shared" as const,
@@ -35,10 +41,16 @@ export async function fetchMenuList(request: Request, device: DeviceType): Promi
   if (cacheKey) {
     const hit = await cache.read(cacheKey);
     if (hit) {
+      const snapshot = parsedSnapshots.get(device);
+      if (snapshot?.body === hit.body) return snapshot.menu;
       try {
         const cached: unknown = JSON.parse(hit.body);
         const menu = parseMenuPayload(cached);
-        if (menu) return menu;
+        if (menu) {
+          const immutable = freezeMenu(menu);
+          parsedSnapshots.set(device, { body: hit.body, menu: immutable });
+          return immutable;
+        }
       } catch {
         // Corrupt/old entries are treated as a miss and replaced below.
       }
@@ -46,13 +58,29 @@ export async function fetchMenuList(request: Request, device: DeviceType): Promi
     }
   }
 
-  const data = await fetchMenuFromGateway(request, device);
+  const data = freezeMenu(await fetchMenuFromGateway(request, device));
 
   if (cacheKey) {
-    await cache.write(cacheKey, JSON.stringify(data), policy);
+    const body = JSON.stringify(data);
+    await cache.write(cacheKey, body, policy);
+    parsedSnapshots.set(device, { body, menu: data });
   }
 
   return data;
+}
+
+function freezeMenu(menu: IMenuItems): IMenuItems {
+  const freezeItems = (items: MenuItem[]): MenuItem[] => {
+    for (const item of items) {
+      if (item.subMenuItemList) freezeItems(item.subMenuItemList);
+      Object.freeze(item);
+    }
+    return Object.freeze(items) as MenuItem[];
+  };
+  freezeItems(menu.headerItems);
+  freezeItems(menu.hamburgerItems);
+  freezeItems(menu.footerItems);
+  return Object.freeze(menu);
 }
 
 async function fetchMenuFromGateway(request: Request, device: DeviceType): Promise<IMenuItems> {
@@ -64,7 +92,7 @@ async function fetchMenuFromGateway(request: Request, device: DeviceType): Promi
     },
   });
 
-  if (!res.ok) throw new Error(`Menu gateway returned ${res.status}`);
+  await requireGatewayOk(res, "Menu gateway returned");
 
   const data = await readGatewayJson(res, GatewayContracts.menu, INVALID_MENU);
   return parseGatewayPayload(GatewayContracts.menu, data, parseMenuPayload, INVALID_MENU);

@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { gatewayTransportFetch } from "./gateway-transport.js";
 
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
@@ -62,7 +63,7 @@ export async function proxyRequest(
     init.duplex = "half";
   }
 
-  const upstream = await fetch(url, init);
+  const upstream = await gatewayTransportFetch(url, init);
   const responseHeaders = pickHeaders(upstream.headers, FORWARDED_RESPONSE_HEADERS);
 
   return new Response(upstream.body, {

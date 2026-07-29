@@ -60,17 +60,44 @@ describe("request deadline middleware", () => {
 
   it("leaves a declared long-lived endpoint to its own connection lifetime contract", async () => {
     const app = new Hono<{ Variables: AppVariables }>();
+    let downstreamRequest: Request | undefined;
     app.use("*", requestId);
     app.use("*", requestDeadline([], { api: 5, longLivedRoutes: ["/api/markets/stream"] }));
     app.get("/api/markets/stream", async (c) => {
+      downstreamRequest = contextRequest(c);
       await new Promise((resolve) => setTimeout(resolve, 20));
       return c.text("stream-owned-timeout");
     });
 
-    const response = await app.request("/api/markets/stream");
+    const raw = new Request("http://localhost/api/markets/stream");
+    const response = await app.fetch(raw);
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("stream-owned-timeout");
+    expect(downstreamRequest).toBe(raw);
+  });
+
+  it("does not clone bounded GET health and static-asset requests", async () => {
+    const app = new Hono<{ Variables: AppVariables }>();
+    const downstream = new Map<string, Request>();
+    app.use("*", requestId);
+    app.use("*", requestDeadline([]));
+    app.get("/healthz", (c) => {
+      downstream.set("health", contextRequest(c));
+      return c.text("ok");
+    });
+    app.get("/assets/app.js", (c) => {
+      downstream.set("asset", contextRequest(c));
+      return c.text("asset");
+    });
+
+    const health = new Request("http://localhost/healthz");
+    const asset = new Request("http://localhost/assets/app.js");
+    await app.fetch(health);
+    await app.fetch(asset);
+
+    expect(downstream.get("health")).toBe(health);
+    expect(downstream.get("asset")).toBe(asset);
   });
 
   it("buckets an unmatched API path instead of labelling metrics with it", async () => {

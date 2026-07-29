@@ -32,7 +32,12 @@ export function mountClientMetricApi(app: Hono<{ Variables: AppVariables }>): vo
     }
     observeClientMetricIngestion("accepted");
     observeClientPerformance(metric);
-    logger.info("client performance metric", { ...metric, requestId: c.get("requestId") });
+    // Prometheus is the durable signal. Per-event JSON is debug-only so normal
+    // traffic does not serialize and write two observability records.
+    logger.debug("client performance metric", () => ({
+      ...metric,
+      requestId: c.get("requestId"),
+    }));
     return c.body(null, 204, noStore());
   });
 }

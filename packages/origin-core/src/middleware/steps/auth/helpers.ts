@@ -4,7 +4,7 @@ import { cookie } from "@originloom/shared/lib/request";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 
-import { gatewayFetch } from "../../../adapters/gateway.js";
+import { gatewayFetch, releaseGatewayResponse } from "../../../adapters/gateway.js";
 import {
   acquireCoordinationLock,
   readCoordinationValue,
@@ -217,8 +217,14 @@ async function fetchRefreshResult(
       body: JSON.stringify({ refreshToken }),
       signal,
     });
-    if (res.status === 400 || res.status === 401) return { kind: "unauthorized" };
-    if (!res.ok) return { kind: "unavailable" };
+    if (res.status === 400 || res.status === 401) {
+      await releaseGatewayResponse(res);
+      return { kind: "unauthorized" };
+    }
+    if (!res.ok) {
+      await releaseGatewayResponse(res);
+      return { kind: "unavailable" };
+    }
 
     const payload = await readGatewayJson(res, AUTH_REFRESH, INVALID_REFRESH);
     const data = requireGatewayPayload(AUTH_REFRESH, payload, isRefreshPayload, INVALID_REFRESH);

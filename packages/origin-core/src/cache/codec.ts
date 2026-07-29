@@ -1,5 +1,7 @@
 import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib";
 
+import { findSsrFragmentMarkers, type SsrFragmentMarker } from "@originloom/shared/fragment-markup";
+
 import { logger } from "../logger.js";
 import type { CacheEntry } from "./types.js";
 
@@ -12,10 +14,15 @@ import type { CacheEntry } from "./types.js";
  * the raw encoding, avoiding CPU and framing overhead where Brotli cannot help.
  */
 const MAGIC = Buffer.from("SSRC");
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 3;
+const FRAGMENT_FLAG_VERSION = 2;
+const LEGACY_BINARY_VERSION = 1;
 const ENCODING_RAW = 0;
 const ENCODING_BROTLI_HTML = 1;
+const FRAGMENT_FLAG = 0x80;
 const HEADER_BYTES = MAGIC.length + 1 + 1 + 8 + 8;
+const MARKER_LENGTH_BYTES = 4;
+const MAX_MARKER_METADATA_BYTES = 64 * 1024;
 const HTML_COMPRESSION_THRESHOLD_BYTES = 1_024;
 const BROTLI_QUALITY = 8;
 const BROTLI_WINDOW_BITS = 19;
@@ -24,15 +31,20 @@ const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 export function encodeCacheEntry(entry: CacheEntry): Buffer {
   const raw = Buffer.from(entry.body, "utf8");
   const encoded = encodeBody(raw, entry.body);
+  const fragmentMarkers = entry.fragmentMarkers ?? findSsrFragmentMarkers(entry.body);
+  const markerMetadata = encodeFragmentMarkers(fragmentMarkers);
 
   const header = Buffer.allocUnsafe(HEADER_BYTES);
   MAGIC.copy(header, 0);
   header.writeUInt8(FORMAT_VERSION, MAGIC.length);
-  header.writeUInt8(encoded.encoding, MAGIC.length + 1);
+  const hasFragments = fragmentMarkers.length > 0;
+  header.writeUInt8(encoded.encoding | (hasFragments ? FRAGMENT_FLAG : 0), MAGIC.length + 1);
   header.writeBigInt64BE(BigInt(Math.trunc(entry.freshUntil)), MAGIC.length + 2);
   header.writeBigInt64BE(BigInt(Math.trunc(entry.staleUntil)), MAGIC.length + 10);
 
-  return Buffer.concat([header, encoded.payload]);
+  const markerLength = Buffer.allocUnsafe(MARKER_LENGTH_BYTES);
+  markerLength.writeUInt32BE(markerMetadata.length);
+  return Buffer.concat([header, markerLength, markerMetadata, encoded.payload]);
 }
 
 /** Never throws — legacy JSON, current binary, and corrupt entries have explicit outcomes. */
@@ -41,13 +53,23 @@ export function decodeCacheEntry(buf: Buffer): CacheEntry | null {
   if (legacy) return legacy;
   if (buf.length < HEADER_BYTES) return null;
   if (!buf.subarray(0, MAGIC.length).equals(MAGIC)) return null;
-  if (buf.readUInt8(MAGIC.length) !== FORMAT_VERSION) return null;
+  const version = buf.readUInt8(MAGIC.length);
+  if (
+    version !== FORMAT_VERSION &&
+    version !== FRAGMENT_FLAG_VERSION &&
+    version !== LEGACY_BINARY_VERSION
+  )
+    return null;
 
   try {
-    const encoding = buf.readUInt8(MAGIC.length + 1);
+    const encodedFlags = buf.readUInt8(MAGIC.length + 1);
+    const encoding = encodedFlags & ~FRAGMENT_FLAG;
     const freshUntil = Number(buf.readBigInt64BE(MAGIC.length + 2));
     const staleUntil = Number(buf.readBigInt64BE(MAGIC.length + 10));
-    const payload = buf.subarray(HEADER_BYTES);
+    const { payload, encodedMarkers } =
+      version === FORMAT_VERSION
+        ? decodeVersionThreePayload(buf)
+        : { payload: buf.subarray(HEADER_BYTES), encodedMarkers: undefined };
     const body =
       encoding === ENCODING_RAW
         ? utf8Decoder.decode(payload)
@@ -55,7 +77,19 @@ export function decodeCacheEntry(buf: Buffer): CacheEntry | null {
           ? utf8Decoder.decode(brotliDecompressSync(payload))
           : null;
     if (body === null || !validTimestamps(freshUntil, staleUntil)) return null;
-    return { body, freshUntil, staleUntil };
+    const fragmentMarkers =
+      encodedMarkers ??
+      ((encodedFlags & FRAGMENT_FLAG) !== 0 || version === LEGACY_BINARY_VERSION
+        ? findSsrFragmentMarkers(body)
+        : []);
+    if (!validFragmentMarkers(fragmentMarkers, body)) return null;
+    return {
+      body,
+      freshUntil,
+      staleUntil,
+      hasFragments: fragmentMarkers.length > 0,
+      fragmentMarkers,
+    };
   } catch (error) {
     logger.warn("cache entry decode failed; treating as miss", {
       error: error instanceof Error ? error.message : String(error),
@@ -88,6 +122,69 @@ function encodeBody(raw: Buffer, body: string): { encoding: number; payload: Buf
   }
 }
 
+function encodeFragmentMarkers(markers: readonly SsrFragmentMarker[]): Buffer {
+  if (markers.length === 0) return Buffer.alloc(0);
+  const encoded = Buffer.from(
+    JSON.stringify(markers.map(({ name, start, end }) => [name, start, end])),
+  );
+  if (encoded.length > MAX_MARKER_METADATA_BYTES) {
+    throw new Error("cache marker metadata too large");
+  }
+  return encoded;
+}
+
+function decodeVersionThreePayload(buf: Buffer): {
+  payload: Buffer;
+  encodedMarkers: SsrFragmentMarker[];
+} {
+  if (buf.length < HEADER_BYTES + MARKER_LENGTH_BYTES)
+    throw new Error("cache marker header missing");
+  const metadataLength = buf.readUInt32BE(HEADER_BYTES);
+  if (metadataLength > MAX_MARKER_METADATA_BYTES)
+    throw new Error("cache marker metadata too large");
+  const metadataStart = HEADER_BYTES + MARKER_LENGTH_BYTES;
+  const payloadStart = metadataStart + metadataLength;
+  if (payloadStart > buf.length) throw new Error("cache marker metadata truncated");
+  const encodedMarkers =
+    metadataLength === 0
+      ? []
+      : decodeFragmentMarkers(
+          JSON.parse(utf8Decoder.decode(buf.subarray(metadataStart, payloadStart))),
+        );
+  return { payload: buf.subarray(payloadStart), encodedMarkers };
+}
+
+function decodeFragmentMarkers(value: unknown): SsrFragmentMarker[] {
+  if (!Array.isArray(value)) throw new Error("invalid cache marker metadata");
+  return value.map((item) => {
+    if (
+      !Array.isArray(item) ||
+      item.length !== 3 ||
+      typeof item[0] !== "string" ||
+      !/^[a-zA-Z0-9_-]+$/.test(item[0]) ||
+      !Number.isSafeInteger(item[1]) ||
+      !Number.isSafeInteger(item[2])
+    ) {
+      throw new Error("invalid cache marker");
+    }
+    return { name: item[0], start: item[1] as number, end: item[2] as number };
+  });
+}
+
+function validFragmentMarkers(markers: readonly SsrFragmentMarker[], body: string): boolean {
+  let previousEnd = 0;
+  for (const marker of markers) {
+    if (marker.start < previousEnd || marker.end <= marker.start || marker.end > body.length) {
+      return false;
+    }
+    if (body.slice(previousEnd, marker.start).includes("<ssr-fragment ")) return false;
+    const value = body.slice(marker.start, marker.end);
+    if (!value.startsWith(`<ssr-fragment name="${marker.name}" `)) return false;
+    previousEnd = marker.end;
+  }
+  return !body.slice(previousEnd).includes("<ssr-fragment ");
+}
+
 function isHtmlDocument(body: string): boolean {
   const start = body.trimStart().slice(0, 32).toLowerCase();
   return start.startsWith("<!doctype html") || start.startsWith("<html");
@@ -107,10 +204,13 @@ function decodeLegacyJsonEntry(buf: Buffer): CacheEntry | null {
     ) {
       return null;
     }
+    const fragmentMarkers = findSsrFragmentMarkers(entry.body);
     return {
       body: entry.body,
       freshUntil: entry.freshUntil,
       staleUntil: entry.staleUntil,
+      hasFragments: fragmentMarkers.length > 0,
+      fragmentMarkers,
     };
   } catch {
     return null;

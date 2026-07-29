@@ -141,7 +141,12 @@ describe("TieredStore", () => {
     const l1 = new MemoryStore(10);
     const store = new TieredStore({ l1, l2: null });
     await store.write("home", "<html>solo</html>", { kind: "shared", ttl: 60, key: ["home"] });
-    expect(await store.read("home")).toEqual({ body: "<html>solo</html>", state: "fresh" });
+    expect(await store.read("home")).toEqual({
+      body: "<html>solo</html>",
+      state: "fresh",
+      hasFragments: false,
+      fragmentMarkers: [],
+    });
     expect(store.ping()).resolves.toBe(true);
   });
 

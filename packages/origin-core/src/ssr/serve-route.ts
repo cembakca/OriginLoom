@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type { SsrFragmentMarker } from "@originloom/shared/fragment-markup";
 import type { CachePolicy, Ctx, LoaderResult, Route } from "@originloom/shared/lib/types";
 
 import type { Assets } from "../assets.js";
@@ -35,7 +36,14 @@ type ServeRouteOptions = {
 export async function serveRoute(options: ServeRouteOptions): Promise<Response> {
   if (options.cacheKey && options.request.method === "GET") {
     const hit = await cache.read(options.cacheKey);
-    if (hit) return cachedResponse(options, hit.body, hit.state === "fresh" ? "HIT" : "STALE");
+    if (hit)
+      return cachedResponse(
+        options,
+        hit.body,
+        hit.state === "fresh" ? "HIT" : "STALE",
+        hit.hasFragments,
+        hit.fragmentMarkers,
+      );
   }
 
   try {
@@ -51,7 +59,13 @@ export async function serveRoute(options: ServeRouteOptions): Promise<Response> 
         isTimeout: (error) => error instanceof CacheFillTimeoutError,
       });
       if (coldMiss.kind === "cache") {
-        return cachedResponse(options, coldMiss.body, coldMiss.state);
+        return cachedResponse(
+          options,
+          coldMiss.body,
+          coldMiss.state,
+          coldMiss.hasFragments,
+          coldMiss.fragmentMarkers,
+        );
       }
       execution = coldMiss.work.value;
     } else {
@@ -67,10 +81,14 @@ async function cachedResponse(
   options: ServeRouteOptions,
   cachedBody: string,
   state: "HIT" | "STALE",
+  hasFragments: boolean,
+  fragmentMarkers: readonly SsrFragmentMarker[],
 ): Promise<Response> {
   if (state === "STALE") scheduleRouteRevalidation(options);
   logOutcome(options, 200, state);
-  const body = await stitchCachedHtml(cachedBody, options.route, options.routeCtx, true);
+  const body = hasFragments
+    ? await stitchCachedHtml(cachedBody, options.route, options.routeCtx, true, fragmentMarkers)
+    : cachedBody;
   return htmlResponse(body, 200, options.policy, state, undefined, options.requestId);
 }
 

@@ -1,4 +1,8 @@
-import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import {
+  gatewayFetch,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 import {
@@ -29,7 +33,10 @@ export async function getKnowledgeArticles(search: URLSearchParams, signal: Abor
 
 export async function getKnowledgeArticle(slug: string, signal: AbortSignal) {
   const response = await gatewayFetch(`/content/articles/${encodeURIComponent(slug)}`, { signal });
-  if (response.status === 404) return null;
+  if (response.status === 404) {
+    await releaseGatewayResponse(response);
+    return null;
+  }
   return parseResponse(response, isArticleDetail);
 }
 
@@ -42,7 +49,7 @@ async function parseResponse<T>(
   response: Response,
   guard: (value: unknown) => value is T,
 ): Promise<T> {
-  if (!response.ok) throw new Error(`Knowledge center gateway returned ${response.status}`);
+  await requireGatewayOk(response, "Knowledge center gateway returned");
   const payload = await readGatewayJson(
     response,
     GatewayContracts.knowledgeCenter,

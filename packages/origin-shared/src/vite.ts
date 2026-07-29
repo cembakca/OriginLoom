@@ -105,11 +105,18 @@ export function createServerViteConfig(options: ServerViteConfigOptions): UserCo
       ssr: options.entry,
       outDir: options.outDir ?? "dist/server",
       emptyOutDir: false,
+      // SSR builds are not minified by Vite unless explicitly requested. A
+      // self-contained server otherwise pays a large parse/cold-start cost.
+      target: "node22",
+      minify: "esbuild",
       sourcemap: true,
       rollupOptions: {
         output: { entryFileNames: "index.js" },
       },
     },
+    // Keep profiler and production stack frames readable while still removing
+    // whitespace and shortening local bindings.
+    esbuild: { keepNames: true },
   };
 }
 

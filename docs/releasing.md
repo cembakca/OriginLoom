@@ -109,12 +109,15 @@ Sırasıyla şunu yapar:
 3. Beş paketi bu registry'ye yayınlar (`--tag rehearsal`).
 4. `origin-create-app` ile **workspace dışında** bir uygulama üretir; kendi `.npmrc`'si ve boş
    `pnpm-workspace.yaml`'ı yazılır ki bu repoyu hiç görmesin.
-5. Registry'den kurar, sonra doğrular: beş paketin de kurulduğunu, core'un `src/` değil `dist/`
-   gönderdiğini.
-6. Kurulan uygulamayı `origin-doctor --strict` + `tsc --noEmit` + `origin-build` + `origin-smoke`
-   ile sürer. React provası ayrıca fixture contract ve bundle bütçesi kapılarını çalıştırır.
+5. Registry'den kurar; paketlerin `dist` artefaktını, dependency audit sonucunu ve destek dışı
+   `uuid@10` veya altının lockfile'a girmediğini doğrular.
+6. Kurulan uygulamada doctor strict, typecheck, import-cycle, lint, format, unit test, production
+   build ve smoke kontrollerini çalıştırır. React provası ayrıca fixture contract ve bundle bütçesi
+   kapılarını çalıştırır.
 7. React provasında Chromium'u kurar; template'in Playwright/Axe suite'ini ve Lighthouse route
-   bütçelerini production bundle'a karşı çalıştırır. Vanilla provası browser bağımlılığı taşımaz.
+   bütçelerini production bundle'a karşı çalıştırır. Öncesinde kısa kapasite koşusu gerçek Autocannon
+   dependency zincirini production bundle'a karşı çalıştırır. Vanilla provası browser bağımlılığı
+   taşımaz.
 8. Verdaccio'yu kapatır, geçici dizini siler.
 
 **Neden gerekli:** repodaki diğer tüm kontroller paketleri `workspace:*` üzerinden `src/`'den

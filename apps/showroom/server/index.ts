@@ -4,6 +4,7 @@ import { createApp } from "@originloom/core/app";
 import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
+import { closeGatewayTransport } from "@originloom/core/gateway-transport";
 import { drainRevalidations } from "@originloom/core/handler";
 import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
 import { logError, logger } from "@originloom/core/logger";
@@ -88,6 +89,9 @@ async function main() {
         ]);
         if (!revalidationsDrained) logger.warn("revalidation drain timed out");
         if (!botAnalyticsDrained) logger.warn("bot analytics drain timed out");
+        // Revalidation and analytics drains may still use the gateway. Close
+        // the shared transport only after every gateway-dependent task settles.
+        await closeGatewayTransport();
         await closeCache();
         await shutdownInstrumentation();
         logger.info("shutdown complete");

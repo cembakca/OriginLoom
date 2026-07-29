@@ -1,3 +1,4 @@
+import type { SsrFragmentMarker } from "@originloom/shared/fragment-markup";
 import type { CachePolicy } from "@originloom/shared/lib/types";
 
 import { config } from "../config.js";
@@ -12,7 +13,14 @@ export type ColdFillWork<T> = {
 };
 
 export type ColdFillResult<T> =
-  { kind: "cache"; body: string; state: "HIT" | "STALE" } | { kind: "work"; work: ColdFillWork<T> };
+  | {
+      kind: "cache";
+      body: string;
+      state: "HIT" | "STALE";
+      hasFragments: boolean;
+      fragmentMarkers: readonly SsrFragmentMarker[];
+    }
+  | { kind: "work"; work: ColdFillWork<T> };
 
 const fillsInFlight = new Map<string, Promise<ColdFillResult<unknown>>>();
 
@@ -77,7 +85,13 @@ async function runDistributedColdFill<T>(
         state === "HIT" ? "cache_hit" : "stale",
         performance.now() - started,
       );
-      return { kind: "cache", body: hit.body, state };
+      return {
+        kind: "cache",
+        body: hit.body,
+        state,
+        hasFragments: hit.hasFragments,
+        fragmentMarkers: hit.fragmentMarkers,
+      };
     }
 
     const retryLock = await cache.acquireColdMissLock(options.key);
@@ -110,6 +124,8 @@ async function fillUnderLock<T>(
         kind: "cache",
         body: existing.body,
         state: existing.state === "fresh" ? "HIT" : "STALE",
+        hasFragments: existing.hasFragments,
+        fragmentMarkers: existing.fragmentMarkers,
       };
     }
 

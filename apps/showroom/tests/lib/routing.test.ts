@@ -1,5 +1,9 @@
 import { applyPattern, matchPattern } from "@originloom/shared/routing/pattern";
-import { resolveRouteWith } from "@originloom/shared/routing/resolve";
+import {
+  configureRouting,
+  resolveRoute,
+  resolveRouteWith,
+} from "@originloom/shared/routing/resolve";
 import { describe, expect, it } from "vitest";
 
 describe("routing pattern", () => {
@@ -41,6 +45,31 @@ describe("routing pattern", () => {
 });
 
 describe("resolveRoute", () => {
+  it("builds gateway-dependent rewrite rules once per configured gateway", () => {
+    let builds = 0;
+    configureRouting({
+      redirects: [],
+      rewrites: [],
+      createRewrites: (gatewayUrl) => {
+        builds += 1;
+        return [{ source: "/api/:path*", destination: `${gatewayUrl}/:path*` }];
+      },
+    });
+
+    try {
+      expect(
+        resolveRoute(new URL("http://localhost/api/items"), "http://gateway.internal"),
+      ).toEqual({
+        kind: "proxy",
+        url: "http://gateway.internal/items",
+      });
+      resolveRoute(new URL("http://localhost/api/menu"), "http://gateway.internal");
+      expect(builds).toBe(1);
+    } finally {
+      configureRouting({ redirects: [], rewrites: [] });
+    }
+  });
+
   it("rewrites Turkish public URL to internal route", () => {
     const url = new URL("http://localhost/konut-kredisi/ziraat-konut-kredisi");
     const result = resolveRouteWith(url, {

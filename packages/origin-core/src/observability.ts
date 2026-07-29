@@ -14,7 +14,12 @@ import {
 
 const tracer = trace.getTracer("origin-loom");
 const REQUEST_ID_BAGGAGE_KEY = "ssr.request_id";
-const requestStorage = new AsyncLocalStorage<string>();
+type RequestState = {
+  requestId: string;
+  memo: Map<string, Promise<unknown>>;
+};
+
+const requestStorage = new AsyncLocalStorage<RequestState>();
 
 export type AppSpanOptions = {
   attributes?: Attributes;
@@ -60,7 +65,7 @@ export async function withRequestSpan<T>(
   const parent = propagation.setBaggage(extracted, baggage);
   const url = new URL(request.url);
 
-  return requestStorage.run(requestId, () =>
+  return requestStorage.run({ requestId, memo: new Map() }, () =>
     withSpan(
       `${request.method} ${url.pathname}`,
       {
@@ -87,9 +92,27 @@ export function injectActiveTrace(headers: Headers): void {
 
 export function activeRequestId(): string | undefined {
   return (
-    requestStorage.getStore() ??
+    requestStorage.getStore()?.requestId ??
     propagation.getBaggage(context.active())?.getEntry(REQUEST_ID_BAGGAGE_KEY)?.value
   );
+}
+
+/**
+ * Deduplicates parsed gateway/service work inside one inbound request. Store
+ * values after parsing rather than sharing a Response body, so every upstream
+ * body is consumed exactly once and its pooled connection can be reused.
+ */
+export function memoizeRequestValue<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const state = requestStorage.getStore();
+  if (!state) return load();
+  const existing = state.memo.get(key) as Promise<T> | undefined;
+  if (existing) return existing;
+  const pending = load().catch((error) => {
+    state.memo.delete(key);
+    throw error;
+  });
+  state.memo.set(key, pending);
+  return pending;
 }
 
 export function activeTraceFields(): { traceId?: string; spanId?: string } {

@@ -1,3 +1,4 @@
+import { AppQueryProvider } from "@originloom/react/lib/query/provider";
 import { ClientApiError } from "@originloom/shared/lib/client/api-fetch";
 
 import { Badge } from "~/components/ui/badge";
@@ -6,6 +7,14 @@ import { useAccountSummary } from "~/lib/query/hooks/use-account-summary";
 
 /** Kişisel hesap paneli — defer island, TanStack Query + BFF. */
 export default function AccountDashboard() {
+  return (
+    <AppQueryProvider>
+      <AccountDashboardContent />
+    </AppQueryProvider>
+  );
+}
+
+function AccountDashboardContent() {
   const { data, isLoading, isError, error, refetch, isFetching } = useAccountSummary();
 
   if (isLoading) {

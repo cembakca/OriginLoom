@@ -243,6 +243,12 @@ data:
   # Time budgets. A request that outlives its budget is failed on purpose: a
   # slow page that still answers holds a connection the next visitor needs.
   GATEWAY_TIMEOUT_MS: "5000"
+  GATEWAY_CONNECT_TIMEOUT_MS: "1000"
+  GATEWAY_HEADERS_TIMEOUT_MS: "5000"
+  GATEWAY_BODY_TIMEOUT_MS: "5000"
+  GATEWAY_MAX_CONNECTIONS: "64"
+  GATEWAY_PIPELINING: "1"
+  GATEWAY_KEEP_ALIVE_TIMEOUT_MS: "10000"
   SSR_REQUEST_TIMEOUT_MS: "15000"
   API_REQUEST_TIMEOUT_MS: "12000"
   PROXY_REQUEST_TIMEOUT_MS: "8000"
@@ -273,6 +279,9 @@ data:
   CSP_ENFORCE: "true"
   PROXY_BODY_LIMIT_BYTES: "1048576"
   SHUTDOWN_TIMEOUT_MS: "10000"
+  HTTP_COMPRESSION_THRESHOLD_BYTES: "1024"
+  LOG_LEVEL: info
+  REQUEST_LOG_SAMPLE_RATE: "0.1"
 
   # This app's own settings — see server/product/config.ts.
   CATALOG_PAGE_SIZE: "3"

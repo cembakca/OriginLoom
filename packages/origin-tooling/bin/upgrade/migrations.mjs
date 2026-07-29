@@ -7,6 +7,7 @@ import {
 
 export const ESLINT_10_MIGRATION = "0.5.17-eslint-10";
 export const VITEST_SCOPE_MIGRATION = "0.5.18-vitest-scope";
+export const REACT_QUALITY_SECURITY_MIGRATION = "0.5.34-react-quality-security";
 
 export const migrations = [
   {
@@ -34,6 +35,35 @@ export const migrations = [
     migratePackage(manifest, changes) {
       manifest.scripts ??= {};
       setDependency(manifest, changes, "scripts", "test", "vitest run tests");
+    },
+  },
+  {
+    id: REACT_QUALITY_SECURITY_MIGRATION,
+    introducedIn: "0.5.34",
+    description:
+      "React quality tooling removes unsupported uuid and upgrades Lighthouse's vulnerable dependency chain.",
+    migratePackage(manifest, changes) {
+      const hasLighthouse = typeof manifest.devDependencies?.lighthouse === "string";
+      const hasAutocannon = typeof manifest.devDependencies?.autocannon === "string";
+      if (hasLighthouse) {
+        manifest.engines ??= {};
+        setDependency(manifest, changes, "engines", "node", ">=22.19.0");
+        setDependency(manifest, changes, "devDependencies", "lighthouse", "^13.4.1");
+      }
+      if (hasAutocannon) {
+        manifest.pnpm ??= {};
+        manifest.pnpm.overrides ??= {};
+        const selector = "autocannon>hyperid";
+        const previous = manifest.pnpm.overrides[selector];
+        if (previous !== "^4.0.0") {
+          manifest.pnpm.overrides[selector] = "^4.0.0";
+          changes.push({
+            file: "package.json",
+            kind: "dependency",
+            detail: `pnpm.overrides.${selector}: ${previous ?? "yok"} → ^4.0.0`,
+          });
+        }
+      }
     },
   },
 ];

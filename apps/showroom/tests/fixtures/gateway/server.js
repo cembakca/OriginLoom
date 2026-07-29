@@ -9,7 +9,9 @@ import { resolveKnowledgeCenterRequest } from "./routes/knowledge-center.js";
 import { resolveMarketStreamRequest } from "./routes/market-stream.js";
 import { resolveMarketsRequest } from "./routes/markets.js";
 
-const port = Number(process.env.PORT ?? 4002);
+// Keep the mock gateway independent from the SSR app's PORT. The shared smoke
+// runner assigns a collision-free gateway port through this dedicated value.
+const port = Number(process.env.MOCK_GATEWAY_PORT ?? 4002);
 const host = process.env.HOST ?? "0.0.0.0";
 const quiet = process.env.MOCK_GW_QUIET === "1";
 

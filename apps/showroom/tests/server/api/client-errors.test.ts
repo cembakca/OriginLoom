@@ -44,6 +44,23 @@ describe("client error telemetry API", () => {
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("attacker-controlled"));
   });
 
+  it("accepts Web Vitals bootstrap failures from the performance telemetry source", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const res = await createApp().request("/api/internal/client-errors", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        errorId: "performance-telemetry-1",
+        source: "performance-telemetry",
+        message: "web-vitals import failed",
+        path: "/catalog",
+      }),
+    });
+
+    expect(res.status).toBe(204);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"source":"performance-telemetry"'));
+  });
+
   it("rejects invalid or oversized payloads", async () => {
     const res = await createApp().request("/api/internal/client-errors", {
       method: "POST",

@@ -113,6 +113,8 @@ export function renderTemplates({
     "docs/testing.md": asset("docs/testing.md"),
     "docs/contracts.md": asset("docs/contracts.md"),
     "docs/performance.md": asset("docs/performance.md"),
+    "docs/performance-acceptance.md": asset("docs/performance-acceptance.md"),
+    "docs/runtime-performance.md": asset("docs/runtime-performance.md"),
     "docs/upgrading.md": asset("docs/upgrading.md"),
     Dockerfile: dockerfile(name, port, standalone),
     ".dockerignore": asset("dockerignore"),
@@ -126,6 +128,10 @@ export function renderTemplates({
     "load-test/capacity-metrics.mjs": asset("load-test/capacity-metrics.mjs"),
     "load-test/capacity-report.mjs": asset("load-test/capacity-report.mjs"),
     "load-test/capacity-scenarios.mjs": asset("load-test/capacity-scenarios.mjs"),
+    "load-test/performance-policy.mjs": asset("load-test/performance-policy.mjs"),
+    "load-test/performance.mjs": asset("load-test/performance.mjs"),
+    "load-test/profile.mjs": asset("load-test/profile.mjs"),
+    "load-test/profile-target.mjs": asset("load-test/profile-target.mjs"),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/api/index.ts": apiIndex(),
@@ -168,6 +174,7 @@ export function renderTemplates({
     "contracts/fixtures/item.json": gatewayItemFixture(),
     "contracts/fixtures/menu.json": gatewayMenuFixture(),
     "performance-budgets.json": performanceBudgets(),
+    "performance-policy.json": performancePolicy(),
     "lighthouserc.json": lighthouseConfig(port),
     ".github/workflows/contract-staging.yml": stagingContractWorkflow(name),
     "mock-gateway/server.mjs": mockGateway(true),
@@ -366,6 +373,14 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
   const pnpm = standalone
     ? {
         onlyBuiltDependencies: ["@tailwindcss/oxide", "esbuild", "protobufjs", "sharp"],
+        ...(renderer === "react"
+          ? {
+              // Autocannon 8 is current but still declares hyperid 3, whose only
+              // UUID source is the unsupported uuid 8 package. Hyperid 4 keeps
+              // the same CJS API and replaces that dependency with randomUUID.
+              overrides: { "autocannon>hyperid": "^4.0.0" },
+            }
+          : {}),
       }
     : undefined;
   return `${JSON.stringify(
@@ -373,7 +388,7 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
       name,
       private: true,
       type: "module",
-      engines: { node: ">=22.13.0" },
+      engines: { node: renderer === "react" ? ">=22.19.0" : ">=22.13.0" },
       scripts: {
         "origin:doctor": "origin-doctor",
         "origin:migrate": "origin-migrate",
@@ -390,6 +405,9 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
           : {
               capacity: "node load-test/capacity.mjs",
               "capacity:quick": "node load-test/capacity.mjs --profile quick",
+              "performance:compare": "node load-test/performance.mjs",
+              "performance:accept": "node load-test/performance.mjs --accept",
+              "capacity:profile": "node load-test/profile.mjs",
               "contracts:fixtures": "origin-check-contracts",
               "contracts:staging": "origin-check-contracts --require-base-url",
               "budget:bundle": "origin-check-budgets",
@@ -467,7 +485,7 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
               "@types/react-dom": "^19.2.3",
               "@vitejs/plugin-react": "^6.0.4",
               autocannon: "^8.0.0",
-              lighthouse: "^12.8.2",
+              lighthouse: "^13.4.1",
             }),
         eslint: "^10.8.0",
         "eslint-config-prettier": "^10.1.8",
@@ -978,6 +996,12 @@ ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
 # purpose: a slow page that still answers is worse than a fast error, because it
 # holds a connection the next visitor needs.
 # GATEWAY_TIMEOUT_MS=5000
+# GATEWAY_CONNECT_TIMEOUT_MS=1000
+# GATEWAY_HEADERS_TIMEOUT_MS=5000
+# GATEWAY_BODY_TIMEOUT_MS=5000
+# GATEWAY_MAX_CONNECTIONS=64
+# GATEWAY_PIPELINING=1
+# GATEWAY_KEEP_ALIVE_TIMEOUT_MS=10000
 # SSR_REQUEST_TIMEOUT_MS=15000
 # API_REQUEST_TIMEOUT_MS=12000
 # CACHE_FILL_TIMEOUT_MS=12000
@@ -990,6 +1014,12 @@ ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
 #
 # In-process HTML cache size, in entries.
 # CACHE_MAX_ENTRIES=2000
+# HTTP_COMPRESSION_THRESHOLD_BYTES=1024
+#
+# Successful access logs are deterministically sampled in production. Errors
+# are always logged; debug disables per-event client metric JSON by default.
+# LOG_LEVEL=info
+# REQUEST_LOG_SAMPLE_RATE=0.1
 #
 # CSP is report-only in development and enforced in production. Turn it on here
 # to find violations before they reach production.
@@ -1041,6 +1071,19 @@ ${includeLiveStream ? menuCacheEnv + liveStreamProductionEnv + botAnalyticsEnv :
 # REDIS_URL; CACHE_REQUIRED=true makes readiness fail when Redis is unreachable.
 CACHE_BACKEND=memory
 CACHE_REQUIRED=false
+# Gateway transport: bounded keep-alive pool; the platform does not retry
+# automatically, so a failing upstream cannot create a retry storm.
+GATEWAY_MAX_CONNECTIONS=64
+GATEWAY_PIPELINING=1
+GATEWAY_CONNECT_TIMEOUT_MS=1000
+GATEWAY_HEADERS_TIMEOUT_MS=5000
+GATEWAY_BODY_TIMEOUT_MS=5000
+GATEWAY_KEEP_ALIVE_TIMEOUT_MS=10000
+
+# Runtime delivery and observability cost controls.
+HTTP_COMPRESSION_THRESHOLD_BYTES=1024
+LOG_LEVEL=info
+REQUEST_LOG_SAMPLE_RATE=0.1
 # CACHE_BACKEND=redis
 # REDIS_URL=rediss://cache.internal:6379
 `;
@@ -1053,6 +1096,7 @@ import { createApp } from "@originloom/core/app";
 import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
+import { closeGatewayTransport } from "@originloom/core/gateway-transport";
 import { drainRevalidations } from "@originloom/core/handler";
 import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
 import { logError, logger } from "@originloom/core/logger";
@@ -1134,6 +1178,8 @@ async function main() {
           drainRevalidations(config.revalidationDrainTimeoutMs),
           drainBotAnalytics(),
         ]);
+        // Drain work may issue gateway requests; close its shared pool last.
+        await closeGatewayTransport();
         await closeCache();
         // Last, so spans emitted while draining still get exported.
         await shutdownInstrumentation();
@@ -1510,7 +1556,12 @@ const mocks = vi.hoisted(() => ({
   warn: vi.fn(),
 }));
 
-vi.mock("@originloom/core/adapters/gateway", () => ({ gatewayFetch: mocks.gatewayFetch }));
+vi.mock("@originloom/core/adapters/gateway", () => ({
+  gatewayFetch: mocks.gatewayFetch,
+  requireGatewayOk: async (response: Response, message: string) => {
+    if (!response.ok) throw new Error(\`\${message} \${response.status}\`);
+  },
+}));
 vi.mock("@originloom/core/cache", () => ({
   cacheKey: (policy: { key: string[] }) => policy.key.join("\\0"),
   read: mocks.read,
@@ -1892,7 +1943,8 @@ describe("operations cache key codec", () => {
 });
 `;
 
-const itemsService = () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
+const itemsService =
+  () => `import { gatewayFetch, releaseGatewayResponse, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
@@ -1916,7 +1968,7 @@ export async function listItems(
   const response = await gatewayFetch(\`/items?page=\${page}&perPage=\${perPage}\`,
     signal ? { signal } : {},
   );
-  if (!response.ok) throw new Error(\`Items gateway returned \${response.status}\`);
+  await requireGatewayOk(response, "Items gateway returned");
 
   // Bounded read against this endpoint's contract, then a runtime guard: gateway
   // JSON is untrusted input, and a TypeScript type is not a check.
@@ -1927,8 +1979,11 @@ export async function listItems(
 export async function getItem(slug: string, signal: AbortSignal): Promise<Item | null> {
   const response = await gatewayFetch(\`/items/\${encodeURIComponent(slug)}\`, { signal });
   // A missing item is data, not a failure — the route turns it into notFound().
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(\`Items gateway returned \${response.status}\`);
+  if (response.status === 404) {
+    await releaseGatewayResponse(response);
+    return null;
+  }
+  await requireGatewayOk(response, "Items gateway returned");
 
   const payload = await readGatewayJson(response, GatewayContracts.items, INVALID);
   return requireGatewayPayload(GatewayContracts.items, payload, isItem, INVALID);
@@ -2383,7 +2438,8 @@ export default defineRoute({
 `;
 
 const accountPanelIsland =
-  () => `import { ClientApiError } from "@originloom/shared/lib/client/api-fetch";
+  () => `import { AppQueryProvider } from "@originloom/react/lib/query/provider";
+import { ClientApiError } from "@originloom/shared/lib/client/api-fetch";
 
 import { useSessionQuery } from "~/lib/query/hooks/use-session";
 
@@ -2394,6 +2450,14 @@ import { useSessionQuery } from "~/lib/query/hooks/use-session";
  * per-user part is fetched, so no one is ever served someone else's name.
  */
 export default function AccountPanel() {
+  return (
+    <AppQueryProvider>
+      <AccountPanelContent />
+    </AppQueryProvider>
+  );
+}
+
+function AccountPanelContent() {
   const session = useSessionQuery();
   const signedOut = session.error instanceof ClientApiError && session.error.status === 401;
 
@@ -2781,11 +2845,13 @@ export async function buildShellData(
 }
 `;
 
-const menuService = () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
+const menuService =
+  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
+import { memoizeRequestValue } from "@originloom/core/observability";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import { productConfig } from "@server/product/config";
 
@@ -2805,22 +2871,33 @@ const MENU_CACHE_POLICY = {
   key: [MENU_CACHE_KEY],
 };
 let refreshInFlight: Promise<MenuItem[]> | undefined;
+let parsedSnapshot: { body: string; menu: MenuItem[] } | undefined;
 
 /**
  * Public chrome data with read-through cache. Fresh entries return immediately;
  * stale entries return immediately and trigger one process-local refresh.
  */
-export async function getMenu(request: Request): Promise<MenuItem[]> {
+export function getMenu(request: Request): Promise<MenuItem[]> {
+  return memoizeRequestValue("gateway:menu:public", () => loadMenu(request));
+}
+
+async function loadMenu(request: Request): Promise<MenuItem[]> {
   try {
     const key = cache.cacheKey(MENU_CACHE_POLICY);
     if (!key) throw new Error("Menu cache policy must be shared");
 
     const hit = await cache.read(key);
     if (hit) {
+      if (parsedSnapshot?.body === hit.body) {
+        if (hit.state === "stale") scheduleRefresh();
+        return parsedSnapshot.menu;
+      }
       const cached = parseCachedMenu(hit.body);
       if (cached) {
+        const menu = freezeMenu(cached);
+        parsedSnapshot = { body: hit.body, menu };
         if (hit.state === "stale") scheduleRefresh();
-        return cached;
+        return menu;
       }
       // Old/corrupt values never poison future reads. A failed delete is harmless:
       // the successful write below replaces the same key.
@@ -2846,8 +2923,11 @@ function refreshMenu(key = cache.cacheKey(MENU_CACHE_POLICY)): Promise<MenuItem[
 
   const pending = fetchMenuFromGateway()
     .then(async (menu) => {
-      await cache.write(key, JSON.stringify(menu), MENU_CACHE_POLICY);
-      return menu;
+      const immutable = freezeMenu(menu);
+      const body = JSON.stringify(immutable);
+      await cache.write(key, body, MENU_CACHE_POLICY);
+      parsedSnapshot = { body, menu: immutable };
+      return immutable;
     })
     .finally(() => {
       if (refreshInFlight === pending) refreshInFlight = undefined;
@@ -2866,7 +2946,7 @@ function scheduleRefresh(): void {
 async function fetchMenuFromGateway(): Promise<MenuItem[]> {
   // Menu is public/cacheable, so never forward a caller's Authorization header.
   const response = await gatewayFetch("/menu");
-  if (!response.ok) throw new Error(\`Menu gateway returned \${response.status}\`);
+  await requireGatewayOk(response, "Menu gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.menu, "Invalid menu payload");
   return requireGatewayPayload(GatewayContracts.menu, payload, isMenu, "Invalid menu payload");
 }
@@ -2878,6 +2958,12 @@ function parseCachedMenu(body: string): MenuItem[] | null {
   } catch {
     return null;
   }
+}
+
+/** Bounded process snapshot: cache hits reuse validated objects instead of JSON parsing again. */
+function freezeMenu(menu: MenuItem[]): MenuItem[] {
+  for (const item of menu) Object.freeze(item);
+  return Object.freeze(menu) as MenuItem[];
 }
 
 function waitForRequest<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -2917,7 +3003,8 @@ function isMenu(value: unknown): value is MenuItem[] {
 const menuLib = () => `export type MenuItem = { label: string; href: string };
 `;
 
-const botAnalyticsService = () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
+const botAnalyticsService =
+  () => `import { gatewayFetch, releaseGatewayResponse, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import { logger } from "@originloom/core/logger";
 import type { BotVisit } from "@originloom/core/runtime";
 import { productConfig } from "@server/product/config";
@@ -3042,7 +3129,8 @@ async function sendBatch(events: BotVisit[], signal: AbortSignal): Promise<void>
     body: JSON.stringify({ events }),
     signal,
   });
-  if (!response.ok) throw new Error(\`Bot analytics gateway returned \${response.status}\`);
+  await requireGatewayOk(response, "Bot analytics gateway returned");
+  await releaseGatewayResponse(response);
 }
 `;
 
@@ -3235,13 +3323,29 @@ import { reportClientError } from "@originloom/shared/lib/client/error-telemetry
 import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
 import { reportWebVital } from "@originloom/shared/lib/client/performance-telemetry";
 import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
-import { onCLS, onINP, onLCP } from "web-vitals";
 
 installReloadButtons();
 
-for (const observe of [onCLS, onINP, onLCP]) {
-  observe(({ name, value, rating }) => reportWebVital({ name, value, rating }));
-}
+// Quality telemetry must not compete with first paint or island hydration.
+// The dynamic import keeps web-vitals out of the initial route chunk.
+const observeWebVitals = () => {
+  void import("web-vitals")
+    .then(({ onCLS, onINP, onLCP }) => {
+      for (const observe of [onCLS, onINP, onLCP]) {
+        observe(({ name, value, rating }) => reportWebVital({ name, value, rating }));
+      }
+    })
+    .catch((error) => reportClientError("performance-telemetry", error));
+};
+const scheduleWebVitals = () => {
+  const requestIdle = (
+    window as unknown as { requestIdleCallback?: (callback: () => void) => number }
+  ).requestIdleCallback;
+  if (requestIdle) requestIdle.call(window, observeWebVitals);
+  else setTimeout(observeWebVitals, 0);
+};
+if (document.readyState === "complete") scheduleWebVitals();
+else window.addEventListener("load", scheduleWebVitals, { once: true });
 
 runIslandBootstrap(
   (element) => {
@@ -3255,14 +3359,11 @@ runIslandBootstrap(
 
 const hydrateClient =
   () => `import { createIslandMounter, type IslandModule } from "@originloom/react/lib/client/island-mount";
-import { AppQueryProvider } from "@originloom/react/lib/query/provider";
 
 // import.meta.glob resolves relative to this file, so the island registry is
 // app-owned by design. Every src/islands/*.tsx becomes an island named after it.
 export const mount = createIslandMounter({
   modules: import.meta.glob<IslandModule>("./islands/*.tsx"),
-  // One browser QueryClient is shared by every independently mounted island.
-  Wrapper: AppQueryProvider,
 });
 `;
 
@@ -3806,7 +3907,7 @@ sahiplenir.
 
 ## Gereksinimler
 
-- Node.js 22.13 veya üzeri
+- Node.js 22.19 veya üzeri
 - Corepack üzerinden pnpm
 ${standalone ? "- `@originloom/*` paketlerinin bulunduğu registry'ye erişim" : "- OriginLoom monorepo kökünde çalışmak"}
 
@@ -3886,6 +3987,9 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 | \`pnpm lighthouse\`     | Route performance ve accessibility bütçelerini çalıştırır    |
 | \`pnpm capacity\`       | Tüm route'larda kademeli kapasite testi ve Markdown/JSON raporu üretir |
 | \`pnpm capacity:quick\` | Kapasite runner'ının kısa doğrulama profilini çalıştırır      |
+| \`pnpm capacity:profile\` | Seçilen route için ayrı CPU/heap profiling raporu üretir    |
+| \`pnpm performance:compare\` | Son kapasite raporunu kabul edilmiş baseline ile karşılaştırır |
+| \`pnpm performance:accept\` | İncelenen son full raporu yeni baseline olarak kaydeder       |
 | \`pnpm smoke\`          | Built server'ı mock gateway ile probe eder                   |
 | \`pnpm ci\`             | Typecheck, cycle, lint, format, test, build ve smoke çalıştırır |
 | \`pnpm media\`          | Responsive image/font manifestini üretir                     |
@@ -3941,6 +4045,7 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 - [Auth ve BFF](docs/auth.md)
 - [Cache ve fragment stitching](docs/caching.md)
 - [Kademeli kapasite testi ve raporlama](docs/capacity.md)
+- [Performans kabul politikası, payload bütçeleri ve profiling](docs/performance-acceptance.md)
 - [Configuration](docs/configuration.md)
 - [Dynamic shell](docs/dynamic-shell.md)
 - [Background workers](docs/background-workers.md)
@@ -4427,15 +4532,40 @@ const performanceBudgets = () =>
       assetRoot: "dist/client/assets",
       assets: [
         { name: "hydration runtime", pattern: "^hydrate\\.client-.*\\.js$", maxGzipBytes: 70_000 },
-        {
-          name: "React Query provider",
-          pattern: "^QueryClientProvider-.*\\.js$",
-          maxGzipBytes: 20_000,
-        },
         { name: "counter island", pattern: "^counter-.*\\.js$", maxGzipBytes: 5_000 },
-        { name: "account island", pattern: "^account-panel-.*\\.js$", maxGzipBytes: 20_000 },
+        {
+          name: "account + React Query island",
+          pattern: "^account-panel-.*\\.js$",
+          maxGzipBytes: 25_000,
+        },
         { name: "live island", pattern: "^live-ticks-.*\\.js$", maxGzipBytes: 5_000 },
       ],
+    },
+    null,
+    2,
+  ) + "\n";
+
+const performancePolicy = () =>
+  JSON.stringify(
+    {
+      schemaVersion: 1,
+      payloadBudgets: {
+        htmlBytes: 102_400,
+        totalIslandPropsBytes: 51_200,
+        singleIslandPropsBytes: 20_480,
+        documentRenderP95Ms: 50,
+        gatewayJsonParseP95Ms: 10,
+      },
+      regression: {
+        rpsMedianDropPercent: 10,
+        latencyP95IncreasePercent: 20,
+        latencyP99IncreasePercent: 25,
+        rssPeakIncreasePercent: 20,
+        eventLoopP99IncreasePercent: 25,
+        serializationIncreasePercent: 20,
+        payloadIncreasePercent: 10,
+      },
+      reliability: { maxCoefficientOfVariationPercent: 10, generatorCpuLimitPercent: 90 },
     },
     null,
     2,
@@ -4479,7 +4609,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
-          node-version: 22.13.0
+          node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Verify ${name} consumer contracts against staging
@@ -4487,7 +4617,7 @@ jobs:
 `;
 
 const profileService =
-  () => `import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+  () => `import { gatewayFetchForRequest, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
@@ -4514,8 +4644,14 @@ export async function fetchUserProfile(request: Request): Promise<UserProfileRes
 
   try {
     const response = await gatewayFetchForRequest(request, "/user/profile");
-    if (response.status === 401 || response.status === 403) return { kind: "unauthorized" };
-    if (!response.ok) return { kind: "unavailable" };
+    if (response.status === 401 || response.status === 403) {
+      await releaseGatewayResponse(response);
+      return { kind: "unauthorized" };
+    }
+    if (!response.ok) {
+      await releaseGatewayResponse(response);
+      return { kind: "unavailable" };
+    }
 
     const payload = await readGatewayJson(response, GatewayContracts.profile, INVALID);
     const data = requireGatewayPayload(

@@ -8,6 +8,8 @@ import type { RedisStore } from "./redis.js";
 import {
   buildCacheEntry,
   type CacheEntry,
+  cacheEntryFragmentMarkers,
+  type CacheReadResult,
   type CacheStore,
   type ListKeysOptions,
   type ListKeysResult,
@@ -36,7 +38,7 @@ export class TieredStore implements CacheStore {
     return this.l2 !== null;
   }
 
-  async read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null> {
+  async read(key: string): Promise<CacheReadResult | null> {
     const l1Hit = await this.l1.read(key);
     if (l1Hit) return l1Hit;
 
@@ -47,7 +49,13 @@ export class TieredStore implements CacheStore {
       if (!l2Hit) return null;
       await this.promoteToL1(key, l2Hit.entry);
       observeCachePromotion("l2");
-      return { body: l2Hit.entry.body, state: l2Hit.state };
+      const fragmentMarkers = cacheEntryFragmentMarkers(l2Hit.entry);
+      return {
+        body: l2Hit.entry.body,
+        state: l2Hit.state,
+        hasFragments: fragmentMarkers.length > 0,
+        fragmentMarkers,
+      };
     } catch (error) {
       logError(error, { msg: "L2 cache read failed; treating as miss", key });
       return null;

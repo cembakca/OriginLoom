@@ -12,8 +12,9 @@ export async function runPipeline(
   request: Request,
   requestId: string | undefined,
   clientIp: string,
+  preparedUrl?: URL,
 ): Promise<PipelineResult> {
-  const url = new URL(request.url);
+  const url = preparedUrl ?? new URL(request.url);
   const ctx = {
     url,
     pathname: url.pathname,
