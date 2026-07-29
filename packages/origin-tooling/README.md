@@ -1,43 +1,203 @@
 # @originloom/tooling
 
-The CLIs an [OriginLoom](https://github.com/cembakca/OriginLoom) app runs: dev, build, smoke,
-scaffolding and the import-layering guard. Apps depend on it as a devDependency and call the
-binaries from their package scripts.
+OriginLoom uygulamalarının scaffold, geliştirme, build, smoke, medya üretimi ve mimari kontrol
+CLI'larıdır. Generated uygulamalar paketi `devDependency` olarak kullanır ve komutları kendi
+`package.json` script'leri üzerinden çalıştırır.
+
+## Yeni React projesi oluşturma
+
+React varsayılan renderer'dır; ayrıca `--renderer react` yazmanız gerekmez. Proje adı lowercase
+kebab-case olmalıdır (`investment-web` gibi) ve hedef klasör önceden var olmamalıdır.
+
+### 1. Published/private registry'den standalone proje
+
+Ürün ekibinin ayrı bir repository'de kullanacağı normal akış budur:
 
 ```bash
-pnpm add -D @originloom/tooling
+mkdir -p ~/projects
+cd ~/projects
+
+pnpm --package=@originloom/tooling@latest dlx origin-create-app investment-web \
+  --title "Investment" \
+  --registry https://nexus.example.com/repository/npm-private/ \
+  --with-ops
+
+cd investment-web
+git init
+pnpm install
+pnpm ci
+pnpm dev
 ```
 
-## Scaffolding a new app
+`--registry`, generated projenin içine yalnız `@originloom/*` scope'unu hedefleyen bir `.npmrc`
+yazar. Registry authentication gerekiyorsa token'ı repository'ye yazmayın; kullanıcı/CI npm
+config'i veya secret değişkenleri üzerinden verin.
+
+`pnpm dev`, mock gateway ile SSR ve Vite süreçlerini birlikte başlatır. Uygulama varsayılan olarak
+`http://127.0.0.1:3010`, Vite `http://127.0.0.1:5010`, metrics listener ise yalnız operasyon ağı
+için `:9010` üzerinde çalışır. Gerçek entegrasyona geçerken `.env.development` içindeki
+`GATEWAY_URL` değerini değiştirin.
+
+### 2. Yerel Verdaccio'dan standalone proje
+
+Yayımlanmamış paketleri gerçek registry tüketicisi gibi denemek için üç terminal kullanın.
+
+Repository kökünde registry'yi açık bırakın:
 
 ```bash
-pnpm create-app investment-web              # standalone repo, React
-pnpm create-app landing-web --vanilla       # no UI framework
-pnpm create-app knowledge-web --workspace   # inside an OriginLoom monorepo
+pnpm registry:local
 ```
 
-| Flag                 | Meaning                                                        |
-| -------------------- | -------------------------------------------------------------- |
-| `--workspace`        | Generate into `apps/<name>` with `workspace:*` deps            |
-| `--vanilla`          | Framework-free renderer (`--renderer vanilla`)                 |
-| `--port <n>`         | App port; metrics on `n + 6000`, Vite dev server on `n + 2000` |
-| `--vite-port <n>`    | Override the Vite dev-server port                              |
-| `--target-dir <dir>` | Where a standalone app is written                              |
-| `--version <range>`  | `@originloom/*` version range for a standalone app             |
-| `--registry <url>`   | Writes the app's `.npmrc` so it installs `@originloom/*` there |
+İkinci terminalde paketleri yayınlayın:
 
-The generated app is formatted with Prettier on the way out, ships Claude Code skills matching its
-renderer, and boots with a working SSR page, a hydrating island and a cached HTML response.
+```bash
+pnpm registry:publish
+```
+
+Repository dışında projeyi oluşturun. Üst klasördeki `.npmrc` yalnız `dlx` çağrısının tooling
+paketini bulmasını sağlar; `--registry` ise yeni uygulamanın kendi `.npmrc` dosyasını üretir:
+
+```bash
+mkdir -p ~/projects/originloom-local
+cd ~/projects/originloom-local
+echo "@originloom:registry=http://localhost:4873" > .npmrc
+
+pnpm --package=@originloom/tooling@latest dlx origin-create-app investment-web \
+  --title "Investment" \
+  --registry http://localhost:4873 \
+  --with-ops
+
+cd investment-web
+git init
+pnpm install
+pnpm ci
+pnpm dev
+```
+
+Verdaccio storage repository içindeki `.verdaccio/` altında kalır. Aynı local sürüm yeniden
+publish edildiğinde local paket değiştirilir; gerçek registry release'inde bunun yerine sürüm
+artırılmalıdır.
+
+### 3. OriginLoom monorepo içinde workspace proje
+
+Bu komut repository kökünden çalıştırılır ve uygulamayı `apps/<name>` altına, `workspace:*`
+bağımlılıklarıyla yazar:
+
+```bash
+pnpm create-app knowledge-web \
+  --workspace \
+  --title "Knowledge"
+
+pnpm install
+pnpm --filter knowledge-web ci
+pnpm --filter knowledge-web dev
+```
+
+### 4. Interactive kullanım
+
+Ad ve başlık verilmezse CLI bunları sorar:
+
+```bash
+pnpm --package=@originloom/tooling@latest dlx origin-create-app
+```
+
+CI veya script kullanımında prompt oluşmaması için hem proje adını hem `--title` değerini verin.
+
+## Create seçenekleri
+
+| Flag                 | Açıklama                                                                |
+| -------------------- | ----------------------------------------------------------------------- |
+| `--title <text>`     | README ve metadata için görünen ürün adı                                |
+| `--workspace`        | `apps/<name>` altında `workspace:*` bağımlılıklarıyla üretir            |
+| `--renderer react`   | React renderer; varsayılan                                              |
+| `--renderer vanilla` | Framework-free renderer                                                 |
+| `--vanilla`          | `--renderer vanilla` kısayolu                                           |
+| `--port <n>`         | Uygulama portu; metrics `n + 6000`, Vite varsayılanı `n + 2000`         |
+| `--vite-port <n>`    | Vite dev-server portunu ayrıca belirler                                 |
+| `--target-dir <dir>` | Standalone projenin yazılacağı üst klasör                               |
+| `--version <range>`  | Standalone proje için `@originloom/*` semver aralığı                    |
+| `--registry <url>`   | Generated `.npmrc` içindeki `@originloom` registry adresi               |
+| `--with-ops`         | Compose, Kubernetes, Prometheus, load/stress ve pentest readiness ekler |
+
+Örnek:
+
+```bash
+origin-create-app payments-web \
+  --title "Payments" \
+  --target-dir ~/projects \
+  --version "^1.2.0" \
+  --port 3020 \
+  --vite-port 5020 \
+  --with-ops
+```
+
+## Generated React uygulamasında gelenler
+
+- SSR route, loader, boundary ve cache registry örnekleri
+- Hydrate/defer island, BFF session ve güvenli client API yenileme akışı
+- L1/L2 cache, SWR, fragment stitching ve cache purge transport'u
+- Progressive SSR, bounded SSE admission ve graceful shutdown
+- Read-through/SWR endpoint-data cache'li dynamic menu ve bounded bot analytics worker
+- Metadata, canonical, JSON-LD, robots.txt ve sitemap
+- Static redirect, internal rewrite, explicit gateway proxy, CMS redirect ve `410 Gone`
+- Responsive media/icon pipeline, CSP script sequencing, metrics, tracing ve client errors
+- Unit/integration testleri, CI workflow'u ve production Dockerfile
+- Auth, cache, routing, streaming, SEO, observability ve operasyon rehberleri
+- Template provenance, origin-doctor ve güvenli/idempotent origin-migrate akışı
+
+`--with-ops` ayrıca Compose/Kubernetes manifestleri, Prometheus kuralları, load/stress karşılaştırma
+araçları ve `pentest:readiness` script'i üretir. Önce generated `OPERATIONS.md` içindeki image, host
+ve secret placeholder'larını değiştirin.
+
+## İlk geliştirme kontrol listesi
+
+1. Generated `README.md` ve `docs/features.md` envanterini okuyun.
+2. `.env.development` ile `.env.production` değerlerini ürün ortamlarına göre düzenleyin.
+3. `mock-gateway/server.mjs` kontratlarını gerçek gateway payload'larıyla eşleyin.
+4. `src/routing/rules.ts`, cache registry ve sitemap girdilerini ürün URL'lerine uyarlayın.
+5. Secret'ları dosyaya koymadan CI/secret manager üzerinden sağlayın.
+6. `pnpm ci` ile typecheck, cycle, lint, format, test, build ve smoke kontrollerini çalıştırın.
+7. `pnpm dev` ile çalışan örnek route'ları ve boundary davranışlarını gözden geçirin.
+
+## Mevcut projeyi yükseltme
+
+Generated .originloom/project.json dosyası template sürümünü, platform aralığını, renderer/mode
+bilgisini ve uygulanmış migration kimliklerini taşır. Yeni generator eski proje kaynaklarının
+üzerine yazılmaz.
+
+Yükseltme sırası:
+
+1. Tooling paketini hedef sürüme yükseltin.
+2. pnpm origin:doctor ile fixed-group, metadata ve pending migration bulgularını okuyun.
+3. pnpm origin:migrate ile dry-run planını inceleyin.
+4. Temiz Git ağacında pnpm origin:migrate --apply çalıştırın.
+5. pnpm install, pnpm origin:doctor --strict ve pnpm ci çalıştırın.
+
+Migration mevcut route/component dosyalarını yeniden üretmez. Yalnız machine-owned metadata,
+OriginLoom dependency grubu, güvenli script'ler ve eksik upgrade rehberini değiştirir; değiştirdiği
+dosyaları .originloom/backups altında saklar. Ayrıntı generated docs/upgrading.md dosyasındadır.
+
+Platform release provası güncel sürümden temiz proje kurar. Gerçek N-1 yükseltme provası ise iki
+sürümün bulunduğu registry'ye karşı pnpm upgrade:verify ile çalışır: önce önceki tooling ile proje
+oluşturur, sonra güncel fixed group'a migrate eder ve generated pnpm ci kapısını çalıştırır.
 
 ## Binaries
 
-| Command                 | What it does                                                |
-| ----------------------- | ----------------------------------------------------------- |
-| `origin-dev`            | Vite dev server + SSR server (+ optional gateway) together  |
-| `origin-build`          | Client bundle, then the self-contained SSR bundle           |
-| `origin-smoke`          | Boots the built server and probes it                        |
-| `origin-check-cycles`   | Import cycles, package layering, and the framework boundary |
-| `origin-run-with-env`   | Runs a command with `.env.<app-env>` loaded                 |
-| `origin-generate-icons` | SVG sources → typed components                              |
-| `origin-build-media`    | Image/font pipeline for the asset manifest                  |
-| `origin-compose-up`     | docker compose wrapper for the local stack                  |
+| Komut                   | Görevi                                                          |
+| ----------------------- | --------------------------------------------------------------- |
+| `origin-create-app`     | Standalone veya workspace uygulaması üretir                     |
+| `origin-dev`            | Vite, SSR ve isteğe bağlı mock gateway'i birlikte çalıştırır    |
+| `origin-dev-local`      | Local cache/Redis geliştirme topolojisini başlatır              |
+| `origin-build`          | Client bundle ve self-contained SSR bundle üretir               |
+| `origin-build-media`    | Image/font manifest pipeline'ını çalıştırır                     |
+| `origin-generate-icons` | SVG kaynaklarından typed React icon component'leri üretir       |
+| `origin-smoke`          | Built server'ı ve isteğe bağlı gateway'i başlatıp probe eder    |
+| `origin-check-cycles`   | Import cycle, package layering ve renderer sınırlarını denetler |
+| `origin-run-with-env`   | Komutu `.env.<app-env>` yükleyerek çalıştırır                   |
+| `origin-run-local`      | Production bundle'ı local cache seçenekleriyle çalıştırır       |
+| `origin-start-memory`   | Uygulamayı memory cache topolojisiyle başlatır                  |
+| `origin-local-redis`    | Local Redis yardımcısını çalıştırır                             |
+| `origin-compose-up`     | Generated Docker Compose stack'ini başlatır                     |
+| `origin-docker-clean`   | Generated local Compose kaynaklarını temizler                   |
+| `origin-doctor`         | Template, fixed-group ve migration sağlığını read-only denetler |
+| `origin-migrate`        | Upgrade planını dry-run gösterir ve güvenli biçimde uygular     |

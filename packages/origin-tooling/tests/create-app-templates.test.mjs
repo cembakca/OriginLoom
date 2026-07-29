@@ -170,6 +170,13 @@ describe("renderTemplates — shared shape", () => {
       // The operations port carries /metrics and purge, and must stay off the ingress.
       expect(ops["k8s/network-policy.yaml"]).toContain("port: 9040");
       expect(ops["OPERATIONS.md"]).toContain("pay-web");
+      expect(ops).toHaveProperty(["load-test/stress.mjs"]);
+      expect(ops).toHaveProperty(["load-test/compare.mjs"]);
+      expect(ops).toHaveProperty(["scripts/pentest-readiness.mjs"]);
+      if (renderer === "react") {
+        expect(ops["README.md"]).toContain("pnpm pentest:readiness");
+        expect(ops["README.md"]).toContain("OPERATIONS.md");
+      }
       expect(JSON.parse(ops["package.json"]).scripts["compose:redis"]).toBe(
         "origin-compose-up --redis",
       );
@@ -218,6 +225,8 @@ describe("renderTemplates — standalone mode", () => {
     expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
       expect.arrayContaining(["esbuild", "sharp", "@tailwindcss/oxide", "protobufjs"]),
     );
+    expect(pkg.pnpm.overrides).toBeUndefined();
+    expect(pkg.devDependencies["@napi-rs/wasm-runtime"]).toBe("1.1.6");
   });
 
   it("carries the base compiler options inline (no monorepo extends)", () => {
@@ -249,6 +258,9 @@ describe("renderTemplates — standalone mode", () => {
   it("documents the standalone install/dev/deploy flow", () => {
     const readme = standalone({ name: "demo-web" })["README.md"];
     expect(readme).toContain("pnpm dev");
+    expect(readme).toContain("pnpm ci");
+    expect(readme).toContain("docs/routing.md");
+    expect(readme).toContain("/legacy-catalog");
     expect(readme).toContain("docker build -t demo-web .");
     expect(readme).not.toContain("pnpm --filter");
   });
@@ -368,8 +380,11 @@ describe("renderTemplates — project features", () => {
     expect(files).toHaveProperty([".prettierignore"]);
     const pkg = JSON.parse(files["package.json"]);
     expect(pkg.scripts.lint).toBe("eslint .");
+    expect(pkg.scripts.test).toBe("vitest run tests");
     expect(pkg.scripts.format).toBe("prettier --write .");
-    expect(pkg.devDependencies).toHaveProperty("eslint");
+    expect(pkg.engines.node).toBe(">=22.13.0");
+    expect(pkg.devDependencies["@eslint/js"]).toBe("^10.0.1");
+    expect(pkg.devDependencies.eslint).toBe("^10.8.0");
     expect(pkg.devDependencies).toHaveProperty("typescript-eslint");
     expect(pkg.devDependencies).toHaveProperty("prettier");
   });
@@ -399,6 +414,68 @@ describe("renderTemplates — project features", () => {
     expect(files["src/features/showcase/showcase-page.tsx"]).toContain(
       '<ssr-fragment name="server-time"',
     );
+  });
+});
+
+describe("renderTemplates — browser E2E", () => {
+  it("ships a production Playwright suite only for React", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+
+    for (const path of [
+      "playwright.config.ts",
+      "e2e/critical-paths.spec.ts",
+      "e2e/accessibility.spec.ts",
+      "e2e/ssr.no-js.spec.ts",
+    ]) {
+      expect(files, `missing ${path}`).toHaveProperty([path]);
+    }
+    expect(pkg.devDependencies["@playwright/test"]).toBe("^1.62.0");
+    expect(pkg.devDependencies["@axe-core/playwright"]).toBe("^4.12.1");
+    expect(pkg.scripts.e2e).toBe("playwright test");
+    expect(pkg.scripts.ci).toContain("pnpm run e2e");
+    expect(files["playwright.config.ts"]).toContain('command: "pnpm run e2e:server"');
+    expect(files["playwright.config.ts"]).toContain("javaScriptEnabled: false");
+    expect(files["tsconfig.json"]).toContain('"e2e"');
+  });
+
+  it("covers the platform's critical browser boundaries", () => {
+    const files = standalone();
+    const critical = files["e2e/critical-paths.spec.ts"];
+
+    expect(critical).toContain("content-security-policy");
+    expect(critical).toContain("/api/internal/client-errors");
+    expect(critical).toContain("/api/internal/refresh");
+    expect(critical).toContain("/old-catalog?source=e2e");
+    expect(critical).toContain("/products/alpha?source=e2e");
+    expect(critical).toContain("app_live_stream_active_connections");
+    expect(critical).toContain("Oturum bilgisi şu an alınamıyor.");
+    expect(files["e2e/accessibility.spec.ts"]).toContain("AxeBuilder");
+    expect(files["e2e/ssr.no-js.spec.ts"]).toContain("JavaScript is disabled");
+  });
+
+  it("installs Chromium and retains the HTML report in generated CI", () => {
+    const workflow = standalone()[".github/workflows/ci.yml"];
+    expect(workflow).toContain("playwright install --with-deps chromium");
+    expect(workflow).toContain("actions/upload-artifact@v7");
+    expect(workflow).toContain("playwright-report/");
+  });
+
+  it("keeps Playwright out of the vanilla template", () => {
+    const files = renderTemplates({
+      ...base,
+      mode: "standalone",
+      version: "^0.1.0",
+      renderer: "vanilla",
+    });
+    const pkg = JSON.parse(files["package.json"]);
+
+    expect(files).not.toHaveProperty(["playwright.config.ts"]);
+    expect(Object.keys(files).some((path) => path.startsWith("e2e/"))).toBe(false);
+    expect(pkg.devDependencies).not.toHaveProperty("@playwright/test");
+    expect(pkg.scripts).not.toHaveProperty("e2e");
+    expect(pkg.scripts.ci).not.toContain("e2e");
+    expect(files[".github/workflows/ci.yml"]).not.toContain("playwright");
   });
 });
 
@@ -447,7 +524,11 @@ describe("renderTemplates — example routes", () => {
     expect(files["server/routes/live.tsx"]).toContain("streaming: true");
     expect(files["src/features/live/live-page.tsx"]).toContain("Suspense");
     expect(files["src/islands/live-ticks.tsx"]).toContain("new EventSource");
-    expect(files["server/api/index.ts"]).toContain('"/api/ticks"');
+    expect(files["server/api/index.ts"]).toContain("mountLiveStreamApi");
+    expect(files["server/api/live-stream/index.ts"]).toContain('"/api/ticks"');
+    expect(files["server/api/live-stream/index.ts"]).toContain("x-accel-buffering");
+    expect(files["server/api/live-stream/index.ts"]).toContain("stream.onAbort");
+    expect(files["server/api/live-stream/admission.ts"]).toContain("perIpLimit");
     expect(files["server/index.ts"]).toContain("mounts: { api: mountApi, seo: mountSeo }");
   });
 });
@@ -604,7 +685,11 @@ describe("renderTemplates — gateway wiring", () => {
   });
 
   it.each(modes)("%s: ships a mock gateway and starts it in dev and smoke", (_name, files) => {
-    expect(files["mock-gateway/server.mjs"]).toContain("/items");
+    const gateway = files["mock-gateway/server.mjs"];
+    expect(gateway).toContain("/items");
+    expect(gateway).toContain("process.env.MOCK_GATEWAY_PORT ?? 4002");
+    expect(gateway).not.toContain("process.env.PORT ?? 4002");
+    expect(files[".env.development"]).toContain("MOCK_GATEWAY_PORT=4002");
     const scripts = JSON.parse(files["package.json"]).scripts;
     expect(scripts.dev).toContain("--gateway mock-gateway/server.mjs");
     expect(scripts.smoke).toContain("--gateway mock-gateway/server.mjs");
@@ -645,11 +730,177 @@ describe("renderTemplates — SEO, cache purge and product metrics", () => {
   });
 
   it.each(modes)("%s: appends its own metrics to /metrics", (_name, files) => {
-    expect(files["server/product/runtime.ts"]).toContain("metricSources: [catalogMetricLines]");
+    expect(files["server/product/runtime.ts"]).toContain("catalogMetricLines");
     const metrics = files["server/metrics/catalog.ts"];
     expect(metrics).toContain("counterLines");
     // Unbounded label values are how a metric takes Prometheus down.
     expect(metrics).toContain("bucket");
+  });
+});
+
+describe("renderTemplates — production reference coverage", () => {
+  it("ships human-readable feature documentation for React apps", () => {
+    const files = standalone();
+    for (const path of [
+      "docs/features.md",
+      "docs/auth.md",
+      "docs/background-workers.md",
+      "docs/caching.md",
+      "docs/configuration.md",
+      "docs/dynamic-shell.md",
+      "docs/routing.md",
+      "docs/streaming.md",
+      "docs/seo.md",
+      "docs/observability.md",
+      "docs/react-query.md",
+      "docs/testing.md",
+      "docs/upgrading.md",
+    ]) {
+      expect(files, `missing ${path}`).toHaveProperty([path]);
+    }
+    expect(files["README.md"]).toContain("docs/features.md");
+  });
+
+  it("records template provenance and makes upgrade health part of CI", () => {
+    const files = standalone({ version: "^9.8.7", templateVersion: "9.9.0" });
+    const metadata = JSON.parse(files[".originloom/project.json"]);
+    const pkg = JSON.parse(files["package.json"]);
+
+    expect(metadata).toMatchObject({
+      schemaVersion: 1,
+      templateVersion: "9.9.0",
+      platformRange: "^9.8.7",
+      renderer: "react",
+      mode: "standalone",
+      generatedBy: "@originloom/tooling",
+    });
+    expect(metadata.appliedMigrations).toContain("0.5.14-upgrade-contract-v1");
+    expect(metadata.appliedMigrations).toContain("0.5.17-eslint-10");
+    expect(metadata.appliedMigrations).toContain("0.5.18-vitest-scope");
+    expect(pkg.scripts["origin:doctor"]).toBe("origin-doctor");
+    expect(pkg.scripts["origin:migrate"]).toBe("origin-migrate");
+    expect(pkg.scripts.ci).toContain("origin:doctor --strict");
+    expect(files["docs/upgrading.md"]).toContain("origin:migrate --apply");
+  });
+
+  it("aligns the BFF refresh endpoint with the query-backed clientApiFetch hook", () => {
+    const files = standalone();
+    expect(files["server/api/session.ts"]).toContain('"/api/internal/refresh"');
+    expect(files["src/islands/account-panel.tsx"]).toContain("useSessionQuery");
+    expect(files["src/lib/query/hooks/use-session.ts"]).toContain("clientApiFetch");
+    expect(files["tests/auth-client.test.ts"]).toContain('"/api/internal/refresh"');
+  });
+
+  it("ships a bounded mock refresh contract and documents its development cookies", () => {
+    const files = standalone();
+    const gateway = files["mock-gateway/server.mjs"];
+    expect(gateway).toContain('url.pathname === "/auth/refresh"');
+    expect(gateway).toContain('body.refreshToken !== "dev-refresh-token"');
+    expect(gateway).toContain("createDevAccessToken()");
+    expect(gateway).toContain("bytes > 16_384");
+    expect(files["docs/auth.md"]).toContain("access_token=");
+    expect(files["docs/auth.md"]).toContain("refresh_token=dev-refresh-token");
+    expect(files["docs/auth.md"]).toContain("HttpOnly");
+  });
+
+  it("installs and wires TanStack Query for every React island", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+    expect(pkg.dependencies["@tanstack/react-query"]).toBe("^5.101.4");
+    expect(files["src/hydrate.client.tsx"]).toContain(
+      'import { AppQueryProvider } from "@originloom/react/lib/query/provider"',
+    );
+    expect(files["src/hydrate.client.tsx"]).toContain("Wrapper: AppQueryProvider");
+    expect(files["src/lib/query/keys.ts"]).toContain('["session", "current"]');
+    expect(files["docs/react-query.md"]).toContain("React Query'yi tamamen kaldırma");
+  });
+
+  it("normalizes content query params before they enter a cache key", () => {
+    const files = standalone();
+    expect(files["src/lib/cache-keys.ts"]).toContain("contentQueryCacheFragment");
+    expect(files["src/lib/cache-keys.ts"]).toContain('include: ["page"]');
+    expect(files["tests/pagination.test.ts"]).toContain("normalizePageParam");
+  });
+
+  it("ships bounded live-stream lifecycle, metrics and tests", () => {
+    const files = standalone();
+    expect(files["server/api/live-stream/index.ts"]).toContain("liveStreamMaxConnections");
+    expect(files["server/api/live-stream/index.ts"]).toContain("stopLiveStreams");
+    expect(files["server/metrics/live-stream.ts"]).toContain("active_connections");
+    expect(files["server/product/runtime.ts"]).toContain("liveStreamMetricLines");
+    expect(files["tests/live-stream-admission.test.ts"]).toContain("global_limit");
+    expect(files[".env.production"]).toContain("LIVE_STREAM_MAX_CONNECTIONS=1000");
+    expect(standalone({ renderer: "vanilla" })[".env.production"]).not.toContain("LIVE_STREAM_");
+  });
+
+  it("ships a validated read-through menu cache with bounded fallback chrome", () => {
+    const files = standalone();
+    expect(files["server/services/menu.ts"]).toContain("requireGatewayPayload");
+    expect(files["server/services/menu.ts"]).toContain("FALLBACK_MENU");
+    expect(files["server/services/menu.ts"]).toContain('MENU_CACHE_KEY = "menu:public:v1"');
+    expect(files["server/services/menu.ts"]).toContain("refreshInFlight");
+    expect(files["server/services/menu.ts"]).toContain('hit.state === "stale"');
+    expect(files["server/services/shell-data.ts"]).toContain("getMenu");
+    expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.map");
+    expect(files["tests/menu-cache.test.ts"]).toContain("does not cache the local fallback");
+    expect(files[".env.production"]).toContain("MENU_CACHE_TTL=14400");
+    expect(standalone({ renderer: "vanilla" })[".env.production"]).not.toContain("MENU_CACHE_TTL");
+  });
+
+  it("documents production cache decisions, operations and failure modes", () => {
+    const files = standalone();
+    const guide = files["docs/caching.md"];
+
+    expect(guide).toContain("## TTL ve SWR nasıl seçilir?");
+    expect(guide).toContain("## Request yaşam döngüsü ve stampede koruması");
+    expect(guide).toContain("CACHE_FILL_WAIT_MS");
+    expect(guide).toContain("CACHE_REQUIRED=true");
+    expect(guide).toContain('{"pageIds":["catalog"]}');
+    expect(guide).toContain('{"prefix":"menu:"}');
+    expect(guide).toContain("keysEncoded");
+    expect(guide).toContain("ssr_cache_l2_healthy");
+    expect(guide).toContain("## Deploy ve içerik değişikliği runbook'u");
+
+    const skill = files[".claude/skills/caching/SKILL.md"];
+    expect(skill).toContain('{"pageIds":["catalog"]}');
+    expect(skill).not.toContain('{"mode":"prefix"');
+  });
+
+  it("wires a bounded bot analytics worker into runtime and shutdown", () => {
+    const files = standalone();
+    expect(files["server/services/bot-analytics.ts"]).toContain("class BotAnalyticsQueue");
+    expect(files["server/product/runtime.ts"]).toContain("onBotVisit: storeBotVisit");
+    expect(files["server/index.ts"]).toContain("drainBotAnalytics");
+    expect(files["tests/bot-analytics.test.ts"]).toContain("queue_full");
+  });
+
+  it("validates CMS SEO and emits paginated structured metadata", () => {
+    const files = standalone();
+    expect(files["server/services/items.ts"]).toContain("isBoundedString(value.seo.title");
+    expect(files["server/routes/catalog.tsx"]).toContain("itemListJsonLd");
+    expect(files["server/routes/item-detail.tsx"]).toContain("data.item.seo.title");
+  });
+
+  it("ships integration-level boundary tests for session, SSE and purge key transport", () => {
+    const files = standalone();
+    expect(files["tests/session-api.test.ts"]).toContain("/api/internal/refresh");
+    expect(files["tests/live-stream-api.test.ts"]).toContain("cross-site");
+    expect(files["tests/cache-key-codec.test.ts"]).toContain("encodeCacheKeyForApi");
+  });
+
+  it("ships working redirect, rewrite, explicit proxy and CMS gone examples", () => {
+    const files = standalone();
+    const rules = files["src/routing/rules.ts"];
+    expect(rules).toContain('source: "/old-catalog"');
+    expect(rules).toContain('source: "/products/:slug"');
+    expect(rules).toContain('source: "/gateway/menu"');
+    expect(files["tests/routing-rules.test.ts"]).toContain('publicPath: "/products/alpha"');
+    expect(files["mock-gateway/server.mjs"]).toContain('"/cms/redirects"');
+    expect(files["mock-gateway/server.mjs"]).toContain('"/removed-page", { type: "gone" }');
+
+    const vanillaFiles = standalone({ renderer: "vanilla" });
+    expect(vanillaFiles["src/routing/rules.ts"]).not.toContain('source: "/old-catalog"');
+    expect(vanillaFiles["mock-gateway/server.mjs"]).not.toContain('"/cms/redirects"');
   });
 });
 

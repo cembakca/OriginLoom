@@ -44,10 +44,10 @@ const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
  * A standalone app pins the platform range. Defaulting to this CLI's own version
  * keeps the two in step: the generator that shipped in 0.2.0 scaffolds ^0.2.0.
  */
-const DEFAULT_VERSION_RANGE = `^${
-  JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"))
-    .version
-}`;
+const TOOLING_VERSION = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+).version;
+const DEFAULT_VERSION_RANGE = "^" + TOOLING_VERSION;
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -88,6 +88,7 @@ async function main() {
     vitePort,
     mode: options.workspace ? "workspace" : "standalone",
     version: options.version ?? DEFAULT_VERSION_RANGE,
+    templateVersion: TOOLING_VERSION,
     renderer: options.renderer,
     withOps: options.withOps,
     ...(options.registry ? { registry: options.registry } : {}),

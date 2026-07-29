@@ -111,15 +111,40 @@ Sırasıyla şunu yapar:
    `pnpm-workspace.yaml`'ı yazılır ki bu repoyu hiç görmesin.
 5. Registry'den kurar, sonra doğrular: beş paketin de kurulduğunu, core'un `src/` değil `dist/`
    gönderdiğini.
-6. Kurulan uygulamayı `tsc --noEmit` + `origin-build` + `origin-smoke` ile sürer.
-7. Verdaccio'yu kapatır, geçici dizini siler.
+6. Kurulan uygulamayı `origin-doctor --strict` + `tsc --noEmit` + `origin-build` + `origin-smoke`
+   ile sürer.
+7. React provasında Chromium'u kurar ve template'in Playwright suite'ini production bundle'a karşı
+   çalıştırır. Vanilla provası browser bağımlılığı taşımaz.
+8. Verdaccio'yu kapatır, geçici dizini siler.
 
 **Neden gerekli:** repodaki diğer tüm kontroller paketleri `workspace:*` üzerinden `src/`'den
-çözer. `dist` derlemesi, `publishConfig.exports` haritası ve paketler arası sürüm bağları ancak
-gerçek bir registry'de buluşur. Prova ilk çalıştığında `origin-smoke`'un showroom'a özgü iki
+çözer. `dist` derlemesi, `publishConfig.exports` haritası, browser runtime ve paketler arası sürüm
+bağları ancak gerçek bir registry'de buluşur. Prova ilk çalıştığında `origin-smoke`'un showroom'a özgü iki
 beklenti taşıdığını ortaya çıkardı — üretilen her uygulama kendi smoke'undan kalıyordu.
 
 ---
+
+### N-1 → N yükseltme provası
+
+Release verify temiz ve güncel proje kurar; upgrade verify ise geçmişte oluşturulmuş gerçek bir
+tüketiciyi ölçer. Registry hem önceki hem güncel sürümü taşımalıdır.
+
+Önce local registry'yi açık tutup güncel sürümü yayınlayın, sonra pnpm upgrade:verify çalıştırın.
+Kaynak sürümü ve registry gerektiğinde --from ile --registry seçenekleriyle sabitlenebilir.
+
+Script önce published N-1 tooling ile workspace dışında React proje üretir ve baseline pnpm ci
+çalıştırır. Ardından yalnız güncel tooling'i kurar; doctor'ın drift/pending migration gördüğünü
+doğrular; migrate dry-run + apply + ikinci idempotence kontrolünü çalıştırır. Son olarak bütün
+fixed group'u kurar, doctor strict ve generated pnpm ci kapısını geçirir.
+
+Yeni bir sürüm yayınlanmadan önce şu üç test birbirinin yerine geçmez:
+
+1. Workspace pnpm ci: platform kaynakları ve showroom.
+2. Release verify: güncel published artefakttan temiz proje.
+3. Upgrade verify: önceki published template/proje ile güncel sürüm arasındaki migration.
+
+Uyumluluk politikası docs/compatibility.md, sürüm bazlı manuel/breaking adımlar
+docs/migrations/ altında tutulur.
 
 ## 3. Yerel registry ile çalışmak (ekipler için)
 

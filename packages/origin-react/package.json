@@ -1,6 +1,6 @@
 {
   "name": "@originloom/react",
-  "version": "0.5.7",
+  "version": "0.5.20",
   "description": "React renderer adapter for OriginLoom: island runtime, document rendering and the Vite preset.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -36,23 +36,24 @@
   },
   "dependencies": {
     "@originloom/shared": "workspace:*",
-    "@tanstack/react-query": "^5.101.2",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.101.4",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.2.0",
-    "typescript": "^5.7.2",
+    "@vitejs/plugin-react": "^6.0.4",
+    "typescript": "^5.9.3",
     "vite": "^8.1.5"
   },
   "peerDependencies": {
-    "@tailwindcss/vite": "^4.3.2",
-    "@vitejs/plugin-react": "^5.2.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.101.4",
+    "@vitejs/plugin-react": "^6.0.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "vite": "^8.1.5"
   },
   "publishConfig": {
@@ -93,6 +94,9 @@
   ],
   "peerDependenciesMeta": {
     "@tailwindcss/vite": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
       "optional": true
     },
     "@vitejs/plugin-react": {

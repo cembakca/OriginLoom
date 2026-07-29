@@ -31,7 +31,11 @@ function collectFlag(flag) {
 const gateway = gatewayEntry
   ? spawn(process.execPath, [resolve(root, gatewayEntry)], {
       stdio: "inherit",
-      env: { ...process.env, PORT: String(gatewayPort), MOCK_GW_QUIET: "1" },
+      env: {
+        ...process.env,
+        MOCK_GATEWAY_PORT: String(gatewayPort),
+        MOCK_GW_QUIET: "1",
+      },
     })
   : null;
 const gatewayUrl = gatewayEntry

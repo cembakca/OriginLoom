@@ -52,8 +52,12 @@ function reactErrorOptions(
  * Builds the island mount function from an app-supplied module map. Island names are the
  * module file names (without extension); markers reference them via `data-island`.
  */
-export function createIslandMounter(options: { modules: IslandModuleLoaders }): IslandMounter {
+export function createIslandMounter(options: {
+  modules: IslandModuleLoaders;
+  Wrapper?: ComponentType<{ children: ReactNode }>;
+}): IslandMounter {
   const byName = new Map<string, () => Promise<IslandModule>>();
+  const Wrapper = options.Wrapper;
   for (const [path, load] of Object.entries(options.modules)) {
     byName.set(islandNameFromPath(path), load);
   }
@@ -94,9 +98,17 @@ export function createIslandMounter(options: { modules: IslandModuleLoaders }): 
           island,
         });
       });
+      const markCommitted = () => {
+        cancelMountTimeout();
+        // A deterministic readiness signal for browser tests, monitoring and
+        // progressive UI. Presence means React committed, not merely that the
+        // server-rendered fallback was visible.
+        el.dataset.hydrated = "";
+      };
+      const islandTree = <Comp {...props} />;
       const tree = (
-        <IslandCommitSignal onCommit={cancelMountTimeout}>
-          <Comp {...props} />
+        <IslandCommitSignal onCommit={markCommitted}>
+          {Wrapper ? <Wrapper>{islandTree}</Wrapper> : islandTree}
         </IslandCommitSignal>
       );
       const errorOptions = reactErrorOptions(island, cancelMountTimeout);

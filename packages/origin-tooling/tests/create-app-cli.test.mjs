@@ -50,6 +50,12 @@ describe("origin-create-app CLI — standalone", () => {
     const pkg = JSON.parse(readFileSync(join(target, "investment-web/package.json"), "utf8"));
     expect(pkg.name).toBe("investment-web");
     expect(pkg.dependencies["@originloom/core"]).toBe(OWN_RANGE);
+    const metadata = JSON.parse(
+      readFileSync(join(target, "investment-web/.originloom/project.json"), "utf8"),
+    );
+    expect(metadata.templateVersion).toBe(OWN_RANGE.slice(1));
+    expect(metadata.platformRange).toBe(OWN_RANGE);
+    expect(metadata.renderer).toBe("react");
   });
 
   it("passes --version through to the pinned dependency range", () => {
@@ -66,6 +72,11 @@ describe("origin-create-app CLI — standalone", () => {
     expect(status).toBe(0);
     const pkg = JSON.parse(readFileSync(join(target, "demo/package.json"), "utf8"));
     expect(pkg.dependencies["@originloom/react"]).toBe("^2.3.4");
+    const metadata = JSON.parse(
+      readFileSync(join(target, "demo/.originloom/project.json"), "utf8"),
+    );
+    expect(metadata.templateVersion).toBe(OWN_RANGE.slice(1));
+    expect(metadata.platformRange).toBe("^2.3.4");
   });
 
   it("prompts for name and title over piped stdin when flags are omitted", () => {

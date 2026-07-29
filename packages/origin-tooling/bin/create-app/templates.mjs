@@ -11,6 +11,12 @@ import { fileURLToPath } from "node:url";
 import { renderSkills } from "./skills.mjs";
 import { renderOpsTemplates } from "./templates-ops.mjs";
 import * as vanilla from "./templates-vanilla.mjs";
+import {
+  compareVersions,
+  PROJECT_SCHEMA_VERSION,
+  TOOLING_VERSION,
+} from "../upgrade/compatibility.mjs";
+import { migrations } from "../upgrade/migrations.mjs";
 
 /** Dev-server port for the client bundle, derived from the app port (3010 → 5010). */
 export const VITE_PORT_OFFSET = 2000;
@@ -30,6 +36,7 @@ const asset = (name) =>
  *   metricsPort: number;
  *   mode: "workspace" | "standalone";
  *   version: string;
+ *   templateVersion?: string;
  *   renderer?: "react" | "vanilla";
  *   vitePort?: number;
  *   registry?: string;
@@ -42,6 +49,7 @@ export function renderTemplates({
   metricsPort,
   mode,
   version,
+  templateVersion = TOOLING_VERSION,
   renderer = "react",
   vitePort = port + VITE_PORT_OFFSET,
   registry,
@@ -63,6 +71,7 @@ export function renderTemplates({
       vitePort,
       standalone,
       version,
+      templateVersion,
       registry,
       withOps,
     });
@@ -71,6 +80,12 @@ export function renderTemplates({
     // npm config is not inherited from parent directories, so an app that
     // installs @originloom/* from somewhere other than npmjs carries its own.
     ...(registry ? { ".npmrc": npmrc(registry) } : {}),
+    ".originloom/project.json": projectMetadata({
+      templateVersion,
+      platformRange: mode === "workspace" ? "workspace:*" : version,
+      renderer,
+      mode,
+    }),
     "package.json": packageJson(name, { standalone, version, withOps }),
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
@@ -79,23 +94,40 @@ export function renderTemplates({
     "vite.config.ts": viteConfig(vitePort),
     "vite.server.config.ts": viteServerConfig(),
     "vitest.config.ts": vitestConfig(name),
-    ".env.development": envDevelopment(name, port, metricsPort, vitePort),
-    ".env.production": envProduction(port, metricsPort),
-    "README.md": readme(name, title, port, vitePort, standalone),
+    "playwright.config.ts": playwrightConfig(name, port, metricsPort),
+    ".env.development": envDevelopment(name, port, metricsPort, vitePort, true),
+    ".env.production": envProduction(port, metricsPort, true),
+    "README.md": readme(name, title, port, vitePort, standalone, withOps),
+    "docs/auth.md": asset("docs/auth.md"),
+    "docs/background-workers.md": asset("docs/background-workers.md"),
+    "docs/caching.md": asset("docs/caching.md"),
+    "docs/configuration.md": asset("docs/configuration.md"),
+    "docs/dynamic-shell.md": asset("docs/dynamic-shell.md"),
+    "docs/features.md": asset("docs/features.md"),
+    "docs/observability.md": asset("docs/observability.md"),
+    "docs/react-query.md": asset("docs/react-query.md"),
+    "docs/routing.md": asset("docs/routing.md"),
+    "docs/seo.md": asset("docs/seo.md"),
+    "docs/streaming.md": asset("docs/streaming.md"),
+    "docs/testing.md": asset("docs/testing.md"),
+    "docs/upgrading.md": asset("docs/upgrading.md"),
     Dockerfile: dockerfile(name, port, standalone),
     ".dockerignore": asset("dockerignore"),
     ".gitignore": asset("gitignore"),
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
-    ".github/workflows/ci.yml": githubWorkflow(name),
+    ".github/workflows/ci.yml": githubWorkflow(name, "react"),
     // Opt-in deployment assets: compose, k8s manifests, a load generator.
     ...(withOps ? renderOpsTemplates({ name, port, metricsPort }) : {}),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/api/index.ts": apiIndex(),
+    "server/api/live-stream/admission.ts": liveStreamAdmission(),
+    "server/api/live-stream/index.ts": liveStreamApi(),
     "server/seo.ts": seoRoutes(),
     "server/metrics/catalog.ts": productMetrics(),
-    "server/product/config.ts": productConfigFile(),
+    "server/metrics/live-stream.ts": liveStreamMetrics(),
+    "server/product/config.ts": productConfigFile(true),
     "server/product/analytics.ts": productAnalytics(),
     "server/api/items.ts": publicItemsApi(),
     "server/api/session.ts": sessionApi(),
@@ -116,10 +148,12 @@ export function renderTemplates({
     "server/routes/account.tsx": accountRoute(),
     "server/routes/live.tsx": liveRoute(),
     "server/services/shell-data.ts": serverShellData(),
+    "server/services/menu.ts": menuService(),
+    "server/services/bot-analytics.ts": botAnalyticsService(),
     "server/services/items.ts": itemsService(),
     "server/services/profile.ts": profileService(),
     "server/services/gateway-contracts.ts": gatewayContracts(),
-    "mock-gateway/server.mjs": mockGateway(),
+    "mock-gateway/server.mjs": mockGateway(true),
     "server/product/runtime.ts": productRuntime(),
     "server/product/document-shell.ts": productDocumentShell(title),
     "server/product/renderer.tsx": productRenderer(),
@@ -142,12 +176,27 @@ export function renderTemplates({
     "src/lib/shell-data.ts": libShellData(),
     "src/lib/cache-keys.ts": cacheKeys(),
     "src/lib/pagination.ts": paginationLib(),
+    "src/lib/query/hooks/use-session.ts": sessionQueryHook(),
+    "src/lib/query/keys.ts": queryKeys(),
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
-    "src/routing/rules.ts": routingRules(),
+    "src/lib/menu.ts": menuLib(),
+    "src/routing/rules.ts": routingRules(true),
     "src/styles/globals.css": globalsCss(standalone),
     "src/global.d.ts": globalDts(),
 
     "tests/home.test.ts": homeTest(),
+    "tests/auth-client.test.ts": authClientTest(),
+    "tests/live-stream-admission.test.ts": liveStreamAdmissionTest(),
+    "tests/live-stream-api.test.ts": liveStreamApiTest(),
+    "tests/menu-cache.test.ts": menuCacheTest(),
+    "tests/pagination.test.ts": paginationTest(),
+    "tests/bot-analytics.test.ts": botAnalyticsTest(),
+    "tests/cache-key-codec.test.ts": cacheKeyCodecTest(),
+    "tests/routing-rules.test.ts": routingRulesTest(),
+    "tests/session-api.test.ts": sessionApiTest(),
+    "e2e/critical-paths.spec.ts": criticalPathsE2e(port, metricsPort),
+    "e2e/accessibility.spec.ts": accessibilityE2e(),
+    "e2e/ssr.no-js.spec.ts": noJavaScriptE2e(),
 
     // Claude Code integration — an always-loaded project guide, a pre-approved
     // permission allowlist, and the skill set. Identical in both modes; the
@@ -164,7 +213,7 @@ export function renderTemplates({
  * installed at all.
  *
  * @param {{ name: string; title: string; port: number; metricsPort: number;
- *           standalone: boolean; version: string }} vars
+ *           standalone: boolean; version: string; templateVersion: string }} vars
  */
 function vanillaTemplates({
   name,
@@ -174,11 +223,18 @@ function vanillaTemplates({
   vitePort,
   standalone,
   version,
+  templateVersion,
   registry,
   withOps,
 }) {
   return {
     ...(registry ? { ".npmrc": npmrc(registry) } : {}),
+    ".originloom/project.json": projectMetadata({
+      templateVersion,
+      platformRange: standalone ? version : "workspace:*",
+      renderer: "vanilla",
+      mode: standalone ? "standalone" : "workspace",
+    }),
     "package.json": packageJson(name, { standalone, version, renderer: "vanilla", withOps }),
     "tsconfig.json": tsconfig(standalone, "vanilla"),
     "eslint.config.js": eslintConfig(),
@@ -195,7 +251,7 @@ function vanillaTemplates({
     ".gitignore": asset("gitignore"),
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
-    ".github/workflows/ci.yml": githubWorkflow(name),
+    ".github/workflows/ci.yml": githubWorkflow(name, "vanilla"),
     // Opt-in deployment assets: compose, k8s manifests, a load generator.
     ...(withOps ? renderOpsTemplates({ name, port, metricsPort }) : {}),
 
@@ -266,6 +322,8 @@ const claudeSettings = () =>
           "Bash(pnpm format:check)",
           "Bash(pnpm test)",
           "Bash(pnpm test:*)",
+          "Bash(pnpm e2e)",
+          "Bash(pnpm e2e:*)",
           "Bash(pnpm smoke)",
           "Bash(git status)",
           "Bash(git diff:*)",
@@ -287,15 +345,19 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
   // the ones its dependency tree pulls in — otherwise pnpm install prints an
   // "Ignored build scripts" warning. Mirrors the platform's trusted set.
   const pnpm = standalone
-    ? { onlyBuiltDependencies: ["@tailwindcss/oxide", "esbuild", "protobufjs", "sharp"] }
+    ? {
+        onlyBuiltDependencies: ["@tailwindcss/oxide", "esbuild", "protobufjs", "sharp"],
+      }
     : undefined;
   return `${JSON.stringify(
     {
       name,
       private: true,
       type: "module",
-      engines: { node: ">=22.12.0" },
+      engines: { node: ">=22.13.0" },
       scripts: {
+        "origin:doctor": "origin-doctor",
+        "origin:migrate": "origin-migrate",
         dev: "origin-dev --gateway mock-gateway/server.mjs",
         "mock-gw": "origin-run-with-env development node mock-gateway/server.mjs",
         build: "origin-build",
@@ -311,7 +373,17 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
         "lint:fix": "eslint . --fix",
         format: "prettier --write .",
         "format:check": "prettier --check .",
-        test: "vitest run",
+        // Keep Playwright specs out of Vitest; e2e has its own runner below.
+        test: "vitest run tests",
+        ...(renderer === "vanilla"
+          ? {}
+          : {
+              e2e: "playwright test",
+              "e2e:server": "pnpm run build && pnpm run start",
+              "e2e:ui": "playwright test --ui",
+              "e2e:report": "playwright show-report",
+              "e2e:install": "playwright install chromium",
+            }),
         // Deployment helpers, generated only with --with-ops.
         ...(withOps
           ? {
@@ -321,43 +393,56 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
               "dev:redis": "origin-dev-local",
               "start:local:redis": "origin-run-local production --redis",
               loadtest: "node load-test/run.mjs",
+              stress: "node load-test/stress.mjs",
+              "loadtest:compare": "node load-test/compare.mjs",
+              "pentest:readiness": "node scripts/pentest-readiness.mjs",
             }
           : {}),
         // What CI runs, in one command, so it can be run locally too.
-        ci: "pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build && pnpm run smoke",
+        ci:
+          renderer === "vanilla"
+            ? "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build && pnpm run smoke"
+            : "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run e2e && pnpm run smoke",
       },
       dependencies: {
-        "@hono/node-server": "^1.13.7",
+        "@hono/node-server": "^2.0.12",
         "@originloom/core": originloom,
         "@originloom/shared": originloom,
         ...(renderer === "vanilla"
           ? { "@originloom/vanilla": originloom }
           : { "@originloom/react": originloom }),
-        "@tailwindcss/vite": "^4.3.2",
+        "@tailwindcss/vite": "^4.3.3",
+        ...(renderer === "vanilla" ? {} : { "@tanstack/react-query": "^5.101.4" }),
         ...(renderer === "vanilla" ? {} : { clsx: "^2.1.1" }),
-        hono: "^4.6.14",
-        ...(renderer === "vanilla" ? {} : { react: "^19.0.0", "react-dom": "^19.0.0" }),
-        tailwindcss: "^4.3.2",
-        tsx: "^4.19.2",
+        hono: "^4.12.32",
+        ...(renderer === "vanilla" ? {} : { react: "^19.2.8", "react-dom": "^19.2.8" }),
+        tailwindcss: "^4.3.3",
+        tsx: "^4.23.1",
       },
       devDependencies: {
-        "@eslint/js": "^9.39.5",
+        "@eslint/js": "^10.0.1",
+        // Vite 8.1.x pins Rolldown 1.1.x whose WASI binding is compatible with
+        // wasm-runtime 1.1.6. A direct exact dependency keeps pnpm from selecting
+        // wasm-runtime 1.2.x's incompatible @emnapi 2 alpha peer contract.
+        "@napi-rs/wasm-runtime": "1.1.6",
         "@originloom/tooling": originloom,
-        "@types/node": "^22.10.2",
+        "@types/node": "^22.20.1",
         ...(renderer === "vanilla"
           ? {}
           : {
-              "@types/react": "^19.0.2",
-              "@types/react-dom": "^19.0.2",
-              "@vitejs/plugin-react": "^5.2.0",
+              "@axe-core/playwright": "^4.12.1",
+              "@playwright/test": "^1.62.0",
+              "@types/react": "^19.2.17",
+              "@types/react-dom": "^19.2.3",
+              "@vitejs/plugin-react": "^6.0.4",
             }),
-        eslint: "^9.39.5",
+        eslint: "^10.8.0",
         "eslint-config-prettier": "^10.1.8",
-        "eslint-plugin-simple-import-sort": "^13.0.0",
-        globals: "^17.7.0",
-        prettier: "^3.9.5",
-        typescript: "^5.7.2",
-        "typescript-eslint": "^8.64.0",
+        "eslint-plugin-simple-import-sort": "^14.0.0",
+        globals: "^17.8.0",
+        prettier: "^3.9.6",
+        typescript: "^5.9.3",
+        "typescript-eslint": "^8.65.0",
         vite: "^8.1.5",
         vitest: "^4.1.10",
       },
@@ -367,6 +452,23 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
     2,
   )}\n`;
 };
+
+const projectMetadata = ({ templateVersion, platformRange, renderer, mode }) =>
+  JSON.stringify(
+    {
+      schemaVersion: PROJECT_SCHEMA_VERSION,
+      templateVersion,
+      platformRange,
+      renderer,
+      mode,
+      generatedBy: "@originloom/tooling",
+      appliedMigrations: migrations
+        .filter(({ introducedIn }) => compareVersions(introducedIn, templateVersion) <= 0)
+        .map(({ id }) => id),
+    },
+    null,
+    2,
+  ) + "\n";
 
 // The compiler options the monorepo keeps in tsconfig.base.json. A standalone app
 // has no parent to extend, so it carries them inline. Hand-formatted to match
@@ -411,7 +513,7 @@ const tsconfig = (standalone, renderer = "react") => {
 ${extendsLine}  "compilerOptions": {
 ${options}
   },
-  "include": ["src", "server", "tests", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts"]
+  "include": ["src", "server", "tests", "e2e", "vite.config.ts", "vite.server.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }
 `;
 };
@@ -423,7 +525,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**"] },
+  { ignores: ["dist/**", "node_modules/**", "playwright-report/**", "test-results/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -456,6 +558,8 @@ export default tseslint.config(
 
 const prettierIgnore = () => `dist
 coverage
+playwright-report
+test-results
 pnpm-lock.yaml
 `;
 
@@ -514,7 +618,282 @@ export default defineConfig({
 });
 `;
 
-const envDevelopment = (name, port, metricsPort, vitePort) => `NODE_ENV=development
+const playwrightConfig = (
+  name,
+  port,
+  metricsPort,
+) => `import { defineConfig, devices } from "@playwright/test";
+
+const isCI = Boolean(process.env.CI);
+const useExternalServer = process.env.E2E_EXTERNAL_SERVER === "1";
+const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:${port}";
+
+export default defineConfig({
+  testDir: "./e2e",
+  outputDir: "test-results",
+  fullyParallel: true,
+  forbidOnly: isCI,
+  retries: isCI ? 2 : 0,
+  ...(isCI ? { workers: 1 } : {}),
+  reporter: isCI
+    ? [["dot"], ["html", { open: "never", outputFolder: "playwright-report" }]]
+    : [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
+  expect: { timeout: 10_000 },
+  use: {
+    baseURL,
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
+  },
+  projects: [
+    {
+      name: "chromium",
+      testIgnore: "**/*.no-js.spec.ts",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium-no-js",
+      testMatch: "**/*.no-js.spec.ts",
+      use: { ...devices["Desktop Chrome"], javaScriptEnabled: false },
+    },
+  ],
+  ...(useExternalServer
+    ? {}
+    : {
+        webServer: [
+          {
+            command: "pnpm run mock-gw",
+            url: "http://127.0.0.1:4002/items?perPage=1",
+            reuseExistingServer: !isCI,
+            timeout: 60_000,
+            env: { MOCK_GATEWAY_PORT: "4002", MOCK_GW_QUIET: "1" },
+          },
+          {
+            command: "pnpm run e2e:server",
+            url: baseURL + "/healthz",
+            reuseExistingServer: !isCI,
+            timeout: 120_000,
+            env: {
+              NODE_ENV: "production",
+              APP_ENV: "production",
+              PORT: "${port}",
+              METRICS_PORT: "${metricsPort}",
+              SITE_URL: baseURL,
+              GATEWAY_URL: "http://127.0.0.1:4002",
+              ALLOW_INSECURE_GATEWAY: "true",
+              RELEASE_ID: "e2e",
+              AUTH_REFRESH_COORDINATION_SECRET: "0123456789abcdef0123456789abcdef",
+              CACHE_BACKEND: "memory",
+              CACHE_REQUIRED: "false",
+              // Browser disconnects become observable on the next write. Keep
+              // this suite fast without changing the production default.
+              LIVE_STREAM_HEARTBEAT_MS: "250",
+            },
+          },
+        ],
+      }),
+  metadata: { application: "${name}" },
+});
+`;
+
+const criticalPathsE2e = (port, metricsPort) => `import { expect, test } from "@playwright/test";
+
+test.describe("SSR and island critical paths", () => {
+  test("serves an enforced CSP and hydrates the counter island", async ({ page }) => {
+    const clientErrors: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/internal/client-errors")) clientErrors.push(request.url());
+    });
+    const response = await page.goto("/");
+
+    expect(response?.status()).toBe(200);
+    const headers = response?.headers() ?? {};
+    expect(headers["content-security-policy"]).toContain("script-src");
+    expect(headers["content-security-policy-report-only"]).toBeUndefined();
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+
+    const counter = page.getByRole("button", { name: "Tıklandı: 0" });
+    await expect(counter).toBeVisible();
+    await expect(page.locator('[data-island="counter"]')).toHaveAttribute("data-hydrated", "");
+    await counter.click();
+    await expect(page.getByRole("button", { name: "Tıklandı: 1" })).toBeVisible();
+    expect(clientErrors).toEqual([]);
+  });
+
+  test("keeps redirect query parameters and preserves the public rewrite URL", async ({
+    page,
+    request,
+  }) => {
+    const redirect = await request.get("/old-catalog?source=e2e", { maxRedirects: 0 });
+    expect(redirect.status()).toBe(308);
+    const locationHeader = redirect.headers().location;
+    if (!locationHeader) throw new Error("Redirect response is missing Location");
+    const location = new URL(locationHeader);
+    expect(location.pathname + location.search).toBe("/catalog?source=e2e");
+
+    await page.goto("/old-catalog?source=e2e");
+    await expect(page).toHaveURL(/\\/catalog\\?source=e2e$/);
+    await expect(page.getByRole("heading", { name: "Katalog" })).toBeVisible();
+
+    await page.goto("/products/alpha?source=e2e");
+    await expect(page).toHaveURL(/\\/products\\/alpha\\?source=e2e$/);
+    await expect(page.getByRole("heading", { name: "Alpha" })).toBeVisible();
+  });
+
+  test("refreshes a challenged session once and retries the profile request", async ({
+    context,
+    page,
+  }) => {
+    await context.addCookies([
+      { name: "refresh_token", value: "dev-refresh-token", url: "http://127.0.0.1:${port}" },
+    ]);
+
+    let sessionCalls = 0;
+    await page.route("**/api/session", async (route) => {
+      sessionCalls++;
+      if (sessionCalls === 1) {
+        await route.fulfill({
+          status: 401,
+          contentType: "application/json",
+          body: JSON.stringify({ signedIn: false }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    const refresh = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/internal/refresh") && response.request().method() === "POST",
+    );
+    await page.goto("/account");
+
+    expect((await refresh).status()).toBe(200);
+    await expect(page.getByText("Merhaba Örnek Kullanıcı")).toBeVisible();
+    expect(sessionCalls).toBe(2);
+  });
+
+  test("shows the React Query error state and allows an explicit retry", async ({ page }) => {
+    let sessionCalls = 0;
+    await page.route("**/api/session", async (route) => {
+      sessionCalls++;
+      if (sessionCalls <= 2) {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "temporary_failure" }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ profile: { displayName: "E2E Kullanıcı", initials: "E2E" } }),
+      });
+    });
+
+    await page.goto("/account");
+    await expect(page.getByText("Oturum bilgisi şu an alınamıyor.")).toBeVisible();
+    expect(sessionCalls).toBe(2);
+
+    await page.getByRole("button", { name: "Tekrar dene" }).click();
+    await expect(page.getByText("Merhaba E2E Kullanıcı")).toBeVisible();
+    expect(sessionCalls).toBe(3);
+  });
+
+  test("opens the SSE stream and releases its server-side lease on navigation", async ({
+    page,
+    request,
+  }) => {
+    const activeConnections = async () => {
+      const response = await request.get("http://127.0.0.1:${metricsPort}/metrics");
+      expect(response.ok()).toBe(true);
+      const match = (await response.text()).match(/app_live_stream_active_connections (\\d+)/);
+      return Number(match?.[1] ?? -1);
+    };
+
+    await page.goto("/live");
+    await expect(page.getByText(/Son tick:/)).toContainText(/\\d{4}-\\d{2}-\\d{2}T/);
+    await expect.poll(activeConnections).toBe(1);
+
+    await page.goto("/catalog");
+    await expect.poll(activeConnections).toBe(0);
+  });
+
+  test("keeps HttpOnly credentials out of the SSR document", async ({ context, page }) => {
+    const secret = "browser-visible-secret-must-not-leak";
+    await context.addCookies([
+      { name: "access_token", value: secret, url: "http://127.0.0.1:${port}" },
+      { name: "refresh_token", value: "dev-refresh-token", url: "http://127.0.0.1:${port}" },
+    ]);
+
+    const response = await page.goto("/account");
+    expect(await response?.text()).not.toContain(secret);
+    await expect(page.getByRole("heading", { name: "Hesabım" })).toBeVisible();
+  });
+});
+`;
+
+const accessibilityE2e = () => `import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "@playwright/test";
+
+for (const path of ["/", "/catalog", "/account"] as const) {
+  test(\`\${path} has no serious or critical accessibility violations\`, async ({ page }) => {
+    await page.goto(path);
+    await page.locator("main").waitFor();
+    const islands = page.locator("[data-island]");
+    for (let index = 0; index < (await islands.count()); index++) {
+      await expect(islands.nth(index)).toHaveAttribute("data-hydrated", "");
+    }
+
+    const results = await new AxeBuilder({ page }).include("main").analyze();
+    const violations = results.violations.filter(
+      (violation) => violation.impact === "critical" || violation.impact === "serious",
+    );
+    expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
+  });
+}
+`;
+
+const noJavaScriptE2e = () => `import { expect, test } from "@playwright/test";
+
+test("catalog remains usable when JavaScript is disabled", async ({ page }) => {
+  const response = await page.goto("/catalog?page=1");
+
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Katalog" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Alpha" })).toBeVisible();
+  await expect(page.getByText("Sayfa 1 / 3")).toBeVisible();
+
+  await page.getByRole("link", { name: "Alpha" }).click();
+  await expect(page).toHaveURL(/\\/items\\/alpha$/);
+  await expect(page.getByRole("heading", { name: "Alpha" })).toBeVisible();
+});
+`;
+
+const liveStreamEnv = `LIVE_STREAM_MAX_CONNECTIONS=1000
+LIVE_STREAM_MAX_CONNECTIONS_PER_IP=5
+LIVE_STREAM_MAX_DURATION_MS=300000
+LIVE_STREAM_HEARTBEAT_MS=15000
+`;
+const liveStreamProductionEnv = `# Long-lived connection budgets. Tune these from load tests; do not remove them.
+${liveStreamEnv}`;
+const botAnalyticsEnv = `BOT_ANALYTICS_QUEUE_CAPACITY=1000
+BOT_ANALYTICS_BATCH_SIZE=25
+BOT_ANALYTICS_FLUSH_MS=250
+BOT_ANALYTICS_DRAIN_TIMEOUT_MS=3000
+`;
+const menuCacheEnv = `MENU_CACHE_TTL=14400
+MENU_CACHE_SWR=86400
+`;
+
+const envDevelopment = (
+  name,
+  port,
+  metricsPort,
+  vitePort,
+  includeLiveStream = false,
+) => `NODE_ENV=development
 APP_ENV=development
 PORT=${port}
 METRICS_PORT=${metricsPort}
@@ -525,12 +904,14 @@ VITE_DEV_SERVER_URL=http://127.0.0.1:${vitePort}
 CACHE_BACKEND=memory
 CACHE_REQUIRED=false
 
-# Upstream API. "pnpm dev" starts mock-gateway/server.mjs on this port.
+# Upstream API. The mock owns its port; it never reuses the app's PORT value.
+MOCK_GATEWAY_PORT=4002
 GATEWAY_URL=http://127.0.0.1:4002
 ALLOW_INSECURE_GATEWAY=true
 
 # This app's own settings — see server/product/config.ts, validated at startup.
 CATALOG_PAGE_SIZE=3
+${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
 # SUPPORT_EMAIL is optional here and required in production.
 # SUPPORT_EMAIL=destek@example.com
 
@@ -591,7 +972,7 @@ ANALYTICS_VENDOR_URL=http://127.0.0.1:4002/vendor/consent.js
 # OTEL_SERVICE_NAME=\${name}
 `;
 
-const envProduction = (port, metricsPort) => `NODE_ENV=production
+const envProduction = (port, metricsPort, includeLiveStream = false) => `NODE_ENV=production
 APP_ENV=production
 PORT=${port}
 METRICS_PORT=${metricsPort}
@@ -604,6 +985,8 @@ METRICS_PORT=${metricsPort}
 # with it missing the server refuses to boot rather than serving pages that
 # cannot show a support address. Replace it; deployments should override it.
 SUPPORT_EMAIL=destek@example.com
+
+${includeLiveStream ? menuCacheEnv + liveStreamProductionEnv + botAnalyticsEnv : ""}
 
 # Single-pod L1 cache. For a shared L2 cache across pods switch to redis and set
 # REDIS_URL; CACHE_REQUIRED=true makes readiness fail when Redis is unreachable.
@@ -631,11 +1014,13 @@ import { validateRoutingRules } from "@originloom/shared/routing/validate";
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
 import { mountApi } from "./api";
+import { stopLiveStreams } from "./api/live-stream";
 import { analyticsCsp } from "./product/analytics";
 import { validateProductConfig } from "./product/config";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
 import { mountSeo } from "./seo";
+import { drainBotAnalytics } from "./services/bot-analytics";
 
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
@@ -684,6 +1069,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info("shutdown signal received", { signal });
+    stopLiveStreams();
 
     const forceExit = setTimeout(() => {
       logger.error("shutdown timeout — forcing exit");
@@ -697,6 +1083,7 @@ async function main() {
           closeServer(httpServer),
           closeServer(metricsServer),
           drainRevalidations(config.revalidationDrainTimeoutMs),
+          drainBotAnalytics(),
         ]);
         await closeCache();
         // Last, so spans emitted while draining still get exported.
@@ -1053,13 +1440,309 @@ describe("page cache registry", () => {
 });
 `;
 
+const menuCacheTest = () => `import { getMenu } from "@server/services/menu";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  gatewayFetch: vi.fn(),
+  read: vi.fn(),
+  write: vi.fn(),
+  deleteKey: vi.fn(),
+  warn: vi.fn(),
+}));
+
+vi.mock("@originloom/core/adapters/gateway", () => ({ gatewayFetch: mocks.gatewayFetch }));
+vi.mock("@originloom/core/cache", () => ({
+  cacheKey: (policy: { key: string[] }) => policy.key.join("\\0"),
+  read: mocks.read,
+  write: mocks.write,
+  deleteKey: mocks.deleteKey,
+}));
+vi.mock("@originloom/core/logger", () => ({ logger: { warn: mocks.warn } }));
+
+const menu = [{ label: "Katalog", href: "/catalog" }];
+
+describe("menu data cache", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.read.mockResolvedValue(null);
+    mocks.write.mockResolvedValue(true);
+    mocks.deleteKey.mockResolvedValue(true);
+    mocks.gatewayFetch.mockResolvedValue(Response.json(menu));
+  });
+
+  it("serves a fresh cache hit without calling the gateway", async () => {
+    mocks.read.mockResolvedValue({ body: JSON.stringify(menu), state: "fresh" });
+
+    await expect(getMenu(new Request("http://app.local/"))).resolves.toEqual(menu);
+    expect(mocks.gatewayFetch).not.toHaveBeenCalled();
+  });
+
+  it("fills the shared cache after a cold miss", async () => {
+    await expect(getMenu(new Request("http://app.local/"))).resolves.toEqual(menu);
+
+    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/menu");
+    expect(mocks.write).toHaveBeenCalledWith(
+      "menu:public:v1",
+      JSON.stringify(menu),
+      expect.objectContaining({ kind: "shared", key: ["menu:public:v1"] }),
+    );
+  });
+
+  it("returns stale data immediately and coalesces background refreshes", async () => {
+    const stale = [{ label: "Eski katalog", href: "/catalog" }];
+    mocks.read.mockResolvedValue({ body: JSON.stringify(stale), state: "stale" });
+
+    await expect(
+      Promise.all([
+        getMenu(new Request("http://app.local/one")),
+        getMenu(new Request("http://app.local/two")),
+      ]),
+    ).resolves.toEqual([stale, stale]);
+    await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
+    expect(mocks.gatewayFetch).toHaveBeenCalledOnce();
+  });
+
+  it("does not cache the local fallback when the gateway fails", async () => {
+    mocks.gatewayFetch.mockResolvedValue(new Response(null, { status: 503 }));
+
+    await expect(getMenu(new Request("http://app.local/"))).resolves.toContainEqual({
+      label: "Ana sayfa",
+      href: "/",
+    });
+    expect(mocks.write).not.toHaveBeenCalled();
+  });
+});
+`;
+
+const paginationTest = () => `import { describe, expect, it } from "vitest";
+
+import { normalizePageParam } from "~/lib/pagination";
+
+describe("pagination cache normalization", () => {
+  it.each([null, "", "0", "1", "nope"])("normalizes %s to the first page", (value) => {
+    expect(normalizePageParam(value)).toBe("1");
+  });
+
+  it("keeps a valid page in canonical integer form", () => {
+    expect(normalizePageParam("02")).toBe("2");
+  });
+});
+`;
+
+const routingRulesTest =
+  () => `import { resolveRouteWith } from "@originloom/shared/routing/resolve";
+import { describe, expect, it } from "vitest";
+
+import { createRewrites, redirects, rewrites } from "~/routing/rules";
+
+describe("routing rules", () => {
+  it("redirects a retired public URL and preserves its query string", () => {
+    const result = resolveRouteWith(new URL("https://example.com/old-catalog?source=legacy"), {
+      redirects,
+      rewrites,
+    });
+
+    expect(result).toEqual({
+      kind: "redirect",
+      url: "https://example.com/catalog?source=legacy",
+      status: 308,
+    });
+  });
+
+  it("rewrites a public alias without changing its browser-visible identity", () => {
+    const result = resolveRouteWith(new URL("https://example.com/products/alpha?campaign=spring"), {
+      redirects,
+      rewrites,
+    });
+
+    expect(result).toEqual({
+      kind: "rewrite",
+      pathname: "/items/alpha",
+      search: "?campaign=spring",
+      publicPath: "/products/alpha",
+    });
+  });
+
+  it("proxies only the explicitly exposed gateway endpoint", () => {
+    const result = resolveRouteWith(new URL("https://example.com/gateway/menu?locale=tr"), {
+      redirects,
+      rewrites: createRewrites("http://gateway.internal:4002"),
+    });
+
+    expect(result).toEqual({
+      kind: "proxy",
+      url: "http://gateway.internal:4002/menu?locale=tr",
+    });
+  });
+});
+`;
+
+const liveStreamAdmissionTest =
+  () => `import { StreamAdmission } from "@server/api/live-stream/admission";
+import { describe, expect, it } from "vitest";
+
+describe("live stream admission", () => {
+  it("enforces global and per-IP limits and releases idempotently", () => {
+    const admission = new StreamAdmission(2, 1);
+    const first = admission.acquire("192.0.2.1");
+    expect(first.kind).toBe("accepted");
+    expect(admission.acquire("192.0.2.1").kind).toBe("ip_limit");
+
+    const second = admission.acquire("192.0.2.2");
+    expect(second.kind).toBe("accepted");
+    expect(admission.acquire("192.0.2.3").kind).toBe("global_limit");
+
+    if (first.kind === "accepted") {
+      first.lease.release();
+      first.lease.release();
+    }
+    expect(admission.activeConnections).toBe(1);
+    expect(admission.acquire("192.0.2.3").kind).toBe("accepted");
+  });
+});
+`;
+
+const liveStreamApiTest = () => `import {
+  streamResponseHeaders,
+  validateBrowserRequest,
+} from "@server/api/live-stream";
+import { describe, expect, it } from "vitest";
+
+describe("live stream browser boundary", () => {
+  it("refuses HEAD, which would take a connection slot it can never give back", () => {
+    // Hono answers HEAD from the GET handler, and the body of a HEAD response
+    // is never read — so the stream callback that releases the slot never runs.
+    const head = validateBrowserRequest(
+      new Request("http://127.0.0.1:3010/api/ticks", {
+        method: "HEAD",
+        headers: { accept: "text/event-stream" },
+      }),
+    );
+
+    expect(head?.status).toBe(405);
+  });
+
+  it("rejects non-SSE and cross-site requests", async () => {
+    const notSse = validateBrowserRequest(new Request("http://127.0.0.1:3010/api/ticks"));
+    expect(notSse?.status).toBe(406);
+
+    const crossSite = validateBrowserRequest(
+      new Request("http://127.0.0.1:3010/api/ticks", {
+        headers: { accept: "text/event-stream", "sec-fetch-site": "cross-site" },
+      }),
+    );
+    expect(crossSite?.status).toBe(403);
+    await expect(crossSite?.json()).resolves.toMatchObject({ error: expect.any(String) });
+  });
+
+  it("sets proxy-safe, private stream headers", () => {
+    const headers = streamResponseHeaders();
+    expect(headers.get("cache-control")).toBe("private, no-store, no-transform");
+    expect(headers.get("x-accel-buffering")).toBe("no");
+    expect(headers.get("vary")).toBe("Accept");
+  });
+});
+`;
+
+const authClientTest =
+  () => `import { clientApiFetch } from "@originloom/shared/lib/client/api-fetch";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("BFF client refresh contract", () => {
+  it("refreshes once after 401 and retries the original request", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response("unauthorized", { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(clientApiFetch<{ ok: boolean }>("/api/private")).resolves.toEqual({ ok: true });
+    expect(fetchMock.mock.calls.map(([input]) => input)).toEqual([
+      "/api/private",
+      "/api/internal/refresh",
+      "/api/private",
+    ]);
+  });
+});
+`;
+
+const sessionApiTest =
+  () => `import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { mountSessionApi } from "@server/api/session";
+import { Hono } from "hono";
+import { describe, expect, it } from "vitest";
+
+describe("session BFF routes", () => {
+  it.each([
+    ["GET", "/api/session"],
+    ["POST", "/api/internal/refresh"],
+  ] as const)("mounts %s %s and never returns a public 404", async (method, path) => {
+    const app = new Hono<{ Variables: AppVariables }>();
+    app.use("*", async (c, next) => {
+      c.set("clientIp", "127.0.0.1");
+      await next();
+    });
+    mountSessionApi(app);
+
+    const response = await app.request(path, { method });
+    expect(response.status).not.toBe(404);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+});
+`;
+
+const botAnalyticsTest = () => `import type { BotVisit } from "@originloom/core/runtime";
+import { BotAnalyticsQueue } from "@server/services/bot-analytics";
+import { describe, expect, it, vi } from "vitest";
+
+const visit: BotVisit = { pathname: "/", userAgent: "test-bot", trackingId: "tracking" };
+
+describe("bot analytics queue", () => {
+  it("is bounded and drains queued work", async () => {
+    const sender = vi.fn(async () => {});
+    const queue = new BotAnalyticsQueue(2, 10, 60_000, sender);
+
+    expect(queue.enqueue(visit)).toBe("queued");
+    expect(queue.enqueue(visit)).toBe("queued");
+    expect(queue.enqueue(visit)).toBe("queue_full");
+    await expect(queue.drain(1_000)).resolves.toBe(true);
+    expect(sender).toHaveBeenCalledOnce();
+    expect(queue.enqueue(visit)).toBe("closed");
+  });
+});
+`;
+
+const cacheKeyCodecTest = () => `import { describe, expect, it } from "vitest";
+
+import {
+  decodeCacheKeyFromApi,
+  encodeCacheKeyForApi,
+  formatCacheKey,
+  parseCacheKey,
+} from "~/lib/cache-keys";
+
+describe("operations cache key codec", () => {
+  it("round-trips separator and percent characters through purge transport", () => {
+    const parts = ["catalog", "page=2", "value%with\\0separator"];
+    const key = formatCacheKey(parts);
+    expect(parseCacheKey(key)).toEqual(parts);
+    expect(decodeCacheKeyFromApi(encodeCacheKeyForApi(key))).toBe(key);
+  });
+});
+`;
+
 const itemsService = () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
 import { GatewayContracts } from "./gateway-contracts";
 
-export type Item = { slug: string; name: string; blurb: string };
+export type ItemSeo = { title: string; description: string };
+export type Item = { slug: string; name: string; blurb: string; seo: ItemSeo };
 export type ItemPage = { items: Item[]; total: number };
 
 const INVALID = "Items gateway returned an invalid payload";
@@ -1097,7 +1780,10 @@ function isItem(value: unknown): value is Item {
     isRecord(value) &&
     isBoundedString(value.slug, 100) &&
     isBoundedString(value.name, 200) &&
-    isBoundedString(value.blurb, 1_000)
+    isBoundedString(value.blurb, 1_000) &&
+    isRecord(value.seo) &&
+    isBoundedString(value.seo.title, 200) &&
+    isBoundedString(value.seo.description, 500)
   );
 }
 
@@ -1114,9 +1800,9 @@ function isItemPage(value: unknown): value is ItemPage {
 const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { mountPublicItemsApi } from "@server/api/items";
+import { mountLiveStreamApi } from "@server/api/live-stream";
 import { mountSessionApi } from "@server/api/session";
 import type { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 
 /**
  * Product BFF / API routes. Mounted before SSR dispatch, so anything under /api/*
@@ -1131,22 +1817,209 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
 
   // "Who am I", answered from HttpOnly cookies. The account island calls it.
   mountSessionApi(app);
+  mountLiveStreamApi(app);
+}
+`;
 
-  // Demo Server-Sent Events stream: emits the server time once a second until the
-  // client disconnects. The /live island consumes it with EventSource.
-  app.get("/api/ticks", (c) =>
-    streamSSE(c, async (stream) => {
-      while (!c.req.raw.signal.aborted) {
+const liveStreamAdmission = () => `export type StreamLease = { release: () => void };
+export type AdmissionResult =
+  | { kind: "accepted"; lease: StreamLease }
+  | { kind: "global_limit" | "ip_limit" };
+
+/** Active-connection accounting. Release is idempotent so every exit path is safe. */
+export class StreamAdmission {
+  private active = 0;
+  private readonly byIp = new Map<string, number>();
+
+  constructor(
+    private readonly globalLimit: number,
+    private readonly perIpLimit: number,
+  ) {}
+
+  acquire(clientIp: string): AdmissionResult {
+    if (this.active >= this.globalLimit) return { kind: "global_limit" };
+    const current = this.byIp.get(clientIp) ?? 0;
+    if (current >= this.perIpLimit) return { kind: "ip_limit" };
+
+    this.active++;
+    this.byIp.set(clientIp, current + 1);
+    let released = false;
+    return {
+      kind: "accepted",
+      lease: {
+        release: () => {
+          if (released) return;
+          released = true;
+          this.active--;
+          const count = this.byIp.get(clientIp) ?? 1;
+          if (count <= 1) this.byIp.delete(clientIp);
+          else this.byIp.set(clientIp, count - 1);
+        },
+      },
+    };
+  }
+
+  get activeConnections(): number {
+    return this.active;
+  }
+}
+`;
+
+const liveStreamApi = () => `import { config } from "@originloom/core/config";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import {
+  observeLiveStreamConnection,
+  setLiveStreamActiveConnections,
+} from "@server/metrics/live-stream";
+import { productConfig } from "@server/product/config";
+import type { Context, Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+
+import { StreamAdmission } from "./admission";
+
+const admission = new StreamAdmission(
+  productConfig.liveStreamMaxConnections,
+  productConfig.liveStreamMaxConnectionsPerIp,
+);
+const shutdownController = new AbortController();
+/** A real stream starts in milliseconds; past this it never will. */
+const STREAM_START_TIMEOUT_MS = 5_000;
+
+export function mountLiveStreamApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.get("/api/ticks", (c) => {
+    c.set("requestRoute", "/api/ticks");
+    return handleLiveStream(c);
+  });
+}
+
+function handleLiveStream(c: Context<{ Variables: AppVariables }>): Response {
+  const request = contextRequest(c);
+  const invalid = validateBrowserRequest(request);
+  if (invalid) {
+    observeLiveStreamConnection("invalid_request");
+    return invalid;
+  }
+
+  const accepted = admission.acquire(c.get("clientIp") ?? "unresolved");
+  if (accepted.kind !== "accepted") {
+    observeLiveStreamConnection(accepted.kind);
+    return errorResponse("Canlı bağlantı limiti aşıldı", 429, { "retry-after": "15" });
+  }
+  observeLiveStreamConnection("accepted");
+  setLiveStreamActiveConnections(admission.activeConnections);
+
+  /**
+   * The slot is taken here so the limit can be answered with 429, but it is
+   * handed back inside the stream body — and a body that is never read never
+   * runs. Anything that takes a response without consuming it would keep its
+   * slot for the lifetime of the process, and \`LIVE_STREAM_MAX_CONNECTIONS_PER_IP\`
+   * of those would lock an address out of the stream for good.
+   */
+  let started = false;
+  const startTimeout = setTimeout(() => {
+    if (started) return;
+    accepted.lease.release();
+    observeLiveStreamConnection("never_started");
+    setLiveStreamActiveConnections(admission.activeConnections);
+  }, STREAM_START_TIMEOUT_MS);
+  startTimeout.unref?.();
+
+  const response = streamSSE(c, async (stream) => {
+    started = true;
+    clearTimeout(startTimeout);
+    const expiresAt = Date.now() + productConfig.liveStreamMaxDurationMs;
+    const close = () => stream.close();
+    const aborted = new Promise<void>((resolve) => stream.onAbort(resolve));
+    request.signal.addEventListener("abort", close, { once: true });
+    shutdownController.signal.addEventListener("abort", close, { once: true });
+    try {
+      await stream.writeSSE({ event: "ready", retry: 2_000, data: "connected" });
+      while (
+        !stream.aborted &&
+        !request.signal.aborted &&
+        !shutdownController.signal.aborted &&
+        Date.now() < expiresAt
+      ) {
         await stream.writeSSE({ event: "tick", data: new Date().toISOString() });
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await Promise.race([
+          wait(Math.min(productConfig.liveStreamHeartbeatMs, expiresAt - Date.now())),
+          aborted,
+        ]);
       }
-    }),
-  );
+      if (!stream.aborted && !request.signal.aborted && !shutdownController.signal.aborted) {
+        await stream.writeSSE({ event: "rotate", data: "reconnect" });
+      }
+    } finally {
+      request.signal.removeEventListener("abort", close);
+      shutdownController.signal.removeEventListener("abort", close);
+      accepted.lease.release();
+      observeLiveStreamConnection("closed");
+      setLiveStreamActiveConnections(admission.activeConnections);
+    }
+  });
+
+  streamResponseHeaders(response.headers);
+  return response;
+}
+
+export function stopLiveStreams(): void {
+  shutdownController.abort();
+}
+
+export function validateBrowserRequest(request: Request): Response | null {
+  // Hono answers HEAD from the GET handler, and an event stream has no
+  // headers-only representation: there is nothing to describe without opening
+  // the stream itself.
+  if (request.method === "HEAD") {
+    return errorResponse("HEAD desteklenmiyor", 405, { allow: "GET" });
+  }
+  if (!request.headers.get("accept")?.toLowerCase().includes("text/event-stream")) {
+    return errorResponse("SSE Accept header zorunludur", 406);
+  }
+  if (request.headers.get("sec-fetch-site") === "cross-site") {
+    return errorResponse("Cross-site stream reddedildi", 403);
+  }
+  const origin = request.headers.get("origin");
+  if (!origin) return null;
+  try {
+    return new URL(origin).origin === new URL(config.siteUrl).origin
+      ? null
+      : errorResponse("Cross-origin stream reddedildi", 403);
+  } catch {
+    return errorResponse("Geçersiz Origin", 403);
+  }
+}
+
+export function streamResponseHeaders(headers = new Headers()): Headers {
+  headers.set("cache-control", "private, no-store, no-transform");
+  headers.set("x-accel-buffering", "no");
+  headers.set("vary", "Accept");
+  return headers;
+}
+
+function errorResponse(message: string, status: number, headers?: HeadersInit): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "private, no-store",
+      ...Object.fromEntries(new Headers(headers)),
+    },
+  });
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, Math.max(1, ms));
+    timer.unref?.();
+  });
 }
 `;
 
 const itemDetailRoute = () => `import { defineRoute, notFound } from "@originloom/react/lib/types";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata/jsonld";
 import { getItem, type Item } from "@server/services/items";
 
 import { ItemDetailPage } from "~/features/items/item-detail-page";
@@ -1166,11 +2039,25 @@ export default defineRoute<Data>({
     // Terminal result, not a thrown error — an unknown slug is a 404, never cached.
     return item ? { data: { item } } : notFound();
   },
-  generateMetadata: (data, ctx) => ({
-    title: data.item.name,
-    description: data.item.blurb,
-    canonical: (ctx.siteUrl ?? ctx.url.origin) + "/items/" + data.item.slug,
-  }),
+  generateMetadata: (data, ctx) => {
+    const baseUrl = ctx.siteUrl ?? ctx.url.origin;
+    const canonical = baseUrl + "/items/" + data.item.slug;
+    return {
+      title: data.item.seo.title,
+      description: data.item.seo.description,
+      canonical,
+      jsonLd: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana sayfa", url: "/" },
+            { name: "Katalog", url: "/catalog" },
+            { name: data.item.name, url: canonical },
+          ],
+          baseUrl,
+        ),
+      ]),
+    };
+  },
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "item-detail"),
   Component: ItemDetailPage,
 });
@@ -1219,20 +2106,17 @@ export default defineRoute({
     <div className="space-y-4">
       <h1 className="text-3xl font-bold tracking-tight text-slate-900">Hesabım</h1>
       <Island name="account-panel" mode="defer">
-        <p className="text-slate-400">Kişisel bilgiler yükleniyor…</p>
+        <p className="text-slate-500">Kişisel bilgiler yükleniyor…</p>
       </Island>
     </div>
   ),
 });
 `;
 
-const accountPanelIsland = () => `import { useEffect, useState } from "react";
+const accountPanelIsland =
+  () => `import { ClientApiError } from "@originloom/shared/lib/client/api-fetch";
 
-type Session =
-  | { state: "loading" }
-  | { state: "signed-in"; displayName: string; initials: string }
-  | { state: "signed-out" }
-  | { state: "unavailable" };
+import { useSessionQuery } from "~/lib/query/hooks/use-session";
 
 /**
  * Defer island: the server renders only the fallback, and this mounts in the
@@ -1241,54 +2125,83 @@ type Session =
  * per-user part is fetched, so no one is ever served someone else's name.
  */
 export default function AccountPanel() {
-  const [session, setSession] = useState<Session>({ state: "loading" });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    // Cookies are HttpOnly, so the browser attaches them and no script reads them.
-    fetch("/api/session", { credentials: "same-origin", signal: controller.signal })
-      .then(async (response) => {
-        if (response.status === 401) return setSession({ state: "signed-out" });
-        if (!response.ok) return setSession({ state: "unavailable" });
-        const body = (await response.json()) as { profile: { displayName: string; initials: string } };
-        setSession({ state: "signed-in", ...body.profile });
-      })
-      // An aborted fetch is a cancelled render, not a failure.
-      .catch(() => {
-        if (!controller.signal.aborted) setSession({ state: "unavailable" });
-      });
-    return () => controller.abort();
-  }, []);
+  const session = useSessionQuery();
+  const signedOut = session.error instanceof ClientApiError && session.error.status === 401;
 
   return (
     <div className="rounded-md border border-slate-200 p-4">
-      {session.state === "loading" ? <p className="text-slate-400">Oturum kontrol ediliyor…</p> : null}
-      {session.state === "signed-in" ? (
+      {session.isPending ? <p className="text-slate-500">Oturum kontrol ediliyor…</p> : null}
+      {session.data ? (
         <>
           <p className="font-medium text-slate-900">
             <span className="mr-2 inline-block rounded-full bg-slate-900 px-2 py-1 text-xs text-white">
-              {session.initials}
+              {session.data.profile.initials}
             </span>
-            Merhaba {session.displayName}
+            Merhaba {session.data.profile.displayName}
           </p>
           <p className="text-sm text-slate-600">
-            Bu blok yalnızca tarayıcıda render edildi ve hiçbir zaman paylaşılan cache'e girmez.
+            Bu blok TanStack Query ile yalnızca tarayıcıda yüklendi ve paylaşılan HTML cache'e girmez.
           </p>
         </>
       ) : null}
-      {session.state === "signed-out" ? (
+      {signedOut ? (
         <p className="text-sm text-slate-600">Giriş yapılmamış.</p>
       ) : null}
       {/* "Bilinmiyor" is not "çıkış yapıldı": an upstream hiccup must not sign anyone out. */}
-      {session.state === "unavailable" ? (
-        <p className="text-sm text-slate-600">Oturum bilgisi şu an alınamıyor.</p>
+      {session.isError && !signedOut ? (
+        <div className="space-y-2 text-sm text-slate-600">
+          <p>Oturum bilgisi şu an alınamıyor.</p>
+          <button
+            type="button"
+            onClick={() => void session.refetch()}
+            disabled={session.isFetching}
+            className="font-medium text-slate-900 hover:underline disabled:opacity-50"
+          >
+            {session.isFetching ? "Yeniden deneniyor…" : "Tekrar dene"}
+          </button>
+        </div>
       ) : null}
     </div>
   );
 }
 `;
 
+const queryKeys = () => `export const queryKeys = {
+  session: {
+    current: () => ["session", "current"] as const,
+  },
+} as const;
+`;
+
+const sessionQueryHook =
+  () => `import { ClientApiError, clientApiFetch } from "@originloom/shared/lib/client/api-fetch";
+import { useQuery } from "@tanstack/react-query";
+
+import { queryKeys } from "~/lib/query/keys";
+
+export interface SessionResponse {
+  profile: { displayName: string; initials: string };
+}
+
+export function fetchSession(signal: AbortSignal): Promise<SessionResponse> {
+  // Cookies are HttpOnly; clientApiFetch includes them without exposing tokens to JavaScript.
+  return clientApiFetch<SessionResponse>("/api/session", { signal });
+}
+
+export function useSessionQuery() {
+  return useQuery({
+    queryKey: queryKeys.session.current(),
+    queryFn: ({ signal }) => fetchSession(signal),
+    retry: (failureCount, error) => {
+      if (error instanceof ClientApiError && error.status === 401) return false;
+      return failureCount < 1;
+    },
+  });
+}
+`;
+
 const catalogRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { compactJsonLd, itemListJsonLd } from "@originloom/shared/lib/metadata/jsonld";
 import { observeCatalogView } from "@server/metrics/catalog";
 import { productConfig } from "@server/product/config";
 import { type Item, listItems } from "@server/services/items";
@@ -1311,7 +2224,21 @@ export default defineRoute<Data>({
     observeCatalogView(page);
     return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / perPage)) } };
   },
-  title: () => "Katalog",
+  generateMetadata: (data, ctx) => {
+    const baseUrl = ctx.siteUrl ?? ctx.url.origin;
+    const canonical = data.page === 1 ? baseUrl + "/catalog" : baseUrl + "/catalog?page=" + data.page;
+    return {
+      title: data.page === 1 ? "Katalog" : \`Katalog — Sayfa \${data.page}\`,
+      canonical,
+      jsonLd: compactJsonLd([
+        itemListJsonLd(
+          "Katalog",
+          data.items.map((item) => ({ name: item.name, url: "/items/" + item.slug })),
+          baseUrl,
+        ),
+      ]),
+    };
+  },
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "catalog"),
   Component: CatalogPage,
 });
@@ -1341,7 +2268,7 @@ export function CatalogPage({ data }: Props) {
             ← Önceki
           </a>
         ) : (
-          <span className="text-slate-300">← Önceki</span>
+          <span className="text-slate-500">← Önceki</span>
         )}
         <span aria-current="page" className="text-slate-500">
           Sayfa {data.page} / {data.totalPages}
@@ -1351,7 +2278,7 @@ export function CatalogPage({ data }: Props) {
             Sonraki →
           </a>
         ) : (
-          <span className="text-slate-300">Sonraki →</span>
+          <span className="text-slate-500">Sonraki →</span>
         )}
       </nav>
       <p className="text-sm text-slate-500">
@@ -1439,7 +2366,12 @@ export default function LiveTicks() {
   useEffect(() => {
     const source = new EventSource("/api/ticks");
     source.addEventListener("tick", (event: MessageEvent<string>) => setTick(event.data));
-    source.onerror = () => source.close();
+    source.addEventListener("rotate", () => {
+      setTick("bağlantı yenileniyor…");
+      source.close();
+    });
+    // EventSource reconnects automatically after transient failures.
+    source.onerror = () => setTick("yeniden bağlanıyor…");
     return () => source.close();
   }, []);
   return (
@@ -1456,9 +2388,16 @@ export function pageParam(url: URL): number {
   const raw = Number(url.searchParams.get("page"));
   return Number.isInteger(raw) && raw >= 1 ? raw : 1;
 }
+
+/** Canonical cache representation: missing, invalid and page=1 are identical. */
+export function normalizePageParam(value: string | null): string {
+  const page = Number(value);
+  return Number.isInteger(page) && page > 1 ? String(page) : "1";
+}
 `;
 
 const serverShellData = () => `import type { Ctx } from "@originloom/react/lib/types";
+import { getMenu } from "@server/services/menu";
 
 import { buildLayoutClientProps, type ShellData } from "~/lib/shell-data";
 
@@ -1471,7 +2410,273 @@ export async function buildShellData(
   ctx: Ctx,
   opts?: { minimalChrome?: boolean | undefined },
 ): Promise<ShellData> {
-  return buildLayoutClientProps(ctx, opts);
+  const menu = await getMenu(ctx.request);
+  return { ...buildLayoutClientProps(ctx, opts), menu };
+}
+`;
+
+const menuService = () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import * as cache from "@originloom/core/cache";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { logger } from "@originloom/core/logger";
+import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
+import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import { productConfig } from "@server/product/config";
+
+import type { MenuItem } from "~/lib/menu";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+const FALLBACK_MENU: MenuItem[] = [
+  { label: "Ana sayfa", href: "/" },
+  { label: "Katalog", href: "/catalog" },
+];
+const MENU_CACHE_KEY = "menu:public:v1";
+const MENU_CACHE_POLICY = {
+  kind: "shared" as const,
+  ttl: productConfig.menuCacheTtl,
+  swr: productConfig.menuCacheSwr,
+  key: [MENU_CACHE_KEY],
+};
+let refreshInFlight: Promise<MenuItem[]> | undefined;
+
+/**
+ * Public chrome data with read-through cache. Fresh entries return immediately;
+ * stale entries return immediately and trigger one process-local refresh.
+ */
+export async function getMenu(request: Request): Promise<MenuItem[]> {
+  try {
+    const key = cache.cacheKey(MENU_CACHE_POLICY);
+    if (!key) throw new Error("Menu cache policy must be shared");
+
+    const hit = await cache.read(key);
+    if (hit) {
+      const cached = parseCachedMenu(hit.body);
+      if (cached) {
+        if (hit.state === "stale") scheduleRefresh();
+        return cached;
+      }
+      // Old/corrupt values never poison future reads. A failed delete is harmless:
+      // the successful write below replaces the same key.
+      try {
+        await cache.deleteKey(key);
+      } catch (error) {
+        logger.warn("invalid menu cache entry could not be deleted", { error: errorMessage(error) });
+      }
+    }
+
+    return await waitForRequest(refreshMenu(key), request.signal);
+  } catch (error) {
+    if (isRequestDeadlineError(error) || request.signal.aborted) throw error;
+    logger.warn("menu degraded to local fallback", { error: errorMessage(error) });
+    return FALLBACK_MENU;
+  }
+}
+
+/** Single-flight refresh bounds cold-miss and stale-refresh pressure on the gateway. */
+function refreshMenu(key = cache.cacheKey(MENU_CACHE_POLICY)): Promise<MenuItem[]> {
+  if (refreshInFlight) return refreshInFlight;
+  if (!key) return Promise.reject(new Error("Menu cache policy must be shared"));
+
+  const pending = fetchMenuFromGateway()
+    .then(async (menu) => {
+      await cache.write(key, JSON.stringify(menu), MENU_CACHE_POLICY);
+      return menu;
+    })
+    .finally(() => {
+      if (refreshInFlight === pending) refreshInFlight = undefined;
+    });
+  refreshInFlight = pending;
+  return pending;
+}
+
+function scheduleRefresh(): void {
+  void refreshMenu().catch((error: unknown) => {
+    // The stale value remains usable until staleUntil; the next stale request may retry.
+    logger.warn("stale menu refresh failed", { error: errorMessage(error) });
+  });
+}
+
+async function fetchMenuFromGateway(): Promise<MenuItem[]> {
+  // Menu is public/cacheable, so never forward a caller's Authorization header.
+  const response = await gatewayFetch("/menu");
+  if (!response.ok) throw new Error(\`Menu gateway returned \${response.status}\`);
+  const payload = await readGatewayJson(response, GatewayContracts.menu, "Invalid menu payload");
+  return requireGatewayPayload(GatewayContracts.menu, payload, isMenu, "Invalid menu payload");
+}
+
+function parseCachedMenu(body: string): MenuItem[] | null {
+  try {
+    const value: unknown = JSON.parse(body);
+    return isMenu(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function waitForRequest<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Request aborted"));
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new Error("Request aborted"));
+    const settle = <TValue>(fn: (value: TValue) => void, value: TValue) => {
+      signal.removeEventListener("abort", abort);
+      fn(value);
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    void work.then(
+      (value) => settle(resolve, value),
+      (error: unknown) => settle(reject, error),
+    );
+  });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isMenu(value: unknown): value is MenuItem[] {
+  return isBoundedArray(
+    value,
+    20,
+    (item): item is MenuItem =>
+      isRecord(item) &&
+      isBoundedString(item.label, 80) &&
+      isBoundedString(item.href, 256) &&
+      item.href.startsWith("/") &&
+      !item.href.startsWith("//"),
+  );
+}
+`;
+
+const menuLib = () => `export type MenuItem = { label: string; href: string };
+`;
+
+const botAnalyticsService = () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { logger } from "@originloom/core/logger";
+import type { BotVisit } from "@originloom/core/runtime";
+import { productConfig } from "@server/product/config";
+
+type Sender = (events: BotVisit[], signal: AbortSignal) => Promise<void>;
+
+/** Bounded, non-blocking queue: bot traffic can never create unbounded promises. */
+export class BotAnalyticsQueue {
+  private readonly queue: BotVisit[] = [];
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private controller: AbortController | undefined;
+  private sending = false;
+  private accepting = true;
+
+  constructor(
+    private readonly capacity: number,
+    private readonly batchSize: number,
+    private readonly flushMs: number,
+    private readonly sender: Sender,
+  ) {}
+
+  enqueue(event: BotVisit): "queued" | "queue_full" | "closed" {
+    if (!this.accepting) return "closed";
+    if (this.queue.length >= this.capacity) return "queue_full";
+    this.queue.push({
+      pathname: event.pathname.slice(0, 2_048),
+      userAgent: event.userAgent.slice(0, 512),
+      trackingId: event.trackingId.slice(0, 128),
+    });
+    if (this.queue.length >= this.batchSize) void this.flush();
+    else this.schedule();
+    return "queued";
+  }
+
+  async drain(timeoutMs: number): Promise<boolean> {
+    this.accepting = false;
+    this.clearTimer();
+    const work = this.flushAll().then(() => true);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<boolean>((resolve) => {
+      const deadlineTimer = setTimeout(() => {
+        this.queue.splice(0);
+        this.controller?.abort();
+        resolve(false);
+      }, timeoutMs);
+      timer = deadlineTimer;
+      deadlineTimer.unref?.();
+    });
+    const drained = await Promise.race([work, deadline]);
+    if (timer) clearTimeout(timer);
+    return drained;
+  }
+
+  snapshot(): { queued: number; sending: boolean; accepting: boolean } {
+    return { queued: this.queue.length, sending: this.sending, accepting: this.accepting };
+  }
+
+  private schedule(): void {
+    if (this.timer || this.sending || this.queue.length === 0) return;
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      void this.flush();
+    }, this.flushMs);
+    this.timer.unref?.();
+  }
+
+  private async flushAll(): Promise<void> {
+    while (this.queue.length > 0 || this.sending) {
+      if (!this.sending) await this.flush();
+      else await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+
+  private async flush(): Promise<void> {
+    if (this.sending || this.queue.length === 0) return;
+    this.clearTimer();
+    const events = this.queue.splice(0, this.batchSize);
+    this.sending = true;
+    const controller = new AbortController();
+    this.controller = controller;
+    try {
+      await this.sender(events, controller.signal);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        logger.warn("bot analytics batch failed", {
+          eventCount: events.length,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } finally {
+      this.controller = undefined;
+      this.sending = false;
+      if (this.accepting) this.schedule();
+    }
+  }
+
+  private clearTimer(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = undefined;
+  }
+}
+
+const queue = new BotAnalyticsQueue(
+  productConfig.botAnalyticsQueueCapacity,
+  productConfig.botAnalyticsBatchSize,
+  productConfig.botAnalyticsFlushMs,
+  sendBatch,
+);
+
+export function storeBotVisit(visit: BotVisit): void {
+  queue.enqueue(visit);
+}
+
+export function drainBotAnalytics(): Promise<boolean> {
+  return queue.drain(productConfig.botAnalyticsDrainTimeoutMs);
+}
+
+async function sendBatch(events: BotVisit[], signal: AbortSignal): Promise<void> {
+  const response = await gatewayFetch("/analytics/bot", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ events }),
+    signal,
+  });
+  if (!response.ok) throw new Error(\`Bot analytics gateway returned \${response.status}\`);
 }
 `;
 
@@ -1479,6 +2684,8 @@ const productRuntime =
   () => `import { installRuntime, type OriginRuntime } from "@originloom/core/runtime";
 import { configureSiteMetadata } from "@originloom/shared/lib/metadata/site-config";
 import { catalogMetricLines } from "@server/metrics/catalog";
+import { liveStreamMetricLines } from "@server/metrics/live-stream";
+import { storeBotVisit } from "@server/services/bot-analytics";
 import { buildShellData } from "@server/services/shell-data";
 
 import { isKnownPageCachePrefix } from "~/lib/cache-keys";
@@ -1502,8 +2709,9 @@ export const productRuntime: OriginRuntime<ShellData> = {
   isShellUsableForFragments: () => true,
   document: productDocumentShell,
   cacheKeys: { isKnownPageCachePrefix },
+  onBotVisit: storeBotVisit,
   // This app's own metrics, appended to the platform's /metrics output.
-  metricSources: [catalogMetricLines],
+  metricSources: [catalogMetricLines, liveStreamMetricLines],
 };
 
 export function installProductRuntime(): void {
@@ -1675,11 +2883,14 @@ runIslandBootstrap(
 
 const hydrateClient =
   () => `import { createIslandMounter, type IslandModule } from "@originloom/react/lib/client/island-mount";
+import { AppQueryProvider } from "@originloom/react/lib/query/provider";
 
 // import.meta.glob resolves relative to this file, so the island registry is
 // app-owned by design. Every src/islands/*.tsx becomes an island named after it.
 export const mount = createIslandMounter({
   modules: import.meta.glob<IslandModule>("./islands/*.tsx"),
+  // One browser QueryClient is shared by every independently mounted island.
+  Wrapper: AppQueryProvider,
 });
 `;
 
@@ -1728,8 +2939,11 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
         sayfanın geri kalanı statik HTML kalır.
       </p>
       <Island name="counter" props={{ start: 0 }}>
-        <button type="button" className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white">
-          Tıklandı: 0
+        <button
+          type="button"
+          className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700"
+        >
+          Tıklandı: {0}
         </button>
       </Island>
 
@@ -1748,6 +2962,24 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
               /items/:slug
             </a>{" "}
             — dinamik route, <code>validateParams</code> + <code>notFound()</code> + SEO
+          </li>
+          <li>
+            <a className="hover:underline" href="/old-catalog?source=home">
+              /old-catalog
+            </a>{" "}
+            — static <code>308</code> redirect; query korunur
+          </li>
+          <li>
+            <a className="hover:underline" href="/products/alpha?source=home">
+              /products/:slug
+            </a>{" "}
+            — URL değişmeden <code>/items/:slug</code> route'una rewrite
+          </li>
+          <li>
+            <a className="hover:underline" href="/legacy-catalog">
+              /legacy-catalog
+            </a>{" "}
+            — mock CMS redirect; <code>/removed-page</code> ise <code>410</code>
           </li>
           <li>
             <a className="hover:underline" href="/account">
@@ -1802,10 +3034,21 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
     <div className="flex min-h-screen flex-col">
       {shell.minimalChrome ? null : (
         <header className="border-b border-slate-200">
-          <div className="mx-auto flex max-w-5xl items-center px-4 py-4">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
             <a href="/" className="text-lg font-semibold text-slate-900">
               {SITE_NAME}
             </a>
+            <nav aria-label="Ana menü">
+              <ul className="flex gap-4 text-sm text-slate-600">
+                {shell.menu.map((item) => (
+                  <li key={item.href}>
+                    <a className="hover:text-slate-950 hover:underline" href={item.href}>
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
         </header>
       )}
@@ -1833,6 +3076,8 @@ import type { DeviceType } from "@originloom/shared/lib/device";
 import { deviceCacheFragment, getDeviceShell } from "@originloom/shared/lib/device";
 import { cookie } from "@originloom/shared/lib/request";
 
+import type { MenuItem } from "~/lib/menu";
+
 /** Cache-safe props for the shell — no trackingId, no auth tokens. */
 export type ShellData = {
   publicPath: string;
@@ -1841,6 +3086,7 @@ export type ShellData = {
   minimalChrome?: boolean;
   deviceType: DeviceType;
   deviceShell: "desktop" | "mobile";
+  menu: MenuItem[];
 };
 
 export function buildLayoutClientProps(
@@ -1856,6 +3102,7 @@ export function buildLayoutClientProps(
     ...(opts?.minimalChrome !== undefined ? { minimalChrome: opts.minimalChrome } : {}),
     deviceType,
     deviceShell: getDeviceShell(deviceType),
+    menu: [],
   };
 }
 
@@ -1875,10 +3122,23 @@ export function defaultPageMeta(
 
 const cacheKeys = () => `import type { CachePolicy, Ctx } from "@originloom/react/lib/types";
 import { neverCache, sharedUnlessBypass } from "@originloom/shared/lib/cache-policy";
+import {
+  contentQueryCacheFragment,
+  type ContentQueryConfig,
+} from "@originloom/shared/lib/cache-query-params";
 import { locale } from "@originloom/shared/lib/request";
 
-import { pageParam } from "~/lib/pagination";
+import { normalizePageParam } from "~/lib/pagination";
 import { layoutCacheFragment } from "~/lib/shell-data";
+
+export {
+  decodeCacheKeyFromApi,
+  displayCacheKey,
+  encodeCacheKeyForApi,
+  formatCacheKey,
+  parseCacheKey,
+  toCacheKeyApiEntry,
+} from "@originloom/core/cache/key-codec";
 
 /**
  * HTML page cache identities. The purge API and the metrics route labels are
@@ -1904,6 +3164,7 @@ export type PageCacheDefinition = {
   strategy: PageCacheStrategy;
   ttl?: number;
   swr?: number;
+  contentQuery?: ContentQueryConfig;
   buildKey: (ctx: Ctx) => string[];
 };
 
@@ -1925,10 +3186,16 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Katalog (sayfalı)",
     path: "/catalog",
     strategy: "shared",
-    // Only the normalized page number changes the HTML, so only it enters the key.
+    contentQuery: {
+      include: ["page"],
+      defaults: { page: "1" },
+      normalize: { page: normalizePageParam },
+    },
+    // Only allowlisted, normalized content params enter the key. Tracking and
+    // unknown params cannot fragment the shared HTML cache.
     buildKey: (ctx) => [
       "catalog",
-      String(pageParam(ctx.url)),
+      contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.catalog].contentQuery!),
       locale(ctx.request),
       layoutCacheFragment(ctx),
     ],
@@ -2025,23 +3292,48 @@ export function siteMetadata(baseUrl: string): SiteMetadataConfig {
 }
 `;
 
-const routingRules =
-  () => `import type { RedirectRule, RewriteRule } from "@originloom/shared/routing/types";
+const routingRules = (
+  includeExamples = false,
+) => `import type { RedirectRule, RewriteRule } from "@originloom/shared/routing/types";
 
 /**
  * Config-level redirects — the Next.js \`redirects()\` equivalent.
- * Example: { source: "/eski-yol", destination: "/yeni-yol", status: 301 }
+ * First match wins and runs before rewrites. Incoming query params are preserved.
  */
-export const redirects: RedirectRule[] = [];
+export const redirects: RedirectRule[] = ${
+  includeExamples
+    ? `[
+  // The browser moves to /catalog. Use 301/308 only when the move is permanent.
+  { source: "/old-catalog", destination: "/catalog", status: 308 },
+]`
+    : "[]"
+};
 
 /**
  * Internal rewrites and explicit external proxies — the \`rewrites()\` equivalent.
- * Gateway-bound rules go through createRewrites so the host stays configurable.
+ * An internal destination keeps the public URL while matching another app route.
  */
-export const rewrites: RewriteRule[] = [];
+export const rewrites: RewriteRule[] = ${
+  includeExamples
+    ? `[
+  // /products/alpha renders /items/:slug; cache and canonical logic still see the public path.
+  { source: "/products/:slug", destination: "/items/:slug" },
+]`
+    : "[]"
+};
 
-export function createRewrites(_gatewayUrl: string): RewriteRule[] {
-  return rewrites;
+export function createRewrites(gatewayUrl: string): RewriteRule[] {
+  ${
+    includeExamples
+      ? `return [
+    ...rewrites,
+    // External destinations are server-side proxies. Expose upstream routes one by one;
+    // never add a catch-all such as /gateway/:path*.
+    { source: "/gateway/menu", destination: new URL("/menu", gatewayUrl).toString() },
+  ];`
+      : `void gatewayUrl;
+  return rewrites;`
+  }
 }
 `;
 
@@ -2128,49 +3420,167 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
 CMD ["node", "--enable-source-maps", "dist/server/index.js"]
 `;
 
-const readme = (name, title, port, vitePort, standalone) => `# ${title}
+const readme = (name, title, port, vitePort, standalone, withOps) => `# ${title}
 
 OriginLoom ürün uygulaması. Platform runtime'ı \`@originloom/core\` ve \`@originloom/react\`
-paketlerinden gelir; bu repo yalnız route tablosunu, ürün kontratını ve kendi chrome'unu içerir.
+paketlerinden gelir; bu repo route tablosunu, ürün kontratlarını, cache kimliğini ve kendi UI'ını
+sahiplenir.
 
-## Geliştirme
+## Gereksinimler
 
-\`\`\`bash
+- Node.js 22.13 veya üzeri
+- Corepack üzerinden pnpm
+${standalone ? "- `@originloom/*` paketlerinin bulunduğu registry'ye erişim" : "- OriginLoom monorepo kökünde çalışmak"}
+
+## Kurulum ve ilk çalıştırma
+
 ${
   standalone
-    ? `pnpm install                 # @originloom/* registry erişimi gerektirir
-pnpm dev`
-    : `pnpm install                 # repo kökünden, bir kez
-pnpm --filter ${name} dev`
-}
+    ? `Bu uygulama ayrı bir repository olarak üretildi. \`--registry\` kullanıldıysa kökteki
+\`.npmrc\` yalnız \`@originloom/*\` paketlerini ilgili registry'ye yönlendirir; authentication
+bilgilerini repository'ye yazmayın.
+
+\`\`\`bash
+corepack enable
+pnpm install
+pnpm e2e:install
+
+# Commit/PR açmadan önce tüm kalite kapısını doğrulayın.
+pnpm ci
+
+# SSR, Vite ve mock gateway'i birlikte başlatır.
+pnpm dev
 \`\`\`
 
-Uygulama \`http://127.0.0.1:${port}\`, client modülleri Vite dev server'dan (\`:${vitePort}\`) gelir.${
-  standalone
-    ? `\nUpstream gateway'i \`.env.development\` içindeki \`GATEWAY_URL\` ile ayarlayın.`
+İlk kurulumdan sonra \`pnpm-lock.yaml\` dosyasını repository'ye ekleyin. Gerçek gateway'e geçmeden
+önce mock verilerle çalışan route'ları kontrol edin.`
+    : `Bu uygulama OriginLoom monorepo içindeki \`apps/${name}\` workspace'idir. Komutları repository
+kökünden çalıştırın:
+
+\`\`\`bash
+corepack enable
+pnpm install
+pnpm --filter ${name} e2e:install
+pnpm --filter ${name} ci
+pnpm --filter ${name} dev
+\`\`\``
+}
+
+| Servis              | Adres/port                        | Not                                      |
+| ------------------- | --------------------------------- | ---------------------------------------- |
+| SSR uygulaması      | \`http://127.0.0.1:${port}\`       | Browser'ın açacağı adres                 |
+| Vite dev server     | \`http://127.0.0.1:${vitePort}\`   | Client modülleri; doğrudan açmayın       |
+| Mock gateway        | \`.env.development:GATEWAY_URL\`   | \`pnpm dev\` otomatik başlatır          |
+| Metrics/operations  | \`:${port + 6000}\`                | Public ingress'e açılmamalıdır           |
+
+Gerçek entegrasyonda \`.env.development\` içindeki \`GATEWAY_URL\` değerini değiştirin ve
+\`mock-gateway/server.mjs\` payload'larını gerçek kontratlarla karşılaştırın. Production secret'larını
+dosyaya yazmak yerine secret manager/CI üzerinden verin.
+
+## Çalışan örnekler
+
+- \`/catalog\`: normalize query paramı cache key'e giren sayfalı liste
+- \`/items/alpha\`: param validation, \`notFound()\`, CMS SEO ve JSON-LD içeren dinamik route
+- \`/account\`: never-cache document, BFF session ve defer island
+- Dynamic menu: fresh/stale endpoint cache, single-flight refresh ve safe fallback
+- \`/live\`: progressive SSR, bounded SSE ve graceful shutdown
+- \`/showcase\`: bağımsız TTL ile fragment stitching
+- \`/media\`: responsive media ve unoptimized asset teslimi
+- \`/old-catalog\`: query-string'i koruyan static \`308\` redirect
+- \`/products/alpha\`: browser URL'sini koruyan internal rewrite
+- \`/gateway/menu\`: yalnız açıkça izin verilen gateway endpoint'ine external proxy
+- \`/legacy-catalog\` ve \`/removed-page\`: mock CMS redirect ve \`410 Gone\`
+
+## Sık kullanılan komutlar
+
+| Komut                 | Açıklama                                                     |
+| --------------------- | ------------------------------------------------------------ |
+| \`pnpm dev\`            | SSR, Vite ve mock gateway'i birlikte çalıştırır              |
+| \`pnpm origin:doctor\`  | Platform/template uyumluluğunu read-only denetler             |
+| \`pnpm origin:migrate\` | Upgrade planını dry-run gösterir; \`--apply\` ile uygular       |
+| \`pnpm typecheck\`      | TypeScript kontrolü                                          |
+| \`pnpm check:cycles\`   | Import cycle ve katman sınırlarını kontrol eder              |
+| \`pnpm test\`           | Unit/integration testlerini çalıştırır                       |
+| \`pnpm build\`          | Client ve self-contained server bundle üretir                |
+| \`pnpm smoke\`          | Built server'ı mock gateway ile probe eder                   |
+| \`pnpm ci\`             | Typecheck, cycle, lint, format, test, build ve smoke çalıştırır |
+| \`pnpm media\`          | Responsive image/font manifestini üretir                     |
+| \`pnpm icons\`          | SVG kaynaklarından typed React icon'ları üretir              |
+${
+  withOps
+    ? `| \`pnpm compose:up\`     | Generated Compose stack'ini başlatır                         |
+| \`pnpm loadtest\`       | Load profilini çalıştırıp JSON sonuç üretir                   |
+| \`pnpm stress\`         | Stress senaryosunu çalıştırır                                |
+| \`pnpm loadtest:compare\` | İki load sonucunu regression açısından karşılaştırır       |
+| \`pnpm pentest:readiness\` | Uygulamayı pentest öncesi güvenlik kontrollerinden geçirir |`
     : ""
 }
 
 ## Yapı
 
-| Yol                     | Sorumluluk                                                             |
-| ----------------------- | ---------------------------------------------------------------------- |
-| \`server/index.ts\`       | Composition root — runtime, routing ve app burada kurulur              |
-| \`server/routes/\`        | Route tanımları (loader + cache + Component)                           |
-| \`server/product/\`       | Platforma verilen kontrat: runtime, document shell, boundary sayfaları |
-| \`server/services/\`      | Server-only veri orkestrasyonu — gateway çağrıları ve payload guard'ları |
-| \`mock-gateway/\`        | Geliştirme için sahte upstream; \`pnpm dev\` otomatik başlatır          |
-| \`src/features/\`         | Sayfa bileşenleri                                                      |
-| \`src/islands/\`          | Client etkileşim noktaları — dosya adı island adıdır                   |
-| \`src/lib/cache-keys.ts\` | Sayfa cache registry'si — cache'lenen her sayfa buraya girer           |
-| \`src/routing/rules.ts\`  | Redirect / rewrite kuralları                                           |
+| Yol                       | Sorumluluk                                                               |
+| ------------------------- | ------------------------------------------------------------------------ |
+| \`server/index.ts\`         | Composition root: runtime, routing, app, metrics ve shutdown              |
+| \`server/routes/\`          | Route tanımları: loader, cache, metadata ve React Component               |
+| \`server/api/\`             | Public API/BFF ve SSE endpoint'leri                                      |
+| \`server/product/\`         | Runtime, document shell, fragments, CSP ve boundary kontratları           |
+| \`server/services/\`        | Gateway çağrıları, payload guard'ları ve background worker'lar            |
+| \`server/metrics/\`         | Bounded product metric kaynakları                                        |
+| \`mock-gateway/\`           | Local fixture; \`pnpm dev\` ve \`pnpm smoke\` otomatik başlatır          |
+| \`src/features/\`           | Server-rendered sayfa bileşenleri                                        |
+| \`src/islands/\`            | Client etkileşim noktaları; dosya adı island adıdır                       |
+| \`src/lib/cache-keys.ts\`   | Cache registry, vary parçaları ve purge transport codec'i                 |
+| \`src/routing/rules.ts\`    | Static redirect, internal rewrite ve explicit proxy kuralları             |
+| \`docs/\`                   | Özellik envanteri ve production karar rehberleri                          |
+| \`.originloom/project.json\` | Template sürümü, renderer, mode ve uygulanmış migration kimlikleri        |
 
 ## Yeni sayfa ekleme
 
-1. \`src/lib/cache-keys.ts\` içine cache tanımı ekle (cache'lenecekse).
-2. \`server/routes/<sayfa>.tsx\` içinde \`defineRoute\` ile route'u yaz.
-3. \`server/routes/index.ts\` route tablosuna ekle — sıra önemli, ilk eşleşen kazanır.
-4. Bileşeni \`src/features/\` altına koy; etkileşim gerekiyorsa \`src/islands/\` + \`<Island />\`.
+1. Cache'lenecekse \`src/lib/cache-keys.ts\` içine bounded vary parçalarıyla cache tanımı ekleyin.
+2. \`server/routes/<sayfa>.tsx\` içinde \`defineRoute\` ile loader, cache ve metadata'yı tanımlayın.
+3. Gateway payload'ını \`server/services/\` içinde boyut limiti ve runtime guard ile doğrulayın.
+4. Route'u \`server/routes/index.ts\` tablosuna ekleyin; ilk eşleşmenin kazandığını unutmayın.
+5. UI'ı \`src/features/\` altına koyun; etkileşim gerekiyorsa küçük bir \`<Island />\` kullanın.
+6. Cache, redirect/notFound ve payload rejection davranışları için test ekleyip \`pnpm ci\` çalıştırın.
+
+## Routing ekleme
+
+Static redirect, internal rewrite ve explicit external proxy örnekleri \`src/routing/rules.ts\`
+içindedir. CMS redirect ve gone fixture'ları mock gateway'dedir. Kuralların çalışma sırası, query
+birleştirme, \`publicPath\` ve güvenlik sınırları için [docs/routing.md](docs/routing.md) rehberini
+okuyun. Gateway'e wildcard proxy eklemeyin.
+
+## Özellik rehberleri
+
+Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
+
+- [Auth ve BFF](docs/auth.md)
+- [Cache ve fragment stitching](docs/caching.md)
+- [Configuration](docs/configuration.md)
+- [Dynamic shell](docs/dynamic-shell.md)
+- [Background workers](docs/background-workers.md)
+- [Redirect, rewrite ve proxy](docs/routing.md)
+- [Streaming ve SSE](docs/streaming.md)
+- [SEO](docs/seo.md)
+- [Observability](docs/observability.md)
+- [TanStack Query kullanımı ve kaldırma](docs/react-query.md)
+- [Testing](docs/testing.md)
+- [Sürüm yükseltme ve migration](docs/upgrading.md)
+
+## Browser E2E
+
+React template production bundle'ı gerçek Chromium üzerinde doğrulayan Playwright suite'iyle gelir.
+
+\`\`\`bash
+pnpm e2e:install       # makine başına bir kez Chromium kurar
+pnpm e2e               # app + mock gateway'i yönetip browser testlerini çalıştırır
+pnpm e2e:ui            # lokal interaktif hata ayıklama
+pnpm e2e:report        # son HTML raporunu açar
+\`\`\`
+
+Hazır senaryolar hydration, auth refresh, redirect/rewrite, TanStack Query recovery, SSE lifecycle,
+CSP/cookie sınırı, accessibility ve JavaScript kapalı SSR'ı kapsar. Test topology'si, CI artifact'leri
+ve yeni kritik yol ekleme kuralları için [docs/testing.md](docs/testing.md) dosyasını okuyun.
 
 ## Deploy
 
@@ -2187,9 +3597,20 @@ docker build -f apps/${name}/Dockerfile -t ${name} .`
 Production'da \`SITE_URL\`, \`GATEWAY_URL\`, \`RELEASE_ID\` ve
 \`AUTH_REFRESH_COORDINATION_SECRET\` zorunludur. \`RELEASE_ID\` ortak Redis'te cache
 namespace'ini de belirler — her uygulamaya kendine ait bir değer verin.
+
+${
+  withOps
+    ? `## Operations asset'leri
+
+Bu proje \`--with-ops\` ile üretildi. \`OPERATIONS.md\` dosyasını okuyun; image repository, ingress
+host'ları, resource limitleri ve secret adları placeholder'dır. Production'a çıkmadan önce Compose,
+Kubernetes, Prometheus, load/stress ve pentest readiness adımlarını gerçek ortama göre düzenleyin.`
+    : `Deployment manifestleri, load/stress araçları ve pentest readiness gerekiyorsa projeyi
+\`--with-ops\` seçeneğiyle yeniden üretmek yerine ilgili asset'leri kontrollü biçimde ekleyin.`
+}
 `;
 
-const githubWorkflow = (name) => `name: CI
+const githubWorkflow = (name, renderer) => `name: CI
 
 on:
   pull_request:
@@ -2229,17 +3650,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # typecheck, cycles, lint, format, tests, build and a smoke run against the
-      # built server. \`smoke\` starts the mock gateway itself, so nothing external
-      # has to be running.
+${
+  renderer === "react"
+    ? `      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+`
+    : ""
+}
+      # typecheck, cycles, lint, format, tests, browser E2E, build and a smoke run.
+      # Playwright and smoke each manage the mock gateway process they need.
       - name: Verify
         run: pnpm run ci
 
+${
+  renderer === "react"
+    ? `      - name: Upload Playwright report
+        if: always() && hashFiles('playwright-report/**') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+`
+    : ""
+}
       - name: Build container
         run: docker build --tag ${name}:\${{ github.sha }} .
 `;
 
-const mockGateway = () => `#!/usr/bin/env node
+const mockGateway = (includeRoutingExamples = false) => `#!/usr/bin/env node
 /**
  * Local stand-in for the upstream gateway, so \`pnpm dev\` works before a real one
  * exists. \`origin-dev --gateway\` and \`origin-smoke --gateway\` start it for you.
@@ -2249,19 +3688,32 @@ const mockGateway = () => `#!/usr/bin/env node
  */
 import { createServer } from "node:http";
 
-const PORT = Number(process.env.PORT ?? 4002);
+const PORT = Number(process.env.MOCK_GATEWAY_PORT ?? 4002);
 
 const ITEMS = [
-  { slug: "alpha", name: "Alpha", blurb: "İlk örnek kayıt." },
-  { slug: "beta", name: "Beta", blurb: "İkinci örnek kayıt." },
-  { slug: "gamma", name: "Gamma", blurb: "Üçüncü örnek kayıt." },
-  { slug: "delta", name: "Delta", blurb: "Dördüncü örnek kayıt." },
-  { slug: "epsilon", name: "Epsilon", blurb: "Beşinci örnek kayıt." },
-  { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt." },
-  { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt." },
+  { slug: "alpha", name: "Alpha", blurb: "İlk örnek kayıt.", seo: { title: "Alpha", description: "Alpha detay sayfası." } },
+  { slug: "beta", name: "Beta", blurb: "İkinci örnek kayıt.", seo: { title: "Beta", description: "Beta detay sayfası." } },
+  { slug: "gamma", name: "Gamma", blurb: "Üçüncü örnek kayıt.", seo: { title: "Gamma", description: "Gamma detay sayfası." } },
+  { slug: "delta", name: "Delta", blurb: "Dördüncü örnek kayıt.", seo: { title: "Delta", description: "Delta detay sayfası." } },
+  { slug: "epsilon", name: "Epsilon", blurb: "Beşinci örnek kayıt.", seo: { title: "Epsilon", description: "Epsilon detay sayfası." } },
+  { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt.", seo: { title: "Zeta", description: "Zeta detay sayfası." } },
+  { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt.", seo: { title: "Eta", description: "Eta detay sayfası." } },
 ];
+const MENU = [
+  { label: "Ana sayfa", href: "/" },
+  { label: "Katalog", href: "/catalog" },
+  { label: "Canlı veri", href: "/live" },
+];
+${
+  includeRoutingExamples
+    ? `const CMS_ROUTES = new Map([
+  ["/legacy-catalog", { destination: "/catalog?source=cms", status: 301 }],
+  ["/removed-page", { type: "gone" }],
+]);`
+    : ""
+}
 
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", \`http://\${req.headers.host ?? "localhost"}\`);
 
   if (url.pathname === "/items") {
@@ -2270,6 +3722,18 @@ const server = createServer((req, res) => {
     const start = (page - 1) * perPage;
     return json(res, 200, { items: ITEMS.slice(start, start + perPage), total: ITEMS.length });
   }
+
+  if (url.pathname === "/menu") return json(res, 200, MENU);
+
+${
+  includeRoutingExamples
+    ? `  if (url.pathname === "/cms/redirects") {
+    const rule = CMS_ROUTES.get(url.searchParams.get("path") ?? "");
+    return rule ? json(res, 200, rule) : empty(res, 404);
+  }
+`
+    : ""
+}
 
   const detail = /^\\/items\\/([^/]+)$/.exec(url.pathname);
   if (detail) {
@@ -2287,12 +3751,37 @@ const server = createServer((req, res) => {
     );
   }
 
+  // Deterministic local refresh contract. Production validates and rotates the
+  // real refresh token; this fixture accepts one documented development value.
+  if (url.pathname === "/auth/refresh") {
+    if (req.method !== "POST") return json(res, 405, { error: "method_not_allowed" });
+
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      return json(res, 400, { error: "invalid_json" });
+    }
+    if (!body || body.refreshToken !== "dev-refresh-token") {
+      return json(res, 401, { error: "invalid_refresh_token" });
+    }
+    return json(res, 200, {
+      accessToken: createDevAccessToken(),
+      refreshToken: "dev-refresh-token",
+    });
+  }
+
   // The real gateway decides who the caller is from the bearer token. Here any
   // token is accepted and none is rejected — enough to exercise both branches of
   // the session flow without a login screen.
   if (url.pathname === "/user/profile") {
     if (!req.headers.authorization) return json(res, 401, { error: "unauthorized" });
     return json(res, 200, { displayName: "Örnek Kullanıcı", initials: "ÖK" });
+  }
+
+  if (url.pathname === "/analytics/bot" && req.method === "POST") {
+    req.resume();
+    return json(res, 202, { accepted: true });
   }
 
   return json(res, 404, { error: "not_found" });
@@ -2305,6 +3794,34 @@ function json(res, status, body) {
     "content-length": Buffer.byteLength(payload),
   });
   res.end(payload);
+}
+
+async function readJsonBody(req) {
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > 16_384) throw new Error("request_too_large");
+    chunks.push(chunk);
+  }
+  if (bytes === 0) return undefined;
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function createDevAccessToken() {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const header = encode({ alg: "none", typ: "JWT" });
+  const payload = encode({ sub: "demo", exp: Math.floor(Date.now() / 1000) + 3600 });
+  return [header, payload, "dev"].join(".");
+}
+
+${
+  includeRoutingExamples
+    ? `function empty(res, status = 204) {
+  res.writeHead(status, { "cache-control": "no-store" });
+  res.end();
+}`
+    : ""
 }
 
 server.listen(PORT, "127.0.0.1", () => {
@@ -2324,6 +3841,7 @@ const gatewayContracts =
  */
 export const GatewayContracts = {
   items: defineGatewayContract("items", 262_144),
+  menu: defineGatewayContract("menu", 32_768),
   profile: defineGatewayContract("profile", 16_384),
 } as const;
 `;
@@ -2449,7 +3967,7 @@ export function mountSessionApi(app: Hono<{ Variables: AppVariables }>): void {
 
   // Called after a client-side 401: mints a new access token from the refresh
   // token so the browser can retry, without ever seeing either.
-  app.post("/api/session/refresh", async (c) => {
+  app.post("/api/internal/refresh", async (c) => {
     const request = contextRequest(c);
     const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", SESSION_POLICY);
     if (denied) return denied;
@@ -2529,7 +4047,50 @@ export function catalogMetricLines(): string[] {
 }
 `;
 
-const productConfigFile = () => `import { config, numberEnv } from "@originloom/core/config";
+const liveStreamMetrics = () => `import {
+  counterLines,
+  type CounterMap,
+  escapeLabel,
+  increment,
+} from "@originloom/core/metrics/primitives";
+
+const outcomes: CounterMap = new Map();
+let activeConnections = 0;
+
+export function observeLiveStreamConnection(
+  outcome:
+    | "accepted"
+    | "closed"
+    | "global_limit"
+    | "invalid_request"
+    | "ip_limit"
+    // A response nobody read: the slot was handed back without a stream.
+    | "never_started",
+): void {
+  increment(outcomes, \`outcome="\${escapeLabel(outcome)}"\`);
+}
+
+export function setLiveStreamActiveConnections(value: number): void {
+  activeConnections = Math.max(0, value);
+}
+
+export function liveStreamMetricLines(): string[] {
+  return [
+    ...counterLines(
+      "app_live_stream_connections_total",
+      "Live stream connection lifecycle by bounded outcome",
+      outcomes,
+    ),
+    "# HELP app_live_stream_active_connections Current live stream connections",
+    "# TYPE app_live_stream_active_connections gauge",
+    \`app_live_stream_active_connections \${activeConnections}\`,
+  ];
+}
+`;
+
+const productConfigFile = (
+  includeMenuCache = false,
+) => `import { config, numberEnv } from "@originloom/core/config";
 import { assertPositiveInteger } from "@originloom/core/config-validation";
 
 /**
@@ -2540,8 +4101,23 @@ import { assertPositiveInteger } from "@originloom/core/config-validation";
 export const productConfig = {
   /** Items per catalog page. Part of the cache key, so changing it changes cached HTML. */
   catalogPageSize: numberEnv("CATALOG_PAGE_SIZE", 3),
-  /** Shown in the footer; optional in development, required in production. */
+${
+  includeMenuCache
+    ? `  /** Public endpoint-data cache: fresh TTL followed by stale-while-revalidate window. */
+  menuCacheTtl: numberEnv("MENU_CACHE_TTL", 14_400),
+  menuCacheSwr: numberEnv("MENU_CACHE_SWR", 86_400),
+`
+    : ""
+}  /** Shown in the footer; optional in development, required in production. */
   supportEmail: process.env.SUPPORT_EMAIL?.trim() || undefined,
+  liveStreamMaxConnections: numberEnv("LIVE_STREAM_MAX_CONNECTIONS", 1_000),
+  liveStreamMaxConnectionsPerIp: numberEnv("LIVE_STREAM_MAX_CONNECTIONS_PER_IP", 5),
+  liveStreamMaxDurationMs: numberEnv("LIVE_STREAM_MAX_DURATION_MS", 300_000),
+  liveStreamHeartbeatMs: numberEnv("LIVE_STREAM_HEARTBEAT_MS", 15_000),
+  botAnalyticsQueueCapacity: numberEnv("BOT_ANALYTICS_QUEUE_CAPACITY", 1_000),
+  botAnalyticsBatchSize: numberEnv("BOT_ANALYTICS_BATCH_SIZE", 25),
+  botAnalyticsFlushMs: numberEnv("BOT_ANALYTICS_FLUSH_MS", 250),
+  botAnalyticsDrainTimeoutMs: numberEnv("BOT_ANALYTICS_DRAIN_TIMEOUT_MS", 3_000),
 } as const;
 
 export type ProductConfig = typeof productConfig;
@@ -2552,11 +4128,43 @@ export type ProductConfig = typeof productConfig;
  */
 export function validateProductConfig(): void {
   assertPositiveInteger("CATALOG_PAGE_SIZE", productConfig.catalogPageSize);
-  if (productConfig.catalogPageSize > 100) {
+${
+  includeMenuCache
+    ? `  assertPositiveInteger("MENU_CACHE_TTL", productConfig.menuCacheTtl);
+  if (!Number.isFinite(productConfig.menuCacheSwr) || productConfig.menuCacheSwr < 0) {
+    throw new Error("MENU_CACHE_SWR must be a non-negative number");
+  }
+`
+    : ""
+}  if (productConfig.catalogPageSize > 100) {
     throw new Error("CATALOG_PAGE_SIZE above 100 would make one page too large to cache well");
   }
   if (config.isProduction && !productConfig.supportEmail) {
     throw new Error("SUPPORT_EMAIL is required in production");
+  }
+  for (const [name, value] of [
+    ["LIVE_STREAM_MAX_CONNECTIONS", productConfig.liveStreamMaxConnections],
+    ["LIVE_STREAM_MAX_CONNECTIONS_PER_IP", productConfig.liveStreamMaxConnectionsPerIp],
+    ["LIVE_STREAM_MAX_DURATION_MS", productConfig.liveStreamMaxDurationMs],
+    ["LIVE_STREAM_HEARTBEAT_MS", productConfig.liveStreamHeartbeatMs],
+    ["BOT_ANALYTICS_QUEUE_CAPACITY", productConfig.botAnalyticsQueueCapacity],
+    ["BOT_ANALYTICS_BATCH_SIZE", productConfig.botAnalyticsBatchSize],
+    ["BOT_ANALYTICS_FLUSH_MS", productConfig.botAnalyticsFlushMs],
+    ["BOT_ANALYTICS_DRAIN_TIMEOUT_MS", productConfig.botAnalyticsDrainTimeoutMs],
+  ] as const) {
+    assertPositiveInteger(name, value);
+  }
+  if (productConfig.liveStreamMaxConnectionsPerIp > productConfig.liveStreamMaxConnections) {
+    throw new Error("LIVE_STREAM_MAX_CONNECTIONS_PER_IP must not exceed the global limit");
+  }
+  if (productConfig.liveStreamHeartbeatMs >= productConfig.liveStreamMaxDurationMs) {
+    throw new Error("LIVE_STREAM_HEARTBEAT_MS must be lower than LIVE_STREAM_MAX_DURATION_MS");
+  }
+  if (productConfig.botAnalyticsBatchSize > productConfig.botAnalyticsQueueCapacity) {
+    throw new Error("BOT_ANALYTICS_BATCH_SIZE must not exceed BOT_ANALYTICS_QUEUE_CAPACITY");
+  }
+  if (productConfig.botAnalyticsDrainTimeoutMs >= config.shutdownTimeoutMs) {
+    throw new Error("BOT_ANALYTICS_DRAIN_TIMEOUT_MS must be lower than SHUTDOWN_TIMEOUT_MS");
   }
 }
 `;

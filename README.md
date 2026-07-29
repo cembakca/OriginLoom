@@ -9,6 +9,8 @@ için [çok ürünlü adoption rehberi](docs/multi-product-adoption.md); platfor
 uygulaması eklemek için [new-product-app.md](docs/new-product-app.md). Production güvenlik kabulü, secret rotation
 ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur.
 Paketlerin sürümlenmesi ve yayın hattı için [releasing.md](docs/releasing.md).
+Template/platform uyumluluk penceresi [compatibility.md](docs/compatibility.md), sürüm bazlı
+değişiklikler ise [migration kayıtlarında](docs/migrations/README.md) tutulur.
 
 ## Mimari
 
@@ -80,6 +82,7 @@ tam sürümle bağlılar, kısmi bir yayın tüketiciyi çözülemez bir kümeyl
 pnpm changeset          # değişiklik notu ekle (PR ile birlikte commit'lenir)
 pnpm changeset:version  # beş paketi birlikte yükselt, CHANGELOG yaz
 pnpm release:verify     # yerel Verdaccio'ya yayınla, temiz bir app'e kur, build + smoke
+pnpm upgrade:verify     # published N-1 app'i güncel fixed group'a taşı, doctor + ci çalıştır
 ```
 
 `release:verify` kapıdır: paketleri workspace'ten değil **registry'den** kurup uygulamayı ayağa

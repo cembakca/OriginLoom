@@ -10,7 +10,8 @@
  *
  * So: publish all five packages to a throwaway Verdaccio, scaffold an app that
  * has never seen this workspace, install from that registry, and build and boot
- * it. Anything that only worked because of the workspace fails here.
+ * it. The React rehearsal also drives the production bundle through Chromium.
+ * Anything that only worked because of the workspace fails here.
  *
  *   node scripts/release-verify.mjs [--renderer react|vanilla] [--keep]
  */
@@ -85,12 +86,22 @@ try {
   run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: appDir, env: npmEnv });
   assertInstalledFromRegistry(appDir, options.renderer);
 
-  step("typecheck, build and smoke the installed app");
+  step("doctor, typecheck, build and smoke the installed app");
+  run("pnpm", ["exec", "origin-doctor", "--strict"], { cwd: appDir });
   run("pnpm", ["exec", "tsc", "--noEmit"], { cwd: appDir });
   run("pnpm", ["exec", "origin-build"], { cwd: appDir });
   run("pnpm", ["exec", "origin-smoke"], { cwd: appDir, env: smokeEnv(appDir) });
 
-  step("done — the published packages install, build and serve");
+  if (options.renderer === "react") {
+    step("install Chromium and exercise the published app in a real browser");
+    run("pnpm", ["exec", "playwright", "install", ...browserInstallArgs(), "chromium"], {
+      cwd: appDir,
+      env: npmEnv,
+    });
+    run("pnpm", ["exec", "playwright", "test"], { cwd: appDir, env: npmEnv });
+  }
+
+  step("done — the published packages install, build, serve and pass their release checks");
 } catch (error) {
   failed = true;
   console.error(`\n✗ release verification failed: ${error.message}`);
@@ -189,4 +200,8 @@ function smokeEnv(appDir) {
     npm_config_registry: registry,
     PWD: appDir,
   };
+}
+
+function browserInstallArgs() {
+  return process.platform === "linux" ? ["--with-deps"] : [];
 }
