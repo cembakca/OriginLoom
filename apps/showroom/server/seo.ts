@@ -18,7 +18,7 @@ const FALLBACK_SITEMAP_PATHS: SitemapEntry[] = [
 export function mountSeoRoutes(app: Hono<{ Variables: AppVariables }>, siteUrl: string): void {
   mountPlatformSeoRoutes(app, {
     siteUrl,
-    entries: (signal) => fetchSitemapEntries(signal),
+    entries: (request) => fetchSitemapEntries(request),
     fallbackEntries: FALLBACK_SITEMAP_PATHS,
   });
 }

@@ -150,6 +150,8 @@ export function renderTemplates({
     "src/features/media/media-page.tsx": mediaPage(),
     "server/routes/catalog.tsx": catalogRoute(),
     "server/routes/data-cache.tsx": dataCacheRoute(),
+    "server/routes/no-cache.tsx": noCacheRoute(),
+    "src/features/no-cache/no-cache-page.tsx": noCachePage(),
     "server/routes/item-detail.tsx": itemDetailRoute(),
     "server/routes/account.tsx": accountRoute(),
     "server/routes/contact.tsx": contactRoute(),
@@ -220,6 +222,8 @@ export function renderTemplates({
     "tests/routing-rules.test.ts": routingRulesTest(),
     "tests/session-api.test.ts": sessionApiTest(),
     "tests/enquiries-api.test.ts": enquiryApiTest(),
+    "tests/no-cache.test.ts": noCacheTest(),
+    "tests/gateway-identity.test.ts": gatewayIdentityCoverageTest(),
     "e2e/critical-paths.spec.ts": criticalPathsE2e(port, metricsPort),
     "e2e/accessibility.spec.ts": accessibilityE2e(),
     "e2e/ssr.no-js.spec.ts": noJavaScriptE2e(),
@@ -1166,7 +1170,7 @@ main().catch(async (err) => {
 `;
 
 const redirectRulesMiddlewareFile =
-  () => `import { gatewayFetch, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
+  () => `import { gatewayFetchWithIdentity, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
 import { readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
@@ -1192,7 +1196,7 @@ export const redirectRulesMiddleware = defineMiddleware({
   matcher: ["/:path*"],
   exclude: ["/api/:path*"],
   handler: async (ctx) => {
-    const rule = await decide(ctx.url, ctx.request.signal);
+    const rule = await decide(ctx.url, ctx.request);
     // No rule is the common case: return nothing and the request carries on to
     // auth, session and the route it was always going to render.
     return rule ? { redirect: rule } : undefined;
@@ -1216,15 +1220,16 @@ const CACHE_TTL_MS = 60_000;
 const CACHE_MAX_ENTRIES = 1_000;
 const cache = new Map<string, { value: MiddlewareRedirect | null; expiresAt: number }>();
 
-async function decide(url: URL, signal: AbortSignal): Promise<MiddlewareRedirect | null> {
+async function decide(url: URL, request: Request): Promise<MiddlewareRedirect | null> {
+  const signal = request.signal;
   const key = url.toString();
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
   try {
-    const response = await gatewayFetch(
+    const response = await gatewayFetchWithIdentity(
+      request,
       \`/routing/decide?url=\${encodeURIComponent(url.toString())}\`,
-      { signal },
     );
     if (!response.ok) {
       await releaseGatewayResponse(response);
@@ -1389,10 +1394,13 @@ import { redirectRulesMiddleware } from "@server/middleware/redirect-rules";
 import { searchIndexingMiddleware } from "@server/middleware/search-indexing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ gatewayFetch: vi.fn(), releaseGatewayResponse: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  gatewayFetchWithIdentity: vi.fn(),
+  releaseGatewayResponse: vi.fn(),
+}));
 
 vi.mock("@originloom/core/adapters/gateway", () => ({
-  gatewayFetch: mocks.gatewayFetch,
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
   releaseGatewayResponse: mocks.releaseGatewayResponse,
 }));
 vi.mock("@originloom/core/logger", () => ({
@@ -1459,27 +1467,27 @@ describe("redirect rules middleware", () => {
 
   // Each case uses its own path: the middleware caches a decision per pathname.
   it("obeys a destination the service names", async () => {
-    mocks.gatewayFetch.mockResolvedValue(
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(
       Response.json({ action: "redirect", location: "/catalog", status: 301 }),
     );
 
     const result = await run(redirectRulesMiddleware, context("http://app.local/moved"));
 
     expect(result?.redirect).toEqual({ location: "/catalog", status: 301 });
-    expect(mocks.gatewayFetch).toHaveBeenCalledWith(
+    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledWith(
+      expect.any(Request),
       "/routing/decide?url=" + encodeURIComponent("http://app.local/moved"),
-      expect.objectContaining({ signal: expect.anything() }),
     );
   });
 
   it("carries on when the service says next", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ action: "next" }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ action: "next" }));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/stays"))).toBeUndefined();
   });
 
   it("refuses a destination that would send visitors off-site", async () => {
-    mocks.gatewayFetch.mockResolvedValue(
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(
       Response.json({ action: "redirect", location: "https://evil.example/x" }),
     );
 
@@ -1487,7 +1495,7 @@ describe("redirect rules middleware", () => {
   });
 
   it("renders the page when the routing service is down", async () => {
-    mocks.gatewayFetch.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    mocks.gatewayFetchWithIdentity.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/down"))).toBeUndefined();
   });
@@ -1674,6 +1682,7 @@ import home from "./home";
 import itemDetail from "./item-detail";
 import live from "./live";
 import media from "./media";
+import noCache from "./no-cache";
 import showcase from "./showcase";
 
 /** The route table. Order matters: the first match wins. */
@@ -1685,6 +1694,7 @@ export const routes: Route[] = [
   account,
   contact,
   live,
+  noCache,
   media,
   showcase,
 ];
@@ -1838,7 +1848,7 @@ const menuCacheTest = () => `import { getMenu } from "@server/services/menu";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  gatewayFetch: vi.fn(),
+  gatewayFetchWithIdentity: vi.fn(),
   read: vi.fn(),
   write: vi.fn(),
   deleteKey: vi.fn(),
@@ -1846,7 +1856,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@originloom/core/adapters/gateway", () => ({
-  gatewayFetch: mocks.gatewayFetch,
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
   requireGatewayOk: async (response: Response, message: string) => {
     if (!response.ok) throw new Error(\`\${message} \${response.status}\`);
   },
@@ -1867,20 +1877,20 @@ describe("menu data cache", () => {
     mocks.read.mockResolvedValue(null);
     mocks.write.mockResolvedValue(true);
     mocks.deleteKey.mockResolvedValue(true);
-    mocks.gatewayFetch.mockResolvedValue(Response.json(menu));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json(menu));
   });
 
   it("serves a fresh cache hit without calling the gateway", async () => {
     mocks.read.mockResolvedValue({ body: JSON.stringify(menu), state: "fresh" });
 
     await expect(getMenu(new Request("http://app.local/"))).resolves.toEqual(menu);
-    expect(mocks.gatewayFetch).not.toHaveBeenCalled();
+    expect(mocks.gatewayFetchWithIdentity).not.toHaveBeenCalled();
   });
 
   it("fills the shared cache after a cold miss", async () => {
     await expect(getMenu(new Request("http://app.local/"))).resolves.toEqual(menu);
 
-    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/menu");
+    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledWith(expect.any(Request), "/menu");
     expect(mocks.write).toHaveBeenCalledWith(
       "menu:public:v1",
       JSON.stringify(menu),
@@ -1899,11 +1909,11 @@ describe("menu data cache", () => {
       ]),
     ).resolves.toEqual([stale, stale]);
     await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
-    expect(mocks.gatewayFetch).toHaveBeenCalledOnce();
+    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledOnce();
   });
 
   it("does not cache the local fallback when the gateway fails", async () => {
-    mocks.gatewayFetch.mockResolvedValue(new Response(null, { status: 503 }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(new Response(null, { status: 503 }));
 
     await expect(getMenu(new Request("http://app.local/"))).resolves.toContainEqual({
       label: "Ana sayfa",
@@ -1975,7 +1985,9 @@ describe("featured items API data cache", () => {
 
     expect(result).toMatchObject({ ...page, cacheStatus: "miss" });
     expect(result.fetchedAt).toEqual(expect.any(String));
-    expect(mocks.listItems).toHaveBeenCalledWith(1, 3);
+    // The request goes with it: the identity headers the gateway sees on every
+    // call are read from it, not passed around separately.
+    expect(mocks.listItems).toHaveBeenCalledWith(1, 3, expect.any(Request));
     expect(mocks.write).toHaveBeenCalledWith(
       "items:featured:v1",
       expect.any(String),
@@ -2146,27 +2158,29 @@ const liveMessageServiceTest =
   () => `import { getLiveMessage } from "@server/services/live-message";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ gatewayFetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
-  gatewayFetch: mocks.gatewayFetch,
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
 }));
 
 describe("gateway-backed progressive message", () => {
-  beforeEach(() => mocks.gatewayFetch.mockReset());
+  beforeEach(() => mocks.gatewayFetchWithIdentity.mockReset());
 
   it("reads and validates the deferred gateway payload", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ message: "gateway-ready" }));
-    const signal = AbortSignal.timeout(1_000);
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ message: "gateway-ready" }));
+    const request = new Request("http://app.local/live");
 
-    await expect(getLiveMessage(signal)).resolves.toBe("gateway-ready");
-    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/live/message", { signal });
+    await expect(getLiveMessage(request)).resolves.toBe("gateway-ready");
+    // The identity — tracking id, client IP, device — rides along because the
+    // service was handed the request instead of a bare signal.
+    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledWith(request, "/live/message");
   });
 
   it("rejects an invalid payload instead of streaming untrusted data", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ message: 42 }));
-    await expect(getLiveMessage(AbortSignal.timeout(1_000))).rejects.toThrow(
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ message: 42 }));
+    await expect(getLiveMessage(new Request("http://app.local/live"))).rejects.toThrow(
       "Live message gateway returned an invalid payload",
     );
   });
@@ -2263,8 +2277,11 @@ describe("operations cache key codec", () => {
 });
 `;
 
-const itemsService =
-  () => `import { gatewayFetch, releaseGatewayResponse, requireGatewayOk } from "@originloom/core/adapters/gateway";
+const itemsService = () => `import {
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
@@ -2283,10 +2300,11 @@ const INVALID = "Items gateway returned an invalid payload";
 export async function listItems(
   page: number,
   perPage: number,
-  signal?: AbortSignal,
+  request: Request,
 ): Promise<ItemPage> {
-  const response = await gatewayFetch(\`/items?page=\${page}&perPage=\${perPage}\`,
-    signal ? { signal } : {},
+  const response = await gatewayFetchWithIdentity(
+    request,
+    \`/items?page=\${page}&perPage=\${perPage}\`,
   );
   await requireGatewayOk(response, "Items gateway returned");
 
@@ -2296,8 +2314,11 @@ export async function listItems(
   return requireGatewayPayload(GatewayContracts.items, payload, isItemPage, INVALID);
 }
 
-export async function getItem(slug: string, signal: AbortSignal): Promise<Item | null> {
-  const response = await gatewayFetch(\`/items/\${encodeURIComponent(slug)}\`, { signal });
+export async function getItem(slug: string, request: Request): Promise<Item | null> {
+  const response = await gatewayFetchWithIdentity(
+    request,
+    \`/items/\${encodeURIComponent(slug)}\`,
+  );
   // A missing item is data, not a failure — the route turns it into notFound().
   if (response.status === 404) {
     await releaseGatewayResponse(response);
@@ -2366,7 +2387,7 @@ export async function getFeaturedItems(request: Request): Promise<FeaturedItemsR
   if (hit) {
     const cached = parseSnapshot(hit.body);
     if (cached) {
-      if (hit.state === "stale") scheduleRefresh();
+      if (hit.state === "stale") scheduleRefresh(request);
       return { ...cached, cacheStatus: hit.state };
     }
     try {
@@ -2378,15 +2399,18 @@ export async function getFeaturedItems(request: Request): Promise<FeaturedItemsR
     }
   }
 
-  const snapshot = await waitForRequest(refresh(key), request.signal);
+  const snapshot = await waitForRequest(refresh(request, key), request.signal);
   return { ...snapshot, cacheStatus: "miss" };
 }
 
-function refresh(key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY)): Promise<FeaturedItemsSnapshot> {
+function refresh(
+  request: Request,
+  key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY),
+): Promise<FeaturedItemsSnapshot> {
   if (refreshInFlight) return refreshInFlight;
   if (!key) return Promise.reject(new Error("Featured items cache policy must be shared"));
 
-  const pending = listItems(1, productConfig.catalogPageSize)
+  const pending = listItems(1, productConfig.catalogPageSize, request)
     .then(async (page) => {
       const snapshot = { ...page, fetchedAt: new Date().toISOString() };
       await cache.write(key, JSON.stringify(snapshot), FEATURED_ITEMS_CACHE_POLICY);
@@ -2399,8 +2423,8 @@ function refresh(key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY)): Promise<Fea
   return pending;
 }
 
-function scheduleRefresh(): void {
-  void refresh().catch((error: unknown) => {
+function scheduleRefresh(request: Request): void {
+  void refresh(request).catch((error: unknown) => {
     logger.warn("stale featured-items refresh failed", { error: errorMessage(error) });
   });
 }
@@ -2439,8 +2463,10 @@ function errorMessage(error: unknown): string {
 }
 `;
 
-const liveMessageService =
-  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+const liveMessageService = () => `import {
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
@@ -2455,8 +2481,8 @@ const INVALID = "Live message gateway returned an invalid payload";
  * deliberately keeps this Promise pending in its data so React can stream the
  * shell while the gateway response is still in flight.
  */
-export async function getLiveMessage(signal: AbortSignal): Promise<string> {
-  const response = await gatewayFetch("/live/message", { signal });
+export async function getLiveMessage(request: Request): Promise<string> {
+  const response = await gatewayFetchWithIdentity(request, "/live/message");
   await requireGatewayOk(response, "Live message gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.liveMessage, INVALID);
   return requireGatewayPayload(
@@ -2717,7 +2743,7 @@ export default defineRoute<Data>({
   // The slug is part of the cache key (see cache-keys.ts), so each item caches on its own.
   cache: pageCache(PageCacheId.itemDetail),
   loader: async (ctx) => {
-    const item = await getItem(ctx.params.slug ?? "", ctx.request.signal);
+    const item = await getItem(ctx.params.slug ?? "", ctx.request);
     // Terminal result, not a thrown error — an unknown slug is a 404, never cached.
     return item ? { data: { item } } : notFound();
   },
@@ -3009,7 +3035,7 @@ export default defineRoute<Data>({
   loader: async (ctx) => {
     const page = pageParam(ctx.url);
     const perPage = productConfig.catalogPageSize;
-    const { items, total } = await listItems(page, perPage, ctx.request.signal);
+    const { items, total } = await listItems(page, perPage, ctx.request);
     observeCatalogView(page);
     return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / perPage)) } };
   },
@@ -3098,7 +3124,7 @@ export default defineRoute<Data>({
     data: {
       // Do not await this non-critical upstream value. The shell streams while
       // the gateway is in flight; Suspense fills the boundary when it resolves.
-      slowMessage: getLiveMessage(ctx.request.signal),
+      slowMessage: getLiveMessage(ctx.request),
     },
   }),
   title: () => "Canlı veri",
@@ -3240,7 +3266,7 @@ export async function buildShellData(
 `;
 
 const menuService =
-  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
@@ -3283,14 +3309,14 @@ async function loadMenu(request: Request): Promise<MenuItem[]> {
     const hit = await cache.read(key);
     if (hit) {
       if (parsedSnapshot?.body === hit.body) {
-        if (hit.state === "stale") scheduleRefresh();
+        if (hit.state === "stale") scheduleRefresh(request);
         return parsedSnapshot.menu;
       }
       const cached = parseCachedMenu(hit.body);
       if (cached) {
         const menu = freezeMenu(cached);
         parsedSnapshot = { body: hit.body, menu };
-        if (hit.state === "stale") scheduleRefresh();
+        if (hit.state === "stale") scheduleRefresh(request);
         return menu;
       }
       // Old/corrupt values never poison future reads. A failed delete is harmless:
@@ -3302,7 +3328,7 @@ async function loadMenu(request: Request): Promise<MenuItem[]> {
       }
     }
 
-    return await waitForRequest(refreshMenu(key), request.signal);
+    return await waitForRequest(refreshMenu(request, key), request.signal);
   } catch (error) {
     if (isRequestDeadlineError(error) || request.signal.aborted) throw error;
     logger.warn("menu degraded to local fallback", { error: errorMessage(error) });
@@ -3311,11 +3337,14 @@ async function loadMenu(request: Request): Promise<MenuItem[]> {
 }
 
 /** Single-flight refresh bounds cold-miss and stale-refresh pressure on the gateway. */
-function refreshMenu(key = cache.cacheKey(MENU_CACHE_POLICY)): Promise<MenuItem[]> {
+function refreshMenu(
+  request: Request,
+  key = cache.cacheKey(MENU_CACHE_POLICY),
+): Promise<MenuItem[]> {
   if (refreshInFlight) return refreshInFlight;
   if (!key) return Promise.reject(new Error("Menu cache policy must be shared"));
 
-  const pending = fetchMenuFromGateway()
+  const pending = fetchMenuFromGateway(request)
     .then(async (menu) => {
       const immutable = freezeMenu(menu);
       const body = JSON.stringify(immutable);
@@ -3330,16 +3359,17 @@ function refreshMenu(key = cache.cacheKey(MENU_CACHE_POLICY)): Promise<MenuItem[
   return pending;
 }
 
-function scheduleRefresh(): void {
-  void refreshMenu().catch((error: unknown) => {
+function scheduleRefresh(request: Request): void {
+  void refreshMenu(request).catch((error: unknown) => {
     // The stale value remains usable until staleUntil; the next stale request may retry.
     logger.warn("stale menu refresh failed", { error: errorMessage(error) });
   });
 }
 
-async function fetchMenuFromGateway(): Promise<MenuItem[]> {
-  // Menu is public/cacheable, so never forward a caller's Authorization header.
-  const response = await gatewayFetch("/menu");
+async function fetchMenuFromGateway(request: Request): Promise<MenuItem[]> {
+  // Public and cacheable, so no Authorization — but the gateway still sees which
+  // visitor and which device asked, like every other call this app makes.
+  const response = await gatewayFetchWithIdentity(request, "/menu");
   await requireGatewayOk(response, "Menu gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.menu, "Invalid menu payload");
   return requireGatewayPayload(GatewayContracts.menu, payload, isMenu, "Invalid menu payload");
@@ -3854,6 +3884,12 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
               /account
             </Link>{" "}
             — kişisel sayfa: <code>neverCache</code> + defer island
+          </li>
+          <li>
+            <Link className="hover:underline" href="/no-cache">
+              /no-cache
+            </Link>{" "}
+            — hiç cache yok: her istek gateway'e gider (karşılaştırma tabanı)
           </li>
           <li>
             <Link className="hover:underline" href="/data-cache">
@@ -5401,8 +5437,8 @@ import type { Hono } from "hono";
 export function mountSeo(app: Hono<{ Variables: AppVariables }>): void {
   mountPlatformSeoRoutes(app, {
     siteUrl: config.siteUrl,
-    entries: async (signal) => {
-      const { items } = await listItems(1, 100, signal);
+    entries: async (request) => {
+      const { items } = await listItems(1, 100, request);
       const paths = ["/", "/catalog", ...items.map((item) => \`/items/\${item.slug}\`)];
       return paths.map((path) => ({ path }));
     },
@@ -5599,7 +5635,7 @@ export function mountPublicItemsApi(app: Hono<{ Variables: AppVariables }>): voi
     const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", ITEMS_POLICY);
     if (denied) return denied;
 
-    const { items, total } = await listItems(1, 20, request.signal);
+    const { items, total } = await listItems(1, 20, request);
     return c.json(
       { items, total },
       200,
@@ -5656,7 +5692,7 @@ export function mountEnquiryApi(app: Hono<{ Variables: AppVariables }>): void {
     if (!enquiry) return seeOther(returnTo, "invalid");
 
     try {
-      await submitEnquiry(enquiry, request.signal);
+      await submitEnquiry(enquiry, request);
     } catch (error) {
       logError(error, { msg: "enquiry submission failed" });
       return seeOther(returnTo, "failed");
@@ -5717,8 +5753,10 @@ function seeOther(path: string, status: "sent" | "invalid" | "failed"): Response
 }
 `;
 
-const enquiryService =
-  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+const enquiryService = () => `import {
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
@@ -5730,12 +5768,14 @@ export type EnquiryReceipt = { id: string };
 const INVALID = "Enquiry gateway returned an invalid payload";
 
 /** The endpoint owns validation; this owns the upstream call and its contract. */
-export async function submitEnquiry(enquiry: Enquiry, signal: AbortSignal): Promise<EnquiryReceipt> {
-  const response = await gatewayFetch("/enquiries", {
+export async function submitEnquiry(
+  enquiry: Enquiry,
+  request: Request,
+): Promise<EnquiryReceipt> {
+  const response = await gatewayFetchWithIdentity(request, "/enquiries", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(enquiry),
-    signal,
   });
   // requireGatewayOk drains the body before it throws, so a failed call never
   // leaves a socket held open.
@@ -5923,7 +5963,7 @@ describe("enquiry endpoint", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/contact?status=sent");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(mocks.submitEnquiry).toHaveBeenCalledWith(valid, expect.anything());
+    expect(mocks.submitEnquiry).toHaveBeenCalledWith(valid, expect.any(Request));
   });
 
   it("returns the visitor to the page they submitted from", async () => {
@@ -5981,6 +6021,179 @@ describe("enquiry endpoint", () => {
     const limited = await instance.request("/api/enquiries", submission(valid));
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("60");
+  });
+});
+`;
+
+const noCacheRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
+import { listItems } from "@server/services/items";
+
+import { NoCachePage } from "~/features/no-cache/no-cache-page";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+type Data = {
+  items: { slug: string; name: string }[];
+  renderedAt: string;
+  gatewayMs: number;
+};
+
+/**
+ * The baseline: nothing is cached anywhere.
+ *
+ * The document is rendered per request (\`neverCache\`) and the loader calls the
+ * gateway directly rather than through a cached snapshot, so every visitor costs
+ * one upstream round trip. It exists to be measured against — the same list is
+ * served by /catalog through the HTML cache and by /data-cache through a cached
+ * upstream snapshot, and the difference between the three is the whole argument
+ * for the cache layer.
+ *
+ * A real page rarely wants this. Two that do: anything whose value is that it is
+ * never stale (a live balance, a stock count read at the moment of the visit),
+ * and anything whose HTML is different for every visitor and cannot be moved
+ * into an island.
+ */
+export default defineRoute<Data>({
+  path: "/no-cache",
+  cache: neverCache,
+  loader: async (ctx) => {
+    const startedAt = performance.now();
+    const { items } = await listItems(1, 5, ctx.request);
+    return {
+      data: {
+        items: items.map((item) => ({ slug: item.slug, name: item.name })),
+        renderedAt: new Date().toISOString(),
+        gatewayMs: Math.round(performance.now() - startedAt),
+      },
+    };
+  },
+  generateMetadata: () => ({
+    title: "Cache'siz sayfa",
+    description: "Ne doküman ne de veri cache'lenir; her istek gateway'e gider.",
+    // Nothing here is worth indexing, and a page that costs an upstream call per
+    // request is a page a crawler should not be walking.
+    robots: { index: false, follow: false },
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "no-cache"),
+  Component: NoCachePage,
+});
+`;
+
+const noCachePage = () => `import { Link } from "@originloom/react/lib/link";
+
+type Props = {
+  data: { items: { slug: string; name: string }[]; renderedAt: string; gatewayMs: number };
+};
+
+/**
+ * Every value on this page is per request. Reload it and the timestamp changes;
+ * reload /catalog and it does not until its TTL expires.
+ */
+export function NoCachePage({ data }: Props) {
+  return (
+    <div className="space-y-6">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Cache'siz sayfa</h1>
+        <p className="max-w-2xl text-slate-600">
+          Bu sayfada doküman cache'i de upstream veri cache'i de kapalı. Her istek bir gateway
+          çağrısı demek — karşılaştırmak için <Link href="/catalog">/catalog</Link> (HTML cache) ve{" "}
+          <Link href="/data-cache">/data-cache</Link> (veri cache'i) sayfalarını da yenileyin.
+        </p>
+      </header>
+
+      <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-3">
+        <div>
+          <dt className="text-sm text-slate-500">Render zamanı</dt>
+          <dd className="font-mono text-sm text-slate-900">{data.renderedAt}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-slate-500">Gateway süresi</dt>
+          <dd className="font-mono text-sm text-slate-900">{data.gatewayMs} ms</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-slate-500">Cache</dt>
+          <dd className="font-mono text-sm text-slate-900">yok (x-cache: BYPASS)</dd>
+        </div>
+      </dl>
+
+      <ul className="divide-y divide-slate-100">
+        {data.items.map((item) => (
+          <li key={item.slug} className="py-3">
+            <Link className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
+              {item.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+`;
+
+const gatewayIdentityCoverageTest =
+  () => `import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+const SERVER_ROOT = new URL("../server", import.meta.url).pathname;
+
+/**
+ * Calls that legitimately have no request behind them, with the reason.
+ *
+ * Every upstream call tells the gateway who asked, from where and on what:
+ * \`gatewayFetchWithIdentity\` for shared reads, \`gatewayFetchForRequest\` when the
+ * caller's credentials belong with it. Plain \`gatewayFetch\` is the only way to
+ * reach the gateway without any of that, so this list is the whole set of calls
+ * that go out anonymous — and each one has to say why.
+ */
+const IDENTITY_LESS_BY_DESIGN: Record<string, string> = {
+  "services/bot-analytics.ts":
+    "a background queue flushed after the request is gone; each event carries its own tracking id",
+};
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry): string[] => {
+    const full = join(directory, entry);
+    if (statSync(full).isDirectory()) return sourceFiles(full);
+    return /\\.tsx?$/.test(entry) ? [full] : [];
+  });
+}
+
+describe("gateway identity coverage", () => {
+  it("keeps every upstream call identity-carrying unless it is on the list", () => {
+    const offenders = sourceFiles(SERVER_ROOT)
+      .filter((file) => /\\bgatewayFetch\\(/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(SERVER_ROOT.length + 1))
+      .filter((relative) => !(relative in IDENTITY_LESS_BY_DESIGN));
+
+    // A new service that reaches for plain \`gatewayFetch\` either belongs on the
+    // list above with a reason, or should be taking the Request and using
+    // \`gatewayFetchWithIdentity\`.
+    expect(offenders).toEqual([]);
+  });
+});
+`;
+
+const noCacheTest = () => `import { routes } from "@server/routes";
+import { describe, expect, it } from "vitest";
+
+import { pageCacheRegistry } from "~/lib/cache-keys";
+
+describe("the zero-cache page", () => {
+  it("is registered and rendered per request", () => {
+    const route = routes.find((entry) => entry.path === "/no-cache");
+    expect(route, "/no-cache must be in the route table").toBeDefined();
+
+    // neverCache() takes no context, so the policy is the same for every request.
+    expect(route?.cache?.({} as never)).toEqual({ kind: "none" });
+  });
+
+  it("stays out of the page cache registry", () => {
+    // The registry is the list of pages that have a cache identity. A page with
+    // no cache has nothing to identify, and adding one would give the purge API
+    // a key that can never hold anything.
+    expect(Object.keys(pageCacheRegistry)).not.toContain("no-cache");
   });
 });
 `;

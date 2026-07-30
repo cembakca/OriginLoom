@@ -51,7 +51,7 @@ export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
     ttl: 300,
     key: () => "fragment:popular-knowledge-articles:v1",
     resolve: async (_shell, ctx) => {
-      const data = await getPopularKnowledgeArticles(ctx.request.signal);
+      const data = await getPopularKnowledgeArticles(ctx.request);
       return <PopularKnowledgeArticles items={data.items} />;
     },
   },

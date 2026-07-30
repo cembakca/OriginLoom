@@ -25,13 +25,13 @@ export default defineRoute<Data>({
   cache: neverCache,
   loader: async (ctx) => {
     const slug = ctx.params.slug ?? "";
-    const detail = await getCreditCard(slug, ctx.request.signal);
+    const detail = await getCreditCard(slug, ctx.request);
     if (!detail) return notFound();
 
     const campaignsPromise =
       ctx.request.method === "HEAD"
         ? Promise.resolve([])
-        : getCreditCardCampaigns(slug, ctx.request.signal).then((result) => {
+        : getCreditCardCampaigns(slug, ctx.request).then((result) => {
             if (!result) throw new Error("Credit card campaigns disappeared after detail lookup");
             return result.campaigns;
           });

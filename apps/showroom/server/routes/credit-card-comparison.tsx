@@ -25,7 +25,7 @@ export default defineRoute<CreditCardComparison>({
     }
     const slugs = parseComparedCreditCards(ctx.url.searchParams);
     if (!slugs) return notFound();
-    const data = await getCreditCardComparison(comparisonSearch(slugs), ctx.request.signal);
+    const data = await getCreditCardComparison(comparisonSearch(slugs), ctx.request);
     return data ? { data } : notFound();
   },
   generateMetadata: (data, ctx) => {

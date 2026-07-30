@@ -311,3 +311,37 @@ publish akışında kullanılmamalıdır.
 - [ ] İlk request `MISS`, ikincisi `HIT`; kişisel route `BYPASS` testi var.
 - [ ] Multi-pod davranışı Redis kesintisi dahil doğrulandı.
 - [ ] Dashboard ve alarmlar fill, revalidation, L2 health ve cardinality sinyallerini kapsıyor.
+
+## İki gateway çağrısı, iki farklı anlam
+
+`@originloom/core/adapters/gateway` iki fonksiyon verir ve aradaki fark cache güvenliğidir:
+
+| Fonksiyon                               | Ne taşır                             | Nerede kullanılır                    |
+| --------------------------------------- | ------------------------------------ | ------------------------------------ |
+| `gatewayFetch(path)`                    | Kimlik taşımaz                       | Cache'lenen her şey                  |
+| `gatewayFetchForRequest(request, path)` | Çağıranın `Authorization`'ını iletir | BFF uçları ve `neverCache` route'lar |
+
+Kural tek cümle: **`gatewayFetchForRequest` sonucu paylaşımlı cache'lenen bir HTML'e girmemelidir.**
+Girerse bir ziyaretçinin kişisel verisi diğerlerine servis edilir; platform bunu sizin için
+engellemez, çünkü hangi alanın kişisel olduğunu yalnız siz bilirsiniz.
+
+Kişisel içerik için doğru sıra: önce `defer` island + `/api/internal/*` (doküman paylaşımlı kalır),
+o mümkün değilse route'u `strategy: "never"` yapın.
+
+## Üç seviyeyi yan yana görmek
+
+Aynı listeyi üç farklı cache kurgusuyla servis eden üç sayfa var; sırayla yenileyip aradaki farkı
+doğrudan görebilirsiniz:
+
+| Sayfa         | Doküman cache'i | Upstream veri cache'i | Her istekte gateway? |
+| ------------- | --------------- | --------------------- | -------------------- |
+| `/catalog`    | shared + SWR    | —                     | Hayır (cache hit)    |
+| `/data-cache` | yok             | shared snapshot       | Hayır                |
+| `/no-cache`   | yok             | yok                   | **Evet**             |
+
+`/no-cache` bir örnek değil, bir **taban çizgisi**: cache katmanı olmasaydı her sayfanın maliyeti
+budur. Kapasite testinde ölçmek istediğinizde karşılaştırma noktası olarak kullanın.
+
+Gerçek bir sayfanın bu kurguyu istediği iki durum vardır: değeri "hiç bayat olmaması" olan veriler
+(anlık bakiye, o anki stok) ve HTML'i her ziyaretçi için farklı olup island'a taşınamayan sayfalar.
+İkincisinde önce island'a taşımayı deneyin — `/account` bunun örneğidir.

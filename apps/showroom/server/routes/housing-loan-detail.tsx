@@ -22,7 +22,7 @@ export default defineRoute<HousingLoanDetail>({
     const data = await getHousingLoan(
       ctx.params.slug ?? "",
       normalizedSearch(ctx.url, ["amount", "term"]),
-      ctx.request.signal,
+      ctx.request,
     );
     return data ? { data } : notFound();
   },

@@ -69,7 +69,7 @@ return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor
 1. `apps/showroom/src/islands/{kebab-name}.tsx` — default export
 2. Route'ta: `<Island name="kebab-name" mode="hydrate|defer" />`
 3. `entry.client.tsx`'i düzenleme — Vite glob yeni dosyayı otomatik bulur
-4. Kullanıcıya özel veri: SSR loader + `gatewayFetch`; kişisel alanı cached HTML'e koyma
+4. Kullanıcıya özel veri: SSR loader + `gatewayFetchForRequest`; kişisel alanı cached HTML'e koyma
 
 ### `eager` — ne zaman JS hemen indirilir?
 
@@ -925,7 +925,7 @@ builder'dır; paralel client kopyası oluşturulmaz ve test doğrudan bu builder
 
 ## Client data fetching — TanStack Query
 
-Sunucu verisi **loader + `gatewayFetch`** ile kalır. URL'ye ait filtre/sıralama server'da çözülür;
+Sunucu verisi **loader + `gatewayFetchWithIdentity`** ile kalır. URL'ye ait filtre/sıralama server'da çözülür;
 kişisel panel gibi client verileri için **TanStack Query v5** kullanılır.
 
 ### Katmanlar
@@ -967,6 +967,30 @@ kişisel panel gibi client verileri için **TanStack Query v5** kullanılır.
 Loader'ı React Query ile değiştirme — HTML cache mimarisi bozulur.
 
 ---
+
+## Gateway kimliği
+
+Her upstream çağrısı üç değeri taşır: ziyaretçinin tracking id'si, çözülmüş client IP ve cihaz tipi.
+Üçü de **istekten okunur** (`readGatewayIdentity`) — tracking id session step'in yazdığı
+cookie'den, IP trusted-proxy zincirinden, cihaz User-Agent'tan. Servis geçirmeyi unutamaz, çağıran
+header set ederek taklit edemez.
+
+| Fonksiyon                                 | Kimlik | `Authorization` |
+| ----------------------------------------- | ------ | --------------- |
+| `gatewayFetchWithIdentity(request, path)` | ✓      | ✗               |
+| `gatewayFetchForRequest(request, path)`   | ✓      | ✓               |
+| `gatewayFetch(path)`                      | ✗      | ✗               |
+
+Header adları `configureGatewayIdentityHeaders()` ile bir kez ayarlanır; varsayılanlar
+`x-user-tracking-id`, `x-client-ip`, `x-device-type`.
+
+Bunun cache kuralı: kimlik telemetri bağlamıdır, içerik boyutu değil. Gateway cevabını bu değerlere
+göre değiştiriyorsa o cevap paylaşımlı cache'lenen HTML'e giremez — cache key bu değerleri içermez
+ve içermemelidir. `Authorization` taşıyan çağrılar için kural mutlaktır.
+
+Bunun sonucu bir imza kuralıdır: **servisler `signal` değil `Request` alır.** `Request` hem iptali
+hem kimliği taşır; `signal` yarısını taşır. İsteği olmayan işler (bot analytics kuyruğu) `gatewayFetch`
+kullanır ve kimliği payload'ında taşır.
 
 ## Linkler
 

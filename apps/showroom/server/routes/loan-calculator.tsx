@@ -18,7 +18,7 @@ export default defineRoute<LoanCalculatorData>({
   loader: async (ctx) => {
     const search = parseLoanCalculatorSearch(ctx.url.searchParams);
     if (!search) return notFound();
-    return { data: await getLoanCalculation(search, ctx.request.signal) };
+    return { data: await getLoanCalculation(search, ctx.request) };
   },
   generateMetadata: (data, ctx) => {
     const metadata = generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx);

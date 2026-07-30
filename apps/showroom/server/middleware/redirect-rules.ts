@@ -1,4 +1,7 @@
-import { gatewayFetch, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
+import {
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
@@ -25,7 +28,7 @@ export const redirectRulesMiddleware = defineMiddleware({
   matcher: ["/:path*"],
   exclude: ["/api/:path*"],
   handler: async (ctx) => {
-    const rule = await decide(ctx.url, ctx.request.signal);
+    const rule = await decide(ctx.url, ctx.request);
     // No rule is the common case: return nothing and the request carries on to
     // auth, session and the route it was always going to render.
     return rule ? { redirect: rule } : undefined;
@@ -44,15 +47,15 @@ const CACHE_TTL_MS = 60_000;
 const CACHE_MAX_ENTRIES = 1_000;
 const cache = new Map<string, { value: MiddlewareRedirect | null; expiresAt: number }>();
 
-async function decide(url: URL, signal: AbortSignal): Promise<MiddlewareRedirect | null> {
+async function decide(url: URL, request: Request): Promise<MiddlewareRedirect | null> {
   const key = url.pathname;
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
   try {
-    const response = await gatewayFetch(
+    const response = await gatewayFetchWithIdentity(
+      request,
       `/routing/decide?url=${encodeURIComponent(url.toString())}`,
-      { signal },
     );
     if (!response.ok) {
       await releaseGatewayResponse(response);
@@ -68,7 +71,7 @@ async function decide(url: URL, signal: AbortSignal): Promise<MiddlewareRedirect
   } catch (error) {
     // The deadline is the platform's to answer; everything else fails open,
     // because a routing service being down must not take the site down with it.
-    if (isRequestDeadlineError(signal.reason)) throw signal.reason;
+    if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
     if (isRequestDeadlineError(error)) throw error;
     logger.warn("routing decision unavailable", {
       pathname: url.pathname,

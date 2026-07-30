@@ -21,11 +21,7 @@ export default defineRoute<Data>({
     const publicType = ctx.params.productType ?? "";
     const definition = referralProductByPublicType(publicType);
     if (!definition) return notFound();
-    const detail = await getReferral(
-      definition.gatewayType,
-      ctx.params.slug ?? "",
-      ctx.request.signal,
-    );
+    const detail = await getReferral(definition.gatewayType, ctx.params.slug ?? "", ctx.request);
     return detail ? { data: { detail, publicType } } : notFound();
   },
   generateMetadata: (data, ctx) => {

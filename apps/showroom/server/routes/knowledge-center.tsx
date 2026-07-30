@@ -36,7 +36,7 @@ export default defineRoute<KnowledgeArticleList>({
       target.searchParams.delete("page");
       return redirect(`${target.pathname}${target.search}`, 308);
     }
-    const data = await getKnowledgeArticles(knowledgeSearch(ctx.url), ctx.request.signal);
+    const data = await getKnowledgeArticles(knowledgeSearch(ctx.url), ctx.request);
     if (page.page > data.pagination.totalPages || data.pagination.page !== page.page)
       return notFound();
     return { data };

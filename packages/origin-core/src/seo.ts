@@ -14,11 +14,12 @@ export type SitemapEntry = {
 export type SeoRoutesOptions = {
   siteUrl: string;
   /**
-   * The URLs to advertise. Usually a gateway call, so it takes the request's
-   * signal and may fail; when it does, `fallbackEntries` are served instead of a
-   * 500 — a stale sitemap beats no sitemap.
+   * The URLs to advertise. Usually a gateway call: it receives the request so
+   * the upstream sees the same identity and cancellation every other call
+   * carries. It may fail; when it does, `fallbackEntries` are served instead of
+   * a 500 — a stale sitemap beats no sitemap.
    */
-  entries: (signal: AbortSignal) => Promise<SitemapEntry[]> | SitemapEntry[];
+  entries: (request: Request) => Promise<SitemapEntry[]> | SitemapEntry[];
   fallbackEntries?: SitemapEntry[];
   /** Paths kept out of robots.txt. Defaults to the app's API surface. */
   disallow?: readonly string[];
@@ -43,7 +44,7 @@ export function mountSeoRoutes(
     const request = contextRequest(c);
     let resolved: SitemapEntry[] = fallbackEntries;
     try {
-      resolved = await entries(request.signal);
+      resolved = await entries(request);
     } catch (error) {
       if (isRequestDeadlineError(request.signal.reason)) throw request.signal.reason;
       if (isRequestDeadlineError(error)) throw error;

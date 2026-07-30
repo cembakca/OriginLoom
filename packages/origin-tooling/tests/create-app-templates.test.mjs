@@ -548,10 +548,10 @@ describe("renderTemplates — browser E2E", () => {
     const files = standalone();
     const route = files["server/routes/live.tsx"];
     expect(route).toContain("streaming: true");
-    expect(route).toContain("getLiveMessage(ctx.request.signal)");
+    expect(route).toContain("getLiveMessage(ctx.request)");
     expect(route).not.toContain("setTimeout");
     expect(files["server/services/live-message.ts"]).toContain(
-      'gatewayFetch("/live/message", { signal })',
+      'gatewayFetchWithIdentity(request, "/live/message")',
     );
     expect(files["server/services/live-message.ts"]).toContain("GatewayContracts.liveMessage");
     expect(files["mock-gateway/server.mjs"]).toContain('url.pathname === "/live/message"');
@@ -626,9 +626,12 @@ describe("renderTemplates — gateway wiring", () => {
     expect(scripts.smoke).toContain("--gateway mock-gateway/server.mjs");
   });
 
-  it.each(modes)("%s: passes the request signal into the loader's gateway call", (_name, files) => {
-    // A cancelled request must not keep the upstream call alive.
-    expect(files["server/routes/catalog.tsx"]).toContain("ctx.request.signal");
+  it.each(modes)("%s: hands the loader's gateway call the whole request", (_name, files) => {
+    // The request carries both halves of what an upstream call needs: the abort
+    // signal, so a cancelled request does not keep it alive, and the identity
+    // the gateway is given on every call.
+    expect(files["server/routes/catalog.tsx"]).toContain("listItems(page, perPage, ctx.request)");
+    expect(files["server/services/items.ts"]).toContain("gatewayFetchWithIdentity");
   });
 
   it("react: configures and drains the bounded gateway transport", () => {

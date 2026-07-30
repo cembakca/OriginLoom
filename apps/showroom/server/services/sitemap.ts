@@ -1,4 +1,8 @@
-import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import {
+  gatewayFetch,
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 import { isIsoDate, isRecord } from "@server/services/gateway-guards";
@@ -12,10 +16,10 @@ export type SitemapEntry = {
   lastModified?: string;
 };
 
-export async function fetchSitemapEntries(signal?: AbortSignal): Promise<SitemapEntry[]> {
-  const response = await gatewayFetch("/seo/sitemap", {
-    ...(signal ? { signal } : {}),
-  });
+export async function fetchSitemapEntries(request?: Request): Promise<SitemapEntry[]> {
+  const response = request
+    ? await gatewayFetchWithIdentity(request, "/seo/sitemap")
+    : await gatewayFetch("/seo/sitemap");
   await requireGatewayOk(response, "Sitemap gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.sitemap, INVALID_SITEMAP);
   const result = requireGatewayPayload(
