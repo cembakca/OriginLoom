@@ -171,12 +171,14 @@ export function renderTemplates({
     "server/services/bot-analytics.ts": botAnalyticsService(),
     "server/services/items.ts": itemsService(),
     "server/services/featured-items.ts": featuredItemsService(),
+    "server/services/live-message.ts": liveMessageService(),
     "server/services/profile.ts": profileService(),
-    "server/services/gateway-contracts.ts": gatewayContracts(),
+    "server/services/gateway-contracts.ts": gatewayContracts(true),
     "contracts/openapi.json": gatewayOpenApi(),
     "contracts/gateway-contracts.json": gatewayContractConfig(),
     "contracts/fixtures/items-page.json": gatewayItemsPageFixture(),
     "contracts/fixtures/item.json": gatewayItemFixture(),
+    "contracts/fixtures/live-message.json": gatewayLiveMessageFixture(),
     "contracts/fixtures/menu.json": gatewayMenuFixture(),
     "performance-budgets.json": performanceBudgets(),
     "performance-policy.json": performancePolicy(),
@@ -219,6 +221,7 @@ export function renderTemplates({
     "tests/auth-client.test.ts": authClientTest(),
     "tests/live-stream-admission.test.ts": liveStreamAdmissionTest(),
     "tests/live-stream-api.test.ts": liveStreamApiTest(),
+    "tests/live-message-service.test.ts": liveMessageServiceTest(),
     "tests/menu-cache.test.ts": menuCacheTest(),
     "tests/featured-items-cache.test.ts": featuredItemsCacheTest(),
     "tests/pagination.test.ts": paginationTest(),
@@ -918,6 +921,9 @@ test.describe("SSR and island critical paths", () => {
     };
 
     await page.goto("/live");
+    await expect(page.getByText(/Sunucudan geç gelen değer:/)).toContainText(
+      /\\d{4}-\\d{2}-\\d{2}T/,
+    );
     await expect(page.getByText(/Son tick:/)).toContainText(/\\d{4}-\\d{2}-\\d{2}T/);
     await expect.poll(activeConnections).toBe(1);
 
@@ -2238,6 +2244,37 @@ describe("live stream browser boundary", () => {
 });
 `;
 
+const liveMessageServiceTest =
+  () => `import { getLiveMessage } from "@server/services/live-message";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetch: vi.fn() }));
+
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetch: mocks.gatewayFetch,
+}));
+
+describe("gateway-backed progressive message", () => {
+  beforeEach(() => mocks.gatewayFetch.mockReset());
+
+  it("reads and validates the deferred gateway payload", async () => {
+    mocks.gatewayFetch.mockResolvedValue(Response.json({ message: "gateway-ready" }));
+    const signal = AbortSignal.timeout(1_000);
+
+    await expect(getLiveMessage(signal)).resolves.toBe("gateway-ready");
+    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/live/message", { signal });
+  });
+
+  it("rejects an invalid payload instead of streaming untrusted data", async () => {
+    mocks.gatewayFetch.mockResolvedValue(Response.json({ message: 42 }));
+    await expect(getLiveMessage(AbortSignal.timeout(1_000))).rejects.toThrow(
+      "Live message gateway returned an invalid payload",
+    );
+  });
+});
+`;
+
 const authClientTest =
   () => `import { clientApiFetch } from "@originloom/shared/lib/client/api-fetch";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -2501,6 +2538,39 @@ function waitForRequest<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+`;
+
+const liveMessageService =
+  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+type LiveMessage = { message: string };
+
+const INVALID = "Live message gateway returned an invalid payload";
+
+/**
+ * Starts real upstream work without hiding it behind a local timer. The route
+ * deliberately keeps this Promise pending in its data so React can stream the
+ * shell while the gateway response is still in flight.
+ */
+export async function getLiveMessage(signal: AbortSignal): Promise<string> {
+  const response = await gatewayFetch("/live/message", { signal });
+  await requireGatewayOk(response, "Live message gateway returned");
+  const payload = await readGatewayJson(response, GatewayContracts.liveMessage, INVALID);
+  return requireGatewayPayload(
+    GatewayContracts.liveMessage,
+    payload,
+    isLiveMessage,
+    INVALID,
+  ).message;
+}
+
+function isLiveMessage(value: unknown): value is LiveMessage {
+  return isRecord(value) && isBoundedString(value.message, 200);
 }
 `;
 
@@ -3107,6 +3177,7 @@ export function CatalogPage({ data }: Props) {
 
 const liveRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
 import { neverCache } from "@originloom/shared/lib/cache-policy";
+import { getLiveMessage } from "@server/services/live-message";
 
 import { LivePage } from "~/features/live/live-page";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -3118,12 +3189,11 @@ export default defineRoute<Data>({
   // Progressive HTML: the shell streams first, Suspense boundaries fill in later.
   streaming: true,
   cache: neverCache,
-  loader: async () => ({
+  loader: async (ctx) => ({
     data: {
-      // Resolves after the shell has already streamed — Suspense fills it in.
-      slowMessage: new Promise<string>((resolve) => {
-        setTimeout(() => resolve(new Date().toISOString()), 600);
-      }),
+      // Do not await this non-critical upstream value. The shell streams while
+      // the gateway is in flight; Suspense fills the boundary when it resolves.
+      slowMessage: getLiveMessage(ctx.request.signal),
     },
   }),
   title: () => "Canlı veri",
@@ -4608,6 +4678,11 @@ import { createServer } from "node:http";
 
 const PORT = Number(process.env.MOCK_GATEWAY_PORT ?? 4002);
 const DELAY_MS = Math.max(0, Number(process.env.MOCK_GATEWAY_DELAY_MS ?? 0) || 0);
+${
+  includeRoutingExamples
+    ? "const LIVE_MESSAGE_DELAY_MS = Math.max(0, Number(process.env.MOCK_LIVE_MESSAGE_DELAY_MS ?? 600) || 0);"
+    : ""
+}
 const stats = { startedAt: new Date().toISOString(), total: 0, byPath: Object.create(null) };
 
 const ITEMS = [
@@ -4668,6 +4743,21 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/menu") return json(res, 200, MENU);
+
+${
+  includeRoutingExamples
+    ? `  // A deliberately slow upstream read for the progressive HTML example.
+  // Keeping latency here, rather than in the route, exercises the real
+  // app → gateway boundary while React streams the already available shell.
+  if (url.pathname === "/live/message") {
+    if (LIVE_MESSAGE_DELAY_MS) {
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, LIVE_MESSAGE_DELAY_MS));
+    }
+    return json(res, 200, { message: new Date().toISOString() });
+  }
+`
+    : ""
+}
 
   // The product's own routing rules. It always answers: "next" is a decision,
   // not a missing one, so the middleware never has to read 404 as consent.
@@ -4786,8 +4876,8 @@ server.listen(PORT, "127.0.0.1", () => {
 });
 `;
 
-const gatewayContracts =
-  () => `import { defineGatewayContract } from "@originloom/core/gateway-payload";
+const gatewayContracts = (includeStreaming = false) =>
+  `import { defineGatewayContract } from "@originloom/core/gateway-payload";
 
 /**
  * This app's gateway endpoints and the largest response each may return.
@@ -4798,7 +4888,7 @@ const gatewayContracts =
  */
 export const GatewayContracts = {
   items: defineGatewayContract("items", 262_144),
-  menu: defineGatewayContract("menu", 32_768),
+${includeStreaming ? '  liveMessage: defineGatewayContract("live_message", 4_096),\n' : ""}  menu: defineGatewayContract("menu", 32_768),
   profile: defineGatewayContract("profile", 16_384),
   routing: defineGatewayContract("routing", 4_096),
 } as const;
@@ -4828,6 +4918,18 @@ const gatewayOpenApi = () =>
               200: {
                 description: "Item detail",
                 content: { "application/json": { schema: { $ref: "#/components/schemas/Item" } } },
+              },
+            },
+          },
+        },
+        "/live/message": {
+          get: {
+            responses: {
+              200: {
+                description: "Deferred live message",
+                content: {
+                  "application/json": { schema: { $ref: "#/components/schemas/LiveMessage" } },
+                },
               },
             },
           },
@@ -4872,6 +4974,12 @@ const gatewayOpenApi = () =>
               items: { type: "array", maxItems: 100, items: { $ref: "#/components/schemas/Item" } },
               total: { type: "number", minimum: 0 },
             },
+            additionalProperties: true,
+          },
+          LiveMessage: {
+            type: "object",
+            required: ["message"],
+            properties: { message: { type: "string", maxLength: 200 } },
             additionalProperties: true,
           },
           Menu: {
@@ -4924,6 +5032,17 @@ const gatewayContractConfig = () =>
           },
         },
         {
+          id: "live-message",
+          operationId: "live.message",
+          request: { method: "GET", path: "/live/message" },
+          response: {
+            status: 200,
+            contentType: "application/json",
+            fixture: "fixtures/live-message.json",
+            schema: "#/components/schemas/LiveMessage",
+          },
+        },
+        {
           id: "menu",
           operationId: "shell.menu",
           request: { method: "GET", path: "/menu" },
@@ -4949,6 +5068,8 @@ const fixtureItem = {
 const gatewayItemsPageFixture = () =>
   JSON.stringify({ items: [fixtureItem], total: 7 }, null, 2) + "\n";
 const gatewayItemFixture = () => JSON.stringify(fixtureItem, null, 2) + "\n";
+const gatewayLiveMessageFixture = () =>
+  JSON.stringify({ message: "2026-01-01T00:00:00.000Z" }, null, 2) + "\n";
 const gatewayMenuFixture = () =>
   JSON.stringify(
     [

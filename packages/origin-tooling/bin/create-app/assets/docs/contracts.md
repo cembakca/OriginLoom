@@ -15,6 +15,11 @@ pnpm contracts:fixtures
 fixture eşleşmesini taşır. Fixture schema'yı geçmezse CI kırılır. Yeni endpoint eklerken OpenAPI
 schema, manifest kaydı, PII içermeyen fixture ve runtime guard aynı değişiklikte eklenmelidir.
 
+Örneğin progressive HTML demosundaki `/live/message` çağrısı da yalnız bir mock detayı değildir:
+`LiveMessage` OpenAPI şeması, `live-message` consumer contract'ı, fixture, byte bütçesi ve
+`server/services/live-message.ts` runtime guard'ı birlikte bulunur. Böylece streaming sırasında geç
+gelen veri de normal gateway verisiyle aynı güven sınırından geçer.
+
 ```json
 {
   "id": "item-detail",

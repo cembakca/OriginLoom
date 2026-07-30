@@ -81,6 +81,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.5.18-vitest-scope");
     expect(metadata.appliedMigrations).toContain("0.5.34-react-quality-security");
     expect(metadata.appliedMigrations).toContain("0.5.35-route-build-manifest");
+    expect(metadata.appliedMigrations).toContain("0.6.0-gateway-backed-streaming");
     expect(existsSync(join(root, "docs/upgrading.md"))).toBe(true);
     expect(
       existsSync(join(root, ".originloom/backups", "0.5.12-to-" + TOOLING_VERSION, "package.json")),
@@ -174,6 +175,7 @@ function project({ version, metadata }) {
                   "0.5.34-react-quality-security",
                   "0.5.35-route-build-manifest",
                   "0.5.36-product-middleware",
+                  "0.6.0-gateway-backed-streaming",
                 ]
               : []),
           ],

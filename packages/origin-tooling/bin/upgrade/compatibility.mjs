@@ -13,6 +13,14 @@ export const TOOLING_VERSION = JSON.parse(
 
 export const COMPATIBILITY = [
   {
+    template: "0.6.x",
+    platform: "0.6.x",
+    tooling: "0.6.x",
+    node: ">=22.19.0",
+    automaticMigrationFrom: "0.5.12",
+    status: "supported",
+  },
+  {
     template: "0.5.x",
     platform: "0.5.x",
     tooling: "0.5.x",
@@ -62,9 +70,10 @@ export function sameReleaseLine(version, expected = TOOLING_VERSION) {
 
 export function supportsAutomaticMigration(version) {
   const parsed = parseVersion(version);
-  if (!parsed) return false;
+  const minimum = parseVersion(MIN_AUTOMATIC_MIGRATION_VERSION);
+  const target = parseVersion(TOOLING_VERSION);
+  if (!parsed || !minimum || !target) return false;
   return (
-    sameReleaseLine(version, MIN_AUTOMATIC_MIGRATION_VERSION) &&
-    compareVersions(version, MIN_AUTOMATIC_MIGRATION_VERSION) >= 0
+    parsed.major === target.major && compareVersions(version, MIN_AUTOMATIC_MIGRATION_VERSION) >= 0
   );
 }

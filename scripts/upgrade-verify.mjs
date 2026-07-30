@@ -150,7 +150,6 @@ function findPreviousVersion(registry, current) {
         parsed &&
         currentParsed &&
         parsed.major === currentParsed.major &&
-        parsed.minor === currentParsed.minor &&
         compareVersions(version, current) < 0
       );
     })
@@ -158,7 +157,7 @@ function findPreviousVersion(registry, current) {
   const previous = candidates.at(-1);
   if (!previous) {
     throw new Error(
-      registry + " içinde " + current + " sürümünden önceki aynı-minor tooling sürümü bulunamadı.",
+      registry + " içinde " + current + " sürümünden önceki desteklenen tooling sürümü bulunamadı.",
     );
   }
   return previous;

@@ -5,6 +5,7 @@ Machine-readable kaynak packages/origin-tooling/bin/upgrade/compatibility.mjs do
 
 | Template | Platform fixed group | Tooling | Node      | Otomatik migration | Durum         |
 | -------- | -------------------- | ------- | --------- | ------------------ | ------------- |
+| 0.6.x    | 0.6.x                | 0.6.x   | >=22.19.0 | 0.5.12 ve sonrası  | Destekleniyor |
 | 0.5.x    | 0.5.x                | 0.5.x   | >=22.13.0 | 0.5.12 ve sonrası  | Destekleniyor |
 
 Kurallar:
@@ -12,8 +13,8 @@ Kurallar:
 1. shared, core, react/vanilla ve tooling aynı fixed-group sürümünde yayınlanır.
 2. Template sürümü package sürümü değildir: uygulamaya kopyalanan kaynakların geçtiği son migration
    seviyesidir.
-3. Aynı minor hattındaki patch upgrade otomatik olabilir; minor/major geçiş release belgesi
-   gerektirir.
+3. Patch upgrade'leri ve matrix'te açıkça ilan edilen minor geçişleri otomatik olabilir; diğer
+   minor/major geçişler release belgesi gerektirir.
 4. Matrix dışında kalan doğrudan sıçrama desteklenmez.
 5. Her yeni satır doctor kuralı, migration belgesi ve N-1 yükseltme provasıyla birlikte eklenir.
 

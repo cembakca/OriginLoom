@@ -1,6 +1,6 @@
 {
   "name": "@originloom/vanilla",
-  "version": "0.5.36",
+  "version": "0.6.0",
   "description": "Framework-free renderer adapter for OriginLoom: an html tagged template, island markers and a plain-module island mounter.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",

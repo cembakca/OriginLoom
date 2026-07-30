@@ -515,6 +515,7 @@ describe("renderTemplates — example routes", () => {
       "server/routes/live.tsx",
       "server/services/items.ts",
       "server/services/featured-items.ts",
+      "server/services/live-message.ts",
       "server/api/index.ts",
       "src/features/catalog/catalog-page.tsx",
       "src/features/data-cache/data-cache-page.tsx",
@@ -565,7 +566,17 @@ describe("renderTemplates — example routes", () => {
 
   it("wires streaming + SSE: streaming route, Suspense, EventSource island, /api/ticks mount", () => {
     const files = standalone();
-    expect(files["server/routes/live.tsx"]).toContain("streaming: true");
+    const route = files["server/routes/live.tsx"];
+    expect(route).toContain("streaming: true");
+    expect(route).toContain("getLiveMessage(ctx.request.signal)");
+    expect(route).not.toContain("setTimeout");
+    expect(files["server/services/live-message.ts"]).toContain(
+      'gatewayFetch("/live/message", { signal })',
+    );
+    expect(files["server/services/live-message.ts"]).toContain("GatewayContracts.liveMessage");
+    expect(files["mock-gateway/server.mjs"]).toContain('url.pathname === "/live/message"');
+    expect(files["mock-gateway/server.mjs"]).toContain("MOCK_LIVE_MESSAGE_DELAY_MS");
+    expect(files["tests/live-message-service.test.ts"]).toContain("rejects an invalid payload");
     expect(files["src/features/live/live-page.tsx"]).toContain("Suspense");
     expect(files["src/islands/live-ticks.tsx"]).toContain("new EventSource");
     expect(files["server/api/index.ts"]).toContain("mountLiveStreamApi");
@@ -858,6 +869,18 @@ describe("renderTemplates — production reference coverage", () => {
         schema: "#/components/schemas/ItemPage",
       },
     });
+    expect(contracts.contracts).toContainEqual(
+      expect.objectContaining({
+        id: "live-message",
+        operationId: "live.message",
+        request: { method: "GET", path: "/live/message" },
+        response: expect.objectContaining({
+          fixture: "fixtures/live-message.json",
+          schema: "#/components/schemas/LiveMessage",
+        }),
+      }),
+    );
+    expect(files).toHaveProperty(["contracts/fixtures/live-message.json"]);
     expect(pkg.scripts.ci).toContain("contracts:fixtures");
     expect(pkg.scripts.ci).toContain("budget:bundle");
     expect(pkg.scripts.ci).toContain("lighthouse");
