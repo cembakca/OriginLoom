@@ -1,3 +1,4 @@
+import { Link } from "@originloom/react/lib/link";
 import { Suspense, use } from "react";
 
 import { Badge } from "~/components/ui/badge";
@@ -19,9 +20,9 @@ export function CreditCardDetailPage({ data }: CreditCardDetailPageProps) {
   return (
     <div className="space-y-8">
       <nav aria-label="İçerik yolu" className="text-sm text-slate-500">
-        <a href="/kredi-kartlari" className="hover:text-brand-700">
+        <Link href="/kredi-kartlari" className="hover:text-brand-700">
           Kredi Kartları
-        </a>{" "}
+        </Link>{" "}
         <span aria-hidden="true">/</span> {product.name}
       </nav>
       <header className="grid gap-8 border-b border-slate-200 pb-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">

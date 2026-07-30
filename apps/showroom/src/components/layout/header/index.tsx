@@ -8,10 +8,15 @@ import { Container, Logo } from "~/components/ui/container";
 
 import { DesktopNavBar, MobileMenuSlot, UserChromeSlot } from "./nav-parts";
 
-function DesktopHeader({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
-  const shell = getDeviceShell(deviceType);
-  const items = sortNavItems(topNavItems(menu.headerItems), shell);
+type HeaderView = {
+  shell: "desktop" | "mobile";
+  items: ReturnType<typeof sortNavItems>;
+  serialized: ReturnType<typeof serializeNavItems>;
+};
 
+const headerViews = new WeakMap<IMenuItems, Map<DeviceType, HeaderView>>();
+
+function DesktopHeader({ view }: { view: HeaderView }) {
   return (
     <header
       className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur"
@@ -19,7 +24,7 @@ function DesktopHeader({ menu, deviceType }: { menu: IMenuItems; deviceType: Dev
     >
       <Container className="flex h-16 items-center gap-4">
         <Logo className="shrink-0" />
-        <DesktopNavBar items={items} shell={shell} />
+        <DesktopNavBar items={view.items} shell={view.shell} />
         <div className="ml-auto shrink-0">
           <UserChromeSlot />
         </div>
@@ -28,15 +33,11 @@ function DesktopHeader({ menu, deviceType }: { menu: IMenuItems; deviceType: Dev
   );
 }
 
-function MobileHeader({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
-  const shell = getDeviceShell(deviceType);
-  const items = sortNavItems(topNavItems(menu.headerItems), shell);
-  const serialized = serializeNavItems(items);
-
+function MobileHeader({ view }: { view: HeaderView }) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white" data-shell="mobile">
       <Container className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <MobileMenuSlot items={serialized} />
+        <MobileMenuSlot items={view.serialized} />
         <Logo />
         <div className="justify-self-end">
           <UserChromeSlot />
@@ -47,10 +48,21 @@ function MobileHeader({ menu, deviceType }: { menu: IMenuItems; deviceType: Devi
 }
 
 export function Header({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
+  const view = headerView(menu, deviceType);
+  return view.shell === "desktop" ? <DesktopHeader view={view} /> : <MobileHeader view={view} />;
+}
+
+function headerView(menu: IMenuItems, deviceType: DeviceType): HeaderView {
+  let byDevice = headerViews.get(menu);
+  if (!byDevice) {
+    byDevice = new Map();
+    headerViews.set(menu, byDevice);
+  }
+  const cached = byDevice.get(deviceType);
+  if (cached) return cached;
   const shell = getDeviceShell(deviceType);
-  return shell === "desktop" ? (
-    <DesktopHeader menu={menu} deviceType={deviceType} />
-  ) : (
-    <MobileHeader menu={menu} deviceType={deviceType} />
-  );
+  const items = sortNavItems(topNavItems(menu.headerItems), shell);
+  const view = { shell, items, serialized: serializeNavItems(items) };
+  byDevice.set(deviceType, view);
+  return view;
 }

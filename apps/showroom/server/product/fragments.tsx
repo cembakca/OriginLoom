@@ -12,6 +12,8 @@ import { Header } from "~/components/layout/header";
 import { PopularKnowledgeArticles } from "~/features/knowledge-center/popular-articles";
 import type { ShellData } from "~/lib/shell-data";
 
+const menuFingerprints = new WeakMap<object, string>();
+
 export function headerFragmentKey(device: DeviceType): string {
   return `fragment:header:${device}`;
 }
@@ -76,8 +78,15 @@ function requireShell(shell: ShellData | null): ShellData {
 }
 
 function menuFingerprint(shell: ShellData | null): string {
-  const menu = requireShell(shell).menu;
-  return createHash("sha256").update(JSON.stringify(menu)).digest("base64url").slice(0, 12);
+  const menu = requireShell(shell).menu!;
+  const existing = menuFingerprints.get(menu);
+  if (existing) return existing;
+  const fingerprint = createHash("sha256")
+    .update(JSON.stringify(menu))
+    .digest("base64url")
+    .slice(0, 12);
+  menuFingerprints.set(menu, fingerprint);
+  return fingerprint;
 }
 
 function fragmentTestContext(): Ctx {

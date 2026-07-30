@@ -20,6 +20,10 @@ export type PipelineResult = {
   cookies: CookieJar;
   responseHeaders: Headers;
   trackingId?: string;
+  /** Values published by product middleware, readable as `ctx.values` in loaders. */
+  values?: Record<string, string>;
+  /** Which of those values fragment the shared HTML cache. */
+  cacheVary?: string[];
 };
 
 export type MiddlewareStep = (

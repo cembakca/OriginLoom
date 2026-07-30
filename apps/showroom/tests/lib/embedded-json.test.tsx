@@ -39,6 +39,13 @@ describe("embedded JSON", () => {
     expect(html).not.toContain("&quot;/medya-pipeline&quot;");
   });
 
+  it("omits the props attribute when an island has no payload", () => {
+    const html = renderToStaticMarkup(<Island name="live-ticks" mode="defer" />);
+
+    expect(html).toContain('data-island="live-ticks"');
+    expect(html).not.toContain("data-props");
+  });
+
   it("rejects top-level values that JSON cannot serialize", () => {
     expect(() => serializeEmbeddedJson(undefined)).toThrow("must be JSON-serializable");
   });

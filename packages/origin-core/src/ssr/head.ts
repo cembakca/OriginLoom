@@ -10,6 +10,7 @@ import { logError, logger } from "../logger.js";
 import { setActiveHttpRoute } from "../observability.js";
 import { proxyRequest } from "../proxy.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url.js";
+import { applyMiddlewareCacheVary } from "./cache-vary.js";
 import { createRouteContext, rethrowRequestDeadline } from "./context.js";
 import { runLoader } from "./execute-route.js";
 import {
@@ -27,17 +28,18 @@ export async function handleHead(
   ctx: HandleContext = {},
 ): Promise<Response> {
   const started = Date.now();
-  const url = new URL(request.url);
+  const prepared = ctx.preparedRequest;
+  const url = prepared?.url ?? new URL(request.url);
   const requestId = ctx.requestId;
 
   try {
-    const normalized = normalizePublicUrl(url);
+    const normalized = prepared?.normalized ?? normalizePublicUrl(url);
     if (normalized.kind === "invalid") return publicUrlErrorResponse(requestId);
     if (normalized.kind === "redirect") {
       return publicUrlRedirectResponse(normalized.location, requestId);
     }
 
-    const resolution = resolveRoute(url, config.gatewayUrl);
+    const resolution = prepared?.routing ?? resolveRoute(url, config.gatewayUrl);
     if (resolution.kind === "redirect") return Response.redirect(resolution.url, resolution.status);
     if (resolution.kind === "proxy") {
       const response = await proxyRequest(request, resolution.url, ctx.clientIp);
@@ -48,7 +50,7 @@ export async function handleHead(
     const internalUrl = new URL(url);
     internalUrl.pathname = resolution.pathname;
     if (resolution.kind === "rewrite") internalUrl.search = resolution.search;
-    const matched = match(routeTable, resolution.pathname);
+    const matched = prepared ? prepared.matched : match(routeTable, resolution.pathname);
     if (!matched) return headResponse(404, { kind: "none" }, "BYPASS", undefined, requestId);
 
     setActiveHttpRoute("HEAD", matched.route.path);
@@ -63,7 +65,7 @@ export async function handleHead(
       return headResponse(404, { kind: "none" }, "BYPASS", undefined, requestId);
     }
     const { route } = matched;
-    const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };
+    const policy = applyMiddlewareCacheVary(route.cache?.(routeCtx) ?? { kind: "none" }, ctx);
     const key = cache.cacheKey(policy);
 
     if (key) {

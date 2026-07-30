@@ -22,7 +22,7 @@ export default defineRoute<Data>({
   path: "/kredi-kartlari/:slug",
   streaming: true,
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
-  cache: () => neverCache(),
+  cache: neverCache,
   loader: async (ctx) => {
     const slug = ctx.params.slug ?? "";
     const detail = await getCreditCard(slug, ctx.request.signal);

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export const repoRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 
 /** The packages a release covers, in dependency order. */
-export const PACKAGES = ["shared", "core", "react", "vanilla", "tooling"];
+export const PACKAGES = ["shared", "core", "react", "tooling"];
 
 /** Matches `publishConfig.registry` in every package. */
 export const DEFAULT_REGISTRY_PORT = 4873;
@@ -18,6 +18,10 @@ export const DEFAULT_REGISTRY_PORT = 4873;
  * so a package that happens to exist on npmjs can never stand in for ours.
  * Everything else proxies npmjs so an app can still install react, hono and the
  * rest through this registry.
+ *
+ * The audit middleware is on because the release rehearsal runs `pnpm audit`
+ * against this registry: without an audit endpoint the client does not report a
+ * clean tree, it fails outright.
  */
 export function writeVerdaccioConfig({ root, storage = join(root, "storage") }) {
   mkdirSync(root, { recursive: true });
@@ -42,6 +46,9 @@ packages:
     access: $all
     publish: $all
     proxy: npmjs
+middlewares:
+  audit:
+    enabled: true
 log: { type: stdout, format: pretty, level: warn }
 `,
   );

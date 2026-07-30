@@ -1,6 +1,6 @@
 {
   "name": "@originloom/react",
-  "version": "0.5.7",
+  "version": "0.7.2",
   "description": "React renderer adapter for OriginLoom: island runtime, document rendering and the Vite preset.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -22,6 +22,8 @@
   },
   "exports": {
     "./lib/island": "./src/lib/island.tsx",
+    "./lib/link": "./src/lib/link.tsx",
+    "./lib/request-context": "./src/lib/request-context.tsx",
     "./lib/query/provider": "./src/lib/query/provider.tsx",
     "./lib/client/island-mount": "./src/lib/client/island-mount.tsx",
     "./lib/metadata/metadata-head": "./src/lib/metadata/metadata-head.tsx",
@@ -36,23 +38,24 @@
   },
   "dependencies": {
     "@originloom/shared": "workspace:*",
-    "@tanstack/react-query": "^5.101.2",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.101.4",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.2.0",
-    "typescript": "^5.7.2",
+    "@vitejs/plugin-react": "^6.0.4",
+    "typescript": "^5.9.3",
     "vite": "^8.1.5"
   },
   "peerDependencies": {
-    "@tailwindcss/vite": "^4.3.2",
-    "@vitejs/plugin-react": "^5.2.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.101.4",
+    "@vitejs/plugin-react": "^6.0.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "vite": "^8.1.5"
   },
   "publishConfig": {
@@ -61,6 +64,14 @@
       "./lib/island": {
         "types": "./dist/lib/island.d.ts",
         "default": "./dist/lib/island.js"
+      },
+      "./lib/link": {
+        "types": "./dist/lib/link.d.ts",
+        "default": "./dist/lib/link.js"
+      },
+      "./lib/request-context": {
+        "types": "./dist/lib/request-context.d.ts",
+        "default": "./dist/lib/request-context.js"
       },
       "./lib/query/provider": {
         "types": "./dist/lib/query/provider.d.ts",
@@ -93,6 +104,9 @@
   ],
   "peerDependenciesMeta": {
     "@tailwindcss/vite": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
       "optional": true
     },
     "@vitejs/plugin-react": {

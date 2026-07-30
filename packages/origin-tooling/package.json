@@ -1,6 +1,6 @@
 {
   "name": "@originloom/tooling",
-  "version": "0.5.7",
+  "version": "0.7.2",
   "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -24,16 +24,24 @@
     "origin-build": "./bin/build.mjs",
     "origin-build-media": "./bin/build-media.mjs",
     "origin-check-cycles": "./bin/check-import-cycles.mjs",
+    "origin-check-budgets": "./bin/check-budgets.mjs",
+    "origin-check-contracts": "./bin/check-contracts.mjs",
     "origin-compose-up": "./bin/compose-up.mjs",
     "origin-create-app": "./bin/create-app.mjs",
     "origin-dev": "./bin/dev.mjs",
     "origin-dev-local": "./bin/dev-local.mjs",
     "origin-docker-clean": "./bin/docker-clean.mjs",
+    "origin-doctor": "./bin/doctor.mjs",
+    "origin-dependency-track": "./bin/dependency-track.mjs",
     "origin-generate-icons": "./bin/generate-icons.mjs",
     "origin-local-redis": "./bin/local-redis.mjs",
+    "origin-lighthouse": "./bin/run-lighthouse.mjs",
+    "origin-migrate": "./bin/migrate.mjs",
+    "origin-quality-server": "./bin/quality-server.mjs",
     "origin-run-local": "./bin/run-local.mjs",
     "origin-run-with-env": "./bin/run-with-env.mjs",
     "origin-smoke": "./bin/smoke-server.mjs",
+    "origin-sbom": "./bin/sbom.mjs",
     "origin-start-memory": "./bin/start-memory.mjs"
   },
   "exports": {
@@ -41,13 +49,14 @@
     "./bin/*": "./bin/*.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/inter": "^5.3.0",
     "@svgr/core": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",
     "@svgr/plugin-svgo": "^8.1.0",
-    "prettier": "^3.9.5",
+    "ajv": "^8.20.0",
+    "prettier": "^3.9.6",
     "sharp": "^0.35.3",
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.3"
   },
   "files": [
     "bin"

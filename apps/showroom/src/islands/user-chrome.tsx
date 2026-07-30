@@ -1,3 +1,4 @@
+import { Link } from "@originloom/react/lib/link";
 import { getUserInfo, subscribeUserInfo } from "@originloom/shared/lib/stores/user-info-store";
 import { useSyncExternalStore } from "react";
 
@@ -20,7 +21,7 @@ export default function UserChrome() {
   if (!user.isSignedIn) {
     return (
       <Button variant="secondary" size="sm" asChild className="min-w-[5.5rem]">
-        <a href="/giris">Giriş yap</a>
+        <Link href="/giris">Giriş yap</Link>
       </Button>
     );
   }

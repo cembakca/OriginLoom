@@ -3,6 +3,8 @@ import type { CachePolicy } from "@originloom/shared/lib/types";
 import {
   buildCacheEntry,
   type CacheEntry,
+  cacheEntryFragmentMarkers,
+  type CacheReadResult,
   type CacheStore,
   type ListKeysOptions,
   type ListKeysResult,
@@ -21,13 +23,26 @@ export class MemoryStore implements CacheStore {
     return this.store.size;
   }
 
-  async read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null> {
+  async read(key: string): Promise<CacheReadResult | null> {
     const entry = this.store.get(key);
     if (!entry) return null;
 
     const now = Date.now();
-    if (now < entry.freshUntil) return { body: entry.body, state: "fresh" };
-    if (now < entry.staleUntil) return { body: entry.body, state: "stale" };
+    const fragmentMarkers = cacheEntryFragmentMarkers(entry);
+    if (now < entry.freshUntil)
+      return {
+        body: entry.body,
+        state: "fresh",
+        hasFragments: fragmentMarkers.length > 0,
+        fragmentMarkers,
+      };
+    if (now < entry.staleUntil)
+      return {
+        body: entry.body,
+        state: "stale",
+        hasFragments: fragmentMarkers.length > 0,
+        fragmentMarkers,
+      };
 
     this.store.delete(key);
     return null;

@@ -1,3 +1,4 @@
+import { Link } from "@originloom/react/lib/link";
 import type { NavItemProp } from "@originloom/shared/lib/menu/serialize";
 import { linkRel } from "@originloom/shared/lib/menu/utils";
 
@@ -21,15 +22,15 @@ export default function FooterAccordion({ items }: Props) {
             <ul className="space-y-2">
               {col.children?.map((link) => (
                 <li key={link.id}>
-                  <a href={link.url} rel={linkRel(link.url)} className="hover:text-brand-600">
+                  <Link href={link.url} rel={linkRel(link.url)} className="hover:text-brand-600">
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               )) ?? (
                 <li>
-                  <a href={col.url} rel={linkRel(col.url)} className="hover:text-brand-600">
+                  <Link href={col.url} rel={linkRel(col.url)} className="hover:text-brand-600">
                     {col.name}
-                  </a>
+                  </Link>
                 </li>
               )}
             </ul>

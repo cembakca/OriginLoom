@@ -70,6 +70,8 @@ describe("RedisStore", () => {
     await expect(store.read("legacy")).resolves.toEqual({
       body: legacy.body,
       state: "fresh",
+      hasFragments: false,
+      fragmentMarkers: [],
     });
     expect(redisData.has("ssr:development:legacy")).toBe(true);
   });

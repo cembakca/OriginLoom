@@ -1,6 +1,22 @@
+import { findSsrFragmentMarkers, type SsrFragmentMarker } from "@originloom/shared/fragment-markup";
 import type { CachePolicy } from "@originloom/shared/lib/types";
 
-export type CacheEntry = { body: string; freshUntil: number; staleUntil: number };
+export type CacheEntry = {
+  body: string;
+  freshUntil: number;
+  staleUntil: number;
+  /** Derived on write; optional keeps manually constructed legacy entries compatible. */
+  hasFragments?: boolean;
+  /** Compiled marker positions; optional for entries produced by older releases. */
+  fragmentMarkers?: readonly SsrFragmentMarker[];
+};
+
+export type CacheReadResult = {
+  body: string;
+  state: "fresh" | "stale";
+  hasFragments: boolean;
+  fragmentMarkers: readonly SsrFragmentMarker[];
+};
 
 export type ListKeysOptions = {
   prefix?: string;
@@ -20,15 +36,22 @@ export function buildCacheEntry(
   policy: CachePolicy & { kind: "shared" },
 ): CacheEntry {
   const now = Date.now();
+  const fragmentMarkers = findSsrFragmentMarkers(body);
   return {
     body,
+    hasFragments: fragmentMarkers.length > 0,
+    fragmentMarkers,
     freshUntil: now + policy.ttl * 1000,
     staleUntil: now + (policy.ttl + (policy.swr ?? 0)) * 1000,
   };
 }
 
+export function cacheEntryFragmentMarkers(entry: CacheEntry): readonly SsrFragmentMarker[] {
+  return entry.fragmentMarkers ?? findSsrFragmentMarkers(entry.body);
+}
+
 export interface CacheStore {
-  read(key: string): Promise<{ body: string; state: "fresh" | "stale" } | null>;
+  read(key: string): Promise<CacheReadResult | null>;
   write(key: string, body: string, policy: CachePolicy): Promise<void>;
   deleteKey(key: string): Promise<boolean>;
   deleteKeys(keys: string[]): Promise<number>;

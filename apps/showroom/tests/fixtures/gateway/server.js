@@ -9,7 +9,9 @@ import { resolveKnowledgeCenterRequest } from "./routes/knowledge-center.js";
 import { resolveMarketStreamRequest } from "./routes/market-stream.js";
 import { resolveMarketsRequest } from "./routes/markets.js";
 
-const port = Number(process.env.PORT ?? 4002);
+// Keep the mock gateway independent from the SSR app's PORT. The shared smoke
+// runner assigns a collision-free gateway port through this dedicated value.
+const port = Number(process.env.MOCK_GATEWAY_PORT ?? 4002);
 const host = process.env.HOST ?? "0.0.0.0";
 const quiet = process.env.MOCK_GW_QUIET === "1";
 
@@ -44,6 +46,18 @@ const redirects = new Map([
     },
   ],
   ["/kaldirildi", { type: "gone" }],
+]);
+
+// Answers server/middleware/redirect-rules.ts: "here is the URL a visitor asked
+// for — is it still a page, or does it move somewhere?" Separate from the CMS
+// redirect map above on purpose: that contract is the platform's, this one is
+// the product's, and they are curated by different people.
+const routingDecisions = new Map([
+  [
+    "/eski-kredi-karti",
+    { action: "redirect", location: "/kredi-kartlari?source=rules", status: 301 },
+  ],
+  ["/kampanya", { action: "redirect", location: "/kredi-kartlari?source=campaign", status: 307 }],
 ]);
 
 function json(response, status, data) {
@@ -142,6 +156,17 @@ async function route(request, response) {
   if (request.method === "GET" && url.pathname === "/cms/redirects") {
     const rule = redirects.get(url.searchParams.get("path") ?? "");
     return rule ? json(response, 200, rule) : empty(response, 404);
+  }
+  // Always answers: "next" is a decision, not a missing one, so the middleware
+  // never has to read a 404 as consent to carry on.
+  if (request.method === "GET" && url.pathname === "/routing/decide") {
+    let pathname;
+    try {
+      pathname = new URL(url.searchParams.get("url") ?? "").pathname;
+    } catch {
+      return json(response, 400, { error: "invalid_url" });
+    }
+    return json(response, 200, routingDecisions.get(pathname) ?? { action: "next" });
   }
   if (request.method === "POST" && url.pathname === "/analytics/bot") {
     const body = await readJson(request);

@@ -1,4 +1,5 @@
 import { responsiveImage } from "@originloom/core/media";
+import { Link } from "@originloom/react/lib/link";
 import { defineRoute } from "@originloom/react/lib/types";
 import { imagePreload, type ResponsiveImageData } from "@originloom/shared/lib/media";
 import { locale } from "@originloom/shared/lib/request";
@@ -6,7 +7,7 @@ import { locale } from "@originloom/shared/lib/request";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ResponsiveImage } from "~/components/ui/responsive-image";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
@@ -43,7 +44,7 @@ const HERO_SIZES = "(min-width: 1024px) 42vw, 100vw";
 
 export default defineRoute<Data>({
   path: "/",
-  cache: (ctx) => pageCachePolicy(PageCacheId.home, ctx),
+  cache: pageCache(PageCacheId.home),
   loader: async (ctx) => ({
     data: { locale: locale(ctx.request), hero: responsiveImage("home-hero") },
   }),
@@ -73,7 +74,7 @@ export default defineRoute<Data>({
 
       <div className="grid gap-4 sm:grid-cols-2">
         {links.map((link) => (
-          <a key={link.href} href={link.href} className="group block">
+          <Link key={link.href} href={link.href} className="group block">
             <Card className="h-full transition-shadow group-hover:shadow-md group-hover:border-brand-200">
               <CardHeader>
                 <CardTitle className="text-base group-hover:text-brand-700">{link.label}</CardTitle>
@@ -85,7 +86,7 @@ export default defineRoute<Data>({
                 </code>
               </CardContent>
             </Card>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

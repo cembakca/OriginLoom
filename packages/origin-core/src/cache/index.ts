@@ -11,6 +11,7 @@ import { MemoryStore } from "./memory.js";
 import { RedisStore } from "./redis.js";
 import { TieredStore } from "./tiered.js";
 import type { CacheStore } from "./types.js";
+import type { CacheReadResult } from "./types.js";
 import type { RateLimitResult } from "./types.js";
 
 let store: CacheStore | null = null;
@@ -103,9 +104,7 @@ export function cacheKey(policy: CachePolicy): string | null {
   return policy.kind === "shared" ? formatCacheKey(policy.key) : null;
 }
 
-export async function read(
-  key: string,
-): Promise<{ body: string; state: "fresh" | "stale" } | null> {
+export async function read(key: string): Promise<CacheReadResult | null> {
   try {
     return await runCacheOperation("read", async (span) => {
       const result = await getCache().read(key);

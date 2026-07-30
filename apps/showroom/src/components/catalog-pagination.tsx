@@ -1,3 +1,4 @@
+import { Link } from "@originloom/react/lib/link";
 import { cn } from "@originloom/react/lib/utils";
 import { buildPaginationItems } from "@originloom/shared/lib/pagination";
 
@@ -28,9 +29,9 @@ export function CatalogPagination({
   return (
     <nav aria-label="Sayfalama" className="flex flex-wrap gap-2 pt-4">
       {page > 1 ? (
-        <a href={href(page - 1)} rel="prev" className={linkClass}>
+        <Link href={href(page - 1)} rel="prev" className={linkClass}>
           ← Önceki
-        </a>
+        </Link>
       ) : (
         <span aria-disabled="true" className={disabledClass}>
           ← Önceki
@@ -46,15 +47,15 @@ export function CatalogPagination({
             {item.page}
           </span>
         ) : (
-          <a key={item.page} href={href(item.page)} className={linkClass}>
+          <Link key={item.page} href={href(item.page)} className={linkClass}>
             {item.page}
-          </a>
+          </Link>
         ),
       )}
       {page < totalPages ? (
-        <a href={href(page + 1)} rel="next" className={linkClass}>
+        <Link href={href(page + 1)} rel="next" className={linkClass}>
           Sonraki →
-        </a>
+        </Link>
       ) : (
         <span aria-disabled="true" className={disabledClass}>
           Sonraki →

@@ -16,11 +16,14 @@ import { errorResponse } from "./error.js";
 import { handle, handleHead } from "./handler.js";
 import { logError } from "./logger.js";
 import { observeRequest } from "./metrics.js";
+import { createPipeline } from "./middleware/pipeline.js";
+import type { OriginMiddleware } from "./middleware/product.js";
 import { publicBodyLimit } from "./middleware/public-body-limit.js";
 import { contextRequest, requestDeadline } from "./middleware/request-deadline.js";
 import { type AppVariables, requestId } from "./middleware/request-id.js";
 import { createSecurityMiddleware, type CspSources } from "./middleware/security.js";
 import { staticAssetCacheHeaders } from "./middleware/static-assets.js";
+import { appendVary } from "./middleware/vary.js";
 import { SpanStatusCode, withRequestSpan } from "./observability.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url.js";
 import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity.js";
@@ -41,6 +44,13 @@ export type CreateAppOptions = {
   assets: Assets;
   routes: Route[];
   mounts?: AppMounts;
+  /**
+   * Product middleware for document requests — locale, tenant, maintenance,
+   * experiments. Runs in list order inside its phase, around the platform's own
+   * auth/session/redirect steps. Mounted API routes are not covered: give those
+   * a Hono `app.use()` inside `mounts.api`.
+   */
+  middleware?: readonly OriginMiddleware[];
   /** Static asset root served under /assets/*. Defaults to the local client build. */
   staticRoot?: string;
   isShuttingDown?: () => boolean;
@@ -65,6 +75,9 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   const readinessCheck = options.readinessCheck ?? pingCache;
   const cacheRequired = options.cacheRequired ?? config.cacheRequired;
   const capacity = options.capacity ?? defaultSsrCapacity;
+  // Compiled at startup, so a malformed middleware list fails the deploy rather
+  // than the first request that happens to match it.
+  const pipeline = createPipeline(options.middleware ?? []);
   const app = new Hono<{ Variables: AppVariables }>();
 
   app.onError((error, c) => {
@@ -85,7 +98,10 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     const handleContext = {
       requestId: c.get("requestId"),
       clientIp: c.get("clientIp") ?? resolveClientIp(c),
-      ...stripUndefined({ cspNonce: c.get("cspNonce") }),
+      ...stripUndefined({
+        cspNonce: c.get("cspNonce"),
+        preparedRequest: c.get("preparedRequest"),
+      }),
     };
     return request.method === "HEAD"
       ? handleHead(request, routeTable, handleContext)
@@ -117,7 +133,16 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     });
   });
   app.use("*", createSecurityMiddleware(options.csp));
-  app.use("*", compress());
+  // Compression changes the selected representation. This wrapper must be
+  // registered before Hono's compression middleware so its post-next phase
+  // observes the final Content-Encoding header.
+  app.use("*", async (c, next) => {
+    await next();
+    if (c.res.headers.has("Content-Encoding")) {
+      c.header("Vary", appendVary(c.res.headers.get("Vary"), "Accept-Encoding"));
+    }
+  });
+  app.use("*", compress({ threshold: config.httpCompressionThresholdBytes }));
   app.use("*", async (c, next) => {
     const started = performance.now();
     await next();
@@ -129,7 +154,8 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     );
   });
   app.use("*", async (c, next) => {
-    const normalized = normalizePublicUrl(new URL(c.req.url));
+    const normalized =
+      c.get("preparedRequest")?.normalized ?? normalizePublicUrl(new URL(c.req.url));
     if (normalized.kind === "invalid") {
       return publicUrlErrorResponse(c.get("requestId"));
     }
@@ -140,7 +166,15 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   });
 
   app.use("/assets/*", staticAssetCacheHeaders);
-  app.use("/assets/*", serveStatic({ root: options.staticRoot ?? config.clientDistDir }));
+  app.use(
+    "/assets/*",
+    serveStatic({
+      root: options.staticRoot ?? config.clientDistDir,
+      // origin-build emits .br/.gz siblings. The Node server negotiates them
+      // without spending compression CPU on every immutable asset request.
+      precompressed: true,
+    }),
+  );
 
   app.get("/healthz", (c) => {
     c.set("requestRoute", "<health>");
@@ -168,7 +202,13 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
 
   app.all(
     "*",
-    createSsrDispatch({ assets: options.assets, routes: routeTable, capacity, isShuttingDown }),
+    createSsrDispatch({
+      assets: options.assets,
+      routes: routeTable,
+      capacity,
+      isShuttingDown,
+      pipeline,
+    }),
   );
 
   return app;

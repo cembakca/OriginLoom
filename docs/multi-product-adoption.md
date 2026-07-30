@@ -97,12 +97,12 @@ Aşağıdaki tablo **mevcut dosya ağacına** göredir. “Platform” = paylaş
 
 ### 3.3 Gri alan (platformda hook, içerik üründe)
 
-| Parça               | Platform sağlar                              | Ürün seçer                                         |
-| ------------------- | -------------------------------------------- | -------------------------------------------------- |
-| Middleware adımları | `authStep`, `sessionStep`, `redirectionStep` | Hangileri açık                                     |
-| API mount           | `mountApi(app, extensions)`                  | Market stream var mı, referral var mı              |
-| Fragment registry   | `registerFragment(name, def)` API            | Bilgi merkezinde “popular articles”, yatırımda yok |
-| Route tablosu       | `Route` tipi, `createApp({ routes })`        | Route listesi                                      |
+| Parça             | Platform sağlar                                                                           | Ürün seçer                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Middleware        | `authStep`, `sessionStep`, `redirectionStep` (sırası sabit) + `defineMiddleware` kontratı | Kendi adımları: `createApp({ middleware })`, phase ve matcher |
+| API mount         | `mountApi(app, extensions)`                                                               | Market stream var mı, referral var mı                         |
+| Fragment registry | `registerFragment(name, def)` API                                                         | Bilgi merkezinde “popular articles”, yatırımda yok            |
+| Route tablosu     | `Route` tipi, `createApp({ routes })`                                                     | Route listesi                                                 |
 
 Zaten `createApp` bunun tohumunu taşıyor:
 

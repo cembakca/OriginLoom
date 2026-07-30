@@ -12,7 +12,7 @@ import {
 import { getBank } from "@server/services/financial-products";
 
 import { BankDetailPage } from "~/features/financial-products/bank-detail";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import type { BankDetail } from "~/lib/contracts/financial-products";
 import { bankProfileJsonLd } from "~/lib/metadata/jsonld-finance";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -20,7 +20,7 @@ import { defaultPageMeta } from "~/lib/shell-data";
 export default defineRoute<BankDetail>({
   path: "/bankalar/:slug",
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
-  cache: (ctx) => pageCachePolicy(PageCacheId.bankDetail, ctx),
+  cache: pageCache(PageCacheId.bankDetail),
   loader: async (ctx) => {
     const data = await getBank(ctx.params.slug ?? "", ctx.request.signal);
     return data ? { data } : notFound();

@@ -1,3 +1,4 @@
+import { Link } from "@originloom/react/lib/link";
 import type { NavItemProp } from "@originloom/shared/lib/menu/serialize";
 
 import { Menu } from "~/components/icons";
@@ -34,9 +35,9 @@ export default function MobileMenu({ items }: Props) {
                 <AccordionContent>
                   <ul className="space-y-2">
                     <li>
-                      <a href={item.url} className="font-medium text-brand-600 hover:underline">
+                      <Link href={item.url} className="font-medium text-brand-600 hover:underline">
                         Tümünü gör
-                      </a>
+                      </Link>
                     </li>
                     {item.children.map((sub) =>
                       sub.menuDisplayType === 1 ? (
@@ -51,19 +52,19 @@ export default function MobileMenu({ items }: Props) {
                             <p className="mt-1 text-slate-600">{sub.description}</p>
                           ) : null}
                           {sub.url ? (
-                            <a
+                            <Link
                               href={sub.url}
                               className="mt-2 inline-block text-brand-600 hover:underline"
                             >
                               Devam
-                            </a>
+                            </Link>
                           ) : null}
                         </li>
                       ) : (
                         <li key={sub.id}>
-                          <a href={sub.url} className="text-slate-700 hover:text-brand-600">
+                          <Link href={sub.url} className="text-slate-700 hover:text-brand-600">
                             {sub.hamburgerName ?? sub.name}
-                          </a>
+                          </Link>
                         </li>
                       ),
                     )}
@@ -71,24 +72,24 @@ export default function MobileMenu({ items }: Props) {
                 </AccordionContent>
               </AccordionItem>
             ) : (
-              <a
+              <Link
                 key={item.id}
                 href={item.url}
                 className="block border-b border-slate-200 py-4 text-sm font-semibold hover:text-brand-600"
               >
                 {item.hamburgerName ?? item.name}
-              </a>
+              </Link>
             ),
           )}
         </AccordionRoot>
 
         <div className="mt-6 space-y-2 border-t border-slate-200 pt-4 text-sm">
-          <a href="/hesabim" className="block font-medium text-slate-800 hover:text-brand-600">
+          <Link href="/hesabim" className="block font-medium text-slate-800 hover:text-brand-600">
             Hesabım
-          </a>
-          <a href="/giris" className="block text-brand-600 hover:underline">
+          </Link>
+          <Link href="/giris" className="block text-brand-600 hover:underline">
             Giriş yap
-          </a>
+          </Link>
         </div>
       </SheetContent>
     </Sheet>

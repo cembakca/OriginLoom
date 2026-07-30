@@ -1,3 +1,4 @@
+import { Link } from "@originloom/react/lib/link";
 import { cn } from "@originloom/react/lib/utils";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
@@ -72,9 +73,9 @@ export function DropdownMenuLinkItem({
 }: HTMLAttributes<HTMLAnchorElement> & { href: string }) {
   return (
     <DropdownMenu.Item asChild>
-      <a href={href} className={cn("block w-full", className)}>
+      <Link href={href} className={cn("block w-full", className)}>
         {children}
-      </a>
+      </Link>
     </DropdownMenu.Item>
   );
 }

@@ -52,6 +52,14 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
   platform's `<Island>` serializes props safely. Passing raw JSON into HTML is a
   correctness and XSS hazard.
 
+## Links
+
+Internal links go through `<Link href="/catalog">` from `@originloom/react/lib/link`, not a raw
+`<a>`. The platform owns it, so one place decides what a link may be: an executing scheme
+(`javascript:`, `data:`) is refused outright, `target="_blank"` gets `noopener noreferrer`, a
+cross-origin link gets `noopener`, and the link to the page you are on is marked
+`aria-current="page"`. External URLs, `/api/*` paths and `#anchors` are otherwise left as written.
+
 ## Checks before you call it done
 
 ```bash

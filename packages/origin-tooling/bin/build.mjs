@@ -32,9 +32,15 @@ await run("client", [resolve(root, "node_modules/vite/bin/vite.js"), "build"]);
 if (existsSync(resolve(root, "server/media.config.json"))) {
   await run("media", [new URL("./build-media.mjs", import.meta.url).pathname]);
 }
+await run("assets", [new URL("./precompress-assets.mjs", import.meta.url).pathname]);
 await run("server", [
   resolve(root, "node_modules/vite/bin/vite.js"),
   "build",
   "--config",
   "vite.server.config.ts",
+]);
+await run("route manifest", [
+  "--import",
+  "tsx/esm",
+  new URL("./route-manifest.mjs", import.meta.url).pathname,
 ]);

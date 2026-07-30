@@ -4,6 +4,7 @@ import { createApp } from "@originloom/core/app";
 import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
+import { closeGatewayTransport } from "@originloom/core/gateway-transport";
 import { drainRevalidations } from "@originloom/core/handler";
 import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
 import { logError, logger } from "@originloom/core/logger";
@@ -17,6 +18,7 @@ import { mountApi } from "./api";
 import { mountCachePurgeRoutes } from "./api/internal/cache-purge";
 import { mountReferralStatsApi } from "./api/internal/referral-stats";
 import { stopMarketStreamClients } from "./api/market-stream";
+import { productMiddleware } from "./middleware";
 import { productConfig, validateProductConfig } from "./product/config";
 import { productCsp } from "./product/csp";
 import { installProductRuntime } from "./product/runtime";
@@ -42,6 +44,7 @@ async function main() {
     assets,
     routes,
     mounts: { api: mountApi, seo: mountSeoRoutes },
+    middleware: productMiddleware,
     csp: productCsp,
     // The market stream holds its connection open by design and runs its own
     // heartbeat and admission, so it is exempt from the request deadline.
@@ -88,6 +91,9 @@ async function main() {
         ]);
         if (!revalidationsDrained) logger.warn("revalidation drain timed out");
         if (!botAnalyticsDrained) logger.warn("bot analytics drain timed out");
+        // Revalidation and analytics drains may still use the gateway. Close
+        // the shared transport only after every gateway-dependent task settles.
+        await closeGatewayTransport();
         await closeCache();
         await shutdownInstrumentation();
         logger.info("shutdown complete");

@@ -13,21 +13,21 @@ import {
 import { getKnowledgeArticles } from "@server/services/knowledge-center";
 
 import { KnowledgeCenterPage } from "~/features/knowledge-center/article-list";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import type { KnowledgeArticleList } from "~/lib/contracts/knowledge-center";
 import { knowledgeSearch } from "~/lib/knowledge-query";
 import { defaultPageMeta } from "~/lib/shell-data";
 
 export default defineRoute<KnowledgeArticleList>({
   path: "/bilgi-merkezi",
-  cache: (ctx) => {
+  cache: pageCache(PageCacheId.knowledgeCenter, (ctx) => {
     const page = resolvePageParam(ctx.url.searchParams.get("page"));
     return page.kind === "valid" &&
       !ctx.url.searchParams.has("q") &&
       !ctx.url.searchParams.has("tag")
       ? pageCachePolicy(PageCacheId.knowledgeCenter, ctx)
       : neverCache();
-  },
+  }),
   loader: async (ctx) => {
     const page = resolvePageParam(ctx.url.searchParams.get("page"));
     if (page.kind === "invalid") return notFound();

@@ -129,9 +129,9 @@ if (taken.length > 0) {
   process.exit(1);
 }
 
-console.log(`[dev] env: ${process.env.APP_ENV} · cache: ${process.env.CACHE_BACKEND ?? "memory"}`);
-console.log(`[dev] Hono: ${appUrl.origin}`);
-console.log(`[dev] Vite: ${viteUrl.origin}`);
+console.log(
+  `[dev] starting ${process.env.APP_ENV} · cache: ${process.env.CACHE_BACKEND ?? "memory"}`,
+);
 console.log(
   gatewayEntry
     ? `[dev] Gateway: ${gatewayUrl.origin} (${gatewayEntry})`
@@ -147,11 +147,18 @@ start(
     "--port",
     viteUrl.port || "5174",
     "--strictPort",
+    // Vite is an internal asset/HMR server in this architecture. Its default
+    // "Local" banner looks like the application URL, so retain warnings and
+    // errors but let origin-dev announce the real SSR address itself.
+    "--logLevel",
+    "warn",
   ],
   { SITE_URL: appUrl.origin },
 );
 if (gatewayEntry) {
-  start("gateway", [resolve(root, gatewayEntry)], { PORT: gatewayUrl.port || "4002" });
+  start("gateway", [resolve(root, gatewayEntry)], {
+    MOCK_GATEWAY_PORT: gatewayUrl.port || "4002",
+  });
 }
 start("server", [resolve(root, "node_modules/tsx/dist/cli.mjs"), "watch", "server/index.ts"], {
   NODE_ENV: "development",
@@ -160,3 +167,33 @@ start("server", [resolve(root, "node_modules/tsx/dist/cli.mjs"), "watch", "serve
   SITE_URL: appUrl.origin,
   VITE_DEV_SERVER_URL: viteUrl.origin,
 });
+
+void announceReady();
+
+async function announceReady() {
+  const deadline = Date.now() + 30_000;
+  while (!stopping && Date.now() < deadline) {
+    const [appReady, viteReady] = await Promise.all([
+      responds(new URL("/healthz", appUrl)),
+      responds(viteUrl),
+    ]);
+    if (appReady && viteReady) {
+      console.log(`\n[dev] ready — open ${appUrl.origin}`);
+      console.log("[dev] client assets and HMR are connected automatically.\n");
+      return;
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+  }
+  if (!stopping) {
+    console.warn(`[dev] startup is taking longer than expected; check the process logs above.`);
+  }
+}
+
+async function responds(url) {
+  try {
+    await fetch(url, { signal: AbortSignal.timeout(500) });
+    return true;
+  } catch {
+    return false;
+  }
+}

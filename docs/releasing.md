@@ -16,17 +16,16 @@ registry'ye yayınlanmamaktadır. Hedef: **Nexus** üzerinde private paketler (�
 
 | Parça             | Nerede                                        | Ne yapar                                                     |
 | ----------------- | --------------------------------------------- | ------------------------------------------------------------ |
-| Sürümleme         | `.changeset/config.json`                      | Beş paketi tek sürümde tutar (`fixed` grup)                  |
+| Sürümleme         | `.changeset/config.json`                      | Paketleri tek sürümde tutar (`fixed` grup)                   |
 | Yayın provası     | `scripts/release-verify.mjs`                  | Verdaccio'ya yayınlar, temiz app'e kurar, build + smoke eder |
-| CI kapısı         | `.github/workflows/ci.yml` → `release-verify` | Her PR'da provayı react ve vanilla için koşar                |
+| CI kapısı         | `.github/workflows/ci.yml` → `release-verify` | Her PR'da provayı koşar                                      |
 | Public API sınırı | `packages/origin-core/package.json` `exports` | İç modülleri `null` hedefle kapatır                          |
 | Yerel registry    | `scripts/local-registry.mjs`                  | Kalıcı Verdaccio — ekipler standalone akışı burada dener     |
 | Kaza güvenliği    | Her paketin `publishConfig.registry`          | Elle `pnpm publish` yerel Verdaccio'ya gider, npmjs'e değil  |
 
 ### Yayınlanan paketler
 
-`@originloom/shared`, `@originloom/core`, `@originloom/react`, `@originloom/vanilla`,
-`@originloom/tooling`. `apps/showroom` yayınlanmaz (changesets'te `ignore` listesinde).
+`@originloom/shared`, `@originloom/core`, `@originloom/react`, `@originloom/tooling`. `apps/showroom` yayınlanmaz (changesets'te `ignore` listesinde).
 
 ---
 
@@ -97,9 +96,8 @@ sürümü yükseltmektir; gerçek registry'ler zaten üzerine yazmayı yasaklar.
 ### Yayın provası
 
 ```bash
-pnpm release:verify                    # react uygulamasıyla
-pnpm release:verify --renderer vanilla # vanilla uygulamasıyla
-pnpm release:verify --keep             # geçici dizini silme (inceleme için)
+pnpm release:verify        # temiz bir app üretip registry'den kurar
+pnpm release:verify --keep # geçici dizini silme (inceleme için)
 ```
 
 Sırasıyla şunu yapar:
@@ -109,17 +107,45 @@ Sırasıyla şunu yapar:
 3. Beş paketi bu registry'ye yayınlar (`--tag rehearsal`).
 4. `origin-create-app` ile **workspace dışında** bir uygulama üretir; kendi `.npmrc`'si ve boş
    `pnpm-workspace.yaml`'ı yazılır ki bu repoyu hiç görmesin.
-5. Registry'den kurar, sonra doğrular: beş paketin de kurulduğunu, core'un `src/` değil `dist/`
-   gönderdiğini.
-6. Kurulan uygulamayı `tsc --noEmit` + `origin-build` + `origin-smoke` ile sürer.
-7. Verdaccio'yu kapatır, geçici dizini siler.
+5. Registry'den kurar; paketlerin `dist` artefaktını, dependency audit sonucunu ve destek dışı
+   `uuid@10` veya altının lockfile'a girmediğini doğrular.
+6. Kurulan uygulamada doctor strict, typecheck, import-cycle, lint, format, unit test, production
+   build ve smoke kontrollerini çalıştırır. React provası ayrıca fixture contract ve bundle bütçesi
+   kapılarını çalıştırır.
+7. React provasında Chromium'u kurar; template'in Playwright/Axe suite'ini ve Lighthouse route
+   bütçelerini production bundle'a karşı çalıştırır. Öncesinde kısa kapasite koşusu gerçek Autocannon
+   dependency zincirini production bundle'a karşı çalıştırır. Vanilla provası browser bağımlılığı
+   taşımaz.
+8. Verdaccio'yu kapatır, geçici dizini siler.
 
 **Neden gerekli:** repodaki diğer tüm kontroller paketleri `workspace:*` üzerinden `src/`'den
-çözer. `dist` derlemesi, `publishConfig.exports` haritası ve paketler arası sürüm bağları ancak
-gerçek bir registry'de buluşur. Prova ilk çalıştığında `origin-smoke`'un showroom'a özgü iki
+çözer. `dist` derlemesi, `publishConfig.exports` haritası, browser runtime ve paketler arası sürüm
+bağları ancak gerçek bir registry'de buluşur. Prova ilk çalıştığında `origin-smoke`'un showroom'a özgü iki
 beklenti taşıdığını ortaya çıkardı — üretilen her uygulama kendi smoke'undan kalıyordu.
 
 ---
+
+### N-1 → N yükseltme provası
+
+Release verify temiz ve güncel proje kurar; upgrade verify ise geçmişte oluşturulmuş gerçek bir
+tüketiciyi ölçer. Registry hem önceki hem güncel sürümü taşımalıdır.
+
+Önce local registry'yi açık tutup güncel sürümü yayınlayın, sonra pnpm upgrade:verify çalıştırın.
+Kaynak sürümü ve registry gerektiğinde --from ile --registry seçenekleriyle sabitlenebilir.
+
+Script önce published N-1 tooling ile workspace dışında React proje üretir ve baseline pnpm ci
+çalıştırır. Ardından yalnız güncel tooling'i kurar; doctor'ın drift/pending migration gördüğünü
+doğrular; migrate dry-run + apply + ikinci idempotence kontrolünü çalıştırır. Son olarak bütün
+fixed group'u kurar, doctor strict ve generated pnpm ci kapısını geçirir.
+
+Yeni bir sürüm yayınlanmadan önce şu üç test birbirinin yerine geçmez:
+
+1. Workspace pnpm ci: platform kaynakları ve showroom.
+2. Release verify: güncel published artefakttan temiz proje.
+3. Upgrade verify: önceki published template/proje ile güncel sürüm arasındaki migration.
+
+Uyumluluk politikası docs/compatibility.md, sürüm bazlı manuel/breaking adımlar
+docs/migrations/ altında tutulur.
 
 ## 3. Yerel registry ile çalışmak (ekipler için)
 
@@ -194,7 +220,7 @@ değil, ulaşamayacağı bir yerel adrese gider ve hata alır.
 seçilmesi zorunlu (§5).
 
 **core'da küratlı export.** `ssr/*`, `cache/cold-fill`, `middleware/pipeline`, `app/*`, `document/*`
-gibi 21 iç modül `exports` içinde `null` hedefiyle kapatıldı. Node en spesifik eşleşmeyi seçtiği
+gibi 22 iç modül `exports` içinde `null` hedefiyle kapatıldı. Node en spesifik eşleşmeyi seçtiği
 için `"./*"` wildcard'ı durmaya devam ediyor ama bunlar dışarı açılmıyor. Sebep: yayınlanan her
 alt yol taahhüttür; iç boru hattını sonradan değiştirmek breaking release olurdu.
 `packages/origin-core/tests/public-api.test.ts` iki export haritasının aynı şeyi kapattığını ve

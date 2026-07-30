@@ -13,5 +13,12 @@ export function defineRoute<T>(r: Route<T>): Route<T> {
   return r;
 }
 
-export type { CachePolicy, Ctx, LoaderResult, RouteError } from "@originloom/shared/lib/types";
+export type {
+  CachePolicy,
+  Ctx,
+  LoaderResult,
+  RouteCacheDescription,
+  RouteCacheResolver,
+  RouteError,
+} from "@originloom/shared/lib/types";
 export { notFound, redirect, routeError } from "@originloom/shared/lib/types";

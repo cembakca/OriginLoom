@@ -1,4 +1,4 @@
-import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { gatewayFetch, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
 import { productConfig } from "@server/product/config";
 
 import {
@@ -39,5 +39,9 @@ async function sendBatch(events: BotVisit[], signal: AbortSignal): Promise<void>
     body: JSON.stringify({ events }),
     signal,
   });
-  if (!response.ok) throw new BotAnalyticsRejectedError(response.status);
+  if (!response.ok) {
+    await releaseGatewayResponse(response);
+    throw new BotAnalyticsRejectedError(response.status);
+  }
+  await releaseGatewayResponse(response);
 }

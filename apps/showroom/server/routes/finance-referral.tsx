@@ -4,7 +4,7 @@ import { publicAbsoluteUrl } from "@originloom/shared/lib/metadata/generate";
 import { getReferral } from "@server/services/financial-products";
 
 import { ReferralPage } from "~/features/financial-products/referral-page";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import type { ReferralDetail } from "~/lib/contracts/financial-products";
 import { referralProductByPublicType } from "~/lib/referral-products";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -16,7 +16,7 @@ export default defineRoute<Data>({
   validateParams: (ctx) =>
     Boolean(referralProductByPublicType(ctx.params.productType)) &&
     isBoundedRouteSlug(ctx.params.slug),
-  cache: (ctx) => pageCachePolicy(PageCacheId.financeReferral, ctx),
+  cache: pageCache(PageCacheId.financeReferral),
   loader: async (ctx) => {
     const publicType = ctx.params.productType ?? "";
     const definition = referralProductByPublicType(publicType);

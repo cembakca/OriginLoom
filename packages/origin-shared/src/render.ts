@@ -20,6 +20,12 @@ export type StreamResult = {
 /** Everything the core resolves before a document render. Framework-agnostic. */
 export type DocumentRenderInput<Shell = unknown> = {
   htmlLang: string;
+  /** Browser-visible path, before any rewrite. */
+  publicPath: string;
+  /** The query string the browser asked with, leading "?" included. */
+  publicSearch: string;
+  /** Public origin of this site. */
+  siteUrl: string;
   assets: Assets;
   seo: ResolvedMetadata;
   pageMeta: PageAnalyticsMeta;

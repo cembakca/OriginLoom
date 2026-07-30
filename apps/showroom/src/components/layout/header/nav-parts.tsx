@@ -1,4 +1,5 @@
 import { Island } from "@originloom/react/lib/island";
+import { Link } from "@originloom/react/lib/link";
 import { cn } from "@originloom/react/lib/utils";
 import type { DeviceShell } from "@originloom/shared/lib/device";
 import type { NavItemProp } from "@originloom/shared/lib/menu/serialize";
@@ -13,7 +14,7 @@ import { Button } from "~/components/ui/button";
 export function UserChromeFallback() {
   return (
     <Button variant="secondary" size="sm" asChild className="min-w-[5.5rem]">
-      <a href="/giris">Giriş yap</a>
+      <Link href="/giris">Giriş yap</Link>
     </Button>
   );
 }
@@ -45,22 +46,22 @@ export function DesktopNavBar({ items, shell }: { items: MenuItem[]; shell: Devi
     <nav aria-label="Ana menü" className="hidden min-h-10 flex-1 items-center gap-1 lg:flex">
       {items.map((item) => (
         <div key={item.id} className="group relative">
-          <a
+          <Link
             href={item.url}
             className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-brand-700"
           >
             {navLabel(item, shell)}
-          </a>
+          </Link>
           {item.subMenuItemList?.length ? (
             <div className="invisible absolute left-0 top-full z-40 min-w-[220px] translate-y-1 rounded-lg border border-slate-200 bg-white p-2 opacity-0 shadow-lg transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
               {item.subMenuItemList.map((sub) => (
-                <a
+                <Link
                   key={sub.id}
                   href={sub.url}
                   className="block rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-brand-50 hover:text-brand-700"
                 >
                   {navLabel(sub, shell)}
-                </a>
+                </Link>
               ))}
             </div>
           ) : null}
@@ -78,20 +79,20 @@ export function MobileNavFallback({ items }: { items: NavItemProp[] }) {
     >
       {items.map((item) => (
         <div key={item.id}>
-          <a
+          <Link
             href={item.url}
             className="block rounded-md px-2 py-2 text-sm font-medium text-slate-800"
           >
             {item.hamburgerName ?? item.name}
-          </a>
+          </Link>
           {item.children?.map((sub) => (
-            <a
+            <Link
               key={sub.id}
               href={sub.url}
               className="block rounded-md py-1.5 pl-4 text-sm text-slate-600 hover:text-brand-700"
             >
               {sub.hamburgerName ?? sub.name}
-            </a>
+            </Link>
           ))}
         </div>
       ))}
@@ -109,11 +110,11 @@ export function FooterAccordionSlot({ items }: { items: NavItemProp[] }) {
             <ul className="mt-2 space-y-1 text-sm text-slate-600">
               {col.children?.map((link) => (
                 <li key={link.id}>
-                  <a href={link.url}>{link.name}</a>
+                  <Link href={link.url}>{link.name}</Link>
                 </li>
               )) ?? (
                 <li>
-                  <a href={col.url}>{col.name}</a>
+                  <Link href={col.url}>{col.name}</Link>
                 </li>
               )}
             </ul>
@@ -136,12 +137,12 @@ export function NavLink({
   rel?: string;
 }) {
   return (
-    <a
+    <Link
       href={href}
       {...(rel !== undefined ? { rel } : {})}
       className={cn("hover:text-brand-600", className)}
     >
       {children}
-    </a>
+    </Link>
   );
 }

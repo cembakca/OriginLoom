@@ -1,4 +1,8 @@
-import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import {
+  gatewayFetch,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import type { GatewayContract } from "@originloom/core/gateway-payload";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import {
@@ -122,8 +126,11 @@ export async function createReferral(
     body: JSON.stringify({ productType, slug, anonymousSessionId }),
     signal,
   });
-  if (response.status === 400 || response.status === 404) return null;
-  if (!response.ok) throw new Error(`Finance gateway returned ${response.status}`);
+  if (response.status === 400 || response.status === 404) {
+    await releaseGatewayResponse(response);
+    return null;
+  }
+  await requireGatewayOk(response, "Finance gateway returned");
   const payload = await readGatewayJson(
     response,
     GatewayContracts.financeReferral,
@@ -139,7 +146,7 @@ export async function createReferral(
 
 export async function getReferralStats(signal: AbortSignal): Promise<ReferralStats> {
   const response = await gatewayFetch("/internal/referrals/stats", { signal });
-  if (!response.ok) throw new Error(`Referral stats gateway returned ${response.status}`);
+  await requireGatewayOk(response, "Referral stats gateway returned");
   const payload = await readGatewayJson(
     response,
     GatewayContracts.financeReferral,
@@ -160,7 +167,7 @@ async function getJson<T>(
   signal: AbortSignal,
 ): Promise<T> {
   const response = await gatewayFetch(path, { signal });
-  if (!response.ok) throw new Error(`Finance gateway returned ${response.status}`);
+  await requireGatewayOk(response, "Finance gateway returned");
   const payload = await readGatewayJson(response, contract, INVALID_FINANCE);
   return requireGatewayPayload(contract, payload, guard, INVALID_FINANCE);
 }
@@ -172,8 +179,11 @@ async function getOptionalJson<T>(
   signal: AbortSignal,
 ): Promise<T | null> {
   const response = await gatewayFetch(path, { signal });
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`Finance gateway returned ${response.status}`);
+  if (response.status === 404) {
+    await releaseGatewayResponse(response);
+    return null;
+  }
+  await requireGatewayOk(response, "Finance gateway returned");
   const payload = await readGatewayJson(response, contract, INVALID_FINANCE);
   return requireGatewayPayload(contract, payload, guard, INVALID_FINANCE);
 }

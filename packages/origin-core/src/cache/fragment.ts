@@ -3,6 +3,7 @@ import type { CachePolicy, Ctx } from "@originloom/shared/lib/types";
 import { isRequestDeadlineError } from "../middleware/request-deadline.js";
 import { type FragmentDefinition, getRuntime } from "../runtime.js";
 import { coalesceColdMiss } from "./cold-fill.js";
+import { materializeCachedHtmlNonce, normalizeCachedHtmlNonce } from "./csp-nonce.js";
 
 function fragmentDefinition(name: string): FragmentDefinition | undefined {
   return getRuntime().fragments[name];
@@ -46,13 +47,15 @@ export async function getOrSetFragmentByName(
     work: async () => {
       const node = await definition.resolve(shell, ctx);
       const html = getRuntime().renderer.renderNode(node);
-      return { value: html, body: html, cacheable: true, terminal: false };
+      const cachedHtml = normalizeCachedHtmlNonce(html, ctx.cspNonce);
+      return { value: cachedHtml, body: cachedHtml, cacheable: true, terminal: false };
     },
     isTimeout: (error) =>
       isRequestDeadlineError(error) || isRequestDeadlineError(ctx.request.signal.reason),
   });
   const result = await waitForSignal(pending, ctx.request.signal);
-  return result.kind === "cache" ? result.body : result.work.value;
+  const html = result.kind === "cache" ? result.body : result.work.value;
+  return materializeCachedHtmlNonce(html, ctx.cspNonce);
 }
 
 function waitForSignal<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {

@@ -6,15 +6,10 @@
   "engines": {
     "node": ">=22.12.0"
   },
-  "pnpm": {
-    "overrides": {
-      "autocannon>hyperid": "^4.0.0"
-    }
-  },
   "scripts": {
     "audit:prod": "pnpm audit --prod --audit-level=high",
     "build": "pnpm --filter showroom build",
-    "build:packages": "pnpm --filter @originloom/shared --filter @originloom/core --filter @originloom/react --filter @originloom/vanilla run build",
+    "build:packages": "pnpm --filter @originloom/shared --filter @originloom/core --filter @originloom/react run build",
     "changeset": "changeset",
     "changeset:version": "changeset version && pnpm install --lockfile-only",
     "check:cycles": "pnpm --filter showroom check:cycles",
@@ -34,12 +29,13 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "pnpm -r --if-present typecheck",
+    "upgrade:verify": "node scripts/upgrade-verify.mjs",
     "version:set": "node scripts/set-version.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
     "@eslint/js": "^9.39.5",
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.20.1",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
@@ -47,12 +43,12 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
-    "eslint-plugin-simple-import-sort": "^13.0.0",
-    "globals": "^17.7.0",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "globals": "^17.8.0",
     "jsdom": "^29.1.1",
-    "prettier": "^3.9.5",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.64.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
     "verdaccio": "^6.9.0",
     "vitest": "^4.1.10"
   }

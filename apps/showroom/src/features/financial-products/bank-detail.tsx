@@ -1,3 +1,5 @@
+import { Link } from "@originloom/react/lib/link";
+
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
 import type { BankDetail } from "~/lib/contracts/financial-products";
@@ -10,9 +12,9 @@ export function BankDetailPage({ data }: { data: BankDetail }) {
   return (
     <div className="space-y-10">
       <nav aria-label="İçerik yolu" className="text-sm text-slate-500">
-        <a className="hover:text-brand-700" href="/">
+        <Link className="hover:text-brand-700" href="/">
           Ana Sayfa
-        </a>{" "}
+        </Link>{" "}
         <span aria-hidden="true">/</span> Bankalar <span aria-hidden="true">/</span>{" "}
         {data.bank.name}
       </nav>
@@ -53,9 +55,9 @@ export function BankDetailPage({ data }: { data: BankDetail }) {
             >
               <Badge>KONUT KREDİSİ</Badge>
               <h3 className="mt-4 text-xl font-semibold">
-                <a className="hover:text-brand-700" href={`/konut-kredisi/${loan.slug}`}>
+                <Link className="hover:text-brand-700" href={`/konut-kredisi/${loan.slug}`}>
                   {loan.name}
-                </a>
+                </Link>
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">{loan.summary}</p>
               <dl className="mt-5 grid grid-cols-3 gap-3">
@@ -64,12 +66,12 @@ export function BankDetailPage({ data }: { data: BankDetail }) {
                 <ProductStat label="Vade" value="120 ay" />
               </dl>
               <div className="mt-5 flex flex-wrap gap-2">
-                <a
+                <Link
                   className={buttonVariants({ variant: "secondary", size: "sm" })}
                   href={`/konut-kredisi/${loan.slug}`}
                 >
                   Ürünü incele
-                </a>
+                </Link>
                 <ReferralCta
                   productType={loan.productType}
                   slug={loan.slug}
@@ -86,9 +88,9 @@ export function BankDetailPage({ data }: { data: BankDetail }) {
             >
               <Badge>KREDİ KARTI</Badge>
               <h3 className="mt-4 text-xl font-semibold">
-                <a className="hover:text-brand-700" href={`/kredi-kartlari/${card.slug}`}>
+                <Link className="hover:text-brand-700" href={`/kredi-kartlari/${card.slug}`}>
                   {card.name}
-                </a>
+                </Link>
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">{card.summary}</p>
               <dl className="mt-5 grid grid-cols-3 gap-3">
@@ -100,12 +102,12 @@ export function BankDetailPage({ data }: { data: BankDetail }) {
                 <ProductStat label="Ödeme ağı" value={card.network} />
               </dl>
               <div className="mt-5 flex flex-wrap gap-2">
-                <a
+                <Link
                   className={buttonVariants({ variant: "secondary", size: "sm" })}
                   href={`/kredi-kartlari/${card.slug}`}
                 >
                   Kartı incele
-                </a>
+                </Link>
                 <ReferralCta
                   productType={card.productType}
                   slug={card.slug}

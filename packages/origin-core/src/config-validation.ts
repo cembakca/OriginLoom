@@ -40,6 +40,15 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     throw new Error("SWR_DRAIN_TIMEOUT_MS must be lower than SHUTDOWN_TIMEOUT_MS");
   }
   assertPositiveInteger("GATEWAY_TIMEOUT_MS", config.gatewayTimeoutMs);
+  assertPositiveInteger("GATEWAY_CONNECT_TIMEOUT_MS", config.gatewayConnectTimeoutMs);
+  assertPositiveInteger("GATEWAY_HEADERS_TIMEOUT_MS", config.gatewayHeadersTimeoutMs);
+  assertPositiveInteger("GATEWAY_BODY_TIMEOUT_MS", config.gatewayBodyTimeoutMs);
+  assertPositiveInteger("GATEWAY_MAX_CONNECTIONS", config.gatewayMaxConnections);
+  assertPositiveInteger("GATEWAY_PIPELINING", config.gatewayPipelining);
+  assertPositiveInteger("GATEWAY_KEEP_ALIVE_TIMEOUT_MS", config.gatewayKeepAliveTimeoutMs);
+  if (config.gatewayConnectTimeoutMs > config.gatewayTimeoutMs) {
+    throw new Error("GATEWAY_CONNECT_TIMEOUT_MS must not exceed GATEWAY_TIMEOUT_MS");
+  }
   validateAuthRefreshBudget(config);
   assertPositiveInteger("CACHE_FILL_TIMEOUT_MS", config.cacheFillTimeoutMs);
   assertPositiveInteger("CACHE_FILL_WAIT_MS", config.cacheFillWaitMs);
@@ -63,6 +72,13 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     throw new Error("SSR_QUEUE_WAIT_MS must be lower than SSR_REQUEST_TIMEOUT_MS");
   }
   assertPositiveInteger("PROXY_BODY_LIMIT_BYTES", config.proxyBodyLimitBytes);
+  assertPositiveInteger("HTTP_COMPRESSION_THRESHOLD_BYTES", config.httpCompressionThresholdBytes);
+  if (config.requestLogSampleRate < 0 || config.requestLogSampleRate > 1) {
+    throw new Error(`Invalid REQUEST_LOG_SAMPLE_RATE: ${config.requestLogSampleRate}`);
+  }
+  if (!["debug", "info", "warn", "error", "silent"].includes(config.logLevel)) {
+    throw new Error(`Invalid LOG_LEVEL: ${config.logLevel}`);
+  }
   validateTrustedProxyConfig(config);
   assertPositiveInteger("REDIRECT_CACHE_TTL_MS", config.redirectCacheTtlMs);
   assertPositiveInteger("REDIRECT_CACHE_MAX_ENTRIES", config.redirectCacheMaxEntries);

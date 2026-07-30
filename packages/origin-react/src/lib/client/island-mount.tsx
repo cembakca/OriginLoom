@@ -5,9 +5,12 @@ import {
   IslandRuntimeError,
   loadIslandModule,
 } from "@originloom/shared/lib/client/island-runtime";
+import { reportIslandMount } from "@originloom/shared/lib/client/performance-telemetry";
 import { parseEmbeddedJson } from "@originloom/shared/lib/embedded-json";
 import { type ComponentType, type ReactNode, useEffect } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
+
+import { readRequestContext, RequestContextProvider } from "../request-context.js";
 
 export type IslandModule = { default: ComponentType<Record<string, unknown>> };
 
@@ -52,13 +55,22 @@ function reactErrorOptions(
  * Builds the island mount function from an app-supplied module map. Island names are the
  * module file names (without extension); markers reference them via `data-island`.
  */
-export function createIslandMounter(options: { modules: IslandModuleLoaders }): IslandMounter {
+export function createIslandMounter(options: {
+  modules: IslandModuleLoaders;
+  Wrapper?: ComponentType<{ children: ReactNode }>;
+}): IslandMounter {
   const byName = new Map<string, () => Promise<IslandModule>>();
+  const Wrapper = options.Wrapper;
+  // An island is its own React root, so it would otherwise start with none of
+  // the request identity the document rendered with — and a link inside it
+  // would quietly point somewhere else than the same link outside it.
+  const requestContext = readRequestContext();
   for (const [path, load] of Object.entries(options.modules)) {
     byName.set(islandNameFromPath(path), load);
   }
 
   return async function mount(el: HTMLElement) {
+    const startedAt = performance.now();
     const island = el.dataset.island ?? "unknown";
     const load = byName.get(island);
     if (!load) {
@@ -94,9 +106,20 @@ export function createIslandMounter(options: { modules: IslandModuleLoaders }): 
           island,
         });
       });
+      const markCommitted = () => {
+        cancelMountTimeout();
+        reportIslandMount(island, performance.now() - startedAt);
+        // A deterministic readiness signal for browser tests, monitoring and
+        // progressive UI. Presence means React committed, not merely that the
+        // server-rendered fallback was visible.
+        el.dataset.hydrated = "";
+      };
+      const islandTree = <Comp {...props} />;
       const tree = (
-        <IslandCommitSignal onCommit={cancelMountTimeout}>
-          <Comp {...props} />
+        <IslandCommitSignal onCommit={markCommitted}>
+          <RequestContextProvider value={requestContext}>
+            {Wrapper ? <Wrapper>{islandTree}</Wrapper> : islandTree}
+          </RequestContextProvider>
         </IslandCommitSignal>
       );
       const errorOptions = reactErrorOptions(island, cancelMountTimeout);

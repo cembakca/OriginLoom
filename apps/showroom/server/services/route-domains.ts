@@ -1,4 +1,4 @@
-import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
@@ -42,7 +42,7 @@ export async function fetchRouteDomains(signal?: AbortSignal): Promise<RouteDoma
   const response = await gatewayFetch("/routing/domains", {
     ...(signal ? { signal } : {}),
   });
-  if (!response.ok) throw new Error(`Route domains gateway returned ${response.status}`);
+  await requireGatewayOk(response, "Route domains gateway returned");
 
   const payload = await readGatewayJson(
     response,

@@ -1,4 +1,8 @@
-import { observeInvalidGatewayPayload } from "./metrics.js";
+import {
+  observeInvalidGatewayPayload,
+  observePayloadSize,
+  observeSerialization,
+} from "./metrics.js";
 
 /**
  * What an app expects back from one gateway endpoint: a label for logs and
@@ -53,9 +57,15 @@ export async function readGatewayJson(
   const text = await readBoundedText(response, maxBytes, () =>
     invalidPayload(contract, "size", message),
   );
+  observePayloadSize("gateway_json", contract.name, Buffer.byteLength(text));
 
   try {
-    return JSON.parse(text) as unknown;
+    const started = performance.now();
+    try {
+      return JSON.parse(text) as unknown;
+    } finally {
+      observeSerialization("gateway_json_parse", contract.name, performance.now() - started);
+    }
   } catch {
     throw invalidPayload(contract, "json", message);
   }
@@ -69,7 +79,7 @@ async function readBoundedText(
   if (!response.body) return "";
 
   const reader = response.body.getReader();
-  const chunks: Buffer[] = [];
+  const chunks: Uint8Array[] = [];
   let bytes = 0;
   while (true) {
     const { done, value } = await reader.read();
@@ -79,7 +89,12 @@ async function readBoundedText(
       await reader.cancel().catch(() => undefined);
       throw sizeError();
     }
-    chunks.push(Buffer.from(value));
+    chunks.push(value);
+  }
+  if (chunks.length === 0) return "";
+  if (chunks.length === 1) {
+    const only = chunks[0]!;
+    return Buffer.from(only.buffer, only.byteOffset, only.byteLength).toString("utf8");
   }
   return Buffer.concat(chunks, bytes).toString("utf8");
 }

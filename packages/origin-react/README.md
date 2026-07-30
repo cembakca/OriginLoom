@@ -8,6 +8,12 @@ document rendering and the Vite preset. Implements the `OriginRenderer` contract
 pnpm add @originloom/core @originloom/react @originloom/shared react react-dom
 ```
 
+TanStack Query is optional. Install it only when using the query provider:
+
+```bash
+pnpm add @tanstack/react-query
+```
+
 ## Renderer
 
 Register the product's views once; the core calls them through the neutral contract:
@@ -47,20 +53,27 @@ import { Island } from "@originloom/react/lib/island";
 ```ts
 // src/hydrate.client.tsx
 import { createIslandMounter, type IslandModule } from "@originloom/react/lib/client/island-mount";
+import { AppQueryProvider } from "@originloom/react/lib/query/provider";
 
 export const mount = createIslandMounter({
   modules: import.meta.glob<IslandModule>("./islands/*.tsx"),
+  Wrapper: AppQueryProvider,
 });
 ```
 
 `mode="hydrate"` (default) is safe inside cached HTML; `mode="defer"` renders only a fallback and
 fetches its own data, which is where anything per-user belongs.
 
+`Wrapper` is optional. It wraps each independently mounted island and is the integration point for
+app-level providers such as TanStack Query. Omit it when the app does not need a provider.
+
 ## Other entries
 
 | Entry                                          | What it does                                     |
 | ---------------------------------------------- | ------------------------------------------------ |
 | `@originloom/react/lib/types`                  | `Route` / `defineRoute` pinned to `ReactElement` |
+| `@originloom/react/lib/link`                   | `<Link>` — the app's only internal link          |
+| `@originloom/react/lib/request-context`        | The request identity views can read              |
 | `@originloom/react/lib/metadata/metadata-head` | `<MetadataHead>` — metadata → head tags          |
 | `@originloom/react/lib/query/provider`         | TanStack Query provider for islands              |
 | `@originloom/react/vite`                       | Client and SSR Vite configs, dev-reload plugin   |

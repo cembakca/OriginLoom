@@ -25,7 +25,11 @@ export type FragmentDefinition<Shell = unknown> = {
  * Nothing here depends on the shell type, so it takes no type parameter.
  */
 export type DocumentShell = {
-  htmlLang: string;
+  /**
+   * `<html lang>`. A function when the answer depends on the request — a site
+   * that serves more than one language cannot state its language once.
+   */
+  htmlLang: string | ((ctx: Ctx) => string);
   errorPageTitle?: string;
   isBotRequest: (request: Request) => boolean;
   resolveMetadata: <T>(route: Route<T>, data: T, ctx: Ctx) => ResolvedMetadata;

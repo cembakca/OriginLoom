@@ -1,6 +1,6 @@
 {
   "name": "@originloom/core",
-  "version": "0.5.7",
+  "version": "0.7.2",
   "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics — with no UI framework of its own.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -30,12 +30,14 @@
     "./metrics/runtime": null,
     "./middleware/context": null,
     "./middleware/pipeline": null,
+    "./middleware/product": null,
     "./middleware/static-assets": null,
     "./middleware/steps/auth/refresh-result": null,
     "./middleware/steps/redirection/gone": null,
     "./public-url": null,
     "./ssr/*": null,
     "./cache": "./src/cache/index.ts",
+    "./middleware": "./src/middleware/index.ts",
     "./middleware/steps/auth": "./src/middleware/steps/auth/index.ts",
     "./middleware/steps/redirection": "./src/middleware/steps/redirection/index.ts",
     "./middleware/steps/session": "./src/middleware/steps/session/index.ts",
@@ -47,18 +49,19 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.7",
+    "@hono/node-server": "^2.0.12",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
-    "@opentelemetry/resources": "^2.9.0",
-    "@opentelemetry/sdk-node": "^0.220.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@originloom/shared": "workspace:*",
-    "hono": "^4.6.14",
-    "ioredis": "^5.4.2"
+    "hono": "^4.12.32",
+    "ioredis": "^5.4.2",
+    "undici": "^8.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
-    "typescript": "^5.7.2",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
   "publishConfig": {
@@ -72,6 +75,7 @@
       "./metrics/runtime": null,
       "./middleware/context": null,
       "./middleware/pipeline": null,
+      "./middleware/product": null,
       "./middleware/static-assets": null,
       "./middleware/steps/auth/refresh-result": null,
       "./middleware/steps/redirection/gone": null,
@@ -80,6 +84,10 @@
       "./cache": {
         "types": "./dist/cache/index.d.ts",
         "default": "./dist/cache/index.js"
+      },
+      "./middleware": {
+        "types": "./dist/middleware/index.d.ts",
+        "default": "./dist/middleware/index.js"
       },
       "./middleware/steps/auth": {
         "types": "./dist/middleware/steps/auth/index.d.ts",

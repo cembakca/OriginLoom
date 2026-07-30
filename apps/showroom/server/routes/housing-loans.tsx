@@ -13,7 +13,7 @@ import {
 import { getHousingLoans } from "@server/services/financial-products";
 
 import { HousingLoanListPage } from "~/features/financial-products/housing-loan-list";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import type { HousingLoanList } from "~/lib/contracts/financial-products";
 import { normalizedSearch } from "~/lib/finance-query";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -22,10 +22,11 @@ const QUERY = ["amount", "term", "city", "bank", "sortBy", "page"] as const;
 
 export default defineRoute<HousingLoanList>({
   path: "/housing-loans",
-  cache: (ctx) =>
+  cache: pageCache(PageCacheId.housingLoans, (ctx) =>
     resolvePageParam(ctx.url.searchParams.get("page")).kind === "valid"
       ? pageCachePolicy(PageCacheId.housingLoans, ctx)
       : neverCache(),
+  ),
   loader: async (ctx) => {
     const page = resolvePageParam(ctx.url.searchParams.get("page"));
     if (page.kind === "invalid") return notFound();

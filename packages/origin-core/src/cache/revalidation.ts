@@ -6,6 +6,7 @@ import { logError } from "../logger.js";
 import { observeRevalidation } from "../metrics.js";
 import { SpanKind, SpanStatusCode, withSpan } from "../observability.js";
 import { runLoader, runRender } from "../ssr/execute-route.js";
+import { normalizeCachedHtmlNonce } from "./csp-nonce.js";
 import * as cache from "./index.js";
 
 type SharedPolicy = ReturnType<NonNullable<Route["cache"]>>;
@@ -92,7 +93,8 @@ async function revalidate(
         if ((result.status ?? 200) !== 200) {
           throw new Error(`revalidation loader returned ${result.status ?? 200}`);
         }
-        const body = await runRender(route, result.data, assets, routeCtx, "revalidation");
+        const rendered = await runRender(route, result.data, assets, routeCtx, "revalidation");
+        const body = normalizeCachedHtmlNonce(rendered, routeCtx.cspNonce);
         if (!(await cache.write(key, body, policy))) {
           throw new Error("revalidation cache write failed");
         }

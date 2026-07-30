@@ -8,7 +8,7 @@ import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata
 import { getKnowledgeArticle } from "@server/services/knowledge-center";
 
 import { KnowledgeArticlePage } from "~/features/knowledge-center/article-detail";
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import type { KnowledgeArticleDetail } from "~/lib/contracts/knowledge-center";
 import { articleJsonLd, faqJsonLd } from "~/lib/metadata/jsonld-article";
 import { defaultPageMeta } from "~/lib/shell-data";
@@ -16,7 +16,7 @@ import { defaultPageMeta } from "~/lib/shell-data";
 export default defineRoute<KnowledgeArticleDetail>({
   path: "/bilgi-merkezi/:slug",
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
-  cache: (ctx) => pageCachePolicy(PageCacheId.knowledgeArticle, ctx),
+  cache: pageCache(PageCacheId.knowledgeArticle),
   loader: async (ctx) => {
     const data = await getKnowledgeArticle(ctx.params.slug ?? "", ctx.request.signal);
     return data ? { data } : notFound();

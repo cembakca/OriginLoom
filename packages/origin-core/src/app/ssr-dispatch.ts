@@ -7,7 +7,7 @@ import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from 
 import {
   finalizePipelineResponse,
   finalizeSsrResponse,
-  runPipeline,
+  type Pipeline,
   shouldUsePipeline,
 } from "../middleware/pipeline.js";
 import { contextRequest } from "../middleware/request-deadline.js";
@@ -24,6 +24,7 @@ type SsrDispatchOptions = {
   routes: Route[];
   capacity: Capacity;
   isShuttingDown: () => boolean;
+  pipeline: Pipeline;
 };
 
 export function createSsrDispatch({
@@ -31,6 +32,7 @@ export function createSsrDispatch({
   routes,
   capacity,
   isShuttingDown,
+  pipeline,
 }: SsrDispatchOptions): Handler<{ Variables: AppVariables }> {
   return async (c) => {
     if (isShuttingDown()) return c.text("shutting down", 503);
@@ -38,10 +40,11 @@ export function createSsrDispatch({
     const requestId = c.get("requestId");
     const cspNonce = c.get("cspNonce");
     const request = contextRequest(c);
-    const pathname = new URL(request.url).pathname;
+    const preparedRequest = c.get("preparedRequest");
+    const pathname = preparedRequest?.url.pathname ?? new URL(request.url).pathname;
     const clientIp = c.get("clientIp") ?? "127.0.0.1";
     const method = request.method.toUpperCase();
-    const ssrRoute = isSsrRouteRequest(request, routes);
+    const ssrRoute = isSsrRouteRequest(request, routes, preparedRequest);
 
     if (ssrRoute && method !== "GET" && method !== "HEAD") {
       setActiveHttpRoute(method, "<method-not-allowed>");
@@ -61,6 +64,8 @@ export function createSsrDispatch({
         pathname,
         routes,
         assets,
+        pipeline,
+        ...stripUndefined({ preparedRequest }),
       });
 
     if (c.get("requestClass") !== "ssr") return execute();
@@ -82,16 +87,33 @@ async function executeRequest(options: {
   pathname: string;
   routes: Route[];
   assets: Assets;
+  pipeline: Pipeline;
+  preparedRequest?: NonNullable<AppVariables["preparedRequest"]>;
 }): Promise<Response> {
-  const { request, requestId, clientIp, cspNonce, method, pathname, routes, assets } = options;
-  const context = { requestId, clientIp, ...stripUndefined({ cspNonce }) };
+  const {
+    request,
+    requestId,
+    clientIp,
+    cspNonce,
+    method,
+    pathname,
+    routes,
+    assets,
+    pipeline: runPipeline,
+    preparedRequest,
+  } = options;
+  const context = {
+    requestId,
+    clientIp,
+    ...stripUndefined({ cspNonce, preparedRequest }),
+  };
   if (!shouldUsePipeline(pathname)) {
     return method === "HEAD"
       ? handleHead(request, routes, context)
       : handle(request, routes, assets, context);
   }
 
-  const pipeline = await runPipeline(request, requestId, clientIp);
+  const pipeline = await runPipeline(request, requestId, clientIp, preparedRequest?.url);
   if (pipeline.response) {
     const response =
       method === "HEAD"
@@ -103,7 +125,11 @@ async function executeRequest(options: {
 
   const handleContext = {
     ...context,
-    ...stripUndefined({ trackingId: pipeline.trackingId }),
+    ...stripUndefined({
+      trackingId: pipeline.trackingId,
+      values: pipeline.values,
+      cacheVary: pipeline.cacheVary,
+    }),
   };
   const ssr =
     method === "HEAD"

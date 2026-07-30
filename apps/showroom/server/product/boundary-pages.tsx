@@ -1,3 +1,4 @@
+import { Link } from "@originloom/react/lib/link";
 import type { RouteError } from "@originloom/react/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
@@ -13,9 +14,9 @@ export function NotFoundPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <a className="font-medium text-brand-700 hover:underline" href="/">
+        <Link className="font-medium text-brand-700 hover:underline" href="/">
           Ana sayfaya dön
-        </a>
+        </Link>
       </CardContent>
     </Card>
   );
@@ -37,9 +38,9 @@ export function RouteErrorPage({ error }: { error: RouteError | null; status: nu
         >
           Tekrar dene
         </button>
-        <a className="font-medium text-slate-700 hover:underline" href="/">
+        <Link className="font-medium text-slate-700 hover:underline" href="/">
           Ana sayfaya dön
-        </a>
+        </Link>
       </CardContent>
     </Card>
   );

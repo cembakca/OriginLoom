@@ -1,4 +1,5 @@
 import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+import { closeGatewayTransport } from "@originloom/core/gateway-transport";
 import { withRequestSpan } from "@originloom/core/observability";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,8 +18,9 @@ describe("gatewayFetch", () => {
     }) as typeof fetch;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     globalThis.fetch = originalFetch;
+    await closeGatewayTransport();
   });
 
   it("forwards Authorization from request", async () => {
@@ -59,5 +61,14 @@ describe("gatewayFetch", () => {
     expect(signal).toBeDefined();
     controller.abort();
     expect(signal?.aborted).toBe(true);
+  });
+
+  it("routes gateway traffic through the bounded shared dispatcher", async () => {
+    await gatewayFetchForRequest(new Request("http://localhost/"), "/user/profile");
+
+    const init = vi.mocked(globalThis.fetch).mock.calls[0]![1] as RequestInit & {
+      dispatcher?: unknown;
+    };
+    expect(init.dispatcher).toBeDefined();
   });
 });

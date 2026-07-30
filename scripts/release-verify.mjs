@@ -8,14 +8,15 @@
  * rewriting and the cross-package dependencies only meet for the first time
  * inside a real registry.
  *
- * So: publish all five packages to a throwaway Verdaccio, scaffold an app that
- * has never seen this workspace, install from that registry, and build and boot
- * it. Anything that only worked because of the workspace fails here.
+ * So: publish every package to a throwaway Verdaccio, scaffold an app that has
+ * never seen this workspace, install from that registry, build and boot it, and
+ * drive the production bundle through Chromium. Anything that only worked
+ * because of the workspace fails here.
  *
- *   node scripts/release-verify.mjs [--renderer react|vanilla] [--keep]
+ *   node scripts/release-verify.mjs [--keep]
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,6 +33,8 @@ import {
 const options = parseArgs(process.argv.slice(2));
 const workDir = mkdtempSync(join(tmpdir(), "originloom-release-"));
 const registryPort = await freePort();
+const appPort = await freePortInRange(10_000, 50_000);
+const mockGatewayPort = await freePortInRange(10_000, 50_000);
 const registry = `http://localhost:${registryPort}`;
 
 const npmrcPath = writeNpmrc(join(workDir, ".npmrc"), registry);
@@ -61,7 +64,7 @@ try {
     console.log(`  published @originloom/${name}`);
   }
 
-  step(`scaffold a ${options.renderer} app outside the workspace`);
+  step("scaffold an app outside the workspace");
   const appDir = join(workDir, "app", "verify-web");
   mkdirSync(join(workDir, "app"), { recursive: true });
   run(
@@ -73,24 +76,77 @@ try {
       "Verify",
       "--target-dir",
       join(workDir, "app"),
-      ...(options.renderer === "vanilla" ? ["--vanilla"] : []),
+      "--port",
+      String(appPort),
     ],
     { cwd: workDir },
   );
   // A scratch app must never inherit this repo's pnpm workspace or lockfile.
   writeNpmrc(join(appDir, ".npmrc"), registry);
-  writeFileSync(join(appDir, "pnpm-workspace.yaml"), "packages: []\n");
+  // The generated app ships its own pnpm-workspace.yaml — `packages: []` to
+  // isolate it, plus the build allowlist and the overrides it depends on.
+  // Overwriting it here would test a project no consumer will ever have, and
+  // would quietly drop the overrides with it.
+  assertGeneratedWorkspaceIsolation(appDir);
 
   step("install from the registry");
   run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: appDir, env: npmEnv });
-  assertInstalledFromRegistry(appDir, options.renderer);
+  assertInstalledFromRegistry(appDir);
+  assertNoUnsupportedUuid(appDir);
+  run("pnpm", ["audit", "--audit-level", "low"], { cwd: appDir, env: npmEnv });
 
-  step("typecheck, build and smoke the installed app");
+  step("doctor, static checks, tests, build and smoke the installed app");
+  run("pnpm", ["exec", "origin-doctor", "--strict"], { cwd: appDir });
   run("pnpm", ["exec", "tsc", "--noEmit"], { cwd: appDir });
+  run("pnpm", ["run", "check:cycles"], { cwd: appDir });
+  run("pnpm", ["run", "lint"], { cwd: appDir });
+  run("pnpm", ["run", "format:check"], { cwd: appDir });
+  run("pnpm", ["run", "test"], { cwd: appDir });
+  run("pnpm", ["run", "contracts:fixtures"], { cwd: appDir });
   run("pnpm", ["exec", "origin-build"], { cwd: appDir });
+  run("pnpm", ["run", "budget:bundle"], { cwd: appDir });
   run("pnpm", ["exec", "origin-smoke"], { cwd: appDir, env: smokeEnv(appDir) });
+  {
+    step("exercise the installed load generator against the production bundle");
+    run(
+      "pnpm",
+      [
+        "run",
+        "capacity:quick",
+        "--",
+        "--only",
+        "home",
+        "--connections",
+        "5",
+        "--duration",
+        "1",
+        "--repeats",
+        "1",
+        "--warmup",
+        "0",
+        "--no-build",
+      ],
+      { cwd: appDir, env: npmEnv },
+    );
+  }
 
-  step("done — the published packages install, build and serve");
+  {
+    step("install Chromium and exercise the published app in a real browser");
+    run("pnpm", ["exec", "playwright", "install", ...browserInstallArgs(), "chromium"], {
+      cwd: appDir,
+      env: npmEnv,
+    });
+    // Never attach to a server left behind by another local test or project.
+    // CI mode disables Playwright's reuseExistingServer path; the generated app
+    // also receives a free port above, so this run owns everything it exercises.
+    run("pnpm", ["exec", "playwright", "test"], {
+      cwd: appDir,
+      env: { ...npmEnv, CI: "true", E2E_MOCK_GATEWAY_PORT: String(mockGatewayPort) },
+    });
+    run("pnpm", ["run", "lighthouse"], { cwd: appDir, env: npmEnv });
+  }
+
+  step("done — the published packages install, build, serve and pass their release checks");
 } catch (error) {
   failed = true;
   console.error(`\n✗ release verification failed: ${error.message}`);
@@ -103,15 +159,10 @@ try {
 process.exit(failed ? 1 : 0);
 
 function parseArgs(argv) {
-  const parsed = { renderer: "react", keep: false };
+  const parsed = { keep: false };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--renderer") parsed.renderer = argv[++i];
-    else if (argv[i] === "--vanilla") parsed.renderer = "vanilla";
-    else if (argv[i] === "--keep") parsed.keep = true;
+    if (argv[i] === "--keep") parsed.keep = true;
     else throw new Error(`Unknown option: ${argv[i]}`);
-  }
-  if (!["react", "vanilla"].includes(parsed.renderer)) {
-    throw new Error(`Unknown renderer: ${parsed.renderer}`);
   }
   return parsed;
 }
@@ -138,6 +189,19 @@ function freePort() {
   });
 }
 
+async function freePortInRange(min, max) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const port = Math.floor(Math.random() * (max - min + 1)) + min;
+    const available = await new Promise((resolve) => {
+      const server = createServer();
+      server.once("error", () => resolve(false));
+      server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
+    });
+    if (available) return port;
+  }
+  throw new Error(`Could not find a free app port between ${min} and ${max}`);
+}
+
 async function startVerdaccio(port, root) {
   const configPath = writeVerdaccioConfig({ root });
   const child = spawn("node", [verdaccioBin(), "--config", configPath, "--listen", String(port)], {
@@ -156,11 +220,24 @@ async function startVerdaccio(port, root) {
   return child;
 }
 
+/**
+ * The isolation the rehearsal depends on has to come from the app itself: if the
+ * generator ever stops shipping it, the run would silently install against this
+ * repo's workspace and prove nothing.
+ */
+function assertGeneratedWorkspaceIsolation(appDir) {
+  const file = join(appDir, "pnpm-workspace.yaml");
+  if (!existsSync(file)) {
+    throw new Error("the generated app must ship a pnpm-workspace.yaml that isolates it");
+  }
+  if (!/^packages:\s*\[\]\s*$/m.test(readFileSync(file, "utf8"))) {
+    throw new Error("the generated pnpm-workspace.yaml must declare `packages: []`");
+  }
+}
+
 /** The point of the rehearsal: nothing may resolve back to the workspace. */
-function assertInstalledFromRegistry(appDir, renderer) {
-  // An app installs the base, the core, its own renderer and the CLIs — not the
-  // renderer it did not choose.
-  for (const name of ["shared", "core", "tooling", renderer]) {
+function assertInstalledFromRegistry(appDir) {
+  for (const name of ["shared", "core", "tooling", "react"]) {
     const installed = join(appDir, "node_modules/@originloom", name, "package.json");
     if (!existsSync(installed)) throw new Error(`@originloom/${name} was not installed`);
   }
@@ -172,6 +249,16 @@ function assertInstalledFromRegistry(appDir, renderer) {
   }
   if (!existsSync(join(core, "dist/app.js"))) {
     throw new Error("@originloom/core is missing dist/app.js");
+  }
+}
+
+function assertNoUnsupportedUuid(appDir) {
+  const lockfile = readFileSync(join(appDir, "pnpm-lock.yaml"), "utf8");
+  const unsupported = [...lockfile.matchAll(/^\s{2}uuid@(\d+)\.[^:]+:/gm)]
+    .map((match) => Number(match[1]))
+    .filter((major) => major <= 10);
+  if (unsupported.length) {
+    throw new Error(`unsupported uuid major(s) installed: ${[...new Set(unsupported)].join(", ")}`);
   }
 }
 
@@ -189,4 +276,8 @@ function smokeEnv(appDir) {
     npm_config_registry: registry,
     PWD: appDir,
   };
+}
+
+function browserInstallArgs() {
+  return process.platform === "linux" ? ["--with-deps"] : [];
 }

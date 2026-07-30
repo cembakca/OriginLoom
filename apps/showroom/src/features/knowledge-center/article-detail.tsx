@@ -1,3 +1,5 @@
+import { Link } from "@originloom/react/lib/link";
+
 import { Badge } from "~/components/ui/badge";
 import type { KnowledgeArticleDetail } from "~/lib/contracts/knowledge-center";
 
@@ -6,9 +8,9 @@ export function KnowledgeArticlePage({ data }: { data: KnowledgeArticleDetail })
   return (
     <article className="mx-auto max-w-5xl">
       <nav aria-label="İçerik yolu" className="mb-8 text-sm text-slate-500">
-        <a href="/bilgi-merkezi" className="hover:text-brand-700">
+        <Link href="/bilgi-merkezi" className="hover:text-brand-700">
           Bilgi Merkezi
-        </a>{" "}
+        </Link>{" "}
         <span aria-hidden="true">/</span> {article.title}
       </nav>
       <header className="grid gap-8 border-b border-slate-200 pb-10 lg:grid-cols-[1fr_16rem]">
@@ -56,12 +58,12 @@ export function KnowledgeArticlePage({ data }: { data: KnowledgeArticleDetail })
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {article.tags.map((tag) => (
-              <a
+              <Link
                 key={tag}
                 href={`/bilgi-merkezi?tag=${encodeURIComponent(tag.toLocaleLowerCase("tr-TR"))}`}
               >
                 <Badge>{tag}</Badge>
-              </a>
+              </Link>
             ))}
           </div>
         </aside>
@@ -71,13 +73,13 @@ export function KnowledgeArticlePage({ data }: { data: KnowledgeArticleDetail })
           <h2 className="text-2xl font-semibold">İlgili içerikler</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             {data.related.map((item) => (
-              <a
+              <Link
                 key={item.id}
                 href={`/bilgi-merkezi/${item.slug}`}
                 className="rounded-lg border border-slate-200 bg-white p-5 font-semibold hover:border-brand-300 hover:text-brand-700"
               >
                 {item.title}
-              </a>
+              </Link>
             ))}
           </div>
         </section>

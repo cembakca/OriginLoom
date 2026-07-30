@@ -16,6 +16,14 @@ const child = spawn(cmd, args, {
   env: process.env,
   shell: process.platform === "win32",
 });
+let stopping = false;
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => {
+    stopping = true;
+    if (child.exitCode === null && child.signalCode === null) child.kill(signal);
+  });
+}
 
 child.once("error", (error) => {
   console.error(error);
@@ -23,6 +31,6 @@ child.once("error", (error) => {
 });
 
 child.once("exit", (code, signal) => {
-  if (signal) process.exit(1);
+  if (signal) process.exit(stopping ? 0 : 1);
   process.exit(code ?? 1);
 });

@@ -15,7 +15,9 @@ export function renderErrorPage(assets: Assets): string {
 
   return (
     "<!DOCTYPE html>" +
-    `<html lang="${escapeAttr(doc?.htmlLang ?? "tr")}">` +
+    // No route context here by definition — a per-request language cannot be
+    // resolved on the page that renders when everything else failed.
+    `<html lang="${escapeAttr(typeof doc?.htmlLang === "string" ? doc.htmlLang : "tr")}">` +
     "<head>" +
     '<meta charset="utf-8"/>' +
     '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +

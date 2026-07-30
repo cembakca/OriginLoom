@@ -9,6 +9,13 @@ için [çok ürünlü adoption rehberi](docs/multi-product-adoption.md); platfor
 uygulaması eklemek için [new-product-app.md](docs/new-product-app.md). Production güvenlik kabulü, secret rotation
 ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur.
 Paketlerin sürümlenmesi ve yayın hattı için [releasing.md](docs/releasing.md).
+Çok dillilik (i18n) **kapsam dışı**: bir eklenti olarak denendi ve kaldırıldı — nedeni, neyin
+çalıştığı ve yeniden ele alınırsa doğru başlangıç noktası
+[ekosistem backlog'unda](docs/ecosystem-backlog.md).
+Template/platform uyumluluk penceresi [compatibility.md](docs/compatibility.md), sürüm bazlı
+değişiklikler ise [migration kayıtlarında](docs/migrations/README.md) tutulur. Platformun bundan
+sonra hangi entegrasyonları kapsayabileceği [ekosistem backlog'unda](docs/ecosystem-backlog.md)
+tartışılır.
 
 ## Mimari
 
@@ -40,9 +47,6 @@ packages/
     src/runtime.ts  Ürünün platforma verdiği kontrat (renderer, fragment, shell, metrik)
   origin-react/   React adaptörü: island runtime + Vite preset (@originloom/react)
     src/server/     createReactRenderer — OriginRenderer'ın React implementasyonu
-  origin-vanilla/ Framework'süz adaptör (@originloom/vanilla)
-    src/html.ts     html`` tagged template — otomatik escape
-    src/server/     createHtmlRenderer — OriginRenderer'ın string implementasyonu
   origin-tooling/ build/dev/env/compose/smoke bin'leri (@originloom/tooling)
 
 apps/
@@ -66,25 +70,26 @@ tools/
 Repo bir pnpm workspace'idir: platform paketleri (`packages/*`) bir kez yazılır, ürün uygulamaları
 (`apps/*`) bunları `workspace:*` bağımlılığı olarak tüketir ve ayrı deploy edilir. Paketler kaynak
 `.ts` export eder; ayrı bir derleme adımı yoktur — Vite/tsx/Vitest/tsc kaynağı doğrudan çözer.
-Bağımlılık yönü tek yönlüdür: `showroom → {core, renderer} → shared`. `core`, `react` ve `vanilla`
-birbirini import etmez — ikisi de `@originloom/shared`'daki kontratlara yaslanır, böylece sunucu runtime'ı
+Bağımlılık yönü tek yönlüdür: `showroom → {core, react} → shared`. `core` ve `react` birbirini
+import etmez — ikisi de `@originloom/shared`'daki kontratlara yaslanır, böylece sunucu runtime'ı
 UI framework'ünden bağımsız kalır. Ters yöndeki bir import ya da core/shared içinde bir React
 specifier'ı `pnpm check:cycles` tarafından reddedilir.
 
 ### Paketleme ve sürüm
 
-Beş `@originloom/*` paketi **sabit grup**: hep aynı sürümü paylaşır ve birlikte çıkar (birbirlerine
+Dört `@originloom/*` paketi **sabit grup**: hep aynı sürümü paylaşır ve birlikte çıkar (birbirlerine
 tam sürümle bağlılar, kısmi bir yayın tüketiciyi çözülemez bir kümeyle bırakır).
 
 ```bash
 pnpm changeset          # değişiklik notu ekle (PR ile birlikte commit'lenir)
-pnpm changeset:version  # beş paketi birlikte yükselt, CHANGELOG yaz
+pnpm changeset:version  # paketleri birlikte yükselt, CHANGELOG yaz
 pnpm release:verify     # yerel Verdaccio'ya yayınla, temiz bir app'e kur, build + smoke
+pnpm upgrade:verify     # published N-1 app'i güncel fixed group'a taşı, doctor + ci çalıştır
 ```
 
 `release:verify` kapıdır: paketleri workspace'ten değil **registry'den** kurup uygulamayı ayağa
 kaldırır — `dist` derlemesi, `publishConfig.exports` haritası ve paketler arası sürümler ancak orada
-buluşur. CI'da her PR'da hem react hem vanilla için koşar.
+buluşur. CI'da her PR'da koşar.
 
 Ürün ekiplerinin yaşayacağı akışı (uygulama kendi reposunda, paketler registry'den kurulu) bugün
 yerel bir registry ile birebir deneyebilirsiniz:
@@ -107,7 +112,6 @@ pnpm build          # apps/showroom production build
 pnpm test           # tüm projeler (vitest projects)
 pnpm ci             # typecheck + cycles + lint + format + coverage + build + smoke
 pnpm create-app     # yeni ürün uygulaması üretir (standalone; --workspace ile apps/<ad>)
-                    # varsayılan renderer React; --vanilla ile UI framework'süz app
 ```
 
 Aşağıdaki tablodaki uygulama komutları showroom kapsamındadır; kökten

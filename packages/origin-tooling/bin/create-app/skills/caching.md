@@ -81,7 +81,7 @@ curl -s "http://127.0.0.1:9010/api/internal/cache/keys?prefix=catalog"
 curl -s -X POST http://127.0.0.1:9010/api/internal/cache/purge \
   -H "authorization: Bearer $CACHE_PURGE_SECRET" \
   -H "content-type: application/json" \
-  -d '{"mode":"prefix","prefix":"catalog"}'
+  -d '{"pageIds":["catalog"]}'
 ```
 
 `CACHE_PURGE_SECRET` tanımlıysa bearer token (veya `X-Cache-Purge-Token`) zorunlu;
@@ -90,3 +90,5 @@ korunacak bir şey yoktur.
 
 `RELEASE_ID` değiştiğinde Redis namespace'i de değişir, yani yeni release zaten
 boş cache ile başlar; purge esas olarak aynı release içinde içerik düzeltmek için.
+Tam inspect/purge sözleşmesi, Redis hata davranışı ve production runbook'u için
+`docs/caching.md` dosyasını kullanın.

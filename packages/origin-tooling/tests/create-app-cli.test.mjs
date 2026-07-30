@@ -50,6 +50,12 @@ describe("origin-create-app CLI — standalone", () => {
     const pkg = JSON.parse(readFileSync(join(target, "investment-web/package.json"), "utf8"));
     expect(pkg.name).toBe("investment-web");
     expect(pkg.dependencies["@originloom/core"]).toBe(OWN_RANGE);
+    const metadata = JSON.parse(
+      readFileSync(join(target, "investment-web/.originloom/project.json"), "utf8"),
+    );
+    expect(metadata.templateVersion).toBe(OWN_RANGE.slice(1));
+    expect(metadata.platformRange).toBe(OWN_RANGE);
+    expect(metadata.renderer).toBe("react");
   });
 
   it("passes --version through to the pinned dependency range", () => {
@@ -66,6 +72,11 @@ describe("origin-create-app CLI — standalone", () => {
     expect(status).toBe(0);
     const pkg = JSON.parse(readFileSync(join(target, "demo/package.json"), "utf8"));
     expect(pkg.dependencies["@originloom/react"]).toBe("^2.3.4");
+    const metadata = JSON.parse(
+      readFileSync(join(target, "demo/.originloom/project.json"), "utf8"),
+    );
+    expect(metadata.templateVersion).toBe(OWN_RANGE.slice(1));
+    expect(metadata.platformRange).toBe("^2.3.4");
   });
 
   it("prompts for name and title over piped stdin when flags are omitted", () => {
@@ -133,38 +144,11 @@ describe("origin-create-app CLI — validation", () => {
   });
 });
 
-describe("origin-create-app CLI — renderer selection", () => {
-  it("scaffolds a vanilla app with --vanilla", () => {
-    const target = scratch();
-    const { status } = run([
-      "landing-web",
-      "--title",
-      "Landing",
-      "--vanilla",
-      "--target-dir",
-      target,
-    ]);
-    expect(status).toBe(0);
-
-    const appDir = join(target, "landing-web");
-    const pkg = JSON.parse(readFileSync(join(appDir, "package.json"), "utf8"));
-    expect(pkg.dependencies["@originloom/vanilla"]).toBe(OWN_RANGE);
-    expect(pkg.dependencies.react).toBeUndefined();
-    expect(existsSync(join(appDir, "src/pages/home.ts"))).toBe(true);
-    expect(existsSync(join(appDir, "src/islands/counter.ts"))).toBe(true);
-    expect(existsSync(join(appDir, "server/routes/home.tsx"))).toBe(false);
-  });
-
-  it("accepts the explicit --renderer form and rejects anything else", () => {
-    const target = scratch();
-    expect(
-      run(["a-web", "--title", "A", "--renderer", "react", "--target-dir", target]).status,
-    ).toBe(0);
-    expect(existsSync(join(target, "a-web/server/routes/home.tsx"))).toBe(true);
-
+describe("origin-create-app CLI — unknown options", () => {
+  it("rejects a flag it does not define instead of ignoring it", () => {
     const bad = run(["b-web", "--title", "B", "--renderer", "svelte", "--target-dir", scratch()]);
     expect(bad.status).not.toBe(0);
-    expect(bad.stderr).toContain("Invalid --renderer");
+    expect(bad.stderr).toContain("Unknown option: --renderer");
   });
 });
 

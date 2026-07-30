@@ -1,5 +1,6 @@
 import { decodeCacheEntry, encodeCacheEntry } from "@originloom/core/cache/codec";
 import type { CacheEntry } from "@originloom/core/cache/types";
+import { findSsrFragmentMarkers } from "@originloom/shared/fragment-markup";
 import { describe, expect, it } from "vitest";
 
 const timestamps = {
@@ -13,7 +14,7 @@ describe("Redis cache codec", () => {
       "<!DOCTYPE html><html><head><title>SSR</title></head><body>" +
       '<main class="container"><article>Cacheable content</article></main>'.repeat(200) +
       "</body></html>";
-    const entry: CacheEntry = { body, ...timestamps };
+    const entry: CacheEntry = { body, hasFragments: false, fragmentMarkers: [], ...timestamps };
 
     const encoded = encodeCacheEntry(entry);
 
@@ -32,7 +33,39 @@ describe("Redis cache codec", () => {
   it("reads legacy JSON entries during the rolling migration", () => {
     const legacy: CacheEntry = { body: "<!DOCTYPE html><p>legacy</p>", ...timestamps };
 
-    expect(decodeCacheEntry(Buffer.from(JSON.stringify(legacy), "utf8"))).toEqual(legacy);
+    expect(decodeCacheEntry(Buffer.from(JSON.stringify(legacy), "utf8"))).toEqual({
+      ...legacy,
+      hasFragments: false,
+      fragmentMarkers: [],
+    });
+  });
+
+  it("derives fragment metadata when reading a version 1 binary entry", () => {
+    const body =
+      '<!DOCTYPE html><ssr-fragment name="account" style="display: contents">fallback</ssr-fragment>';
+    const versionOne = withoutVersionThreeMetadata(encodeCacheEntry({ body, ...timestamps }));
+    versionOne.writeUInt8(1, 4);
+
+    expect(decodeCacheEntry(versionOne)).toEqual({
+      body,
+      ...timestamps,
+      hasFragments: true,
+      fragmentMarkers: findSsrFragmentMarkers(body),
+    });
+  });
+
+  it("reads version 2 fragment-flag entries during a rolling deployment", () => {
+    const body =
+      '<!DOCTYPE html><ssr-fragment name="menu" style="display: contents">fallback</ssr-fragment>';
+    const versionTwo = withoutVersionThreeMetadata(encodeCacheEntry({ body, ...timestamps }));
+    versionTwo.writeUInt8(2, 4);
+
+    expect(decodeCacheEntry(versionTwo)).toEqual({
+      body,
+      ...timestamps,
+      hasFragments: true,
+      fragmentMarkers: findSsrFragmentMarkers(body),
+    });
   });
 
   it("rejects corrupt, unknown and logically invalid entries", () => {
@@ -59,3 +92,12 @@ describe("Redis cache codec", () => {
     ).toBeNull();
   });
 });
+
+function withoutVersionThreeMetadata(current: Buffer): Buffer {
+  const headerBytes = 22;
+  const metadataBytes = current.readUInt32BE(headerBytes);
+  return Buffer.concat([
+    current.subarray(0, headerBytes),
+    current.subarray(headerBytes + 4 + metadataBytes),
+  ]);
+}

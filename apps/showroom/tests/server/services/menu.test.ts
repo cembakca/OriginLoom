@@ -1,4 +1,6 @@
 import { cacheKey, closeCache, initCache, write } from "@originloom/core/cache";
+import { closeGatewayTransport } from "@originloom/core/gateway-transport";
+import { withRequestSpan } from "@originloom/core/observability";
 import { fetchMenuList } from "@server/services/menu";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +13,7 @@ describe("menu service", () => {
   afterEach(async () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    await closeGatewayTransport();
     await closeCache();
   });
 
@@ -30,6 +33,21 @@ describe("menu service", () => {
     expect(gateway).not.toHaveBeenCalled();
   });
 
+  it("reuses one immutable parsed snapshot while the cached body is unchanged", async () => {
+    const policy = { kind: "shared" as const, ttl: 60, key: ["menu:Desktop"] };
+    const key = cacheKey(policy);
+    if (!key) throw new Error("menu cache key missing");
+    await write(key, JSON.stringify(menuPayload()), policy);
+
+    const first = await fetchMenuList(new Request("http://localhost/"), "Desktop");
+    const second = await fetchMenuList(new Request("http://localhost/"), "Desktop");
+
+    expect(second).toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.headerItems)).toBe(true);
+    expect(Object.isFrozen(first.headerItems[0])).toBe(true);
+  });
+
   it("propagates a gateway failure instead of hiding it with an in-app fixture", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
 
@@ -42,6 +60,19 @@ describe("menu service", () => {
     const menu = await fetchMenuList(new Request("http://localhost/"), "Desktop");
 
     expect(menu.headerItems.length).toBeGreaterThan(0);
+  });
+
+  it("deduplicates the same parsed menu work inside one inbound request", async () => {
+    const gateway = vi.fn().mockResolvedValue(Response.json(menuPayload()));
+    vi.stubGlobal("fetch", gateway);
+    const request = new Request("http://localhost/");
+
+    const [first, second] = await withRequestSpan(request, "menu-request", () =>
+      Promise.all([fetchMenuList(request, "Desktop"), fetchMenuList(request, "Desktop")]),
+    );
+
+    expect(gateway).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
   });
 
   it("rejects unsafe and implicit external navigation URLs", async () => {

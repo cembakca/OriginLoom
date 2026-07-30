@@ -10,8 +10,11 @@ const workspace = (over = {}) =>
   renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", ...over });
 
 describe("renderTemplates — shared shape", () => {
-  it("emits the same file set in both modes", () => {
-    expect(Object.keys(standalone()).sort()).toEqual(Object.keys(workspace()).sort());
+  it("emits the same app files while standalone owns its pnpm root config", () => {
+    const standaloneFiles = Object.keys(standalone()).filter(
+      (path) => path !== "pnpm-workspace.yaml",
+    );
+    expect(standaloneFiles.sort()).toEqual(Object.keys(workspace()).sort());
   });
 
   it("emits every file the generated app needs to boot", () => {
@@ -47,12 +50,11 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("gives every app its own Vite port so two can run dev at once", () => {
-    for (const renderer of ["react", "vanilla"]) {
+    {
       const files = renderTemplates({
         ...base,
         mode: "workspace",
         version: "^0.1.0",
-        renderer,
         port: 3020,
         metricsPort: 9020,
       });
@@ -77,10 +79,8 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("writes no .npmrc when no registry is given", () => {
-    for (const renderer of ["react", "vanilla"]) {
-      const files = renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer });
-      expect(files).not.toHaveProperty([".npmrc"]);
-    }
+    const files = renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" });
+    expect(files).not.toHaveProperty([".npmrc"]);
   });
 
   it("accepts an explicit Vite port", () => {
@@ -115,8 +115,8 @@ describe("renderTemplates — shared shape", () => {
     };
     const sortsBefore = (a, b) => (group(a) !== group(b) ? group(a) < group(b) : a <= b);
 
-    for (const renderer of ["react", "vanilla"]) {
-      const files = standalone({ renderer });
+    {
+      const files = standalone();
       for (const [path, contents] of Object.entries(files)) {
         if (!/\.tsx?$/.test(path) || typeof contents !== "string") continue;
         for (const block of contents.split("\n\n")) {
@@ -135,12 +135,12 @@ describe("renderTemplates — shared shape", () => {
               (a, b) =>
                 a.toLowerCase().localeCompare(b.toLowerCase(), "en") || a.localeCompare(b, "en"),
             );
-            expect(names, `${renderer}: ${path} — named imports out of order`).toEqual(sorted);
+            expect(names, `${path} — named imports out of order`).toEqual(sorted);
           }
           for (let index = 1; index < specifiers.length; index++) {
             expect(
               sortsBefore(specifiers[index - 1], specifiers[index]),
-              `${renderer}: ${path} — "${specifiers[index - 1]}" must not precede "${specifiers[index]}"`,
+              `${path} — "${specifiers[index - 1]}" must not precede "${specifiers[index]}"`,
             ).toBe(true);
           }
         }
@@ -149,14 +149,13 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("ships deployment assets only when they are asked for", () => {
-    for (const renderer of ["react", "vanilla"]) {
-      const plain = standalone({ renderer });
+    {
+      const plain = standalone();
       expect(Object.keys(plain).some((path) => path.startsWith("k8s/"))).toBe(false);
       expect(plain["docker-compose.yml"]).toBeUndefined();
       expect(JSON.parse(plain["package.json"]).scripts["compose:up"]).toBeUndefined();
 
       const ops = standalone({
-        renderer,
         withOps: true,
         name: "pay-web",
         port: 3040,
@@ -170,10 +169,30 @@ describe("renderTemplates — shared shape", () => {
       // The operations port carries /metrics and purge, and must stay off the ingress.
       expect(ops["k8s/network-policy.yaml"]).toContain("port: 9040");
       expect(ops["OPERATIONS.md"]).toContain("pay-web");
+      expect(ops).toHaveProperty(["load-test/stress.mjs"]);
+      expect(ops).toHaveProperty(["load-test/compare.mjs"]);
+      expect(ops).toHaveProperty(["scripts/pentest-readiness.mjs"]);
+      expect(ops["README.md"]).toContain("pnpm pentest:readiness");
+      expect(ops["README.md"]).toContain("OPERATIONS.md");
+      expect(ops).toHaveProperty(["load-test/capacity.mjs"]);
+      expect(ops).toHaveProperty(["load-test/capacity-report.mjs"]);
+      expect(ops["OPERATIONS.md"]).toContain("pnpm capacity");
+      expect(JSON.parse(ops["package.json"]).scripts.capacity).toBe("node load-test/capacity.mjs");
+      expect(JSON.parse(ops["package.json"]).devDependencies.autocannon).toBe("^8.0.0");
+      expect(ops["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
       expect(JSON.parse(ops["package.json"]).scripts["compose:redis"]).toBe(
         "origin-compose-up --redis",
       );
     }
+  });
+
+  it("instruments the mock gateway for capacity cache-collapse assertions", () => {
+    const mockGateway = standalone()["mock-gateway/server.mjs"];
+
+    expect(mockGateway).toContain('url.pathname === "/__originloom__/stats"');
+    expect(mockGateway).toContain('req.method === "DELETE"');
+    expect(mockGateway).toContain("MOCK_GATEWAY_DELAY_MS");
+    expect(mockGateway).toContain("stats.byPath[url.pathname]");
   });
 
   it("keeps one product's endpoints out of the generated alert rules", () => {
@@ -187,8 +206,8 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("points the icons at assets the media pipeline actually produces", () => {
-    for (const renderer of ["react", "vanilla"]) {
-      const defaults = standalone({ renderer })["src/lib/metadata/site-defaults.ts"];
+    {
+      const defaults = standalone()["src/lib/metadata/site-defaults.ts"];
       // A dangling /favicon.ico is a 404 in the console of every generated app:
       // nothing serves it, and only /assets/* is served statically.
       expect(defaults).not.toContain("/favicon.ico");
@@ -211,13 +230,24 @@ describe("renderTemplates — standalone mode", () => {
     expect(specs).not.toContain("workspace:*");
   });
 
-  it("approves the native build scripts its dep tree pulls in", () => {
+  it("approves native builds and scopes the unsupported uuid escape hatch", () => {
     // A standalone repo is its own pnpm root, so it must list these itself —
     // otherwise `pnpm install` warns about ignored build scripts.
-    const pkg = JSON.parse(standalone()["package.json"]);
-    expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
-      expect.arrayContaining(["esbuild", "sharp", "@tailwindcss/oxide", "protobufjs"]),
-    );
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+    expect(files["pnpm-workspace.yaml"]).toContain("allowBuilds:");
+    for (const dependency of [
+      "esbuild",
+      "sharp",
+      "@tailwindcss/oxide",
+      "protobufjs",
+      "unrs-resolver",
+    ]) {
+      expect(files["pnpm-workspace.yaml"]).toContain(dependency);
+    }
+    expect(files["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
+    expect(pkg.packageManager).toBe("pnpm@11.18.0");
+    expect(pkg.devDependencies["@napi-rs/wasm-runtime"]).toBe("1.1.6");
   });
 
   it("carries the base compiler options inline (no monorepo extends)", () => {
@@ -249,6 +279,9 @@ describe("renderTemplates — standalone mode", () => {
   it("documents the standalone install/dev/deploy flow", () => {
     const readme = standalone({ name: "demo-web" })["README.md"];
     expect(readme).toContain("pnpm dev");
+    expect(readme).toContain("pnpm ci");
+    expect(readme).toContain("docs/routing.md");
+    expect(readme).toContain("/legacy-catalog");
     expect(readme).toContain("docker build -t demo-web .");
     expect(readme).not.toContain("pnpm --filter");
   });
@@ -265,6 +298,7 @@ describe("renderTemplates — workspace mode", () => {
   it("defers native build approval to the workspace root (no pnpm field)", () => {
     const pkg = JSON.parse(workspace()["package.json"]);
     expect(pkg.pnpm).toBeUndefined();
+    expect(workspace()).not.toHaveProperty(["pnpm-workspace.yaml"]);
   });
 
   it("extends the monorepo tsconfig base", () => {
@@ -368,8 +402,11 @@ describe("renderTemplates — project features", () => {
     expect(files).toHaveProperty([".prettierignore"]);
     const pkg = JSON.parse(files["package.json"]);
     expect(pkg.scripts.lint).toBe("eslint .");
+    expect(pkg.scripts.test).toBe("vitest run tests");
     expect(pkg.scripts.format).toBe("prettier --write .");
-    expect(pkg.devDependencies).toHaveProperty("eslint");
+    expect(pkg.engines.node).toBe(">=22.19.0");
+    expect(pkg.devDependencies["@eslint/js"]).toBe("^10.0.1");
+    expect(pkg.devDependencies.eslint).toBe("^10.8.0");
     expect(pkg.devDependencies).toHaveProperty("typescript-eslint");
     expect(pkg.devDependencies).toHaveProperty("prettier");
   });
@@ -402,17 +439,66 @@ describe("renderTemplates — project features", () => {
   });
 });
 
-describe("renderTemplates — example routes", () => {
+describe("renderTemplates — browser E2E", () => {
+  it("ships a production Playwright suite only for React", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+
+    for (const path of [
+      "playwright.config.ts",
+      "e2e/critical-paths.spec.ts",
+      "e2e/accessibility.spec.ts",
+      "e2e/ssr.no-js.spec.ts",
+    ]) {
+      expect(files, `missing ${path}`).toHaveProperty([path]);
+    }
+    expect(pkg.devDependencies["@playwright/test"]).toBe("^1.62.0");
+    expect(pkg.devDependencies["@axe-core/playwright"]).toBe("^4.12.1");
+    expect(pkg.scripts.e2e).toBe("playwright test");
+    expect(pkg.scripts.ci).toContain("pnpm run e2e");
+    expect(files["playwright.config.ts"]).toContain('command: "pnpm run e2e:server"');
+    expect(files["playwright.config.ts"]).toContain("javaScriptEnabled: false");
+    expect(files["tsconfig.json"]).toContain('"e2e"');
+  });
+
+  it("covers the platform's critical browser boundaries", () => {
+    const files = standalone();
+    const critical = files["e2e/critical-paths.spec.ts"];
+
+    expect(critical).toContain("content-security-policy");
+    expect(critical).toContain("/api/internal/client-errors");
+    expect(critical).toContain("/api/internal/refresh");
+    expect(critical).toContain("/old-catalog?source=e2e");
+    expect(critical).toContain("/products/alpha?source=e2e");
+    expect(critical).toContain("app_live_stream_active_connections");
+    expect(critical).toContain('page.getByTestId("api-fetched-at")');
+    expect(critical).toContain('headers()["x-cache"]).toBe("BYPASS")');
+    expect(critical).toContain("Oturum bilgisi şu an alınamıyor.");
+    expect(files["e2e/accessibility.spec.ts"]).toContain("AxeBuilder");
+    expect(files["e2e/ssr.no-js.spec.ts"]).toContain("JavaScript is disabled");
+  });
+
+  it("installs Chromium and retains the HTML report in generated CI", () => {
+    const workflow = standalone()[".github/workflows/ci.yml"];
+    expect(workflow).toContain("playwright install --with-deps chromium");
+    expect(workflow).toContain("actions/upload-artifact@v7");
+    expect(workflow).toContain("playwright-report/");
+  });
+
   it("ships all example route files and registers them", () => {
     const files = standalone();
     for (const path of [
       "server/routes/catalog.tsx",
+      "server/routes/data-cache.tsx",
       "server/routes/item-detail.tsx",
       "server/routes/account.tsx",
       "server/routes/live.tsx",
       "server/services/items.ts",
+      "server/services/featured-items.ts",
+      "server/services/live-message.ts",
       "server/api/index.ts",
       "src/features/catalog/catalog-page.tsx",
+      "src/features/data-cache/data-cache-page.tsx",
       "src/features/items/item-detail-page.tsx",
       "src/features/live/live-page.tsx",
       "src/islands/account-panel.tsx",
@@ -422,7 +508,7 @@ describe("renderTemplates — example routes", () => {
       expect(files, `missing ${path}`).toHaveProperty([path]);
     }
     const routeTable = files["server/routes/index.ts"];
-    for (const id of ["catalog", "itemDetail", "account", "live"]) {
+    for (const id of ["catalog", "dataCache", "itemDetail", "account", "live"]) {
       expect(routeTable, `route ${id} not registered`).toContain(id);
     }
   });
@@ -442,116 +528,48 @@ describe("renderTemplates — example routes", () => {
     expect(standalone()["server/routes/account.tsx"]).toContain('mode="defer"');
   });
 
+  it("demonstrates cached API data inside an uncached HTML route", () => {
+    const files = standalone();
+    const route = files["server/routes/data-cache.tsx"];
+    const service = files["server/services/featured-items.ts"];
+
+    expect(route).toContain('path: "/data-cache"');
+    expect(route).toContain("cache: neverCache");
+    expect(route).toContain("getFeaturedItems(ctx.request)");
+    expect(service).toContain('FEATURED_ITEMS_CACHE_KEY = "items:featured:v1"');
+    expect(service).toContain('cacheStatus: "miss"');
+    expect(service).toContain('hit.state === "stale"');
+    expect(files["tests/featured-items-cache.test.ts"]).toContain("coalesces background refreshes");
+    expect(files[".env.development"]).toContain("FEATURED_ITEMS_CACHE_TTL=10");
+    expect(files[".env.development"]).toContain("FEATURED_ITEMS_CACHE_SWR=30");
+  });
+
   it("wires streaming + SSE: streaming route, Suspense, EventSource island, /api/ticks mount", () => {
     const files = standalone();
-    expect(files["server/routes/live.tsx"]).toContain("streaming: true");
+    const route = files["server/routes/live.tsx"];
+    expect(route).toContain("streaming: true");
+    expect(route).toContain("getLiveMessage(ctx.request.signal)");
+    expect(route).not.toContain("setTimeout");
+    expect(files["server/services/live-message.ts"]).toContain(
+      'gatewayFetch("/live/message", { signal })',
+    );
+    expect(files["server/services/live-message.ts"]).toContain("GatewayContracts.liveMessage");
+    expect(files["mock-gateway/server.mjs"]).toContain('url.pathname === "/live/message"');
+    expect(files["mock-gateway/server.mjs"]).toContain("MOCK_LIVE_MESSAGE_DELAY_MS");
+    expect(files["tests/live-message-service.test.ts"]).toContain("rejects an invalid payload");
     expect(files["src/features/live/live-page.tsx"]).toContain("Suspense");
     expect(files["src/islands/live-ticks.tsx"]).toContain("new EventSource");
-    expect(files["server/api/index.ts"]).toContain('"/api/ticks"');
+    expect(files["server/api/index.ts"]).toContain("mountLiveStreamApi");
+    expect(files["server/api/live-stream/index.ts"]).toContain('"/api/ticks"');
+    expect(files["server/api/live-stream/index.ts"]).toContain("x-accel-buffering");
+    expect(files["server/api/live-stream/index.ts"]).toContain("stream.onAbort");
+    expect(files["server/api/live-stream/admission.ts"]).toContain("perIpLimit");
     expect(files["server/index.ts"]).toContain("mounts: { api: mountApi, seo: mountSeo }");
   });
 });
 
-describe("renderTemplates — vanilla renderer", () => {
-  const vanilla = (over = {}) =>
-    renderTemplates({
-      ...base,
-      mode: "workspace",
-      version: "^0.1.0",
-      renderer: "vanilla",
-      ...over,
-    });
-
-  it("emits the same file set in both modes", () => {
-    const standaloneVanilla = renderTemplates({
-      ...base,
-      mode: "standalone",
-      version: "^0.1.0",
-      renderer: "vanilla",
-    });
-    expect(Object.keys(vanilla()).sort()).toEqual(Object.keys(standaloneVanilla).sort());
-  });
-
-  it("ships no React anywhere in the generated app", () => {
-    const files = vanilla();
-    const pkg = JSON.parse(files["package.json"]);
-    const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
-    expect(declared.filter((name) => /react/i.test(name))).toEqual([]);
-    expect(declared).toContain("@originloom/vanilla");
-
-    for (const [path, contents] of Object.entries(files)) {
-      expect(path.endsWith(".tsx"), `${path} is a .tsx file`).toBe(false);
-      if (path.endsWith(".ts") || path.endsWith(".css")) {
-        expect(contents, `${path} mentions react`).not.toMatch(/@originloom\/react|"react"/);
-      }
-    }
-  });
-
-  it("emits pages and islands instead of React components", () => {
-    const files = vanilla();
-    for (const path of [
-      "server/routes/home.ts",
-      "server/product/renderer.ts",
-      "server/product/boundary-pages.ts",
-      "src/pages/home.ts",
-      "src/islands/counter.ts",
-      "src/components/layout.ts",
-      "src/entry.client.ts",
-      "src/hydrate.client.ts",
-    ]) {
-      expect(files, `missing ${path}`).toHaveProperty([path]);
-    }
-    expect(files).not.toHaveProperty(["src/global.d.ts"]);
-    expect(files["server/product/renderer.ts"]).toContain("createHtmlRenderer");
-    expect(files["server/product/runtime.ts"]).toContain("renderer: productRenderer");
-    expect(files["src/hydrate.client.ts"]).toContain(
-      'import.meta.glob<IslandModule>("./islands/*.ts")',
-    );
-  });
-
-  it("drops the JSX compiler option from a standalone tsconfig", () => {
-    const react = JSON.parse(
-      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0" })["tsconfig.json"],
-    );
-    const vanillaTs = JSON.parse(
-      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0", renderer: "vanilla" })[
-        "tsconfig.json"
-      ],
-    );
-    expect(react.compilerOptions.jsx).toBe("react-jsx");
-    expect(vanillaTs.compilerOptions.jsx).toBeUndefined();
-  });
-
-  it("scans the vanilla package for Tailwind classes", () => {
-    expect(vanilla()["src/styles/globals.css"]).toContain("packages/origin-vanilla/src");
-    expect(
-      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0", renderer: "vanilla" })[
-        "src/styles/globals.css"
-      ],
-    ).toContain("node_modules/@originloom/vanilla/dist");
-  });
-
-  it("ships renderer-specific skills and CLAUDE.md", () => {
-    const files = vanilla();
-    expect(files[".claude/skills/islands/SKILL.md"]).toContain("IslandMount");
-    expect(files[".claude/skills/islands/SKILL.md"]).not.toContain("useState");
-    expect(files[".claude/skills/add-page/SKILL.md"]).toContain("@originloom/vanilla/lib/types");
-    expect(files["CLAUDE.md"]).toContain("createHtmlRenderer");
-    // Skills with no renderer-specific content are shared verbatim.
-    expect(files[".claude/skills/caching/SKILL.md"]).toBe(
-      workspace()[".claude/skills/caching/SKILL.md"],
-    );
-  });
-});
-
 describe("renderTemplates — generated apps satisfy their own tooling", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: typechecks and lints its tests too", (_name, files) => {
     // Without this the repo's typed lint reports "not found by the project
@@ -579,13 +597,7 @@ describe("renderTemplates — generated apps satisfy their own tooling", () => {
 });
 
 describe("renderTemplates — gateway wiring", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: fetches its data through the gateway, not from memory", (_name, files) => {
     const service = files["server/services/items.ts"];
@@ -604,7 +616,11 @@ describe("renderTemplates — gateway wiring", () => {
   });
 
   it.each(modes)("%s: ships a mock gateway and starts it in dev and smoke", (_name, files) => {
-    expect(files["mock-gateway/server.mjs"]).toContain("/items");
+    const gateway = files["mock-gateway/server.mjs"];
+    expect(gateway).toContain("/items");
+    expect(gateway).toContain("process.env.MOCK_GATEWAY_PORT ?? 4002");
+    expect(gateway).not.toContain("process.env.PORT ?? 4002");
+    expect(files[".env.development"]).toContain("MOCK_GATEWAY_PORT=4002");
     const scripts = JSON.parse(files["package.json"]).scripts;
     expect(scripts.dev).toContain("--gateway mock-gateway/server.mjs");
     expect(scripts.smoke).toContain("--gateway mock-gateway/server.mjs");
@@ -612,20 +628,33 @@ describe("renderTemplates — gateway wiring", () => {
 
   it.each(modes)("%s: passes the request signal into the loader's gateway call", (_name, files) => {
     // A cancelled request must not keep the upstream call alive.
-    expect(files["server/routes/catalog." + (_name === "vanilla" ? "ts" : "tsx")]).toContain(
-      "ctx.request.signal",
+    expect(files["server/routes/catalog.tsx"]).toContain("ctx.request.signal");
+  });
+
+  it("react: configures and drains the bounded gateway transport", () => {
+    const files = standalone();
+    expect(files["server/index.ts"]).toContain("closeGatewayTransport()");
+    expect(files["server/index.ts"].indexOf("closeGatewayTransport()")).toBeGreaterThan(
+      files["server/index.ts"].indexOf("drainBotAnalytics()"),
     );
+    expect(files["server/services/menu.ts"]).toContain("memoizeRequestValue");
+    expect(files["server/services/items.ts"]).toContain("requireGatewayOk");
+    expect(files[".env.production"]).toContain("GATEWAY_MAX_CONNECTIONS=64");
+    expect(files[".env.production"]).toContain("GATEWAY_CONNECT_TIMEOUT_MS=1000");
+  });
+
+  it("react: documents log sampling, precompression and CDN delivery", () => {
+    const files = standalone();
+    expect(files[".env.production"]).toContain("REQUEST_LOG_SAMPLE_RATE=0.1");
+    expect(files[".env.production"]).toContain("HTTP_COMPRESSION_THRESHOLD_BYTES=1024");
+    expect(files["docs/runtime-performance.md"]).toContain("Gateway bağlantı yönetimi");
+    expect(files["docs/runtime-performance.md"]).toContain("Compression stratejisi");
+    expect(files["docs/runtime-performance.md"]).toContain("Static asset ve CDN teslimi");
   });
 });
 
 describe("renderTemplates — SEO, cache purge and product metrics", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: serves robots.txt and a sitemap built from its own data", (_name, files) => {
     expect(files["server/index.ts"]).toContain("seo: mountSeo");
@@ -645,7 +674,7 @@ describe("renderTemplates — SEO, cache purge and product metrics", () => {
   });
 
   it.each(modes)("%s: appends its own metrics to /metrics", (_name, files) => {
-    expect(files["server/product/runtime.ts"]).toContain("metricSources: [catalogMetricLines]");
+    expect(files["server/product/runtime.ts"]).toContain("catalogMetricLines");
     const metrics = files["server/metrics/catalog.ts"];
     expect(metrics).toContain("counterLines");
     // Unbounded label values are how a metric takes Prometheus down.
@@ -653,21 +682,280 @@ describe("renderTemplates — SEO, cache purge and product metrics", () => {
   });
 });
 
+describe("renderTemplates — production reference coverage", () => {
+  it("ships human-readable feature documentation for React apps", () => {
+    const files = standalone();
+    for (const path of [
+      "docs/features.md",
+      "docs/auth.md",
+      "docs/background-workers.md",
+      "docs/caching.md",
+      "docs/capacity.md",
+      "docs/configuration.md",
+      "docs/dynamic-shell.md",
+      "docs/routing.md",
+      "docs/streaming.md",
+      "docs/seo.md",
+      "docs/observability.md",
+      "docs/react-query.md",
+      "docs/testing.md",
+      "docs/contracts.md",
+      "docs/performance.md",
+      "docs/performance-acceptance.md",
+      "docs/runtime-performance.md",
+      "docs/upgrading.md",
+    ]) {
+      expect(files, `missing ${path}`).toHaveProperty([path]);
+    }
+    expect(files["README.md"]).toContain("docs/features.md");
+    expect(files["docs/runtime-performance.md"]).toContain("Cache-hit hızlı yolu");
+    expect(files["docs/features.md"]).toContain("runtime-performance.md");
+  });
+
+  it("ships contract drift and frontend quality gates", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+    const contracts = JSON.parse(files["contracts/gateway-contracts.json"]);
+    expect(files).toHaveProperty(["contracts/openapi.json"]);
+    expect(files).toHaveProperty(["contracts/gateway-contracts.json"]);
+    expect(files).toHaveProperty(["performance-budgets.json"]);
+    expect(files).toHaveProperty(["lighthouserc.json"]);
+    expect(files).toHaveProperty([".github/workflows/contract-staging.yml"]);
+    expect(pkg.scripts["contracts:fixtures"]).toBe("origin-check-contracts");
+    expect(pkg.scripts["budget:bundle"]).toBe("origin-check-budgets");
+    expect(pkg.scripts.lighthouse).toBe("origin-lighthouse");
+    expect(pkg.devDependencies.lighthouse).toBe("^13.4.1");
+    expect(pkg.devDependencies).not.toHaveProperty("@lhci/cli");
+    expect(contracts.schemaVersion).toBe(2);
+    expect(contracts.contracts[0]).toMatchObject({
+      operationId: "catalog.list",
+      request: { method: "GET", path: "/items?page=1&perPage=3" },
+      response: {
+        status: 200,
+        contentType: "application/json",
+        fixture: "fixtures/items-page.json",
+        schema: "#/components/schemas/ItemPage",
+      },
+    });
+    expect(contracts.contracts).toContainEqual(
+      expect.objectContaining({
+        id: "live-message",
+        operationId: "live.message",
+        request: { method: "GET", path: "/live/message" },
+        response: expect.objectContaining({
+          fixture: "fixtures/live-message.json",
+          schema: "#/components/schemas/LiveMessage",
+        }),
+      }),
+    );
+    expect(files).toHaveProperty(["contracts/fixtures/live-message.json"]);
+    expect(pkg.scripts.ci).toContain("contracts:fixtures");
+    expect(pkg.scripts.ci).toContain("budget:bundle");
+    expect(pkg.scripts.ci).toContain("lighthouse");
+  });
+
+  it("ships the full capacity runner in every React project", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+
+    expect(files).toHaveProperty(["load-test/capacity.mjs"]);
+    expect(files).toHaveProperty(["load-test/capacity-metrics.mjs"]);
+    expect(files).toHaveProperty(["load-test/capacity-report.mjs"]);
+    expect(files).toHaveProperty(["load-test/capacity-scenarios.mjs"]);
+    expect(files).toHaveProperty(["load-test/performance-policy.mjs"]);
+    expect(files).toHaveProperty(["load-test/performance.mjs"]);
+    expect(files).toHaveProperty(["load-test/profile.mjs"]);
+    expect(files).toHaveProperty(["load-test/profile-target.mjs"]);
+    expect(files).toHaveProperty(["performance-policy.json"]);
+    expect(pkg.scripts.capacity).toBe("node load-test/capacity.mjs");
+    expect(pkg.scripts["capacity:quick"]).toContain("--profile quick");
+    expect(pkg.scripts["capacity:profile"]).toContain("profile.mjs");
+    expect(pkg.scripts["performance:compare"]).toContain("performance.mjs");
+    expect(pkg.scripts["performance:accept"]).toContain("--accept");
+    expect(pkg.devDependencies.autocannon).toBe("^8.0.0");
+    expect(files["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
+    expect(files["docs/capacity.md"]).toContain("10 → 25 → 50 → 100 → 200 → 400");
+    expect(files[".gitignore"]).toContain("load-test/reports/");
+  });
+
+  it("ships a native CycloneDX and Dependency-Track workflow", () => {
+    const files = standalone({ name: "payments-web" });
+    const pkg = JSON.parse(files["package.json"]);
+    const config = JSON.parse(files["dependency-track.config.json"]);
+
+    expect(pkg.version).toBe("0.1.0");
+    expect(pkg.packageManager).toBe("pnpm@11.18.0");
+    expect(pkg.scripts.sbom).toBe("origin-sbom");
+    expect(pkg.scripts["dependency-track:publish"]).toContain("origin-dependency-track");
+    expect(config).toMatchObject({
+      projectName: "payments-web",
+      bomPath: "artifacts/sbom/bom.cdx.json",
+      gate: { failOnSeverity: "critical", failOnPolicyViolation: "fail" },
+    });
+    expect(files).toHaveProperty(["docs/supply-chain-security.md"]);
+    expect(files[".github/workflows/dependency-track.yml"]).toContain("DEPENDENCY_TRACK_API_KEY");
+    expect(files[".github/workflows/dependency-track.yml"]).toContain("pnpm sbom");
+    expect(files[".gitignore"]).toContain("artifacts/sbom/");
+  });
+
+  it("records template provenance and makes upgrade health part of CI", () => {
+    const files = standalone({ version: "^9.8.7", templateVersion: "9.9.0" });
+    const metadata = JSON.parse(files[".originloom/project.json"]);
+    const pkg = JSON.parse(files["package.json"]);
+
+    expect(metadata).toMatchObject({
+      schemaVersion: 1,
+      templateVersion: "9.9.0",
+      platformRange: "^9.8.7",
+      renderer: "react",
+      mode: "standalone",
+      generatedBy: "@originloom/tooling",
+    });
+    expect(metadata.appliedMigrations).toContain("0.5.14-upgrade-contract-v1");
+    expect(metadata.appliedMigrations).toContain("0.5.17-eslint-10");
+    expect(metadata.appliedMigrations).toContain("0.5.18-vitest-scope");
+    expect(pkg.scripts["origin:doctor"]).toBe("origin-doctor");
+    expect(pkg.scripts["origin:migrate"]).toBe("origin-migrate");
+    expect(pkg.scripts.ci).toContain("origin:doctor --strict");
+    expect(files["docs/upgrading.md"]).toContain("origin:migrate --apply");
+  });
+
+  it("aligns the BFF refresh endpoint with the query-backed clientApiFetch hook", () => {
+    const files = standalone();
+    expect(files["server/api/session.ts"]).toContain('"/api/internal/refresh"');
+    expect(files["src/islands/account-panel.tsx"]).toContain("useSessionQuery");
+    expect(files["src/lib/query/hooks/use-session.ts"]).toContain("clientApiFetch");
+    expect(files["tests/auth-client.test.ts"]).toContain('"/api/internal/refresh"');
+  });
+
+  it("ships a bounded mock refresh contract and documents its development cookies", () => {
+    const files = standalone();
+    const gateway = files["mock-gateway/server.mjs"];
+    expect(gateway).toContain('url.pathname === "/auth/refresh"');
+    expect(gateway).toContain('body.refreshToken !== "dev-refresh-token"');
+    expect(gateway).toContain("createDevAccessToken()");
+    expect(gateway).toContain("bytes > 16_384");
+    expect(files["docs/auth.md"]).toContain("access_token=");
+    expect(files["docs/auth.md"]).toContain("refresh_token=dev-refresh-token");
+    expect(files["docs/auth.md"]).toContain("HttpOnly");
+  });
+
+  it("loads TanStack Query only with the island that uses it", () => {
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+    expect(pkg.dependencies["@tanstack/react-query"]).toBe("^5.101.4");
+    expect(files["src/hydrate.client.tsx"]).not.toContain("AppQueryProvider");
+    expect(files["src/islands/account-panel.tsx"]).toContain(
+      'import { AppQueryProvider } from "@originloom/react/lib/query/provider"',
+    );
+    expect(files["src/islands/account-panel.tsx"]).toContain("<AppQueryProvider>");
+    expect(files["src/lib/query/keys.ts"]).toContain('["session", "current"]');
+    expect(files["docs/react-query.md"]).toContain("React Query'yi tamamen kaldırma");
+  });
+
+  it("defers Web Vitals without delaying first paint or island hydration", () => {
+    const entry = standalone()["src/entry.client.tsx"];
+
+    expect(entry).toContain('import("web-vitals")');
+    expect(entry).toContain("requestIdleCallback");
+    expect(entry).not.toContain('from "web-vitals"');
+  });
+
+  it("normalizes content query params before they enter a cache key", () => {
+    const files = standalone();
+    expect(files["src/lib/cache-keys.ts"]).toContain("contentQueryCacheFragment");
+    expect(files["src/lib/cache-keys.ts"]).toContain('include: ["page"]');
+    expect(files["tests/pagination.test.ts"]).toContain("normalizePageParam");
+  });
+
+  it("ships bounded live-stream lifecycle, metrics and tests", () => {
+    const files = standalone();
+    expect(files["server/api/live-stream/index.ts"]).toContain("liveStreamMaxConnections");
+    expect(files["server/api/live-stream/index.ts"]).toContain("stopLiveStreams");
+    expect(files["server/metrics/live-stream.ts"]).toContain("active_connections");
+    expect(files["server/product/runtime.ts"]).toContain("liveStreamMetricLines");
+    expect(files["tests/live-stream-admission.test.ts"]).toContain("global_limit");
+    expect(files[".env.production"]).toContain("LIVE_STREAM_MAX_CONNECTIONS=1000");
+  });
+
+  it("ships a validated read-through menu cache with bounded fallback chrome", () => {
+    const files = standalone();
+    expect(files["server/services/menu.ts"]).toContain("requireGatewayPayload");
+    expect(files["server/services/menu.ts"]).toContain("FALLBACK_MENU");
+    expect(files["server/services/menu.ts"]).toContain('MENU_CACHE_KEY = "menu:public:v1"');
+    expect(files["server/services/menu.ts"]).toContain("refreshInFlight");
+    expect(files["server/services/menu.ts"]).toContain('hit.state === "stale"');
+    expect(files["server/services/shell-data.ts"]).toContain("getMenu");
+    expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.map");
+    expect(files["tests/menu-cache.test.ts"]).toContain("does not cache the local fallback");
+    expect(files[".env.production"]).toContain("MENU_CACHE_TTL=14400");
+    expect(files[".env.production"]).toContain("FEATURED_ITEMS_CACHE_TTL=10");
+  });
+
+  it("documents production cache decisions, operations and failure modes", () => {
+    const files = standalone();
+    const guide = files["docs/caching.md"];
+
+    expect(guide).toContain("## TTL ve SWR nasıl seçilir?");
+    expect(guide).toContain("## Request yaşam döngüsü ve stampede koruması");
+    expect(guide).toContain("CACHE_FILL_WAIT_MS");
+    expect(guide).toContain("CACHE_REQUIRED=true");
+    expect(guide).toContain('{"pageIds":["catalog"]}');
+    expect(guide).toContain('{"prefix":"menu:"}');
+    expect(guide).toContain('{"prefix":"items:featured:"}');
+    expect(guide).toContain("Cache'siz HTML içinde cache'li public API verisi");
+    expect(guide).toContain("keysEncoded");
+    expect(guide).toContain("ssr_cache_l2_healthy");
+    expect(guide).toContain("## Deploy ve içerik değişikliği runbook'u");
+
+    const skill = files[".claude/skills/caching/SKILL.md"];
+    expect(skill).toContain('{"pageIds":["catalog"]}');
+    expect(skill).not.toContain('{"mode":"prefix"');
+  });
+
+  it("wires a bounded bot analytics worker into runtime and shutdown", () => {
+    const files = standalone();
+    expect(files["server/services/bot-analytics.ts"]).toContain("class BotAnalyticsQueue");
+    expect(files["server/product/runtime.ts"]).toContain("onBotVisit: storeBotVisit");
+    expect(files["server/index.ts"]).toContain("drainBotAnalytics");
+    expect(files["tests/bot-analytics.test.ts"]).toContain("queue_full");
+  });
+
+  it("validates CMS SEO and emits paginated structured metadata", () => {
+    const files = standalone();
+    expect(files["server/services/items.ts"]).toContain("isBoundedString(value.seo.title");
+    expect(files["server/routes/catalog.tsx"]).toContain("itemListJsonLd");
+    expect(files["server/routes/item-detail.tsx"]).toContain("data.item.seo.title");
+  });
+
+  it("ships integration-level boundary tests for session, SSE and purge key transport", () => {
+    const files = standalone();
+    expect(files["tests/session-api.test.ts"]).toContain("/api/internal/refresh");
+    expect(files["tests/live-stream-api.test.ts"]).toContain("cross-site");
+    expect(files["tests/cache-key-codec.test.ts"]).toContain("encodeCacheKeyForApi");
+  });
+
+  it("ships working redirect, rewrite, explicit proxy and CMS gone examples", () => {
+    const files = standalone();
+    const rules = files["src/routing/rules.ts"];
+    expect(rules).toContain('source: "/old-catalog"');
+    expect(rules).toContain('source: "/products/:slug"');
+    expect(rules).toContain('source: "/gateway/menu"');
+    expect(files["tests/routing-rules.test.ts"]).toContain('publicPath: "/products/alpha"');
+    expect(files["mock-gateway/server.mjs"]).toContain('"/cms/redirects"');
+    expect(files["mock-gateway/server.mjs"]).toContain('"/removed-page", { type: "gone" }');
+  });
+});
+
 describe("renderTemplates — product config, public API and media", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: validates its own environment at startup", (_name, files) => {
     expect(files["server/index.ts"]).toContain("validateConfig([validateProductConfig])");
     const config = files["server/product/config.ts"];
     expect(config).toContain("assertPositiveInteger");
     // The example setting is used, not decorative.
-    const route = files["server/routes/catalog." + (_name === "vanilla" ? "ts" : "tsx")];
+    const route = files["server/routes/catalog.tsx"];
     expect(route).toContain("productConfig.catalogPageSize");
     expect(files[".env.development"]).toContain("CATALOG_PAGE_SIZE=3");
   });
@@ -689,16 +977,12 @@ describe("renderTemplates — product config, public API and media", () => {
     expect(JSON.parse(files["package.json"]).scripts.media).toBe("origin-build-media");
   });
 
-  it("ships icon codegen only for the renderer whose components it emits", () => {
+  it("ships icon codegen with the transformer left in the tooling that runs it", () => {
     const [, react] = modes[0];
-    const [, vanilla] = modes[1];
     expect(react).toHaveProperty([".svgrrc.cjs"]);
     expect(JSON.parse(react["package.json"]).scripts.icons).toBe("origin-generate-icons");
     // The transformer belongs to the tooling that runs it. An app carrying its
     // own copy also carried @svgr/cli's deprecated glob chain for nothing.
     expect(JSON.parse(react["package.json"]).devDependencies["@svgr/cli"]).toBeUndefined();
-    // svgr emits React components; a vanilla app would never compile them.
-    expect(vanilla).not.toHaveProperty([".svgrrc.cjs"]);
-    expect(JSON.parse(vanilla["package.json"]).scripts.icons).toBeUndefined();
   });
 });

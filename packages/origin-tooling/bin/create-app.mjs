@@ -8,11 +8,6 @@
  *   --workspace          — an app inside this monorepo (apps/<name>), depending
  *     on the packages via workspace:*. For the platform team's pilot apps.
  *
- * Two renderers:
- *   react (default)      — pages and islands are React components.
- *   --vanilla            — no UI framework: pages return HTML built with the
- *     `html` tagged template, islands are plain modules. Same platform below.
- *
  * The generated app is intentionally thin: cache, auth, middleware, SSR pipeline
  * and the metadata engine come from the packages. It owns a route table, the
  * OriginRuntime implementation and its own chrome.
@@ -23,7 +18,6 @@
  *   origin-create-app investment-web --target-dir ~/projects
  *   origin-create-app investment-web --version "^1.2.0"
  *   origin-create-app knowledge-web --workspace    # inside this monorepo
- *   origin-create-app landing-web --vanilla        # no UI framework
  *   origin-create-app landing-web --port 3020      # Vite follows on 5020
  *   origin-create-app landing-web --registry http://localhost:4873
  *   origin-create-app payments-web --with-ops    # + compose, k8s, load test
@@ -44,10 +38,10 @@ const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
  * A standalone app pins the platform range. Defaulting to this CLI's own version
  * keeps the two in step: the generator that shipped in 0.2.0 scaffolds ^0.2.0.
  */
-const DEFAULT_VERSION_RANGE = `^${
-  JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"))
-    .version
-}`;
+const TOOLING_VERSION = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+).version;
+const DEFAULT_VERSION_RANGE = "^" + TOOLING_VERSION;
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -88,7 +82,7 @@ async function main() {
     vitePort,
     mode: options.workspace ? "workspace" : "standalone",
     version: options.version ?? DEFAULT_VERSION_RANGE,
-    renderer: options.renderer,
+    templateVersion: TOOLING_VERSION,
     withOps: options.withOps,
     ...(options.registry ? { registry: options.registry } : {}),
   });
@@ -173,21 +167,12 @@ function assertValidRegistry(value) {
   return value;
 }
 
-function assertValidRenderer(value) {
-  if (value !== "react" && value !== "vanilla") {
-    fail(`Invalid --renderer: ${value}. Expected "react" or "vanilla".`);
-  }
-  return value;
-}
-
 function parseArgs(argv) {
-  const options = { workspace: false, renderer: "react", withOps: false };
+  const options = { workspace: false, withOps: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--workspace") options.workspace = true;
-    else if (arg === "--vanilla") options.renderer = "vanilla";
     else if (arg === "--with-ops") options.withOps = true;
-    else if (arg === "--renderer") options.renderer = assertValidRenderer(argv[++i]);
     else if (arg === "--port") options.port = Number(argv[++i]);
     else if (arg === "--vite-port") options.vitePort = Number(argv[++i]);
     else if (arg === "--registry") options.registry = assertValidRegistry(argv[++i]);

@@ -11,7 +11,7 @@
  * Everything here is a starting point to be reviewed, not a config to apply as
  * is — image digests, hostnames and secrets are placeholders on purpose.
  */
-export function renderOpsTemplates({ name, port, metricsPort }) {
+export function renderOpsTemplates({ name, port, metricsPort, includeCapacity = false }) {
   return {
     "docker-compose.yml": dockerCompose(name, port),
     "docker-compose.redis.yml": dockerComposeRedis(),
@@ -28,7 +28,10 @@ export function renderOpsTemplates({ name, port, metricsPort }) {
     "k8s/network-policy.yaml": networkPolicy(name, port, metricsPort),
     "k8s/prometheus-rules.yaml": prometheusRules(name),
     "load-test/run.mjs": loadTest(port),
-    "OPERATIONS.md": operationsDoc(name, port, metricsPort),
+    "load-test/stress.mjs": stressTest(),
+    "load-test/compare.mjs": compareResults(),
+    "scripts/pentest-readiness.mjs": pentestReadiness(port, metricsPort),
+    "OPERATIONS.md": operationsDoc(name, port, metricsPort, includeCapacity),
   };
 }
 
@@ -240,6 +243,12 @@ data:
   # Time budgets. A request that outlives its budget is failed on purpose: a
   # slow page that still answers holds a connection the next visitor needs.
   GATEWAY_TIMEOUT_MS: "5000"
+  GATEWAY_CONNECT_TIMEOUT_MS: "1000"
+  GATEWAY_HEADERS_TIMEOUT_MS: "5000"
+  GATEWAY_BODY_TIMEOUT_MS: "5000"
+  GATEWAY_MAX_CONNECTIONS: "64"
+  GATEWAY_PIPELINING: "1"
+  GATEWAY_KEEP_ALIVE_TIMEOUT_MS: "10000"
   SSR_REQUEST_TIMEOUT_MS: "15000"
   API_REQUEST_TIMEOUT_MS: "12000"
   PROXY_REQUEST_TIMEOUT_MS: "8000"
@@ -270,6 +279,9 @@ data:
   CSP_ENFORCE: "true"
   PROXY_BODY_LIMIT_BYTES: "1048576"
   SHUTDOWN_TIMEOUT_MS: "10000"
+  HTTP_COMPRESSION_THRESHOLD_BYTES: "1024"
+  LOG_LEVEL: info
+  REQUEST_LOG_SAMPLE_RATE: "0.1"
 
   # This app's own settings — see server/product/config.ts.
   CATALOG_PAGE_SIZE: "3"
@@ -530,6 +542,9 @@ const loadTest = (port) => `#!/usr/bin/env node
  *   node load-test/run.mjs
  *   node load-test/run.mjs --workers 32 --seconds 30 --path /catalog
  */
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+
 const args = process.argv.slice(2);
 const flag = (flagName, fallback) => {
   const index = args.indexOf(flagName);
@@ -540,6 +555,7 @@ const base = flag("--base", "http://127.0.0.1:${port}");
 const path = flag("--path", "/");
 const workers = Number(flag("--workers", "16"));
 const seconds = Number(flag("--seconds", "15"));
+const output = flag("--output", "");
 
 const url = new URL(path, base).toString();
 const latencies = [];
@@ -577,6 +593,20 @@ if (sorted.length === 0) {
 }
 
 const elapsed = seconds;
+const result = {
+  url,
+  workers,
+  seconds,
+  requests: latencies.length,
+  requestsPerSecond: latencies.length / elapsed,
+  latency: {
+    p50: percentile(sorted, 0.5),
+    p95: percentile(sorted, 0.95),
+    p99: percentile(sorted, 0.99),
+  },
+  cacheHitRate: cacheHits / latencies.length,
+  statuses: Object.fromEntries(statuses),
+};
 console.log(\`
   requests   \${latencies.length} (\${(latencies.length / elapsed).toFixed(1)}/s)
   latency    p50 \${percentile(sorted, 0.5).toFixed(1)}ms · p95 \${percentile(sorted, 0.95).toFixed(1)}ms · p99 \${percentile(sorted, 0.99).toFixed(1)}ms
@@ -584,13 +614,85 @@ console.log(\`
   statuses   \${[...statuses].map(([status, count]) => \`\${status}=\${count}\`).join(" ")}
 \`);
 
+if (output) {
+  await mkdir(dirname(output), { recursive: true });
+  await writeFile(output, JSON.stringify(result, null, 2) + "\\n", "utf8");
+  console.log(\`result → \${output}\`);
+}
+
 // A run with any non-2xx result is not a baseline worth recording.
 if ([...statuses.keys()].some((status) => typeof status !== "number" || status >= 300)) {
   process.exitCode = 1;
 }
 `;
 
-const operationsDoc = (name, port, metricsPort) => `# ${name} — çalıştırma
+const stressTest = () => `#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const forwarded = process.argv.slice(2);
+if (!forwarded.includes("--workers")) forwarded.push("--workers", "64");
+if (!forwarded.includes("--seconds")) forwarded.push("--seconds", "60");
+const result = spawnSync(process.execPath, [join(here, "run.mjs"), ...forwarded], {
+  stdio: "inherit",
+});
+process.exit(result.status ?? 1);
+`;
+
+const compareResults = () => `#!/usr/bin/env node
+import { readFile } from "node:fs/promises";
+
+const [leftPath, rightPath] = process.argv.slice(2);
+if (!leftPath || !rightPath) {
+  console.error("usage: node load-test/compare.mjs memory.json redis.json");
+  process.exit(1);
+}
+const [left, right] = await Promise.all(
+  [leftPath, rightPath].map(async (path) => JSON.parse(await readFile(path, "utf8"))),
+);
+const change = (before, after) => (((after - before) / before) * 100).toFixed(1) + "%";
+console.table([
+  { metric: "requests/s", left: left.requestsPerSecond, right: right.requestsPerSecond, change: change(left.requestsPerSecond, right.requestsPerSecond) },
+  { metric: "p95 ms", left: left.latency.p95, right: right.latency.p95, change: change(left.latency.p95, right.latency.p95) },
+  { metric: "cache HIT", left: left.cacheHitRate, right: right.cacheHitRate, change: change(left.cacheHitRate, right.cacheHitRate) },
+]);
+`;
+
+const pentestReadiness = (port, metricsPort) => `#!/usr/bin/env node
+const base = (process.env.BASE_URL ?? "http://127.0.0.1:${port}").replace(/\\/$/, "");
+const ops = (process.env.OPS_URL ?? "http://127.0.0.1:${metricsPort}").replace(/\\/$/, "");
+const failures = [];
+
+async function check(label, run) {
+  try {
+    const ok = await run();
+    console.log(\`\${ok ? "✓" : "✗"} \${label}\`);
+    if (!ok) failures.push(label);
+  } catch (error) {
+    console.log(\`✗ \${label}: \${error instanceof Error ? error.message : String(error)}\`);
+    failures.push(label);
+  }
+}
+
+await check("health endpoint", async () => (await fetch(base + "/healthz")).ok);
+await check("operations metrics are not public", async () => (await fetch(base + "/metrics")).status === 404);
+await check("security headers", async () => {
+  const response = await fetch(base + "/", { headers: { accept: "text/html" } });
+  return Boolean(response.headers.get("content-security-policy") || response.headers.get("content-security-policy-report-only")) &&
+    response.headers.get("x-content-type-options") === "nosniff";
+});
+await check("cross-site SSE rejected", async () =>
+  (await fetch(base + "/api/ticks", { headers: { accept: "text/event-stream", "sec-fetch-site": "cross-site" } })).status === 403,
+);
+await check("operations listener", async () => (await fetch(ops + "/metrics")).ok);
+
+console.log(\`\\n\${failures.length ? failures.length + " failed" : "all checks passed"}\`);
+if (failures.length) process.exitCode = 1;
+`;
+
+const operationsDoc = (name, port, metricsPort, includeCapacity) => `# ${name} — çalıştırma
 
 \`--with-ops\` ile üretilen dosyalar. Hepsi **başlangıç noktası**: imaj digest'i,
 host adları ve secret'lar bilinçli olarak yer tutucu.
@@ -613,7 +715,39 @@ başlatırsın: \`pnpm mock-gw\` yeterli, container ona \`host.docker.internal\`
 \`\`\`bash
 pnpm build && pnpm start          # ölçüm production build'e karşı yapılır
 node load-test/run.mjs --workers 32 --seconds 30 --path /catalog
+node load-test/run.mjs --output load-test/results/memory.json
+pnpm stress -- --path /catalog
+pnpm loadtest:compare -- load-test/results/memory.json load-test/results/redis.json
+pnpm pentest:readiness
 \`\`\`
+
+${
+  includeCapacity
+    ? `### Tek komutluk kapsamlı kapasite testi
+
+\`pnpm capacity\` production build'i alır; çakışmayan geçici portlarda uygulama ve mock gateway'i
+başlatır; bütün React örnek route'larını 10, 25, 50, 100, 200 ve 400 bağlantıda üçer kez ölçer.
+Her route için 30 saniye warm-up yapar; her kademeyi 60 saniye ve üç tekrar ölçer. Cold-burst, warm
+data-cache, stale single-flight ve origin data-cache olmayan public API deneylerini ayrıca çalıştırır.
+Varsayılan full profil yaklaşık dört saat sürer.
+
+\`load-test/reports/latest.md\` okunabilir özet; yanındaki \`latest.json\` bütün ham tekrarları,
+status dağılımlarını, app/generator CPU, RSS/heap, event-loop, cache ve gateway delta'larını içerir.
+Timestamp'li kopyalar aynı klasörde tutulur. Bu klasör gitignore'dadır.
+
+\`\`\`bash
+pnpm capacity                 # kapsamlı profil
+pnpm capacity:quick           # kısa wiring kontrolü
+pnpm capacity -- --only catalog,data-cache --connections 25,50,100
+pnpm capacity -- --gateway-delay-ms 20
+\`\`\`
+
+Runner ve uygulama aynı makinede CPU paylaşır. Rapor bunu açıkça işaretler ve yalnız uygulama
+process'ine ait kaynak metriklerini operations portundan ayrıca toplar. Sonuçları production kapasite
+taahhüdü değil; aynı makinede regression, cache koruması ve saturation knee analizi olarak kullanın.
+`
+    : ""
+}
 
 Dev sunucusuna karşı ölçme: dev talep üzerine derler, çıkan sayı Vite'ı ölçer.
 Önce bir kez \`memory\` backend ile, sonra \`pnpm compose:redis\` ile ölçüp

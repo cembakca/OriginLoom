@@ -1,6 +1,4 @@
-import { match } from "@originloom/shared/lib/match";
 import type { Route } from "@originloom/shared/lib/types";
-import { resolveRoute } from "@originloom/shared/routing";
 import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { timeout } from "hono/timeout";
@@ -8,8 +6,10 @@ import { timeout } from "hono/timeout";
 import { config } from "../config.js";
 import { observeRequestTimeout } from "../metrics.js";
 import type { AppVariables, RequestClass } from "./context.js";
+import { prepareRequest } from "./prepared-request.js";
 
 export type { RequestClass } from "./context.js";
+export { classifyRequest } from "./prepared-request.js";
 type DeadlineOptions = Partial<Record<RequestClass, number>>;
 
 export class RequestDeadlineError extends Error {
@@ -44,23 +44,24 @@ export function requestDeadline(
   const apiRouteLabels = options.apiRouteLabels ?? new Set<string>();
   return async (c, next) => {
     const raw = c.req.raw;
-    const requestClass = classifyRequest(raw);
+    const prepared = prepareRequest(raw, routeTable, apiRouteLabels);
+    const { requestClass, routeLabel: route } = prepared;
     const timeoutMs = options[requestClass] ?? timeoutFor(requestClass);
+    c.set("request", raw);
+    c.set("requestClass", requestClass);
+    c.set("requestRoute", route);
+    c.set("preparedRequest", prepared);
+
+    if (longLived.has(prepared.url.pathname) || skipDeadline(route, raw.method)) {
+      await next();
+      return;
+    }
+
     const controller = new AbortController();
     const signal = raw.signal.aborted
       ? raw.signal
       : AbortSignal.any([raw.signal, controller.signal]);
-    const request = new Request(raw, { signal });
-    const route = routeLabel(request, requestClass, routeTable, apiRouteLabels);
-
-    c.set("request", request);
-    c.set("requestClass", requestClass);
-    c.set("requestRoute", route);
-
-    if (longLived.has(new URL(raw.url).pathname)) {
-      await next();
-      return;
-    }
+    c.set("request", raw.signal === signal ? raw : new Request(raw, { signal }));
 
     const deadline = timeout(timeoutMs, () => {
       const error = new RequestDeadlineError(requestClass, timeoutMs);
@@ -104,44 +105,14 @@ export function isRequestDeadlineError(error: unknown): error is RequestDeadline
  * one, answers an oversized payload with an HTML error page rather than JSON,
  * and reports itself as a page in the timeout metrics.
  */
-export function classifyRequest(request: Request): RequestClass {
-  const url = new URL(request.url);
-  if (resolveRoute(url, config.gatewayUrl).kind === "proxy") return "proxy";
-  return url.pathname === "/api" || url.pathname.startsWith("/api/") ? "api" : "ssr";
-}
-
 function timeoutFor(requestClass: RequestClass): number {
   if (requestClass === "api") return config.apiRequestTimeoutMs;
   if (requestClass === "proxy") return config.proxyRequestTimeoutMs;
   return config.ssrRequestTimeoutMs;
 }
 
-function routeLabel(
-  request: Request,
-  requestClass: RequestClass,
-  routeTable: Route[],
-  apiRouteLabels: ReadonlySet<string>,
-): string {
-  if (requestClass === "api") {
-    const pathname = new URL(request.url).pathname;
-    return apiRouteLabels.has(pathname) ? pathname : "/api/<unmatched>";
-  }
-  if (requestClass === "proxy") return "<proxy>";
-
-  const resolution = resolveRoute(new URL(request.url), config.gatewayUrl);
-  if (resolution.kind === "redirect") return "<unmatched>";
-  if (resolution.kind === "proxy") return "<proxy>";
-  return (
-    match(routeTable, resolution.pathname)?.route.path ?? infrastructureRoute(resolution.pathname)
-  );
-}
-
-function infrastructureRoute(pathname: string): string {
-  if (pathname.startsWith("/assets/")) return "/assets/*";
-  if (pathname === "/healthz" || pathname === "/readyz") return "<health>";
-  if (pathname === "/metrics") return "<unmatched>";
-  if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return pathname;
-  return "<unmatched>";
+function skipDeadline(route: string, method: string): boolean {
+  return method === "GET" && (route === "<health>" || route === "/assets/*");
 }
 
 function timeoutResponse(requestClass: RequestClass, requestId: string): Response {

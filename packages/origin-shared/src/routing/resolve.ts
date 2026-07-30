@@ -10,10 +10,12 @@ export type RoutingRulesConfig = {
 };
 
 let configured: RoutingRulesConfig = { redirects: [], rewrites: [] };
+let configuredGatewayRewrites: { gatewayUrl: string; rules: readonly RewriteRule[] } | undefined;
 
 /** Install the app's routing rules once at startup (composition root / test setup). */
 export function configureRouting(rules: RoutingRulesConfig): void {
   configured = rules;
+  configuredGatewayRewrites = undefined;
 }
 
 /**
@@ -25,11 +27,16 @@ export function configureRouting(rules: RoutingRulesConfig): void {
 export function resolveRoute(url: URL, gatewayUrl?: string): RouteResolution {
   return resolveRouteWith(url, {
     redirects: configured.redirects,
-    rewrites:
-      gatewayUrl && configured.createRewrites
-        ? configured.createRewrites(gatewayUrl)
-        : configured.rewrites,
+    rewrites: resolveConfiguredRewrites(gatewayUrl),
   });
+}
+
+function resolveConfiguredRewrites(gatewayUrl?: string): readonly RewriteRule[] {
+  if (!gatewayUrl || !configured.createRewrites) return configured.rewrites;
+  if (configuredGatewayRewrites?.gatewayUrl === gatewayUrl) return configuredGatewayRewrites.rules;
+  const rules = configured.createRewrites(gatewayUrl);
+  configuredGatewayRewrites = { gatewayUrl, rules };
+  return rules;
 }
 
 /** Resolve with explicit rule sets (tests, custom pipelines). */

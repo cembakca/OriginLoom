@@ -42,6 +42,11 @@ export type Ctx = {
   siteUrl?: string;
   /** Set by session middleware when pipeline runs. */
   trackingId?: string;
+  /**
+   * Values published by product middleware for this request — locale, tenant,
+   * experiment bucket. Present only for the paths that middleware ran on.
+   */
+  values?: Readonly<Record<string, string>>;
   /** Per-response CSP nonce for React streaming runtime scripts. */
   cspNonce?: string;
 };
@@ -55,6 +60,24 @@ export type Ctx = {
  */
 export type CachePolicy =
   { kind: "none" } | { kind: "shared"; ttl: number; swr?: number; key: string[] };
+
+/** Build-time description attached to a route cache resolver. Runtime policy remains authoritative. */
+export type RouteCacheDescription =
+  | { mode: "none"; label?: string }
+  | {
+      mode: "shared" | "conditional";
+      ttl: number;
+      swr?: number;
+      /** Human-readable cache-key dimensions, never request values or secrets. */
+      vary?: readonly string[];
+      label?: string;
+    };
+
+export type RouteCacheResolver = ((ctx: Ctx) => CachePolicy) & {
+  readonly [routeCacheDescriptionSymbol]?: RouteCacheDescription;
+};
+
+export const routeCacheDescriptionSymbol = Symbol.for("originloom.route-cache-description");
 
 export type RouteError = {
   /** Stable, machine-readable domain code. */
@@ -96,7 +119,7 @@ export type Route<T = unknown, TNode = unknown> = {
    * Here, reading a cookie changes nothing unless you put it in `key`.
    * Omit this function entirely and the route is simply never cached.
    */
-  cache?: (ctx: Ctx) => CachePolicy;
+  cache?: RouteCacheResolver;
 
   /** Runs on cache miss. Free to be async and to hit your API. */
   loader: (ctx: Ctx) => Promise<LoaderResult<T>>;

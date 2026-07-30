@@ -1,7 +1,7 @@
 import { defineRoute } from "@originloom/react/lib/types";
 import { isKnownRecoursePage } from "@server/services/route-domains";
 
-import { PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
@@ -11,7 +11,7 @@ export default defineRoute<{ page: string; publicPath: string }>({
 
   validateParams: (ctx) => isKnownRecoursePage(ctx.params.page, ctx.request.signal),
 
-  cache: (ctx) => pageCachePolicy(PageCacheId.recourseRedirect, ctx),
+  cache: pageCache(PageCacheId.recourseRedirect),
 
   loader: async (ctx) => ({
     data: { page: ctx.params.page ?? "", publicPath: ctx.publicPath },
