@@ -105,6 +105,7 @@ export function renderTemplates({
     "docs/configuration.md": asset("docs/configuration.md"),
     "docs/dynamic-shell.md": asset("docs/dynamic-shell.md"),
     "docs/features.md": asset("docs/features.md"),
+    "docs/middleware.md": asset("docs/middleware.md"),
     "docs/observability.md": asset("docs/observability.md"),
     "docs/react-query.md": asset("docs/react-query.md"),
     "docs/routing.md": asset("docs/routing.md"),
@@ -134,6 +135,10 @@ export function renderTemplates({
     "load-test/profile-target.mjs": asset("load-test/profile-target.mjs"),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
+    "server/middleware/index.ts": middlewareIndex(),
+    "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
+    "server/middleware/redirect-rules.ts": redirectRulesMiddlewareFile(),
+    "server/middleware/search-indexing.ts": searchIndexingMiddlewareFile(),
     "server/api/index.ts": apiIndex(),
     "server/api/live-stream/admission.ts": liveStreamAdmission(),
     "server/api/live-stream/index.ts": liveStreamApi(),
@@ -210,6 +215,7 @@ export function renderTemplates({
     "src/global.d.ts": globalDts(),
 
     "tests/home.test.ts": homeTest(),
+    "tests/middleware.test.ts": middlewareTest(),
     "tests/auth-client.test.ts": authClientTest(),
     "tests/live-stream-admission.test.ts": liveStreamAdmissionTest(),
     "tests/live-stream-api.test.ts": liveStreamApiTest(),
@@ -281,7 +287,15 @@ function vanillaTemplates({
     // Opt-in deployment assets: compose, k8s manifests, a load generator.
     ...(withOps ? renderOpsTemplates({ name, port, metricsPort, includeCapacity: false }) : {}),
 
-    "server/index.ts": serverIndex("/src/entry.client.ts"),
+    // The vanilla map ships neither a live stream nor bot analytics.
+    "server/index.ts": serverIndex("/src/entry.client.ts", {
+      liveStream: false,
+      botAnalytics: false,
+    }),
+    "server/middleware/index.ts": middlewareIndex(),
+    "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
+    "server/middleware/redirect-rules.ts": redirectRulesMiddlewareFile(),
+    "server/middleware/search-indexing.ts": searchIndexingMiddlewareFile(),
     "server/api/index.ts": vanilla.apiIndex(),
     "server/seo.ts": seoRoutes(),
     "server/metrics/catalog.ts": productMetrics(),
@@ -322,6 +336,7 @@ function vanillaTemplates({
     "src/styles/globals.css": vanilla.globalsCss(standalone),
 
     "tests/home.test.ts": homeTest(),
+    "tests/middleware.test.ts": middlewareTest(),
 
     "CLAUDE.md": asset("generated-claude-vanilla.md"),
     ".claude/settings.json": claudeSettings(),
@@ -1113,8 +1128,18 @@ REQUEST_LOG_SAMPLE_RATE=0.1
 # REDIS_URL=rediss://cache.internal:6379
 `;
 
-/** @param {string} clientEntry Dev-server path of this app's client entry module. */
-const serverIndex = (clientEntry) => `import type { ServerType } from "@hono/node-server";
+/**
+ * The composition root. Only the subsystems the renderer's file map actually
+ * ships may be imported here: a template that boots something it did not
+ * generate fails the generated app's own typecheck.
+ *
+ * @param {string} clientEntry Dev-server path of this app's client entry module.
+ * @param {{ liveStream?: boolean; botAnalytics?: boolean }} shipped
+ */
+const serverIndex = (
+  clientEntry,
+  { liveStream = true, botAnalytics = true } = {},
+) => `import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
 import { mountCachePurgeApi } from "@originloom/core/api/cache-purge";
 import { createApp } from "@originloom/core/app";
@@ -1132,14 +1157,13 @@ import { validateRoutingRules } from "@originloom/shared/routing/validate";
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
 import { mountApi } from "./api";
-import { stopLiveStreams } from "./api/live-stream";
+${liveStream ? 'import { stopLiveStreams } from "./api/live-stream";\n' : ""}import { productMiddleware } from "./middleware";
 import { analyticsCsp } from "./product/analytics";
 import { validateProductConfig } from "./product/config";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
 import { mountSeo } from "./seo";
-import { drainBotAnalytics } from "./services/bot-analytics";
-
+${botAnalytics ? 'import { drainBotAnalytics } from "./services/bot-analytics";\n' : ""}
 let shuttingDown = false;
 let httpServer: ServerType | null = null;
 let metricsServer: ServerType | null = null;
@@ -1162,10 +1186,18 @@ async function main() {
     assets,
     routes,
     mounts: { api: mountApi, seo: mountSeo },
-    // /api/ticks streams until the client leaves, so it manages its own
+    // This app's own request rules — maintenance, indexing, locale, experiments.
+    // They run around the platform's auth/session/redirect steps, never instead
+    // of them. See docs/middleware.md.
+    middleware: productMiddleware,
+${
+  liveStream
+    ? `    // /api/ticks streams until the client leaves, so it manages its own
     // lifetime — arming a request deadline on it would cut a healthy stream.
     longLivedRoutes: ["/api/ticks"],
-    // Origins the document reaches that are not this app's own.
+`
+    : ""
+}    // Origins the document reaches that are not this app's own.
     csp: analyticsCsp,
     isShuttingDown: () => shuttingDown,
   });
@@ -1187,8 +1219,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info("shutdown signal received", { signal });
-    stopLiveStreams();
-
+${liveStream ? "    stopLiveStreams();\n" : ""}
     const forceExit = setTimeout(() => {
       logger.error("shutdown timeout — forcing exit");
       process.exit(1);
@@ -1201,8 +1232,7 @@ async function main() {
           closeServer(httpServer),
           closeServer(metricsServer),
           drainRevalidations(config.revalidationDrainTimeoutMs),
-          drainBotAnalytics(),
-        ]);
+${botAnalytics ? "          drainBotAnalytics(),\n" : ""}        ]);
         // Drain work may issue gateway requests; close its shared pool last.
         await closeGatewayTransport();
         await closeCache();
@@ -1235,6 +1265,336 @@ main().catch(async (err) => {
     logError(shutdownError, { msg: "instrumentation shutdown failed after startup error" });
   });
   process.exit(1);
+});
+`;
+
+const redirectRulesMiddlewareFile =
+  () => `import { gatewayFetch, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
+import { readGatewayJson } from "@originloom/core/gateway-payload";
+import { logger } from "@originloom/core/logger";
+import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
+import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
+import { isRecord } from "@originloom/shared/lib/runtime-schema";
+import { GatewayContracts } from "@server/services/gateway-contracts";
+
+/**
+ * Asks a service what to do with the URL a visitor asked for, before the page is
+ * matched: it either names a destination, or says to carry on.
+ *
+ * Why a service instead of src/routing/rules.ts: those rules ship with a deploy.
+ * These come from whoever curates the site's history — a CMS, an SEO tool — and
+ * change without one.
+ */
+export const redirectRulesMiddleware = defineMiddleware({
+  name: "redirect-rules",
+  // Nothing has read a token or written a cookie yet: a URL that moved should not
+  // cost a session refresh on the way to a 301.
+  phase: "before-auth",
+  // Every document, and only documents. An endpoint is not a page and has no
+  // redirect rules to look up, so it must not pay for this call.
+  matcher: ["/:path*"],
+  exclude: ["/api/:path*"],
+  handler: async (ctx) => {
+    const rule = await decide(ctx.url, ctx.request.signal);
+    // No rule is the common case: return nothing and the request carries on to
+    // auth, session and the route it was always going to render.
+    return rule ? { redirect: rule } : undefined;
+  },
+});
+
+/** The closed set a redirect may carry; anything else the service invents is not obeyed. */
+const REDIRECT_STATUS = [301, 302, 303, 307, 308] as const;
+
+/**
+ * One lookup per URL per minute, not one per request. Without this every page
+ * view pays a gateway round trip before it may render — the platform's own CMS
+ * redirect step caches for the same reason (REDIRECT_CACHE_TTL_MS).
+ */
+const CACHE_TTL_MS = 60_000;
+const CACHE_MAX_ENTRIES = 1_000;
+const cache = new Map<string, { value: MiddlewareRedirect | null; expiresAt: number }>();
+
+async function decide(url: URL, signal: AbortSignal): Promise<MiddlewareRedirect | null> {
+  const key = url.pathname;
+  const hit = cache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+
+  try {
+    const response = await gatewayFetch(
+      \`/routing/decide?url=\${encodeURIComponent(url.toString())}\`,
+      { signal },
+    );
+    if (!response.ok) {
+      await releaseGatewayResponse(response);
+      // An unanswered lookup is not "no rule": do not cache it as one.
+      return null;
+    }
+    const payload = await readGatewayJson(
+      response,
+      GatewayContracts.routing,
+      "Routing gateway returned an invalid payload",
+    );
+    return remember(key, parseDecision(payload));
+  } catch (error) {
+    // The deadline is the platform's to answer; everything else fails open,
+    // because a routing service being down must not take the site down with it.
+    if (isRequestDeadlineError(signal.reason)) throw signal.reason;
+    if (isRequestDeadlineError(error)) throw error;
+    logger.warn("routing decision unavailable", {
+      pathname: url.pathname,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+/** Gateway JSON is untrusted input: a status it invents must never reach a Response. */
+function parseDecision(payload: unknown): MiddlewareRedirect | null {
+  if (!isRecord(payload) || payload.action !== "redirect") return null;
+  if (typeof payload.location !== "string" || !sameSite(payload.location)) return null;
+  const status = REDIRECT_STATUS.find((allowed) => allowed === payload.status) ?? 307;
+  return { location: payload.location, status };
+}
+
+/**
+ * Same-site destinations only. A rules service that can point visitors at any
+ * host is an open redirect with a nice API; sending them off-site is a decision
+ * this app should make on purpose, against a list it owns.
+ */
+function sameSite(location: string): boolean {
+  return (
+    location.startsWith("/") && !location.startsWith("//") && location.length <= 2_048
+  );
+}
+
+function remember(key: string, value: MiddlewareRedirect | null): MiddlewareRedirect | null {
+  if (!cache.has(key) && cache.size >= CACHE_MAX_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  return value;
+}
+`;
+
+const middlewareIndex = () => `import type { OriginMiddleware } from "@originloom/core/middleware";
+
+import { maintenanceMiddleware } from "./maintenance";
+import { redirectRulesMiddleware } from "./redirect-rules";
+import { searchIndexingMiddleware } from "./search-indexing";
+
+/**
+ * This app's middleware, in the order they run inside their phase.
+ *
+ * The platform's own steps — auth, session, CMS redirects — are not in this list
+ * and cannot be reordered. A middleware only declares whether it belongs before
+ * them ("before-auth") or after them ("before-render", the default).
+ *
+ * They run on document requests. Mounted API routes are not covered: give those
+ * a Hono app.use() inside server/api/index.ts.
+ */
+export const productMiddleware: readonly OriginMiddleware[] = [
+  maintenanceMiddleware,
+  redirectRulesMiddleware,
+  searchIndexingMiddleware,
+];
+`;
+
+const maintenanceMiddlewareFile =
+  () => `import { defineMiddleware } from "@originloom/core/middleware";
+
+/**
+ * Planned maintenance, decided per request rather than at import time: an
+ * operator flips the env on the running deployment and the very next request
+ * sees it, without waiting for a rollout.
+ *
+ * It sits in "before-auth" because a closed site should not be refreshing
+ * tokens, writing session cookies or calling the gateway on the way to a 503.
+ */
+export const maintenanceMiddleware = defineMiddleware({
+  name: "maintenance",
+  phase: "before-auth",
+  handler: () => {
+    const retryAfter = maintenanceState();
+    if (retryAfter === null) return;
+    return { response: maintenanceResponse(retryAfter) };
+  },
+});
+
+/** Seconds to ask clients to wait, or null when the site is open. */
+function maintenanceState(): number | null {
+  const flag = process.env.MAINTENANCE_MODE?.trim().toLowerCase();
+  if (flag !== "1" && flag !== "true") return null;
+  const retryAfter = Number(process.env.MAINTENANCE_RETRY_AFTER_SECONDS ?? 120);
+  return Number.isInteger(retryAfter) && retryAfter > 0 ? retryAfter : 120;
+}
+
+function maintenanceResponse(retryAfterSeconds: number): Response {
+  return new Response(maintenancePage(), {
+    status: 503,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "retry-after": String(retryAfterSeconds),
+      // A 503 is heuristically cacheable. Nothing in front of the app may keep
+      // serving it after maintenance ends.
+      "cache-control": "private, no-store",
+    },
+  });
+}
+
+function maintenancePage(): string {
+  return (
+    "<!DOCTYPE html>" +
+    '<html lang="tr">' +
+    '<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>' +
+    "<title>Bakım çalışması</title></head>" +
+    '<body><main style="max-width:480px;margin:4rem auto;font-family:system-ui">' +
+    "<h1>Kısa bir bakım çalışması yapıyoruz</h1>" +
+    "<p>Site birazdan tekrar açılacak. Lütfen daha sonra yeniden deneyin.</p>" +
+    "</main></body></html>"
+  );
+}
+`;
+
+const searchIndexingMiddlewareFile = () => `import { config } from "@originloom/core/config";
+import { defineMiddleware } from "@originloom/core/middleware";
+
+/**
+ * Keep non-production deployments out of search results.
+ *
+ * robots.txt cannot do this job alone: it asks crawlers not to fetch a page, not
+ * to drop one they already know. X-Robots-Tag travels with every document
+ * response, including the ones a crawler reached from an external link, and it
+ * is a response header rather than markup, so one cached HTML body stays correct
+ * for every environment that serves it.
+ */
+export const searchIndexingMiddleware = defineMiddleware({
+  name: "search-indexing",
+  handler: () => {
+    if (config.appEnv === "production") return;
+    return { responseHeaders: { "x-robots-tag": "noindex, nofollow" } };
+  },
+});
+`;
+
+const middlewareTest = () => `import type {
+  MiddlewareContext,
+  MiddlewareResult,
+  OriginMiddleware,
+} from "@originloom/core/middleware";
+import { maintenanceMiddleware } from "@server/middleware/maintenance";
+import { redirectRulesMiddleware } from "@server/middleware/redirect-rules";
+import { searchIndexingMiddleware } from "@server/middleware/search-indexing";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetch: vi.fn(), releaseGatewayResponse: vi.fn() }));
+
+vi.mock("@originloom/core/adapters/gateway", () => ({
+  gatewayFetch: mocks.gatewayFetch,
+  releaseGatewayResponse: mocks.releaseGatewayResponse,
+}));
+vi.mock("@originloom/core/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+/** A middleware is a function of its context — build one and call it directly. */
+function context(url = "http://app.local/"): MiddlewareContext {
+  const request = new Request(url);
+  const parsed = new URL(url);
+  return {
+    request,
+    url: parsed,
+    publicPath: parsed.pathname,
+    params: {},
+    clientIp: "127.0.0.1",
+    values: {},
+    cookie: () => undefined,
+    header: (name) => request.headers.get(name) ?? undefined,
+  };
+}
+
+/** A handler may return nothing at all, so the "did nothing" case is narrowed once here. */
+async function run(middleware: OriginMiddleware, ctx = context()) {
+  return (await middleware.handler(ctx)) as MiddlewareResult | undefined;
+}
+
+describe("maintenance middleware", () => {
+  afterEach(() => {
+    delete process.env.MAINTENANCE_MODE;
+    delete process.env.MAINTENANCE_RETRY_AFTER_SECONDS;
+  });
+
+  it("stays out of the way while the site is open", async () => {
+    expect(await run(maintenanceMiddleware)).toBeUndefined();
+  });
+
+  it("closes the site with a retry hint no cache may keep", async () => {
+    process.env.MAINTENANCE_MODE = "1";
+    process.env.MAINTENANCE_RETRY_AFTER_SECONDS = "300";
+
+    const result = await run(maintenanceMiddleware);
+
+    expect(result?.response?.status).toBe(503);
+    expect(result?.response?.headers.get("retry-after")).toBe("300");
+    expect(result?.response?.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
+
+describe("search indexing middleware", () => {
+  it("keeps a non-production deployment out of the index", async () => {
+    // Tests never run with APP_ENV=production, so this is the off-production path.
+    const result = await run(searchIndexingMiddleware);
+
+    expect(result?.responseHeaders?.["x-robots-tag"]).toBe("noindex, nofollow");
+  });
+});
+
+describe("redirect rules middleware", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.releaseGatewayResponse.mockResolvedValue(undefined);
+  });
+
+  // Each case uses its own path: the middleware caches a decision per pathname.
+  it("obeys a destination the service names", async () => {
+    mocks.gatewayFetch.mockResolvedValue(
+      Response.json({ action: "redirect", location: "/catalog", status: 301 }),
+    );
+
+    const result = await run(redirectRulesMiddleware, context("http://app.local/moved"));
+
+    expect(result?.redirect).toEqual({ location: "/catalog", status: 301 });
+    expect(mocks.gatewayFetch).toHaveBeenCalledWith(
+      "/routing/decide?url=" + encodeURIComponent("http://app.local/moved"),
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+  });
+
+  it("carries on when the service says next", async () => {
+    mocks.gatewayFetch.mockResolvedValue(Response.json({ action: "next" }));
+
+    expect(await run(redirectRulesMiddleware, context("http://app.local/stays"))).toBeUndefined();
+  });
+
+  it("refuses a destination that would send visitors off-site", async () => {
+    mocks.gatewayFetch.mockResolvedValue(
+      Response.json({ action: "redirect", location: "https://evil.example/x" }),
+    );
+
+    expect(await run(redirectRulesMiddleware, context("http://app.local/offsite"))).toBeUndefined();
+  });
+
+  it("renders the page when the routing service is down", async () => {
+    mocks.gatewayFetch.mockRejectedValue(new Error("connect ECONNREFUSED"));
+
+    expect(await run(redirectRulesMiddleware, context("http://app.local/down"))).toBeUndefined();
+  });
+
+  it("does not spend a lookup on the API surface", () => {
+    // The matcher is the guard: an endpoint is not a page and has no rule.
+    expect(redirectRulesMiddleware.matcher).toEqual(["/:path*"]);
+    expect(redirectRulesMiddleware.exclude).toEqual(["/api/:path*"]);
+  });
 });
 `;
 
@@ -4070,6 +4430,7 @@ ${
 | \`src/islands/\`            | Client etkileşim noktaları; dosya adı island adıdır                       |
 | \`src/lib/cache-keys.ts\`   | Cache registry, vary parçaları ve purge transport codec'i                 |
 | \`src/routing/rules.ts\`    | Static redirect, internal rewrite ve explicit proxy kuralları             |
+| \`server/middleware/\`      | Uygulamanın kendi request kuralları: bakım modu, indeksleme, locale       |
 | \`docs/\`                   | Özellik envanteri ve production karar rehberleri                          |
 | \`.originloom/project.json\` | Template sürümü, renderer, mode ve uygulanmış migration kimlikleri        |
 
@@ -4102,6 +4463,7 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 - [Dynamic shell](docs/dynamic-shell.md)
 - [Background workers](docs/background-workers.md)
 - [Redirect, rewrite ve proxy](docs/routing.md)
+- [Middleware](docs/middleware.md)
 - [Streaming ve SSE](docs/streaming.md)
 - [SEO](docs/seo.md)
 - [Observability](docs/observability.md)
@@ -4271,6 +4633,13 @@ ${
 ]);`
     : ""
 }
+// Answers server/middleware/redirect-rules.ts: "here is the URL a visitor asked
+// for — is it still a page, or does it move somewhere?" Keyed by path so a rule
+// is not defeated by whatever query string the visitor arrived with.
+const ROUTING_DECISIONS = new Map([
+  ["/eski-katalog", { action: "redirect", location: "/catalog?source=rules", status: 301 }],
+  ["/kampanya", { action: "redirect", location: "/catalog?source=campaign", status: 307 }],
+]);
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", \`http://\${req.headers.host ?? "localhost"}\`);
@@ -4299,6 +4668,19 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/menu") return json(res, 200, MENU);
+
+  // The product's own routing rules. It always answers: "next" is a decision,
+  // not a missing one, so the middleware never has to read 404 as consent.
+  if (url.pathname === "/routing/decide") {
+    const target = url.searchParams.get("url") ?? "";
+    let pathname;
+    try {
+      pathname = new URL(target).pathname;
+    } catch {
+      return json(res, 400, { error: "invalid_url" });
+    }
+    return json(res, 200, ROUTING_DECISIONS.get(pathname) ?? { action: "next" });
+  }
 
 ${
   includeRoutingExamples
@@ -4418,6 +4800,7 @@ export const GatewayContracts = {
   items: defineGatewayContract("items", 262_144),
   menu: defineGatewayContract("menu", 32_768),
   profile: defineGatewayContract("profile", 16_384),
+  routing: defineGatewayContract("routing", 4_096),
 } as const;
 `;
 

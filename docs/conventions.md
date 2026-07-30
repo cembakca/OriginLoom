@@ -974,20 +974,71 @@ Loader'ı React Query ile değiştirme — HTML cache mimarisi bozulur.
 
 Next.js `middleware.ts` karşılığı: [`packages/origin-core/src/middleware/pipeline.ts`](../packages/origin-core/src/middleware/pipeline.ts)
 
-**Sıra:** auth → session/tracking → CMS redirect → (handler) static rules.ts → SSR
+**Sıra:** ürün `before-auth` → auth → session/tracking → CMS redirect → ürün `before-render` →
+(handler) static rules.ts → SSR
 
-| Adım           | Dosya                                                    | Ne yapar                                             |
-| -------------- | -------------------------------------------------------- | ---------------------------------------------------- |
-| Auth           | `packages/origin-core/src/middleware/steps/auth/`        | Token oku/yenile, `Authorization` inject, cookie yaz |
-| Session        | `packages/origin-core/src/middleware/steps/session/`     | gclid/utm/theme → cookie, tracking UUID              |
-| CMS redirect   | `packages/origin-core/src/middleware/steps/redirection/` | GW redirect map, 410/301                             |
-| Static routing | `apps/showroom/src/routing/rules.ts`                     | Config redirect/rewrite/proxy                        |
-| SSR loader     | `apps/showroom/server/services/*` + gateway adapter      | GW'ye token ile istek                                |
+| Adım                 | Dosya                                                    | Ne yapar                                             |
+| -------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| Ürün (before-auth)   | `apps/showroom/server/middleware/`                       | Bakım modu, tenant, geo — token/cookie yazılmadan    |
+| Auth                 | `packages/origin-core/src/middleware/steps/auth/`        | Token oku/yenile, `Authorization` inject, cookie yaz |
+| Session              | `packages/origin-core/src/middleware/steps/session/`     | gclid/utm/theme → cookie, tracking UUID              |
+| CMS redirect         | `packages/origin-core/src/middleware/steps/redirection/` | GW redirect map, 410/301                             |
+| Ürün (before-render) | `apps/showroom/server/middleware/`                       | Locale, deney, flag, response header                 |
+| Static routing       | `apps/showroom/src/routing/rules.ts`                     | Config redirect/rewrite/proxy                        |
+| SSR loader           | `apps/showroom/server/services/*` + gateway adapter      | GW'ye token ile istek                                |
 
-### Matcher (2 seviye)
+### Ürün middleware'i
+
+Platform adımlarının sırası sabittir; ürün kendi adımlarını `createApp({ middleware })` ile verir.
+Public kontrat: [`@originloom/core/middleware`](../packages/origin-core/src/middleware/index.ts).
+
+```ts
+// apps/showroom/server/middleware/locale.ts
+import { defineMiddleware } from "@originloom/core/middleware";
+
+export const localeMiddleware = defineMiddleware({
+  name: "locale",
+  matcher: ["/urunler/:slug"], // opsiyonel
+  handler: (ctx) => {
+    const locale = ctx.cookie("locale") ?? "tr";
+    return { requestHeaders: { "x-locale": locale }, values: { locale } };
+  },
+});
+```
+
+Handler dönüşü: `response` / `redirect` (terminal), `requestHeaders`, `responseHeaders`, `cookies`,
+`values`, `cacheVary`.
+
+**Cache kuralı:** `values` içindeki her değer varsayılan olarak paylaşımlı HTML cache key'ini böler.
+Bir middleware sayfanın render'ını değiştiriyorsa, bir ziyaretçinin HTML'i diğerine servis edilemez.
+Yalnız çıktıyı kesinlikle etkilemeyen değerler `cacheVary: []` ile bu bölünmeden çıkarılır. Sınırsız
+değerli bir şeyi (kullanıcı id'si, arama terimi) `values`'a koymak, ziyaretçi başına bir cache entry
+demektir.
+
+Showroom'un örnekleri `apps/showroom/server/middleware/` altındadır: `maintenance` (env ile açılan
+terminal 503), `redirect-rules` (gelen URL'i gateway'in `/routing/decide` ucuna sorar; cevap
+`{ action: "redirect", location, status }` ise yönlendirir, `{ action: "next" }` ise hiçbir şey
+döndürmez) ve `search-indexing` (production dışı `X-Robots-Tag`). Generated template aynı üçünü
+gönderir; ikisi arasındaki fark yalnız fixture verisidir.
+
+`redirect-rules` bir servise gittiği için dört şeyi birlikte yapar ve kopyalanacak desen budur:
+`matcher` + `exclude` ile yalnız sayfalarda çalışmak, TTL'li bounded cache (yoksa her sayfa
+görüntüleme render'dan önce bir gateway turu öder), fail-open (yalnız request deadline yeniden
+fırlatılır) ve untrusted payload doğrulaması (status kapalı kümeden, hedef same-site — aksi halde
+kural servisi bir open redirect'e dönüşür).
+
+**Sınırlar:** middleware yalnız document istekleri için çalışır — `mounts.api` altında mount edilen
+route'lar bu pipeline'a girmez, oralarda Hono `app.use()` kullanılır. `authorization`, `cookie`,
+`x-pathname`, `x-client-ip` request header'ları platformundur ve yazılamaz; `set-cookie` yerine
+`cookies` alanı kullanılır. Handler fırlatırsa istek 500 döner (fail-open değil).
+
+### Matcher (3 seviye)
 
 1. **Hono mount** — `/assets/*`, `/healthz`, `/api/*` (internal hariç) pipeline'a girmez
 2. **`shouldRunPipeline(pathname)`** — static extension skip; `/api/internal/*` çalışır
+3. **Middleware `matcher` / `exclude`** — ürün adımı yalnız kendi pattern'lerinde çalışır (`:slug`,
+   `:path*`); `exclude` önce bakılır ve matcher'ı yener. Karşılığı olmayan `/api/internal/*` yolları
+   SSR fallback'ine düştüğü için, gateway'e giden bir middleware `exclude: ["/api/:path*"]` ister.
 
 ### Loader + gateway
 

@@ -9,6 +9,7 @@ import { setActiveHttpRoute, SpanKind, withSpan } from "../observability.js";
 import { proxyRequest } from "../proxy.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url.js";
 import { renderNotFoundDocument } from "../route-boundary.js";
+import { applyMiddlewareCacheVary } from "./cache-vary.js";
 import { createRouteContext } from "./context.js";
 import { htmlResponse, logRequest } from "./response.js";
 import type { HandleContext } from "./types.js";
@@ -83,9 +84,9 @@ export function resolveSsrRequest({
     context,
   );
   if (route.validateParams) {
-    return resolveValidatedRoute(route, routeCtx, assets, context.requestId, url, started);
+    return resolveValidatedRoute(route, routeCtx, assets, context, url, started);
   }
-  return resolvedRoute(route, routeCtx);
+  return resolvedRoute(route, routeCtx, context);
 }
 
 async function resolveProxyResponse(
@@ -105,16 +106,17 @@ async function resolveValidatedRoute(
   route: Route,
   routeCtx: Ctx,
   assets: Assets,
-  requestId: string | undefined,
+  context: HandleContext,
   url: URL,
   started: number,
 ): Promise<ResolvedSsrRequest> {
-  if (await validateParams(route, routeCtx)) return resolvedRoute(route, routeCtx);
-  return resolveNotFoundResponse(assets, routeCtx, requestId, url, started, route);
+  if (await validateParams(route, routeCtx)) return resolvedRoute(route, routeCtx, context);
+  return resolveNotFoundResponse(assets, routeCtx, context.requestId, url, started, route);
 }
 
-function resolvedRoute(route: Route, routeCtx: Ctx): ResolvedSsrRequest {
-  const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };
+function resolvedRoute(route: Route, routeCtx: Ctx, context: HandleContext): ResolvedSsrRequest {
+  const declared = route.cache?.(routeCtx) ?? { kind: "none" as const };
+  const policy = applyMiddlewareCacheVary(declared, context);
   return { kind: "route", route, routeCtx, policy, cacheKey: cache.cacheKey(policy) };
 }
 

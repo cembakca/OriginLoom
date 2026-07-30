@@ -24,5 +24,6 @@ export const GatewayContracts = {
   popularBlogs: defineGatewayContract("popular_blogs", 524_288),
   profile: defineGatewayContract("profile", 16_384),
   routeDomains: defineGatewayContract("route_domains", 65_536),
+  routing: defineGatewayContract("routing", 4_096),
   sitemap: defineGatewayContract("sitemap", 8_388_608),
 } as const;

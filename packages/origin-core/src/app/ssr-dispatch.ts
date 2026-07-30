@@ -7,7 +7,7 @@ import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from 
 import {
   finalizePipelineResponse,
   finalizeSsrResponse,
-  runPipeline,
+  type Pipeline,
   shouldUsePipeline,
 } from "../middleware/pipeline.js";
 import { contextRequest } from "../middleware/request-deadline.js";
@@ -24,6 +24,7 @@ type SsrDispatchOptions = {
   routes: Route[];
   capacity: Capacity;
   isShuttingDown: () => boolean;
+  pipeline: Pipeline;
 };
 
 export function createSsrDispatch({
@@ -31,6 +32,7 @@ export function createSsrDispatch({
   routes,
   capacity,
   isShuttingDown,
+  pipeline,
 }: SsrDispatchOptions): Handler<{ Variables: AppVariables }> {
   return async (c) => {
     if (isShuttingDown()) return c.text("shutting down", 503);
@@ -62,6 +64,7 @@ export function createSsrDispatch({
         pathname,
         routes,
         assets,
+        pipeline,
         ...stripUndefined({ preparedRequest }),
       });
 
@@ -84,6 +87,7 @@ async function executeRequest(options: {
   pathname: string;
   routes: Route[];
   assets: Assets;
+  pipeline: Pipeline;
   preparedRequest?: NonNullable<AppVariables["preparedRequest"]>;
 }): Promise<Response> {
   const {
@@ -95,6 +99,7 @@ async function executeRequest(options: {
     pathname,
     routes,
     assets,
+    pipeline: runPipeline,
     preparedRequest,
   } = options;
   const context = {
@@ -120,7 +125,11 @@ async function executeRequest(options: {
 
   const handleContext = {
     ...context,
-    ...stripUndefined({ trackingId: pipeline.trackingId }),
+    ...stripUndefined({
+      trackingId: pipeline.trackingId,
+      values: pipeline.values,
+      cacheVary: pipeline.cacheVary,
+    }),
   };
   const ssr =
     method === "HEAD"

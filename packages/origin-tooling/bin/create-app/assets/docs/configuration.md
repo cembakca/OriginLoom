@@ -22,6 +22,8 @@ Başlıca kapasite grupları:
 - Stream: `LIVE_STREAM_MAX_CONNECTIONS`, `LIVE_STREAM_MAX_CONNECTIONS_PER_IP`,
   `LIVE_STREAM_MAX_DURATION_MS`, `LIVE_STREAM_HEARTBEAT_MS`.
 - Proxy trust: `TRUST_PROXY`, `TRUSTED_PROXY_HOPS`, `TRUSTED_PROXY_CIDRS`.
+- Middleware: `MAINTENANCE_MODE`, `MAINTENANCE_RETRY_AFTER_SECONDS` (bkz. `docs/middleware.md`).
+  Bakım bayrağı her istekte okunur; çalışan deployment'ta değiştirildiğinde rollout beklemez.
 - Delivery: `HTTP_COMPRESSION_THRESHOLD_BYTES`, `ASSET_CDN_URL`, `IMAGE_CDN_URL`,
   `IMAGE_TRANSFORM_URL`.
 - Security/telemetry: `CSP_ENFORCE`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`,

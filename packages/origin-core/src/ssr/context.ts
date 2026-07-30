@@ -19,6 +19,7 @@ export function createRouteContext(
     siteUrl: config.siteUrl,
     ...(ctx.trackingId !== undefined ? { trackingId: ctx.trackingId } : {}),
     ...(ctx.cspNonce !== undefined ? { cspNonce: ctx.cspNonce } : {}),
+    ...(ctx.values !== undefined ? { values: ctx.values } : {}),
   };
 }
 

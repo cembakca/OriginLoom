@@ -42,6 +42,11 @@ export type Ctx = {
   siteUrl?: string;
   /** Set by session middleware when pipeline runs. */
   trackingId?: string;
+  /**
+   * Values published by product middleware for this request — locale, tenant,
+   * experiment bucket. Present only for the paths that middleware ran on.
+   */
+  values?: Readonly<Record<string, string>>;
   /** Per-response CSP nonce for React streaming runtime scripts. */
   cspNonce?: string;
 };

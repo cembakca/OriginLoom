@@ -10,6 +10,7 @@ import { logError, logger } from "../logger.js";
 import { setActiveHttpRoute } from "../observability.js";
 import { proxyRequest } from "../proxy.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url.js";
+import { applyMiddlewareCacheVary } from "./cache-vary.js";
 import { createRouteContext, rethrowRequestDeadline } from "./context.js";
 import { runLoader } from "./execute-route.js";
 import {
@@ -64,7 +65,7 @@ export async function handleHead(
       return headResponse(404, { kind: "none" }, "BYPASS", undefined, requestId);
     }
     const { route } = matched;
-    const policy = route.cache?.(routeCtx) ?? { kind: "none" as const };
+    const policy = applyMiddlewareCacheVary(route.cache?.(routeCtx) ?? { kind: "none" }, ctx);
     const key = cache.cacheKey(policy);
 
     if (key) {

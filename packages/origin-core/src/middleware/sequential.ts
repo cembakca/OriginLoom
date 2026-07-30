@@ -8,6 +8,12 @@ function mergeAcc(current: PipelineResult, patch: Partial<PipelineResult>): Pipe
   }
   if (patch.request) current.request = patch.request;
   if (patch.trackingId) current.trackingId = patch.trackingId;
+  if (patch.values) current.values = { ...current.values, ...patch.values };
+  if (patch.cacheVary) {
+    // Union, never intersection: once a value is declared to change the rendered
+    // HTML, a later step may not quietly un-declare it and share the cache entry.
+    current.cacheVary = [...new Set([...(current.cacheVary ?? []), ...patch.cacheVary])];
+  }
   if (patch.response) current.response = patch.response;
   return current;
 }

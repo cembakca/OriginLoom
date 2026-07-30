@@ -179,11 +179,17 @@ SSR HTML istekleri için çalışır. Sıralı, birikimli (accumulator pattern) 
 
 ```
 Request
-  └─► authStep        (token okur, refresh eder, Authorization inject eder)
-        └─► sessionStep   (tracking ID, UTM cookie'leri, bot detection)
-              └─► redirectionStep  (DB'den redirect kuralı varsa 301/410 döner)
-                    └─► handle()  [SSR]
+  └─► before-auth middleware   (ürünün kendi kuralları: bakım modu, tenant, geo)
+        └─► authStep        (token okur, refresh eder, Authorization inject eder)
+              └─► sessionStep   (tracking ID, UTM cookie'leri, bot detection)
+                    └─► redirectionStep  (DB'den redirect kuralı varsa 301/410 döner)
+                          └─► before-render middleware  (locale, deney, flag, header)
+                                └─► handle()  [SSR]
 ```
+
+Platform adımlarının sırası sabittir ve ürün tarafından değiştirilemez. Ürün, kendi adımlarını
+`createApp({ middleware })` ile verir; hangi tarafta duracağını `phase` alanı belirler. Public
+kontrat `@originloom/core/middleware` altındadır (`defineMiddleware`); `pipeline.ts` internal kalır.
 
 **Adım tipi:**
 

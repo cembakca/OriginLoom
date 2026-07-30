@@ -170,7 +170,11 @@ function project({ version, metadata }) {
             "0.5.17-eslint-10",
             "0.5.18-vitest-scope",
             ...(version === TOOLING_VERSION
-              ? ["0.5.34-react-quality-security", "0.5.35-route-build-manifest"]
+              ? [
+                  "0.5.34-react-quality-security",
+                  "0.5.35-route-build-manifest",
+                  "0.5.36-product-middleware",
+                ]
               : []),
           ],
         },

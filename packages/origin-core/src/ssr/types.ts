@@ -9,6 +9,10 @@ export type HandleContext = {
   clientIp?: string;
   cspNonce?: string;
   preparedRequest?: PreparedRequest;
+  /** Values published by product middleware for this request. */
+  values?: Record<string, string>;
+  /** Which of those values fragment the shared HTML cache key. */
+  cacheVary?: readonly string[];
 };
 
 export type RenderPhase = "request" | "revalidation" | "cache_fill";

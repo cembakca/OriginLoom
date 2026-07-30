@@ -222,7 +222,7 @@ değil, ulaşamayacağı bir yerel adrese gider ve hata alır.
 seçilmesi zorunlu (§5).
 
 **core'da küratlı export.** `ssr/*`, `cache/cold-fill`, `middleware/pipeline`, `app/*`, `document/*`
-gibi 21 iç modül `exports` içinde `null` hedefiyle kapatıldı. Node en spesifik eşleşmeyi seçtiği
+gibi 22 iç modül `exports` içinde `null` hedefiyle kapatıldı. Node en spesifik eşleşmeyi seçtiği
 için `"./*"` wildcard'ı durmaya devam ediyor ama bunlar dışarı açılmıyor. Sebep: yayınlanan her
 alt yol taahhüttür; iç boru hattını sonradan değiştirmek breaking release olurdu.
 `packages/origin-core/tests/public-api.test.ts` iki export haritasının aynı şeyi kapattığını ve

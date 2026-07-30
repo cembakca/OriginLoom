@@ -9,6 +9,7 @@ export const ESLINT_10_MIGRATION = "0.5.17-eslint-10";
 export const VITEST_SCOPE_MIGRATION = "0.5.18-vitest-scope";
 export const REACT_QUALITY_SECURITY_MIGRATION = "0.5.34-react-quality-security";
 export const ROUTE_BUILD_MANIFEST_MIGRATION = "0.5.35-route-build-manifest";
+export const PRODUCT_MIDDLEWARE_MIGRATION = "0.5.36-product-middleware";
 
 export const migrations = [
   {
@@ -72,6 +73,12 @@ export const migrations = [
     introducedIn: "0.5.35",
     description:
       "Build discovers the real route registry and emits a route/cache/routing manifest; cache metadata adoption is optional for existing apps.",
+  },
+  {
+    id: PRODUCT_MIDDLEWARE_MIGRATION,
+    introducedIn: "0.5.36",
+    description:
+      "Apps can register their own document middleware via createApp({ middleware }); adding server/middleware/ to an existing app is optional.",
   },
 ];
 

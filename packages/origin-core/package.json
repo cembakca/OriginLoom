@@ -1,6 +1,6 @@
 {
   "name": "@originloom/core",
-  "version": "0.5.35",
+  "version": "0.5.36",
   "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics — with no UI framework of its own.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -30,12 +30,14 @@
     "./metrics/runtime": null,
     "./middleware/context": null,
     "./middleware/pipeline": null,
+    "./middleware/product": null,
     "./middleware/static-assets": null,
     "./middleware/steps/auth/refresh-result": null,
     "./middleware/steps/redirection/gone": null,
     "./public-url": null,
     "./ssr/*": null,
     "./cache": "./src/cache/index.ts",
+    "./middleware": "./src/middleware/index.ts",
     "./middleware/steps/auth": "./src/middleware/steps/auth/index.ts",
     "./middleware/steps/redirection": "./src/middleware/steps/redirection/index.ts",
     "./middleware/steps/session": "./src/middleware/steps/session/index.ts",
@@ -73,6 +75,7 @@
       "./metrics/runtime": null,
       "./middleware/context": null,
       "./middleware/pipeline": null,
+      "./middleware/product": null,
       "./middleware/static-assets": null,
       "./middleware/steps/auth/refresh-result": null,
       "./middleware/steps/redirection/gone": null,
@@ -81,6 +84,10 @@
       "./cache": {
         "types": "./dist/cache/index.d.ts",
         "default": "./dist/cache/index.js"
+      },
+      "./middleware": {
+        "types": "./dist/middleware/index.d.ts",
+        "default": "./dist/middleware/index.js"
       },
       "./middleware/steps/auth": {
         "types": "./dist/middleware/steps/auth/index.d.ts",
