@@ -104,6 +104,19 @@ describe("gateway identity", () => {
     expect(headers.get("x-device-type")).toBe("Desktop");
   });
 
+  it("reports the id the session step minted, on the visit that mints it", async () => {
+    // A visitor's first request has no cookie yet — it is created in the
+    // response. Without the header the session step publishes, the very requests
+    // that create a visitor would reach the gateway anonymous.
+    const firstVisit = new Request("http://app.local/urunler", {
+      headers: { "x-originloom-tracking-id": "5c0ffee0-1111-4222-8333-444455556666" },
+    });
+
+    await gatewayFetchWithIdentity(firstVisit, "/menu");
+
+    expect(sentHeaders().get("x-user-tracking-id")).toBe("5c0ffee0-1111-4222-8333-444455556666");
+  });
+
   it("uses the header names the gateway expects", async () => {
     configureGatewayIdentityHeaders({ userTrackingId: "X-Visitor-Id", deviceType: "X-Channel" });
 

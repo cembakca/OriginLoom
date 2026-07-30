@@ -5,7 +5,7 @@ import type { MiddlewareStep } from "../../types.js";
 import { renderGonePage } from "./gone.js";
 
 export const redirectionStep: MiddlewareStep = async (ctx, acc) => {
-  const rule = await lookupRedirect(ctx.publicPath, acc.request.signal);
+  const rule = await lookupRedirect(ctx.publicPath, acc.request);
   if (!rule) return;
 
   if (rule.kind === "gone") {

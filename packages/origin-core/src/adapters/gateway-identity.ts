@@ -33,6 +33,14 @@ const DEFAULT_HEADER_NAMES: GatewayIdentityHeaderNames = {
   deviceType: "x-device-type",
 };
 
+/**
+ * Where the session step publishes the tracking id it resolved for this request.
+ *
+ * Internal to the pipeline and never sent upstream: the outgoing name is
+ * whatever `configureGatewayIdentityHeaders` says.
+ */
+export const RESOLVED_TRACKING_ID_HEADER = "x-originloom-tracking-id";
+
 let headerNames: GatewayIdentityHeaderNames = DEFAULT_HEADER_NAMES;
 
 /** Override the header names when the gateway expects its own. */
@@ -53,7 +61,11 @@ export function gatewayIdentityHeaderNames(): GatewayIdentityHeaderNames {
  * rather than inventing one.
  */
 export function readGatewayIdentity(request: Request): GatewayIdentity {
-  const trackingId = cookie(request, Cookie.userTrackingId);
+  // The session step overwrites this header on the request it hands downstream,
+  // so a client cannot forge it — and it is the only place the id exists on a
+  // visitor's first request, where the cookie is still only in the response.
+  const trackingId =
+    request.headers.get(RESOLVED_TRACKING_ID_HEADER) ?? cookie(request, Cookie.userTrackingId);
   const clientIp = request.headers.get("x-client-ip") ?? undefined;
   return {
     ...(trackingId ? { userTrackingId: trackingId } : {}),
