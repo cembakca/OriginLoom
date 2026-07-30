@@ -135,9 +135,11 @@ export function renderTemplates({
           "server/middleware/locale.ts": localeMiddlewareFile(),
           "src/lib/i18n/config.ts": i18nConfig(locales, defaultLocale),
           "src/lib/i18n/messages.ts": i18nMessages(locales),
+          "src/lib/i18n/context.tsx": localeContext(),
           "src/components/layout/language-switcher.tsx": languageSwitcher(),
           "tests/i18n.test.ts": i18nTest(),
           "docs/i18n.md": asset("docs/i18n.md"),
+          "e2e/i18n.spec.ts": i18nE2e(),
         }
       : {}),
     "server/api/index.ts": apiIndex(),
@@ -169,7 +171,7 @@ export function renderTemplates({
     "server/routes/item-detail.tsx": itemDetailRoute(),
     "server/routes/account.tsx": accountRoute(),
     "server/routes/contact.tsx": contactRoute(),
-    "src/features/contact/contact-page.tsx": contactPage(),
+    "src/features/contact/contact-page.tsx": contactPage(i18n),
     "server/routes/live.tsx": liveRoute(),
     "server/services/shell-data.ts": serverShellData(),
     "server/services/menu.ts": menuService(),
@@ -209,6 +211,7 @@ export function renderTemplates({
     "src/features/items/item-detail-page.tsx": itemDetailPage(),
     "src/features/live/live-page.tsx": livePage(),
     "src/components/layout/root-layout.tsx": rootLayout(title, i18n),
+    "src/components/link.tsx": linkComponent(i18n),
     "src/components/ui/responsive-image.tsx": responsiveImageComponent(),
     "src/lib/shell-data.ts": libShellData(),
     "src/lib/cache-keys.ts": cacheKeys(i18n),
@@ -1883,9 +1886,25 @@ describe("menu data cache", () => {
 
     expect(mocks.gatewayFetch).toHaveBeenCalledWith("/menu");
     expect(mocks.write).toHaveBeenCalledWith(
-      "menu:public:v1",
+      "menu:public:v1\\0default",
       JSON.stringify(menu),
-      expect.objectContaining({ kind: "shared", key: ["menu:public:v1"] }),
+      expect.objectContaining({ kind: "shared", key: ["menu:public:v1", "default"] }),
+    );
+  });
+
+  it("asks and caches per language", async () => {
+    // The locale rides on the request header the locale middleware injects. It
+    // has to reach the key too: a cache that ignores it serves the first
+    // language that warmed it to every other one.
+    const english = new Request("http://app.local/", { headers: { "x-locale": "en" } });
+
+    await expect(getMenu(english)).resolves.toEqual(menu);
+
+    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/menu?locale=en");
+    expect(mocks.write).toHaveBeenCalledWith(
+      "menu:public:v1\\0en",
+      JSON.stringify(menu),
+      expect.objectContaining({ key: ["menu:public:v1", "en"] }),
     );
   });
 
@@ -2748,12 +2767,14 @@ export default defineRoute<Data>({
 
 const itemDetailPage = () => `import type { Item } from "@server/services/items";
 
+import { Link } from "~/components/link";
+
 export function ItemDetailPage({ data }: { data: { item: Item } }) {
   return (
     <div className="space-y-4">
-      <a className="text-sm text-slate-500 hover:underline" href="/catalog">
+      <Link className="text-sm text-slate-500 hover:underline" href="/catalog">
         ← Kataloğa dön
-      </a>
+      </Link>
       <h1 className="text-3xl font-bold tracking-tight text-slate-900">{data.item.name}</h1>
       <p className="max-w-2xl text-slate-600">{data.item.blurb}</p>
       <p className="text-sm text-slate-500">
@@ -2924,6 +2945,8 @@ export default defineRoute<Data>({
 const dataCachePage =
   () => `import type { FeaturedItemsResult } from "@server/services/featured-items";
 
+import { Link } from "~/components/link";
+
 type Props = { data: { apiData: FeaturedItemsResult; pageRenderedAt: string } };
 
 const CACHE_STATUS_LABEL = {
@@ -2971,9 +2994,9 @@ export function DataCachePage({ data }: Props) {
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-4">
           {data.apiData.items.map((item) => (
             <li key={item.slug} className="py-3">
-              <a className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
+              <Link className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
                 {item.name}
-              </a>
+              </Link>
               <p className="text-sm text-slate-500">{item.blurb}</p>
             </li>
           ))}
@@ -3035,6 +3058,8 @@ export default defineRoute<Data>({
 
 const catalogPage = () => `import type { Item } from "@server/services/items";
 
+import { Link } from "~/components/link";
+
 type Props = { data: { items: Item[]; page: number; totalPages: number } };
 
 export function CatalogPage({ data }: Props) {
@@ -3044,9 +3069,9 @@ export function CatalogPage({ data }: Props) {
       <ul className="divide-y divide-slate-100">
         {data.items.map((item) => (
           <li key={item.slug} className="py-3">
-            <a className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
+            <Link className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
               {item.name}
-            </a>
+            </Link>
             <p className="text-sm text-slate-500">{item.blurb}</p>
           </li>
         ))}
@@ -3223,39 +3248,52 @@ const FALLBACK_MENU: MenuItem[] = [
   { label: "Katalog", href: "/catalog" },
 ];
 const MENU_CACHE_KEY = "menu:public:v1";
-const MENU_CACHE_POLICY = {
+/**
+ * Chrome comes from the gateway, so it arrives in whatever language the gateway
+ * was asked for — and the language therefore belongs in the cache key. A
+ * single-language app has one entry under "default"; adding a language later
+ * needs no edit here, which is the point of keying it from the start.
+ */
+const menuCachePolicy = (locale: string) => ({
   kind: "shared" as const,
   ttl: productConfig.menuCacheTtl,
   swr: productConfig.menuCacheSwr,
-  key: [MENU_CACHE_KEY],
-};
-let refreshInFlight: Promise<MenuItem[]> | undefined;
-let parsedSnapshot: { body: string; menu: MenuItem[] } | undefined;
+  key: [MENU_CACHE_KEY, locale || "default"],
+});
+const refreshInFlight = new Map<string, Promise<MenuItem[]>>();
+const parsedSnapshots = new Map<string, { body: string; menu: MenuItem[] }>();
+
+/** Set by the locale middleware when the app serves more than one language. */
+function requestLocale(request: Request): string {
+  return request.headers.get("x-locale") ?? "";
+}
 
 /**
  * Public chrome data with read-through cache. Fresh entries return immediately;
  * stale entries return immediately and trigger one process-local refresh.
  */
 export function getMenu(request: Request): Promise<MenuItem[]> {
-  return memoizeRequestValue("gateway:menu:public", () => loadMenu(request));
+  const locale = requestLocale(request);
+  return memoizeRequestValue("gateway:menu:public:" + locale, () => loadMenu(request, locale));
 }
 
-async function loadMenu(request: Request): Promise<MenuItem[]> {
+async function loadMenu(request: Request, locale: string): Promise<MenuItem[]> {
   try {
-    const key = cache.cacheKey(MENU_CACHE_POLICY);
+    const key = cache.cacheKey(menuCachePolicy(locale));
     if (!key) throw new Error("Menu cache policy must be shared");
 
     const hit = await cache.read(key);
     if (hit) {
-      if (parsedSnapshot?.body === hit.body) {
-        if (hit.state === "stale") scheduleRefresh();
-        return parsedSnapshot.menu;
+      const snapshot = parsedSnapshots.get(locale);
+      if (snapshot?.body === hit.body) {
+        if (hit.state === "stale") scheduleRefresh(locale);
+        return snapshot.menu;
       }
       const cached = parseCachedMenu(hit.body);
       if (cached) {
         const menu = freezeMenu(cached);
-        parsedSnapshot = { body: hit.body, menu };
-        if (hit.state === "stale") scheduleRefresh();
+        parsedSnapshots.set(locale, { body: hit.body, menu });
+        if (hit.state === "stale") scheduleRefresh(locale);
         return menu;
       }
       // Old/corrupt values never poison future reads. A failed delete is harmless:
@@ -3267,7 +3305,7 @@ async function loadMenu(request: Request): Promise<MenuItem[]> {
       }
     }
 
-    return await waitForRequest(refreshMenu(key), request.signal);
+    return await waitForRequest(refreshMenu(locale, key), request.signal);
   } catch (error) {
     if (isRequestDeadlineError(error) || request.signal.aborted) throw error;
     logger.warn("menu degraded to local fallback", { error: errorMessage(error) });
@@ -3276,35 +3314,36 @@ async function loadMenu(request: Request): Promise<MenuItem[]> {
 }
 
 /** Single-flight refresh bounds cold-miss and stale-refresh pressure on the gateway. */
-function refreshMenu(key = cache.cacheKey(MENU_CACHE_POLICY)): Promise<MenuItem[]> {
-  if (refreshInFlight) return refreshInFlight;
+function refreshMenu(locale: string, key = cache.cacheKey(menuCachePolicy(locale))): Promise<MenuItem[]> {
+  const inFlight = refreshInFlight.get(locale);
+  if (inFlight) return inFlight;
   if (!key) return Promise.reject(new Error("Menu cache policy must be shared"));
 
-  const pending = fetchMenuFromGateway()
+  const pending = fetchMenuFromGateway(locale)
     .then(async (menu) => {
       const immutable = freezeMenu(menu);
       const body = JSON.stringify(immutable);
-      await cache.write(key, body, MENU_CACHE_POLICY);
-      parsedSnapshot = { body, menu: immutable };
+      await cache.write(key, body, menuCachePolicy(locale));
+      parsedSnapshots.set(locale, { body, menu: immutable });
       return immutable;
     })
     .finally(() => {
-      if (refreshInFlight === pending) refreshInFlight = undefined;
+      if (refreshInFlight.get(locale) === pending) refreshInFlight.delete(locale);
     });
-  refreshInFlight = pending;
+  refreshInFlight.set(locale, pending);
   return pending;
 }
 
-function scheduleRefresh(): void {
-  void refreshMenu().catch((error: unknown) => {
+function scheduleRefresh(locale: string): void {
+  void refreshMenu(locale).catch((error: unknown) => {
     // The stale value remains usable until staleUntil; the next stale request may retry.
     logger.warn("stale menu refresh failed", { error: errorMessage(error) });
   });
 }
 
-async function fetchMenuFromGateway(): Promise<MenuItem[]> {
+async function fetchMenuFromGateway(locale: string): Promise<MenuItem[]> {
   // Menu is public/cacheable, so never forward a caller's Authorization header.
-  const response = await gatewayFetch("/menu");
+  const response = await gatewayFetch(locale ? \`/menu?locale=\${encodeURIComponent(locale)}\` : "/menu");
   await requireGatewayOk(response, "Menu gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.menu, "Invalid menu payload");
   return requireGatewayPayload(GatewayContracts.menu, payload, isMenu, "Invalid menu payload");
@@ -3767,6 +3806,7 @@ export default function Counter({ start = 0 }: { start?: number }) {
 const homePage = () => `import { Island } from "@originloom/react/lib/island";
 import type { ResponsiveImageData } from "@originloom/shared/lib/media";
 
+import { Link } from "~/components/link";
 import { ResponsiveImage } from "~/components/ui/responsive-image";
 
 /**
@@ -3805,63 +3845,63 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
         <p className="text-sm text-slate-500">Her biri farklı bir platform yeteneğini gösterir:</p>
         <ul className="space-y-1 text-slate-700">
           <li>
-            <a className="hover:underline" href="/catalog">
+            <Link className="hover:underline" href="/catalog">
               /catalog
-            </a>{" "}
+            </Link>{" "}
             — sayfalı liste (query param cache key'de)
           </li>
           <li>
-            <a className="hover:underline" href="/items/alpha">
+            <Link className="hover:underline" href="/items/alpha">
               /items/:slug
-            </a>{" "}
+            </Link>{" "}
             — dinamik route, <code>validateParams</code> + <code>notFound()</code> + SEO
           </li>
           <li>
-            <a className="hover:underline" href="/old-catalog?source=home">
+            <Link className="hover:underline" href="/old-catalog?source=home">
               /old-catalog
-            </a>{" "}
+            </Link>{" "}
             — static <code>308</code> redirect; query korunur
           </li>
           <li>
-            <a className="hover:underline" href="/products/alpha?source=home">
+            <Link className="hover:underline" href="/products/alpha?source=home">
               /products/:slug
-            </a>{" "}
+            </Link>{" "}
             — URL değişmeden <code>/items/:slug</code> route'una rewrite
           </li>
           <li>
-            <a className="hover:underline" href="/legacy-catalog">
+            <Link className="hover:underline" href="/legacy-catalog">
               /legacy-catalog
-            </a>{" "}
+            </Link>{" "}
             — mock CMS redirect; <code>/removed-page</code> ise <code>410</code>
           </li>
           <li>
-            <a className="hover:underline" href="/account">
+            <Link className="hover:underline" href="/account">
               /account
-            </a>{" "}
+            </Link>{" "}
             — kişisel sayfa: <code>neverCache</code> + defer island
           </li>
           <li>
-            <a className="hover:underline" href="/data-cache">
+            <Link className="hover:underline" href="/data-cache">
               /data-cache
-            </a>{" "}
+            </Link>{" "}
             — HTML her istekte render edilir, public gateway verisi read-through cache'ten gelir
           </li>
           <li>
-            <a className="hover:underline" href="/live">
+            <Link className="hover:underline" href="/live">
               /live
-            </a>{" "}
+            </Link>{" "}
             — sunucu streaming (Suspense) + SSE island
           </li>
           <li>
-            <a className="hover:underline" href="/media">
+            <Link className="hover:underline" href="/media">
               /media
-            </a>{" "}
+            </Link>{" "}
             — görsel pipeline: responsive vs dönüşümsüz teslim, CDN durumu
           </li>
           <li>
-            <a className="hover:underline" href="/showcase">
+            <Link className="hover:underline" href="/showcase">
               /showcase
-            </a>{" "}
+            </Link>{" "}
             — bağımsız cache'lenen fragment
           </li>
         </ul>
@@ -3877,7 +3917,8 @@ const rootLayout = (
 ) => `import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
-${i18n ? 'import { LanguageSwitcher } from "~/components/layout/language-switcher";\n' : ""}import type { ShellData } from "~/lib/shell-data";
+${i18n ? 'import { LanguageSwitcher } from "~/components/layout/language-switcher";\n' : ""}import { Link } from "~/components/link";
+${i18n ? 'import { pageLocaleFromPath } from "~/lib/i18n/config";\nimport { LocaleProvider } from "~/lib/i18n/context";\n' : ""}import type { ShellData } from "~/lib/shell-data";
 
 export type RootLayoutProps = {
   shell: ShellData;
@@ -3890,22 +3931,28 @@ const SITE_NAME = "${title}";
 
 /** Application shell. Header/footer that need their own cache lifetime belong in fragments. */
 export function RootLayout({ shell, children }: RootLayoutProps) {
-  return (
+  ${
+    i18n
+      ? `// The locale of the page being rendered, read from the path the browser
+  // asked for. Everything below — links included — takes it from here.
+  const body = (`
+      : "return ("
+  }
     <div className="flex min-h-screen flex-col">
       {shell.minimalChrome ? null : (
         <header className="border-b border-slate-200">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-            <a href="/" className="text-lg font-semibold text-slate-900">
+            <Link href="/" className="text-lg font-semibold text-slate-900">
               {SITE_NAME}
-            </a>
+            </Link>
             <div className="flex items-center gap-6">
               <nav aria-label="Ana menü">
                 <ul className="flex gap-4 text-sm text-slate-600">
                   {shell.menu.map((item) => (
                     <li key={item.href}>
-                      <a className="hover:text-slate-950 hover:underline" href={item.href}>
+                      <Link className="hover:text-slate-950 hover:underline" href={item.href}>
                         {item.label}
-                      </a>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -3928,6 +3975,11 @@ ${i18n ? "              <LanguageSwitcher publicPath={shell.publicPath} />\n" : 
       )}
     </div>
   );
+${
+  i18n
+    ? `  return <LocaleProvider locale={pageLocaleFromPath(shell.publicPath)}>{body}</LocaleProvider>;
+}`
+    : "}"
 }
 `;
 
@@ -4646,12 +4698,21 @@ const ITEMS = [
   { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt.", seo: { title: "Zeta", description: "Zeta detay sayfası." } },
   { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt.", seo: { title: "Eta", description: "Eta detay sayfası." } },
 ];
-const MENU = [
-  { label: "Ana sayfa", href: "/" },
-  { label: "Katalog", href: "/catalog" },
-  { label: "API cache", href: "/data-cache" },
-  { label: "Canlı veri", href: "/live" },
-];
+const MENU = {
+  tr: [
+    { label: "Ana sayfa", href: "/" },
+    { label: "Katalog", href: "/catalog" },
+    { label: "API cache", href: "/data-cache" },
+    { label: "Canlı veri", href: "/live" },
+  ],
+  en: [
+    { label: "Home", href: "/" },
+    { label: "Catalogue", href: "/catalog" },
+    { label: "API cache", href: "/data-cache" },
+    { label: "Live data", href: "/live" },
+  ],
+};
+const DEFAULT_MENU_LOCALE = "tr";
 ${
   includeRoutingExamples
     ? `const CMS_ROUTES = new Map([
@@ -4694,7 +4755,12 @@ const server = createServer(async (req, res) => {
     return json(res, 200, { items: ITEMS.slice(start, start + perPage), total: ITEMS.length });
   }
 
-  if (url.pathname === "/menu") return json(res, 200, MENU);
+  // Chrome is content: the gateway answers it per language, which is why the
+  // app keys its menu cache by locale.
+  if (url.pathname === "/menu") {
+    const locale = url.searchParams.get("locale") ?? DEFAULT_MENU_LOCALE;
+    return json(res, 200, MENU[locale] ?? MENU[DEFAULT_MENU_LOCALE]);
+  }
 
   // Where the contact form's endpoint sends what it accepted.
   if (url.pathname === "/enquiries" && req.method === "POST") {
@@ -5706,13 +5772,36 @@ export default defineRoute({
 });
 `;
 
-const contactPage = () => `export type EnquiryStatus = "sent" | "invalid" | "failed";
+const contactPage = (i18n = false) => `${
+  i18n
+    ? `import { pageLocaleFromPath } from "~/lib/i18n/config";
+import { t } from "~/lib/i18n/messages";
 
-const MESSAGES: Record<EnquiryStatus, { tone: string; text: string }> = {
-  sent: { tone: "text-emerald-700", text: "Mesajınız alındı. En kısa sürede döneceğiz." },
-  invalid: { tone: "text-amber-700", text: "Formu kontrol edip tekrar gönderin." },
-  failed: { tone: "text-rose-700", text: "Şu an gönderemedik. Biraz sonra tekrar deneyin." },
+`
+    : ""
+}export type EnquiryStatus = "sent" | "invalid" | "failed";
+
+const TONES: Record<EnquiryStatus, string> = {
+  sent: "text-emerald-700",
+  invalid: "text-amber-700",
+  failed: "text-rose-700",
 };
+${
+  i18n
+    ? ""
+    : `
+const TEXT = {
+  title: "İletişim",
+  name: "Adınız",
+  email: "E-posta",
+  message: "Mesajınız",
+  submit: "Gönder",
+  sent: "Mesajınız alındı. En kısa sürede döneceğiz.",
+  invalid: "Formu kontrol edip tekrar gönderin.",
+  failed: "Şu an gönderemedik. Biraz sonra tekrar deneyin.",
+};
+`
+}
 
 /**
  * A plain form: method="post" to a real endpoint, no client JavaScript involved.
@@ -5725,13 +5814,29 @@ export function ContactPage({
   status: EnquiryStatus | null;
   publicPath: string;
 }) {
-  const notice = status ? MESSAGES[status] : null;
+${
+  i18n
+    ? `  // The copy follows the page's own language, which is the language the URL
+  // asked for — not the visitor's browser and not a global default.
+  const locale = pageLocaleFromPath(publicPath);
+  const text = {
+    title: t(locale, "contactTitle"),
+    name: t(locale, "contactName"),
+    email: t(locale, "contactEmail"),
+    message: t(locale, "contactMessage"),
+    submit: t(locale, "contactSubmit"),
+    sent: t(locale, "contactSent"),
+    invalid: t(locale, "contactInvalid"),
+    failed: t(locale, "contactFailed"),
+  };`
+    : "  const text = TEXT;"
+}
   return (
     <div className="max-w-xl space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">İletişim</h1>
-      {notice ? (
-        <p className={\`rounded-md bg-slate-50 px-4 py-3 text-sm \${notice.tone}\`} role="status">
-          {notice.text}
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{text.title}</h1>
+      {status ? (
+        <p className={\`rounded-md bg-slate-50 px-4 py-3 text-sm \${TONES[status]}\`} role="status">
+          {text[status]}
         </p>
       ) : null}
       <form method="post" action="/api/enquiries" className="space-y-4">
@@ -5739,7 +5844,7 @@ export function ContactPage({
             from a second path — another language, say — returns to that path. */}
         <input type="hidden" name="returnTo" value={publicPath} />
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">Adınız</span>
+          <span className="text-sm font-medium text-slate-700">{text.name}</span>
           <input
             name="name"
             required
@@ -5748,7 +5853,7 @@ export function ContactPage({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">E-posta</span>
+          <span className="text-sm font-medium text-slate-700">{text.email}</span>
           <input
             type="email"
             name="email"
@@ -5758,7 +5863,7 @@ export function ContactPage({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">Mesajınız</span>
+          <span className="text-sm font-medium text-slate-700">{text.message}</span>
           <textarea
             name="message"
             required
@@ -5771,7 +5876,7 @@ export function ContactPage({
           type="submit"
           className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700"
         >
-          Gönder
+          {text.submit}
         </button>
       </form>
     </div>
@@ -5898,14 +6003,42 @@ describe("enquiry endpoint", () => {
  * the app owner fixes in one file.
  */
 const COPY = {
-  tr: { skipToContent: "İçeriğe geç", languageLabel: "Dil" },
-  en: { skipToContent: "Skip to content", languageLabel: "Language" },
-  de: { skipToContent: "Zum Inhalt springen", languageLabel: "Sprache" },
-  fr: { skipToContent: "Aller au contenu", languageLabel: "Langue" },
-  es: { skipToContent: "Ir al contenido", languageLabel: "Idioma" },
+  tr: {
+    languageLabel: "Dil",
+    contactTitle: "İletişim",
+    contactName: "Adınız",
+    contactEmail: "E-posta",
+    contactMessage: "Mesajınız",
+    contactSubmit: "Gönder",
+    contactSent: "Mesajınız alındı. En kısa sürede döneceğiz.",
+    contactInvalid: "Formu kontrol edip tekrar gönderin.",
+    contactFailed: "Şu an gönderemedik. Biraz sonra tekrar deneyin.",
+  },
+  en: {
+    languageLabel: "Language",
+    contactTitle: "Contact",
+    contactName: "Your name",
+    contactEmail: "Email",
+    contactMessage: "Your message",
+    contactSubmit: "Send",
+    contactSent: "Thanks — we have your message and will reply shortly.",
+    contactInvalid: "Please check the form and send it again.",
+    contactFailed: "We could not send it just now. Please try again shortly.",
+  },
 };
 
 const NAMES = { tr: "Türkçe", en: "English", de: "Deutsch", fr: "Français", es: "Español" };
+
+/**
+ * A locale the generator has no copy for still generates: it gets the English
+ * text with a marker, which is a translation task the app owner can find, not a
+ * silent English string pretending to be translated.
+ */
+const copyFor = (locale) =>
+  COPY[locale] ??
+  Object.fromEntries(
+    Object.entries(COPY.en).map(([key, value]) => [key, "TODO(" + locale + "): " + value]),
+  );
 
 const i18nConfig = (
   locales,
@@ -5955,7 +6088,39 @@ export function localePath(locale: Locale, path: string): string {
  */
 export function pageLocale(ctx: Ctx): Locale {
   const value = ctx.values?.locale;
-  return isLocale(value) ? value : DEFAULT_LOCALE;
+  return isLocale(value) ? value : pageLocaleFromPath(ctx.publicPath);
+}
+
+/**
+ * The locale a public path belongs to, for the places that have the path but no
+ * request context — the layout, above all. The bare path is the default
+ * language, which is why an unprefixed path is an answer and not a miss.
+ */
+export function pageLocaleFromPath(publicPath: string): Locale {
+  return splitLocale(publicPath)?.locale ?? DEFAULT_LOCALE;
+}
+
+/**
+ * The locale prefix rule for one link.
+ *
+ * Only paths on this site get a prefix. An endpoint has no language, an
+ * absolute URL belongs to someone else, and a fragment or a bare query stays on
+ * the page it was written for — prefixing any of those breaks the link instead
+ * of translating it.
+ */
+export function localeHref(locale: Locale, href: string): string {
+  if (!href.startsWith("/") || href.startsWith("//")) return href;
+  if (href.startsWith("/api/")) return href;
+
+  const [pathAndQuery = "", hash = ""] = splitOnce(href, "#");
+  const [path = "", query = ""] = splitOnce(pathAndQuery, "?");
+  const localized = localePath(locale, path);
+  return localized + (query ? "?" + query : "") + (hash ? "#" + hash : "");
+}
+
+function splitOnce(value: string, separator: string): [string, string] {
+  const index = value.indexOf(separator);
+  return index === -1 ? [value, ""] : [value.slice(0, index), value.slice(index + 1)];
 }
 
 /**
@@ -5996,7 +6161,14 @@ const i18nMessages = (locales) => `import { DEFAULT_LOCALE, type Locale } from "
  * string into a Turkish page.
  */
 const MESSAGES = {
-${locales.map((l) => `  ${l}: {\n    skipToContent: ${JSON.stringify(COPY[l]?.skipToContent ?? COPY.en.skipToContent)},\n    languageLabel: ${JSON.stringify(COPY[l]?.languageLabel ?? COPY.en.languageLabel)},\n  },`).join("\n")}\n} as const satisfies Record<Locale, Record<string, string>>;
+${locales
+  .map(
+    (l) =>
+      `  ${l}: {\n${Object.entries(copyFor(l))
+        .map(([k, v]) => `    ${k}: ${JSON.stringify(v)},`)
+        .join("\n")}\n  },`,
+  )
+  .join("\n")}\n} as const satisfies Record<Locale, Record<string, string>>;
 
 export type MessageKey = keyof (typeof MESSAGES)[typeof DEFAULT_LOCALE];
 
@@ -6039,8 +6211,9 @@ export const localeMiddleware = defineMiddleware({
     const prefixed = splitLocale(ctx.publicPath);
     if (!prefixed) {
       // The bare path is the default language. Publishing the value keeps every
-      // reader — loader, cache key, document shell — on the same decision.
-      return { values: { locale: DEFAULT_LOCALE } };
+      // reader — loader, cache key, document shell — on the same decision, and
+      // the header carries it to services that take a Request and nothing else.
+      return { values: { locale: DEFAULT_LOCALE }, requestHeaders: LOCALE_HEADER(DEFAULT_LOCALE) };
     }
     if (prefixed.locale === DEFAULT_LOCALE) {
       // One page, one URL: /tr/catalog is the same page as /catalog, so it moves
@@ -6051,9 +6224,11 @@ export const localeMiddleware = defineMiddleware({
     }
     // Published as a value, so it fragments the shared HTML cache: one visitor's
     // Turkish page can never be served to an English one.
-    return { values: { locale: prefixed.locale } };
+    return { values: { locale: prefixed.locale }, requestHeaders: LOCALE_HEADER(prefixed.locale) };
   },
 });
+
+const LOCALE_HEADER = (locale: string) => ({ "x-locale": locale });
 `;
 
 const languageSwitcher =
@@ -6096,6 +6271,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LOCALE,
   languageAlternates,
+  localeHref,
   localePath,
   splitLocale,
 } from "~/lib/i18n/config";
@@ -6173,9 +6349,109 @@ describe("i18n helpers", () => {
     expect(alternates["x-default"]).toBe("https://app.local/catalog?page=2");
   });
 
-  it("falls back to the default locale's copy for a missing translation", () => {
-    expect(t(DEFAULT_LOCALE, "skipToContent")).toBeTruthy();
+  it("prefixes an internal link and leaves everything else alone", () => {
+    expect(localeHref("en", "/catalog")).toBe("/en/catalog");
+    expect(localeHref("en", "/catalog?page=2#list")).toBe("/en/catalog?page=2#list");
+    expect(localeHref(DEFAULT_LOCALE, "/catalog")).toBe("/catalog");
+    // An endpoint has no language, and these three belong to someone else.
+    expect(localeHref("en", "/api/enquiries")).toBe("/api/enquiries");
+    expect(localeHref("en", "https://example.com/catalog")).toBe("https://example.com/catalog");
+    expect(localeHref("en", "//cdn.example.com/x")).toBe("//cdn.example.com/x");
+    expect(localeHref("en", "#section")).toBe("#section");
   });
+
+  it("falls back to the default locale's copy for a missing translation", () => {
+    expect(t(DEFAULT_LOCALE, "contactSubmit")).toBeTruthy();
+  });
+});
+`;
+
+const linkComponent = (i18n = false) =>
+  i18n
+    ? `import type { AnchorHTMLAttributes } from "react";
+
+import { localeHref } from "~/lib/i18n/config";
+import { useLocale } from "~/lib/i18n/context";
+
+/**
+ * Every internal link in this app goes through here, because a link that
+ * forgets the locale sends the visitor back to the default language mid-visit —
+ * the switcher takes you to /en/catalog and the first link takes it away again.
+ *
+ * The prefix is applied at render time from the locale of the page being
+ * rendered, so pages keep writing plain paths: \`<Link href="/catalog">\`.
+ */
+export function Link({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const locale = useLocale();
+  return <a href={href === undefined ? undefined : localeHref(locale, href)} {...props} />;
+}
+`
+    : `import type { AnchorHTMLAttributes } from "react";
+
+/**
+ * Every internal link in this app goes through here.
+ *
+ * Today it is an \`<a>\`. It exists so that a rule about links — a locale prefix,
+ * a campaign parameter, a prefetch — has one place to live instead of being
+ * applied by hand at eighteen call sites and forgotten at the nineteenth.
+ */
+export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return <a {...props} />;
+}
+`;
+
+const localeContext = () => `import { createContext, type ReactNode, useContext } from "react";
+
+import { DEFAULT_LOCALE, type Locale } from "./config";
+
+/**
+ * The locale of the page being rendered, for components that are too far from
+ * the loader to be handed it as a prop — links, above all.
+ *
+ * The layout provides it, so anything rendered inside the document reads the
+ * right value. An island is a separate React root and does not: give an island
+ * that needs the locale a prop, the same way it gets the rest of its data.
+ */
+const LocaleContext = createContext<Locale>(DEFAULT_LOCALE);
+
+export function LocaleProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
+  return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
+}
+
+export function useLocale(): Locale {
+  return useContext(LocaleContext);
+}
+`;
+
+const i18nE2e = () => `import { expect, test } from "@playwright/test";
+
+test("switching language survives the next click", async ({ page }) => {
+  await page.goto("/catalog");
+
+  // The switcher is a link, so this works with or without JavaScript.
+  await page.getByRole("navigation", { name: /language|dil/i }).getByRole("link", { name: "English" }).click();
+  await expect(page).toHaveURL(/\\/en\\/catalog$/);
+
+  // Chrome comes from the gateway per language, so the menu changed with it.
+  await expect(page.getByRole("link", { name: "Catalogue" })).toBeVisible();
+
+  // The real test: a link inside the page must not drop the language.
+  await page.getByRole("link", { name: "Alpha" }).click();
+  await expect(page).toHaveURL(/\\/en\\/items\\/alpha$/);
+  await expect(page.getByRole("link", { name: "Catalogue" })).toBeVisible();
+});
+
+test("the default language keeps the bare path and the prefix collapses onto it", async ({
+  request,
+}) => {
+  const bare = await request.get("/catalog", { maxRedirects: 0 });
+  expect(bare.status()).toBe(200);
+
+  const prefixed = await request.get("/tr/catalog", { maxRedirects: 0 });
+  expect(prefixed.status()).toBe(308);
+  // The platform resolves a middleware redirect against the request URL, so the
+  // header is absolute; what matters here is where it points.
+  expect(new URL(prefixed.headers().location ?? "", "http://localhost").pathname).toBe("/catalog");
 });
 `;
 

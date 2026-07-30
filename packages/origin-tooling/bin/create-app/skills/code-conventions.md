@@ -52,6 +52,13 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
   platform's `<Island>` serializes props safely. Passing raw JSON into HTML is a
   correctness and XSS hazard.
 
+## Links
+
+Internal links go through `<Link href="/catalog">` from `~/components/link`, not a raw `<a>`. It is
+the one place a site-wide rule about links can live — and in an app generated with `--i18n` it is
+what keeps the locale on the URL when a visitor clicks. External URLs, `/api/*` paths and `#anchors`
+are left exactly as written.
+
 ## Checks before you call it done
 
 ```bash
