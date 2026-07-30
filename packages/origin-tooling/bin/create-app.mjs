@@ -8,11 +8,6 @@
  *   --workspace          — an app inside this monorepo (apps/<name>), depending
  *     on the packages via workspace:*. For the platform team's pilot apps.
  *
- * Two renderers:
- *   react (default)      — pages and islands are React components.
- *   --vanilla            — no UI framework: pages return HTML built with the
- *     `html` tagged template, islands are plain modules. Same platform below.
- *
  * The generated app is intentionally thin: cache, auth, middleware, SSR pipeline
  * and the metadata engine come from the packages. It owns a route table, the
  * OriginRuntime implementation and its own chrome.
@@ -23,7 +18,8 @@
  *   origin-create-app investment-web --target-dir ~/projects
  *   origin-create-app investment-web --version "^1.2.0"
  *   origin-create-app knowledge-web --workspace    # inside this monorepo
- *   origin-create-app landing-web --vanilla        # no UI framework
+ *   origin-create-app shop-web --i18n              # opt-in i18n (tr, en)
+ *   origin-create-app shop-web --locales en,de,fr  # opt-in i18n, first is default
  *   origin-create-app landing-web --port 3020      # Vite follows on 5020
  *   origin-create-app landing-web --registry http://localhost:4873
  *   origin-create-app payments-web --with-ops    # + compose, k8s, load test
@@ -87,9 +83,9 @@ async function main() {
     metricsPort: port + 6000,
     vitePort,
     mode: options.workspace ? "workspace" : "standalone",
+    ...(options.locales ? { locales: options.locales } : {}),
     version: options.version ?? DEFAULT_VERSION_RANGE,
     templateVersion: TOOLING_VERSION,
-    renderer: options.renderer,
     withOps: options.withOps,
     ...(options.registry ? { registry: options.registry } : {}),
   });
@@ -174,21 +170,32 @@ function assertValidRegistry(value) {
   return value;
 }
 
-function assertValidRenderer(value) {
-  if (value !== "react" && value !== "vanilla") {
-    fail(`Invalid --renderer: ${value}. Expected "react" or "vanilla".`);
+/** Two languages is the smallest set that makes the plugin worth generating. */
+const DEFAULT_LOCALES = ["tr", "en"];
+
+function assertValidLocales(value) {
+  const locales = (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  if (locales.length < 2) {
+    fail("--locales needs at least two comma-separated languages, e.g. --locales tr,en");
   }
-  return value;
+  for (const locale of locales) {
+    if (!/^[a-z]{2}$/.test(locale)) fail(`Invalid locale: ${locale}. Expected a two-letter code.`);
+  }
+  if (new Set(locales).size !== locales.length) fail("--locales contains a duplicate");
+  return locales;
 }
 
 function parseArgs(argv) {
-  const options = { workspace: false, renderer: "react", withOps: false };
+  const options = { workspace: false, withOps: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--workspace") options.workspace = true;
-    else if (arg === "--vanilla") options.renderer = "vanilla";
     else if (arg === "--with-ops") options.withOps = true;
-    else if (arg === "--renderer") options.renderer = assertValidRenderer(argv[++i]);
+    else if (arg === "--i18n") options.locales ??= DEFAULT_LOCALES;
+    else if (arg === "--locales") options.locales = assertValidLocales(argv[++i]);
     else if (arg === "--port") options.port = Number(argv[++i]);
     else if (arg === "--vite-port") options.vitePort = Number(argv[++i]);
     else if (arg === "--registry") options.registry = assertValidRegistry(argv[++i]);

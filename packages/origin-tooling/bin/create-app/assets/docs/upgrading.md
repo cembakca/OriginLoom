@@ -11,7 +11,7 @@ generator çalıştırıldığında otomatik olarak üzerine yazılmaz.
 - schemaVersion: metadata formatı
 - templateVersion: projenin en son geçtiği template/migration sürümü
 - platformRange: generated package aralığı
-- renderer ve mode: React/vanilla ile standalone/workspace ayrımı
+- mode: standalone/workspace ayrımı
 - appliedMigrations: idempotent migration kimlikleri
 
 Bu dosyayı elle yeni sürüme çekmeyin. Değerin değişmesi migration'ın gerçekten uygulandığı anlamına

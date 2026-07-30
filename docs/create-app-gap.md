@@ -133,7 +133,7 @@ süslü parantez içi isim sırasını doğruluyor.
 üretilen app'te ikisi de yoktu.
 
 **Çözüm:** her iki renderer'a `pnpm media` + örnek kaynak (OG görseli, brand mark) ve
-`server/media.config.json`; `pnpm icons` yalnız React'e (SVGR React bileşeni üretir, vanilla derleyemez).
+`server/media.config.json`; `pnpm icons` SVGR ile React bileşeni üretir.
 Bu sırada bir platform sızıntısı daha çıktı: `build-media.mjs` Inter'in lisans dosyasını
 `node_modules/@fontsource-variable/inter/LICENSE`'tan **sabit** kopyalıyordu — font seçimi uygulamanın
 işi olduğu için lisans yolu artık config'teki `fonts[].license` alanından geliyor.

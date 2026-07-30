@@ -53,11 +53,8 @@ export function inspect(project) {
       add("error", "package-missing", required + " package.json içinde bulunamadı.");
     }
   }
-  const rendererPackage = "@originloom/" + project.renderer;
-  if (project.renderer === "unknown") {
-    add("error", "renderer-unknown", "React veya vanilla renderer paketi belirlenemedi.");
-  } else if (!declaredByName.has(rendererPackage)) {
-    add("error", "renderer-package-missing", rendererPackage + " package.json içinde bulunamadı.");
+  if (!declaredByName.has("@originloom/react")) {
+    add("error", "renderer-package-missing", "@originloom/react package.json içinde bulunamadı.");
   }
 
   const standaloneRanges = declared

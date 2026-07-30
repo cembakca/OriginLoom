@@ -16,17 +16,16 @@ registry'ye yayınlanmamaktadır. Hedef: **Nexus** üzerinde private paketler (�
 
 | Parça             | Nerede                                        | Ne yapar                                                     |
 | ----------------- | --------------------------------------------- | ------------------------------------------------------------ |
-| Sürümleme         | `.changeset/config.json`                      | Beş paketi tek sürümde tutar (`fixed` grup)                  |
+| Sürümleme         | `.changeset/config.json`                      | Paketleri tek sürümde tutar (`fixed` grup)                   |
 | Yayın provası     | `scripts/release-verify.mjs`                  | Verdaccio'ya yayınlar, temiz app'e kurar, build + smoke eder |
-| CI kapısı         | `.github/workflows/ci.yml` → `release-verify` | Her PR'da provayı react ve vanilla için koşar                |
+| CI kapısı         | `.github/workflows/ci.yml` → `release-verify` | Her PR'da provayı koşar                                      |
 | Public API sınırı | `packages/origin-core/package.json` `exports` | İç modülleri `null` hedefle kapatır                          |
 | Yerel registry    | `scripts/local-registry.mjs`                  | Kalıcı Verdaccio — ekipler standalone akışı burada dener     |
 | Kaza güvenliği    | Her paketin `publishConfig.registry`          | Elle `pnpm publish` yerel Verdaccio'ya gider, npmjs'e değil  |
 
 ### Yayınlanan paketler
 
-`@originloom/shared`, `@originloom/core`, `@originloom/react`, `@originloom/vanilla`,
-`@originloom/tooling`. `apps/showroom` yayınlanmaz (changesets'te `ignore` listesinde).
+`@originloom/shared`, `@originloom/core`, `@originloom/react`, `@originloom/tooling`. `apps/showroom` yayınlanmaz (changesets'te `ignore` listesinde).
 
 ---
 
@@ -97,9 +96,8 @@ sürümü yükseltmektir; gerçek registry'ler zaten üzerine yazmayı yasaklar.
 ### Yayın provası
 
 ```bash
-pnpm release:verify                    # react uygulamasıyla
-pnpm release:verify --renderer vanilla # vanilla uygulamasıyla
-pnpm release:verify --keep             # geçici dizini silme (inceleme için)
+pnpm release:verify        # temiz bir app üretip registry'den kurar
+pnpm release:verify --keep # geçici dizini silme (inceleme için)
 ```
 
 Sırasıyla şunu yapar:

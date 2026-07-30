@@ -11,6 +11,7 @@ export const REACT_QUALITY_SECURITY_MIGRATION = "0.5.34-react-quality-security";
 export const ROUTE_BUILD_MANIFEST_MIGRATION = "0.5.35-route-build-manifest";
 export const PRODUCT_MIDDLEWARE_MIGRATION = "0.5.36-product-middleware";
 export const GATEWAY_STREAMING_MIGRATION = "0.6.0-gateway-backed-streaming";
+export const REACT_ONLY_MIGRATION = "0.7.0-react-only";
 
 export const migrations = [
   {
@@ -86,6 +87,23 @@ export const migrations = [
     introducedIn: "0.6.0",
     description:
       "The React streaming example uses a validated gateway Promise instead of a route-local timer; existing product routes remain app-owned and are not overwritten.",
+  },
+  {
+    id: REACT_ONLY_MIGRATION,
+    introducedIn: "0.7.0",
+    description:
+      "The vanilla renderer is gone; @originloom/react is the only renderer package. Apps that already use it need no change.",
+    migratePackage(manifest, changes) {
+      if (!manifest.dependencies?.["@originloom/vanilla"]) return;
+      // Nothing here can turn HTML-template pages into React components, so the
+      // migration refuses rather than leaving a project that cannot install.
+      changes.push({
+        file: "package.json",
+        kind: "dependency",
+        detail:
+          "@originloom/vanilla artık yayınlanmıyor — bu proje React renderer'a elle taşınmalıdır (docs/migrations/0.7.0.md)",
+      });
+    },
   },
 ];
 

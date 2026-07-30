@@ -13,25 +13,19 @@ const packageRoots = workspaceRoot
       "@originloom/shared": join(workspaceRoot, "packages/origin-shared/src"),
       "@originloom/core": join(workspaceRoot, "packages/origin-core/src"),
       "@originloom/react": join(workspaceRoot, "packages/origin-react/src"),
-      "@originloom/vanilla": join(workspaceRoot, "packages/origin-vanilla/src"),
     }
   : {};
 /**
  * Layering guard. `@originloom/shared` is the framework-neutral base everything
- * else builds on. The server core and the renderer adapters (`react`, `vanilla`)
+ * else builds on. The server core and the renderer adapter (`react`)
  * meet only through the `OriginRenderer` contract in shared, so none of them may
  * import another — including one adapter reaching for the other.
  */
 const forbiddenLayerEdges = [
   ["@originloom/react", "@originloom/core"],
   ["@originloom/core", "@originloom/react"],
-  ["@originloom/vanilla", "@originloom/core"],
-  ["@originloom/core", "@originloom/vanilla"],
-  ["@originloom/react", "@originloom/vanilla"],
-  ["@originloom/vanilla", "@originloom/react"],
   ["@originloom/shared", "@originloom/core"],
   ["@originloom/shared", "@originloom/react"],
-  ["@originloom/shared", "@originloom/vanilla"],
 ];
 /**
  * Framework guard: the server core and the neutral base render through the
@@ -44,7 +38,6 @@ const frameworkSpecifiers = [
   /^preact(\/|$)/,
   /^@tanstack\/react-/,
   /^@originloom\/react(\/|$)/,
-  /^@originloom\/vanilla(\/|$)/,
 ];
 const sourceRoots = [join(root, "server"), join(root, "src"), ...Object.values(packageRoots)];
 const extensions = [".ts", ".tsx", ".js", ".mjs"];

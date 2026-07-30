@@ -69,6 +69,13 @@ export type PageMetadata = {
   icons?: { icon?: string; apple?: string };
   verification?: Record<string, string>;
   pagination?: { previous?: string; next?: string };
+  /**
+   * Translations of this page, as `hreflang -> URL`. Search engines treat a
+   * missing or one-sided alternate set as separate pages competing with each
+   * other, so a page that has translations must name all of them, itself
+   * included. Use `x-default` for the entry point that picks a language.
+   */
+  languageAlternates?: Record<string, string>;
   structuredData?: JsonLdObject[];
 };
 
@@ -110,6 +117,7 @@ export type ResolvedMetadata = {
   icons: { icon: string; apple?: string };
   verification: Record<string, string>;
   pagination: { previous?: string; next?: string };
+  languageAlternates: Record<string, string>;
   formatDetection: { telephone: boolean };
   structuredData: JsonLdObject[];
 };

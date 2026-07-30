@@ -21,6 +21,9 @@ export function MetadataHead({
         content={`telephone=${meta.formatDetection.telephone ? "yes" : "no"}`}
       />
       <link rel="canonical" href={meta.canonical} />
+      {Object.entries(meta.languageAlternates).map(([language, href]) => (
+        <link key={language} rel="alternate" hrefLang={language} href={href} />
+      ))}
       {meta.pagination.previous ? <link rel="prev" href={meta.pagination.previous} /> : null}
       {meta.pagination.next ? <link rel="next" href={meta.pagination.next} /> : null}
       <OpenGraphHead meta={meta} />

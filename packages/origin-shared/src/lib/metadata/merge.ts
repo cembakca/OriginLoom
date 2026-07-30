@@ -50,6 +50,7 @@ export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): Resolve
     }),
     verification: pageMeta.verification ?? {},
     pagination: resolvePagination(pageMeta, base),
+    languageAlternates: resolveLanguageAlternates(pageMeta, base),
     formatDetection: { telephone: site.formatDetection?.telephone ?? true },
     structuredData: [],
   };
@@ -70,6 +71,16 @@ function resolvePagination(page: PageMetadata, base: string): ResolvedMetadata["
       ? (normalizeCanonicalUrl(page.pagination.next, base) ?? undefined)
       : undefined,
   });
+}
+
+/** Same normalization as canonical: a relative alternate is still an absolute URL to a crawler. */
+function resolveLanguageAlternates(page: PageMetadata, base: string): Record<string, string> {
+  const alternates: Record<string, string> = {};
+  for (const [language, url] of Object.entries(page.languageAlternates ?? {})) {
+    const normalized = normalizeCanonicalUrl(url, base);
+    if (normalized) alternates[language] = normalized;
+  }
+  return alternates;
 }
 
 function resolveCanonical(page: PageMetadata, ctx: Ctx, base: string): string {

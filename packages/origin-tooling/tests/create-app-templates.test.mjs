@@ -47,12 +47,11 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("gives every app its own Vite port so two can run dev at once", () => {
-    for (const renderer of ["react", "vanilla"]) {
+    {
       const files = renderTemplates({
         ...base,
         mode: "workspace",
         version: "^0.1.0",
-        renderer,
         port: 3020,
         metricsPort: 9020,
       });
@@ -77,10 +76,8 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("writes no .npmrc when no registry is given", () => {
-    for (const renderer of ["react", "vanilla"]) {
-      const files = renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer });
-      expect(files).not.toHaveProperty([".npmrc"]);
-    }
+    const files = renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" });
+    expect(files).not.toHaveProperty([".npmrc"]);
   });
 
   it("accepts an explicit Vite port", () => {
@@ -115,8 +112,8 @@ describe("renderTemplates — shared shape", () => {
     };
     const sortsBefore = (a, b) => (group(a) !== group(b) ? group(a) < group(b) : a <= b);
 
-    for (const renderer of ["react", "vanilla"]) {
-      const files = standalone({ renderer });
+    {
+      const files = standalone();
       for (const [path, contents] of Object.entries(files)) {
         if (!/\.tsx?$/.test(path) || typeof contents !== "string") continue;
         for (const block of contents.split("\n\n")) {
@@ -135,12 +132,12 @@ describe("renderTemplates — shared shape", () => {
               (a, b) =>
                 a.toLowerCase().localeCompare(b.toLowerCase(), "en") || a.localeCompare(b, "en"),
             );
-            expect(names, `${renderer}: ${path} — named imports out of order`).toEqual(sorted);
+            expect(names, `${path} — named imports out of order`).toEqual(sorted);
           }
           for (let index = 1; index < specifiers.length; index++) {
             expect(
               sortsBefore(specifiers[index - 1], specifiers[index]),
-              `${renderer}: ${path} — "${specifiers[index - 1]}" must not precede "${specifiers[index]}"`,
+              `${path} — "${specifiers[index - 1]}" must not precede "${specifiers[index]}"`,
             ).toBe(true);
           }
         }
@@ -149,14 +146,13 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("ships deployment assets only when they are asked for", () => {
-    for (const renderer of ["react", "vanilla"]) {
-      const plain = standalone({ renderer });
+    {
+      const plain = standalone();
       expect(Object.keys(plain).some((path) => path.startsWith("k8s/"))).toBe(false);
       expect(plain["docker-compose.yml"]).toBeUndefined();
       expect(JSON.parse(plain["package.json"]).scripts["compose:up"]).toBeUndefined();
 
       const ops = standalone({
-        renderer,
         withOps: true,
         name: "pay-web",
         port: 3040,
@@ -173,23 +169,16 @@ describe("renderTemplates — shared shape", () => {
       expect(ops).toHaveProperty(["load-test/stress.mjs"]);
       expect(ops).toHaveProperty(["load-test/compare.mjs"]);
       expect(ops).toHaveProperty(["scripts/pentest-readiness.mjs"]);
-      if (renderer === "react") {
-        expect(ops["README.md"]).toContain("pnpm pentest:readiness");
-        expect(ops["README.md"]).toContain("OPERATIONS.md");
-        expect(ops).toHaveProperty(["load-test/capacity.mjs"]);
-        expect(ops).toHaveProperty(["load-test/capacity-report.mjs"]);
-        expect(ops["OPERATIONS.md"]).toContain("pnpm capacity");
-        expect(JSON.parse(ops["package.json"]).scripts.capacity).toBe(
-          "node load-test/capacity.mjs",
-        );
-        expect(JSON.parse(ops["package.json"]).devDependencies.autocannon).toBe("^8.0.0");
-        expect(JSON.parse(ops["package.json"]).pnpm.overrides).toEqual({
-          "autocannon>hyperid": "^4.0.0",
-        });
-      } else {
-        expect(ops).not.toHaveProperty(["load-test/capacity.mjs"]);
-        expect(JSON.parse(ops["package.json"]).scripts).not.toHaveProperty("capacity");
-      }
+      expect(ops["README.md"]).toContain("pnpm pentest:readiness");
+      expect(ops["README.md"]).toContain("OPERATIONS.md");
+      expect(ops).toHaveProperty(["load-test/capacity.mjs"]);
+      expect(ops).toHaveProperty(["load-test/capacity-report.mjs"]);
+      expect(ops["OPERATIONS.md"]).toContain("pnpm capacity");
+      expect(JSON.parse(ops["package.json"]).scripts.capacity).toBe("node load-test/capacity.mjs");
+      expect(JSON.parse(ops["package.json"]).devDependencies.autocannon).toBe("^8.0.0");
+      expect(JSON.parse(ops["package.json"]).pnpm.overrides).toEqual({
+        "autocannon>hyperid": "^4.0.0",
+      });
       expect(JSON.parse(ops["package.json"]).scripts["compose:redis"]).toBe(
         "origin-compose-up --redis",
       );
@@ -216,8 +205,8 @@ describe("renderTemplates — shared shape", () => {
   });
 
   it("points the icons at assets the media pipeline actually produces", () => {
-    for (const renderer of ["react", "vanilla"]) {
-      const defaults = standalone({ renderer })["src/lib/metadata/site-defaults.ts"];
+    {
+      const defaults = standalone()["src/lib/metadata/site-defaults.ts"];
       // A dangling /favicon.ico is a 404 in the console of every generated app:
       // nothing serves it, and only /assets/* is served statically.
       expect(defaults).not.toContain("/favicon.ico");
@@ -486,25 +475,6 @@ describe("renderTemplates — browser E2E", () => {
     expect(workflow).toContain("playwright-report/");
   });
 
-  it("keeps Playwright out of the vanilla template", () => {
-    const files = renderTemplates({
-      ...base,
-      mode: "standalone",
-      version: "^0.1.0",
-      renderer: "vanilla",
-    });
-    const pkg = JSON.parse(files["package.json"]);
-
-    expect(files).not.toHaveProperty(["playwright.config.ts"]);
-    expect(Object.keys(files).some((path) => path.startsWith("e2e/"))).toBe(false);
-    expect(pkg.devDependencies).not.toHaveProperty("@playwright/test");
-    expect(pkg.scripts).not.toHaveProperty("e2e");
-    expect(pkg.scripts.ci).not.toContain("e2e");
-    expect(files[".github/workflows/ci.yml"]).not.toContain("playwright");
-  });
-});
-
-describe("renderTemplates — example routes", () => {
   it("ships all example route files and registers them", () => {
     const files = standalone();
     for (const path of [
@@ -588,106 +558,74 @@ describe("renderTemplates — example routes", () => {
   });
 });
 
-describe("renderTemplates — vanilla renderer", () => {
-  const vanilla = (over = {}) =>
+describe("renderTemplates — i18n plugin", () => {
+  const withI18n = (over = {}) =>
     renderTemplates({
-      ...base,
-      mode: "workspace",
-      version: "^0.1.0",
-      renderer: "vanilla",
-      ...over,
-    });
-
-  it("emits the same file set in both modes", () => {
-    const standaloneVanilla = renderTemplates({
       ...base,
       mode: "standalone",
       version: "^0.1.0",
-      renderer: "vanilla",
+      locales: ["tr", "en"],
+      ...over,
     });
-    expect(Object.keys(vanilla()).sort()).toEqual(Object.keys(standaloneVanilla).sort());
-  });
 
-  it("ships no React anywhere in the generated app", () => {
-    const files = vanilla();
-    const pkg = JSON.parse(files["package.json"]);
-    const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
-    expect(declared.filter((name) => /react/i.test(name))).toEqual([]);
-    expect(declared).toContain("@originloom/vanilla");
-
+  it("leaves no trace of itself in an app that did not ask for it", () => {
+    const files = standalone();
+    for (const path of Object.keys(files)) {
+      expect(path, `${path} should not ship without --i18n`).not.toMatch(/i18n|locale|language/i);
+    }
+    // Not just the file list: the shared files must not reference it either.
     for (const [path, contents] of Object.entries(files)) {
-      expect(path.endsWith(".tsx"), `${path} is a .tsx file`).toBe(false);
-      if (path.endsWith(".ts") || path.endsWith(".css")) {
-        expect(contents, `${path} mentions react`).not.toMatch(/@originloom\/react|"react"/);
-      }
+      if (typeof contents !== "string") continue;
+      expect(contents, `${path} references the i18n plugin`).not.toContain("i18n/config");
     }
   });
 
-  it("emits pages and islands instead of React components", () => {
-    const files = vanilla();
+  it("ships the plugin as a contained set of files", () => {
+    const files = withI18n();
     for (const path of [
-      "server/routes/home.ts",
-      "server/product/renderer.ts",
-      "server/product/boundary-pages.ts",
-      "src/pages/home.ts",
-      "src/islands/counter.ts",
-      "src/components/layout.ts",
-      "src/entry.client.ts",
-      "src/hydrate.client.ts",
+      "src/lib/i18n/config.ts",
+      "src/lib/i18n/messages.ts",
+      "server/middleware/locale.ts",
+      "src/components/layout/language-switcher.tsx",
+      "tests/i18n.test.ts",
+      "docs/i18n.md",
+      ".claude/skills/i18n/SKILL.md",
     ]) {
       expect(files, `missing ${path}`).toHaveProperty([path]);
     }
-    expect(files).not.toHaveProperty(["src/global.d.ts"]);
-    expect(files["server/product/renderer.ts"]).toContain("createHtmlRenderer");
-    expect(files["server/product/runtime.ts"]).toContain("renderer: productRenderer");
-    expect(files["src/hydrate.client.ts"]).toContain(
-      'import.meta.glob<IslandModule>("./islands/*.ts")',
-    );
   });
 
-  it("drops the JSX compiler option from a standalone tsconfig", () => {
-    const react = JSON.parse(
-      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0" })["tsconfig.json"],
-    );
-    const vanillaTs = JSON.parse(
-      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0", renderer: "vanilla" })[
-        "tsconfig.json"
-      ],
-    );
-    expect(react.compilerOptions.jsx).toBe("react-jsx");
-    expect(vanillaTs.compilerOptions.jsx).toBeUndefined();
+  it("leaves the default language's URLs where they were", () => {
+    const rules = withI18n()["src/routing/rules.ts"];
+    // Adding a language must not move a single existing URL, so only the
+    // non-default locales get a prefix rule.
+    expect(rules).toContain('{ source: "/en/:path*", destination: "/:path*" }');
+    expect(rules).not.toContain('source: "/tr/:path*"');
   });
 
-  it("scans the vanilla package for Tailwind classes", () => {
-    expect(vanilla()["src/styles/globals.css"]).toContain("packages/origin-vanilla/src");
-    expect(
-      renderTemplates({ ...base, mode: "standalone", version: "^0.1.0", renderer: "vanilla" })[
-        "src/styles/globals.css"
-      ],
-    ).toContain("node_modules/@originloom/vanilla/dist");
+  it("wires the locale into the pipeline, the cache key and the document", () => {
+    const files = withI18n();
+    expect(files["server/middleware/index.ts"]).toContain("localeMiddleware");
+    // The locale enters the key exactly once, through the value the middleware
+    // published — not by hand in every buildKey, where it can be forgotten.
+    expect(files["src/lib/cache-keys.ts"]).not.toContain("locale(ctx.request)");
+    expect(files["src/lib/cache-keys.ts"]).not.toContain("pageLocale");
+    expect(files["src/lib/cache-keys.ts"]).toContain("publishes it as a request value");
+    expect(files["server/product/document-shell.ts"]).toContain(
+      "htmlLang: (ctx) => pageLocale(ctx)",
+    );
+    expect(files["server/product/document-shell.ts"]).toContain("languageAlternates");
+    expect(files["server/seo.ts"]).toContain("LOCALES.flatMap");
   });
 
-  it("ships renderer-specific skills and CLAUDE.md", () => {
-    const files = vanilla();
-    expect(files[".claude/skills/islands/SKILL.md"]).toContain("IslandMount");
-    expect(files[".claude/skills/islands/SKILL.md"]).not.toContain("useState");
-    expect(files[".claude/skills/add-page/SKILL.md"]).toContain("@originloom/vanilla/lib/types");
-    expect(files["CLAUDE.md"]).toContain("createHtmlRenderer");
-    // Skills with no renderer-specific content are shared verbatim.
-    expect(files[".claude/skills/caching/SKILL.md"]).toBe(
-      workspace()[".claude/skills/caching/SKILL.md"],
-    );
+  it("generates a catalog for every locale it was asked for", () => {
+    const messages = withI18n({ locales: ["en", "de", "fr"] })["src/lib/i18n/messages.ts"];
+    for (const locale of ["en", "de", "fr"]) expect(messages).toContain(`${locale}: {`);
   });
 });
 
 describe("renderTemplates — generated apps satisfy their own tooling", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: typechecks and lints its tests too", (_name, files) => {
     // Without this the repo's typed lint reports "not found by the project
@@ -715,13 +653,7 @@ describe("renderTemplates — generated apps satisfy their own tooling", () => {
 });
 
 describe("renderTemplates — gateway wiring", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: fetches its data through the gateway, not from memory", (_name, files) => {
     const service = files["server/services/items.ts"];
@@ -752,9 +684,7 @@ describe("renderTemplates — gateway wiring", () => {
 
   it.each(modes)("%s: passes the request signal into the loader's gateway call", (_name, files) => {
     // A cancelled request must not keep the upstream call alive.
-    expect(files["server/routes/catalog." + (_name === "vanilla" ? "ts" : "tsx")]).toContain(
-      "ctx.request.signal",
-    );
+    expect(files["server/routes/catalog.tsx"]).toContain("ctx.request.signal");
   });
 
   it("react: configures and drains the bounded gateway transport", () => {
@@ -780,13 +710,7 @@ describe("renderTemplates — gateway wiring", () => {
 });
 
 describe("renderTemplates — SEO, cache purge and product metrics", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: serves robots.txt and a sitemap built from its own data", (_name, files) => {
     expect(files["server/index.ts"]).toContain("seo: mountSeo");
@@ -908,23 +832,6 @@ describe("renderTemplates — production reference coverage", () => {
     expect(pkg.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
     expect(files["docs/capacity.md"]).toContain("10 → 25 → 50 → 100 → 200 → 400");
     expect(files[".gitignore"]).toContain("load-test/reports/");
-
-    const vanilla = standalone({ renderer: "vanilla" });
-    expect(vanilla).not.toHaveProperty(["load-test/capacity.mjs"]);
-    expect(vanilla).not.toHaveProperty(["performance-policy.json"]);
-    expect(JSON.parse(vanilla["package.json"]).scripts).not.toHaveProperty("capacity");
-    expect(JSON.parse(vanilla["package.json"]).devDependencies).not.toHaveProperty("autocannon");
-    expect(JSON.parse(vanilla["package.json"]).pnpm.overrides).toBeUndefined();
-  });
-
-  it("keeps React-only quality assets out of the vanilla template", () => {
-    const files = standalone({ renderer: "vanilla" });
-    const pkg = JSON.parse(files["package.json"]);
-    expect(files).not.toHaveProperty(["contracts/openapi.json"]);
-    expect(files).not.toHaveProperty(["lighthouserc.json"]);
-    expect(pkg.scripts).not.toHaveProperty("contracts:fixtures");
-    expect(pkg.scripts).not.toHaveProperty("lighthouse");
-    expect(pkg.devDependencies).not.toHaveProperty("lighthouse");
   });
 
   it("records template provenance and makes upgrade health part of CI", () => {
@@ -1005,7 +912,6 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files["server/product/runtime.ts"]).toContain("liveStreamMetricLines");
     expect(files["tests/live-stream-admission.test.ts"]).toContain("global_limit");
     expect(files[".env.production"]).toContain("LIVE_STREAM_MAX_CONNECTIONS=1000");
-    expect(standalone({ renderer: "vanilla" })[".env.production"]).not.toContain("LIVE_STREAM_");
   });
 
   it("ships a validated read-through menu cache with bounded fallback chrome", () => {
@@ -1020,7 +926,6 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files["tests/menu-cache.test.ts"]).toContain("does not cache the local fallback");
     expect(files[".env.production"]).toContain("MENU_CACHE_TTL=14400");
     expect(files[".env.production"]).toContain("FEATURED_ITEMS_CACHE_TTL=10");
-    expect(standalone({ renderer: "vanilla" })[".env.production"]).not.toContain("MENU_CACHE_TTL");
   });
 
   it("documents production cache decisions, operations and failure modes", () => {
@@ -1075,28 +980,18 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files["tests/routing-rules.test.ts"]).toContain('publicPath: "/products/alpha"');
     expect(files["mock-gateway/server.mjs"]).toContain('"/cms/redirects"');
     expect(files["mock-gateway/server.mjs"]).toContain('"/removed-page", { type: "gone" }');
-
-    const vanillaFiles = standalone({ renderer: "vanilla" });
-    expect(vanillaFiles["src/routing/rules.ts"]).not.toContain('source: "/old-catalog"');
-    expect(vanillaFiles["mock-gateway/server.mjs"]).not.toContain('"/cms/redirects"');
   });
 });
 
 describe("renderTemplates — product config, public API and media", () => {
-  const modes = [
-    ["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })],
-    [
-      "vanilla",
-      renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", renderer: "vanilla" }),
-    ],
-  ];
+  const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
   it.each(modes)("%s: validates its own environment at startup", (_name, files) => {
     expect(files["server/index.ts"]).toContain("validateConfig([validateProductConfig])");
     const config = files["server/product/config.ts"];
     expect(config).toContain("assertPositiveInteger");
     // The example setting is used, not decorative.
-    const route = files["server/routes/catalog." + (_name === "vanilla" ? "ts" : "tsx")];
+    const route = files["server/routes/catalog.tsx"];
     expect(route).toContain("productConfig.catalogPageSize");
     expect(files[".env.development"]).toContain("CATALOG_PAGE_SIZE=3");
   });
@@ -1118,16 +1013,12 @@ describe("renderTemplates — product config, public API and media", () => {
     expect(JSON.parse(files["package.json"]).scripts.media).toBe("origin-build-media");
   });
 
-  it("ships icon codegen only for the renderer whose components it emits", () => {
+  it("ships icon codegen with the transformer left in the tooling that runs it", () => {
     const [, react] = modes[0];
-    const [, vanilla] = modes[1];
     expect(react).toHaveProperty([".svgrrc.cjs"]);
     expect(JSON.parse(react["package.json"]).scripts.icons).toBe("origin-generate-icons");
     // The transformer belongs to the tooling that runs it. An app carrying its
     // own copy also carried @svgr/cli's deprecated glob chain for nothing.
     expect(JSON.parse(react["package.json"]).devDependencies["@svgr/cli"]).toBeUndefined();
-    // svgr emits React components; a vanilla app would never compile them.
-    expect(vanilla).not.toHaveProperty([".svgrrc.cjs"]);
-    expect(JSON.parse(vanilla["package.json"]).scripts.icons).toBeUndefined();
   });
 });

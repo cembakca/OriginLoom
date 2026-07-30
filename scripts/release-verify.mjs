@@ -8,12 +8,12 @@
  * rewriting and the cross-package dependencies only meet for the first time
  * inside a real registry.
  *
- * So: publish all five packages to a throwaway Verdaccio, scaffold an app that
- * has never seen this workspace, install from that registry, and build and boot
- * it. The React rehearsal also drives the production bundle through Chromium.
- * Anything that only worked because of the workspace fails here.
+ * So: publish every package to a throwaway Verdaccio, scaffold an app that has
+ * never seen this workspace, install from that registry, build and boot it, and
+ * drive the production bundle through Chromium. Anything that only worked
+ * because of the workspace fails here.
  *
- *   node scripts/release-verify.mjs [--renderer react|vanilla] [--keep]
+ *   node scripts/release-verify.mjs [--locales tr,en] [--keep]
  */
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -64,7 +64,11 @@ try {
     console.log(`  published @originloom/${name}`);
   }
 
-  step(`scaffold a ${options.renderer} app outside the workspace`);
+  step(
+    options.locales
+      ? `scaffold an app with locales ${options.locales}`
+      : "scaffold an app outside the workspace",
+  );
   const appDir = join(workDir, "app", "verify-web");
   mkdirSync(join(workDir, "app"), { recursive: true });
   run(
@@ -78,7 +82,7 @@ try {
       join(workDir, "app"),
       "--port",
       String(appPort),
-      ...(options.renderer === "vanilla" ? ["--vanilla"] : []),
+      ...(options.locales ? ["--locales", options.locales] : []),
     ],
     { cwd: workDir },
   );
@@ -88,7 +92,7 @@ try {
 
   step("install from the registry");
   run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: appDir, env: npmEnv });
-  assertInstalledFromRegistry(appDir, options.renderer);
+  assertInstalledFromRegistry(appDir);
   assertNoUnsupportedUuid(appDir);
   run("pnpm", ["audit", "--audit-level", "low"], { cwd: appDir, env: npmEnv });
 
@@ -99,11 +103,11 @@ try {
   run("pnpm", ["run", "lint"], { cwd: appDir });
   run("pnpm", ["run", "format:check"], { cwd: appDir });
   run("pnpm", ["run", "test"], { cwd: appDir });
-  if (options.renderer === "react") run("pnpm", ["run", "contracts:fixtures"], { cwd: appDir });
+  run("pnpm", ["run", "contracts:fixtures"], { cwd: appDir });
   run("pnpm", ["exec", "origin-build"], { cwd: appDir });
-  if (options.renderer === "react") run("pnpm", ["run", "budget:bundle"], { cwd: appDir });
+  run("pnpm", ["run", "budget:bundle"], { cwd: appDir });
   run("pnpm", ["exec", "origin-smoke"], { cwd: appDir, env: smokeEnv(appDir) });
-  if (options.renderer === "react") {
+  {
     step("exercise the installed load generator against the production bundle");
     run(
       "pnpm",
@@ -127,7 +131,7 @@ try {
     );
   }
 
-  if (options.renderer === "react") {
+  {
     step("install Chromium and exercise the published app in a real browser");
     run("pnpm", ["exec", "playwright", "install", ...browserInstallArgs(), "chromium"], {
       cwd: appDir,
@@ -156,15 +160,11 @@ try {
 process.exit(failed ? 1 : 0);
 
 function parseArgs(argv) {
-  const parsed = { renderer: "react", keep: false };
+  const parsed = { keep: false };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--renderer") parsed.renderer = argv[++i];
-    else if (argv[i] === "--vanilla") parsed.renderer = "vanilla";
-    else if (argv[i] === "--keep") parsed.keep = true;
+    if (argv[i] === "--keep") parsed.keep = true;
+    else if (argv[i] === "--locales") parsed.locales = argv[++i];
     else throw new Error(`Unknown option: ${argv[i]}`);
-  }
-  if (!["react", "vanilla"].includes(parsed.renderer)) {
-    throw new Error(`Unknown renderer: ${parsed.renderer}`);
   }
   return parsed;
 }
@@ -223,10 +223,8 @@ async function startVerdaccio(port, root) {
 }
 
 /** The point of the rehearsal: nothing may resolve back to the workspace. */
-function assertInstalledFromRegistry(appDir, renderer) {
-  // An app installs the base, the core, its own renderer and the CLIs — not the
-  // renderer it did not choose.
-  for (const name of ["shared", "core", "tooling", renderer]) {
+function assertInstalledFromRegistry(appDir) {
+  for (const name of ["shared", "core", "tooling", "react"]) {
     const installed = join(appDir, "node_modules/@originloom", name, "package.json");
     if (!existsSync(installed)) throw new Error(`@originloom/${name} was not installed`);
   }

@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { PROJECT_FILE } from "./compatibility.mjs";
 
-export const PLATFORM_PACKAGES = ["shared", "core", "react", "vanilla", "tooling"];
+export const PLATFORM_PACKAGES = ["shared", "core", "react", "tooling"];
 
 export function findProjectRoot(start = process.cwd()) {
   let current = resolve(start);
@@ -33,7 +33,7 @@ export function readProject(root) {
     pkg,
     metadataPath,
     metadata,
-    renderer: detectRenderer(pkg, metadata),
+    renderer: detectRenderer(pkg),
     mode: metadata?.mode ?? inferMode(pkg),
   };
 }
@@ -53,13 +53,9 @@ export function declaredOriginloomPackages(pkg) {
     .map(([name, range]) => ({ name, range }));
 }
 
-export function detectRenderer(pkg, metadata) {
-  if (metadata?.renderer === "react" || metadata?.renderer === "vanilla") {
-    return metadata.renderer;
-  }
-  if (pkg.dependencies?.["@originloom/react"]) return "react";
-  if (pkg.dependencies?.["@originloom/vanilla"]) return "vanilla";
-  return "unknown";
+/** React is the only renderer; a project without its package is a broken project. */
+export function detectRenderer(pkg) {
+  return pkg.dependencies?.["@originloom/react"] ? "react" : "unknown";
 }
 
 function inferMode(pkg) {

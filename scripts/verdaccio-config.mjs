@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export const repoRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 
 /** The packages a release covers, in dependency order. */
-export const PACKAGES = ["shared", "core", "react", "vanilla", "tooling"];
+export const PACKAGES = ["shared", "core", "react", "tooling"];
 
 /** Matches `publishConfig.registry` in every package. */
 export const DEFAULT_REGISTRY_PORT = 4873;

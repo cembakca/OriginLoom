@@ -39,10 +39,10 @@ export interface OriginRenderer<Shell = unknown> {
 }
 ```
 
-`@originloom/react` and `@originloom/vanilla` are the two implementations that ship today.
+`@originloom/react` is the implementation that ships today.
 
 ## Route types
 
 `Route<TData, TNode>` leaves the node type to the adapter. Apps import the pinned alias from their
-renderer package (`@originloom/react/lib/types` or `@originloom/vanilla/lib/types`) so JSX or
+renderer package (`@originloom/react/lib/types`) so JSX or
 `html` templates type-check; the core only ever sees the neutral default.

@@ -5,7 +5,7 @@ Hono, with a layered HTML cache, a request middleware pipeline, security, config
 
 **It has no UI framework in it** — no `react` dependency, no `.tsx`, not even a type import.
 Rendering goes through the `OriginRenderer` contract in `@originloom/shared`, implemented by
-`@originloom/react` or `@originloom/vanilla`.
+`@originloom/react`.
 
 ```bash
 pnpm add @originloom/core @originloom/shared

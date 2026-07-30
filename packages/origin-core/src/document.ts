@@ -8,6 +8,7 @@ import type { DocumentRenderInput, FrameworkNode, StreamResult } from "@originlo
 import type { Assets } from "./assets.js";
 import { resolveDocumentHeadAssets } from "./document/head-assets.js";
 import type { DocumentContext } from "./document/types.js";
+import type { DocumentShell } from "./runtime.js";
 import { getRuntime } from "./runtime.js";
 
 export type { DocumentContext, StreamResult } from "./document/types.js";
@@ -92,7 +93,7 @@ async function buildDocumentInput({
   const { preconnectOrigins, modulePreloads } = resolveDocumentHeadAssets(assets, preloadIslands);
 
   return {
-    htmlLang: runtime.document.htmlLang,
+    htmlLang: resolveHtmlLang(runtime.document.htmlLang, routeCtx),
     assets,
     seo: metadata,
     pageMeta,
@@ -117,4 +118,8 @@ export async function streamToString(stream: ReadableStream<Uint8Array>): Promis
   }
   result += decoder.decode();
   return result;
+}
+
+function resolveHtmlLang(htmlLang: DocumentShell["htmlLang"], ctx: Ctx): string {
+  return typeof htmlLang === "function" ? htmlLang(ctx) : htmlLang;
 }

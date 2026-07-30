@@ -110,8 +110,6 @@ CI veya script kullanımında prompt oluşmaması için hem proje adını hem `-
 | `--title <text>`     | README ve metadata için görünen ürün adı                                |
 | `--workspace`        | `apps/<name>` altında `workspace:*` bağımlılıklarıyla üretir            |
 | `--renderer react`   | React renderer; varsayılan                                              |
-| `--renderer vanilla` | Framework-free renderer                                                 |
-| `--vanilla`          | `--renderer vanilla` kısayolu                                           |
 | `--port <n>`         | Uygulama portu; metrics `n + 6000`, Vite varsayılanı `n + 2000`         |
 | `--vite-port <n>`    | Vite dev-server portunu ayrıca belirler                                 |
 | `--target-dir <dir>` | Standalone projenin yazılacağı üst klasör                               |

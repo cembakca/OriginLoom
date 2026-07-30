@@ -19,7 +19,7 @@
   "scripts": {
     "audit:prod": "pnpm audit --prod --audit-level=high",
     "build": "pnpm --filter showroom build",
-    "build:packages": "pnpm --filter @originloom/shared --filter @originloom/core --filter @originloom/react --filter @originloom/vanilla run build",
+    "build:packages": "pnpm --filter @originloom/shared --filter @originloom/core --filter @originloom/react run build",
     "changeset": "changeset",
     "changeset:version": "changeset version && pnpm install --lockfile-only",
     "check:cycles": "pnpm --filter showroom check:cycles",

@@ -4,7 +4,7 @@ import type { Plugin, PluginOption, UserConfig, ViteDevServer } from "vite";
  * The framework-neutral half of the build setup. `vite` is imported for types
  * only, so this module adds no runtime dependency: plugins are plain objects and
  * configs are plain data. Renderer adapters (`@originloom/react/vite`,
- * `@originloom/vanilla/vite`) layer their own plugins on top.
+ * `@originloom/react/vite`) layer their own plugins on top.
  */
 export type DevReloadOptions = {
   /** Decides whether a changed file needs a full document reload (SSR output changed). */
@@ -66,12 +66,7 @@ export function createBaseClientViteConfig(options: BaseClientViteConfigOptions)
     resolve: { alias: options.alias ?? {}, dedupe: options.dedupe ?? [] },
     // Workspace packages ship TypeScript source; keep them out of the dep optimizer.
     optimizeDeps: {
-      exclude: [
-        "@originloom/shared",
-        "@originloom/core",
-        "@originloom/react",
-        "@originloom/vanilla",
-      ],
+      exclude: ["@originloom/shared", "@originloom/core", "@originloom/react"],
       ...(options.optimizeDeps ? { include: options.optimizeDeps } : {}),
     },
     server: {

@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 
 import { renderSkills } from "./skills.mjs";
 import { renderOpsTemplates } from "./templates-ops.mjs";
-import * as vanilla from "./templates-vanilla.mjs";
 import {
   compareVersions,
   PROJECT_SCHEMA_VERSION,
@@ -35,9 +34,9 @@ const asset = (name) =>
  *   port: number;
  *   metricsPort: number;
  *   mode: "workspace" | "standalone";
+ *   locales?: readonly string[];
  *   version: string;
  *   templateVersion?: string;
- *   renderer?: "react" | "vanilla";
  *   vitePort?: number;
  *   registry?: string;
  * }} vars
@@ -50,7 +49,8 @@ export function renderTemplates({
   mode,
   version,
   templateVersion = TOOLING_VERSION,
-  renderer = "react",
+  // Opt-in i18n. An app that does not ask for it contains no locale code at all.
+  locales,
   vitePort = port + VITE_PORT_OFFSET,
   registry,
   withOps = false,
@@ -60,22 +60,13 @@ export function renderTemplates({
   // via workspace:*. The two modes differ only in how they reach the packages
   // and how they build — the app source they generate is identical.
   const standalone = mode === "standalone";
-  // The renderer decides how HTML is produced, so it decides which route, page,
-  // island and client-entry templates ship. Everything else is identical.
-  if (renderer === "vanilla") {
-    return vanillaTemplates({
-      name,
-      title,
-      port,
-      metricsPort,
-      vitePort,
-      standalone,
-      version,
-      templateVersion,
-      registry,
-      withOps,
-    });
+  // One language is not i18n. Failing here beats silently generating an app that
+  // asked for the plugin and did not get it.
+  if (locales !== undefined && (!Array.isArray(locales) || locales.length < 2)) {
+    throw new Error('renderTemplates: locales needs at least two languages, e.g. ["tr", "en"]');
   }
+  const i18n = locales !== undefined;
+  const defaultLocale = i18n ? locales[0] : undefined;
   return {
     // npm config is not inherited from parent directories, so an app that
     // installs @originloom/* from somewhere other than npmjs carries its own.
@@ -83,7 +74,6 @@ export function renderTemplates({
     ".originloom/project.json": projectMetadata({
       templateVersion,
       platformRange: mode === "workspace" ? "workspace:*" : version,
-      renderer,
       mode,
     }),
     "package.json": packageJson(name, { standalone, version, withOps }),
@@ -97,7 +87,7 @@ export function renderTemplates({
     "playwright.config.ts": playwrightConfig(name, port, metricsPort),
     ".env.development": envDevelopment(name, port, metricsPort, vitePort, true),
     ".env.production": envProduction(port, metricsPort, true),
-    "README.md": readme(name, title, port, vitePort, standalone, withOps),
+    "README.md": readme(name, title, port, vitePort, standalone, withOps, i18n),
     "docs/auth.md": asset("docs/auth.md"),
     "docs/background-workers.md": asset("docs/background-workers.md"),
     "docs/caching.md": asset("docs/caching.md"),
@@ -106,6 +96,7 @@ export function renderTemplates({
     "docs/dynamic-shell.md": asset("docs/dynamic-shell.md"),
     "docs/features.md": asset("docs/features.md"),
     "docs/middleware.md": asset("docs/middleware.md"),
+    "docs/mutations.md": asset("docs/mutations.md"),
     "docs/observability.md": asset("docs/observability.md"),
     "docs/react-query.md": asset("docs/react-query.md"),
     "docs/routing.md": asset("docs/routing.md"),
@@ -122,7 +113,7 @@ export function renderTemplates({
     ".gitignore": asset("gitignore"),
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
-    ".github/workflows/ci.yml": githubWorkflow(name, "react"),
+    ".github/workflows/ci.yml": githubWorkflow(name),
     // Opt-in deployment assets: compose, k8s manifests, a load generator.
     ...(withOps ? renderOpsTemplates({ name, port, metricsPort, includeCapacity: true }) : {}),
     "load-test/capacity.mjs": asset("load-test/capacity.mjs"),
@@ -135,19 +126,31 @@ export function renderTemplates({
     "load-test/profile-target.mjs": asset("load-test/profile-target.mjs"),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
-    "server/middleware/index.ts": middlewareIndex(),
+    "server/middleware/index.ts": middlewareIndex(i18n),
     "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
     "server/middleware/redirect-rules.ts": redirectRulesMiddlewareFile(),
     "server/middleware/search-indexing.ts": searchIndexingMiddlewareFile(),
+    ...(i18n
+      ? {
+          "server/middleware/locale.ts": localeMiddlewareFile(),
+          "src/lib/i18n/config.ts": i18nConfig(locales, defaultLocale),
+          "src/lib/i18n/messages.ts": i18nMessages(locales),
+          "src/components/layout/language-switcher.tsx": languageSwitcher(),
+          "tests/i18n.test.ts": i18nTest(),
+          "docs/i18n.md": asset("docs/i18n.md"),
+        }
+      : {}),
     "server/api/index.ts": apiIndex(),
     "server/api/live-stream/admission.ts": liveStreamAdmission(),
     "server/api/live-stream/index.ts": liveStreamApi(),
-    "server/seo.ts": seoRoutes(),
+    "server/seo.ts": seoRoutes(i18n),
     "server/metrics/catalog.ts": productMetrics(),
     "server/metrics/live-stream.ts": liveStreamMetrics(),
     "server/product/config.ts": productConfigFile(true),
     "server/product/analytics.ts": productAnalytics(),
     "server/api/items.ts": publicItemsApi(),
+    "server/api/enquiries.ts": enquiryApi(),
+    "server/services/enquiries.ts": enquiryService(),
     "server/api/session.ts": sessionApi(),
     "server/media.config.json": mediaConfig(),
     "src/assets/images/og-cover.svg": ogCoverSvg(title),
@@ -165,6 +168,8 @@ export function renderTemplates({
     "server/routes/data-cache.tsx": dataCacheRoute(),
     "server/routes/item-detail.tsx": itemDetailRoute(),
     "server/routes/account.tsx": accountRoute(),
+    "server/routes/contact.tsx": contactRoute(),
+    "src/features/contact/contact-page.tsx": contactPage(),
     "server/routes/live.tsx": liveRoute(),
     "server/services/shell-data.ts": serverShellData(),
     "server/services/menu.ts": menuService(),
@@ -186,7 +191,7 @@ export function renderTemplates({
     ".github/workflows/contract-staging.yml": stagingContractWorkflow(name),
     "mock-gateway/server.mjs": mockGateway(true),
     "server/product/runtime.ts": productRuntime(),
-    "server/product/document-shell.ts": productDocumentShell(title),
+    "server/product/document-shell.ts": productDocumentShell(title, i18n),
     "server/product/renderer.tsx": productRenderer(),
     "server/product/boundary-pages.tsx": boundaryPages(),
     "server/product/fragments.tsx": fragmentsFile(),
@@ -203,16 +208,16 @@ export function renderTemplates({
     "src/features/data-cache/data-cache-page.tsx": dataCachePage(),
     "src/features/items/item-detail-page.tsx": itemDetailPage(),
     "src/features/live/live-page.tsx": livePage(),
-    "src/components/layout/root-layout.tsx": rootLayout(title),
+    "src/components/layout/root-layout.tsx": rootLayout(title, i18n),
     "src/components/ui/responsive-image.tsx": responsiveImageComponent(),
     "src/lib/shell-data.ts": libShellData(),
-    "src/lib/cache-keys.ts": cacheKeys(),
+    "src/lib/cache-keys.ts": cacheKeys(i18n),
     "src/lib/pagination.ts": paginationLib(),
     "src/lib/query/hooks/use-session.ts": sessionQueryHook(),
     "src/lib/query/keys.ts": queryKeys(),
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
     "src/lib/menu.ts": menuLib(),
-    "src/routing/rules.ts": routingRules(true),
+    "src/routing/rules.ts": routingRules(true, locales),
     "src/styles/globals.css": globalsCss(standalone),
     "src/global.d.ts": globalDts(),
 
@@ -229,6 +234,7 @@ export function renderTemplates({
     "tests/cache-key-codec.test.ts": cacheKeyCodecTest(),
     "tests/routing-rules.test.ts": routingRulesTest(),
     "tests/session-api.test.ts": sessionApiTest(),
+    "tests/enquiries-api.test.ts": enquiryApiTest(),
     "e2e/critical-paths.spec.ts": criticalPathsE2e(port, metricsPort),
     "e2e/accessibility.spec.ts": accessibilityE2e(),
     "e2e/ssr.no-js.spec.ts": noJavaScriptE2e(),
@@ -238,112 +244,7 @@ export function renderTemplates({
     // generated app source they describe is too.
     "CLAUDE.md": asset("generated-claude.md"),
     ".claude/settings.json": claudeSettings(),
-    ...renderSkills("react"),
-  };
-}
-
-/**
- * The vanilla file map. Same platform contract, different renderer: routes and
- * pages return HTML nodes, islands are plain modules, and no React package is
- * installed at all.
- *
- * @param {{ name: string; title: string; port: number; metricsPort: number;
- *           standalone: boolean; version: string; templateVersion: string }} vars
- */
-function vanillaTemplates({
-  name,
-  title,
-  port,
-  metricsPort,
-  vitePort,
-  standalone,
-  version,
-  templateVersion,
-  registry,
-  withOps,
-}) {
-  return {
-    ...(registry ? { ".npmrc": npmrc(registry) } : {}),
-    ".originloom/project.json": projectMetadata({
-      templateVersion,
-      platformRange: standalone ? version : "workspace:*",
-      renderer: "vanilla",
-      mode: standalone ? "standalone" : "workspace",
-    }),
-    "package.json": packageJson(name, { standalone, version, renderer: "vanilla", withOps }),
-    "tsconfig.json": tsconfig(standalone, "vanilla"),
-    "eslint.config.js": eslintConfig(),
-    ".prettierrc.json": asset("prettierrc.json"),
-    ".prettierignore": prettierIgnore(),
-    "vite.config.ts": vanilla.viteConfig(vitePort),
-    "vite.server.config.ts": vanilla.viteServerConfig(),
-    "vitest.config.ts": vitestConfig(name),
-    ".env.development": envDevelopment(name, port, metricsPort, vitePort),
-    ".env.production": envProduction(port, metricsPort),
-    "README.md": vanilla.readme(name, title, port, vitePort, standalone),
-    Dockerfile: dockerfile(name, port, standalone),
-    ".dockerignore": asset("dockerignore"),
-    ".gitignore": asset("gitignore"),
-    ".nvmrc": asset("nvmrc"),
-    ".editorconfig": asset("editorconfig"),
-    ".github/workflows/ci.yml": githubWorkflow(name, "vanilla"),
-    // Opt-in deployment assets: compose, k8s manifests, a load generator.
-    ...(withOps ? renderOpsTemplates({ name, port, metricsPort, includeCapacity: false }) : {}),
-
-    // The vanilla map ships neither a live stream nor bot analytics.
-    "server/index.ts": serverIndex("/src/entry.client.ts", {
-      liveStream: false,
-      botAnalytics: false,
-    }),
-    "server/middleware/index.ts": middlewareIndex(),
-    "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
-    "server/middleware/redirect-rules.ts": redirectRulesMiddlewareFile(),
-    "server/middleware/search-indexing.ts": searchIndexingMiddlewareFile(),
-    "server/api/index.ts": vanilla.apiIndex(),
-    "server/seo.ts": seoRoutes(),
-    "server/metrics/catalog.ts": productMetrics(),
-    "server/product/config.ts": productConfigFile(),
-    "server/product/analytics.ts": productAnalytics(),
-    "server/api/items.ts": publicItemsApi(),
-    "server/api/session.ts": sessionApi(),
-    "server/media.config.json": mediaConfig(),
-    "src/assets/images/og-cover.svg": ogCoverSvg(title),
-    "src/assets/images/hero.svg": heroSvg(title),
-    "src/assets/images/brand-mark.svg": brandMarkSvg(),
-    "server/routes/index.ts": vanilla.routesIndex(),
-    "server/routes/home.ts": vanilla.homeRoute(title),
-    "server/routes/catalog.ts": vanilla.catalogRoute(),
-    "server/routes/item-detail.ts": vanilla.itemDetailRoute(),
-    "server/services/shell-data.ts": vanilla.serverShellData(),
-    "server/services/items.ts": itemsService(),
-    "server/services/profile.ts": profileService(),
-    "server/services/gateway-contracts.ts": gatewayContracts(),
-    "mock-gateway/server.mjs": mockGateway(),
-    "server/product/runtime.ts": vanilla.productRuntime(),
-    "server/product/document-shell.ts": productDocumentShell(title),
-    "server/product/renderer.ts": vanilla.productRenderer(),
-    "server/product/boundary-pages.ts": vanilla.boundaryPages(),
-
-    "src/entry.client.ts": vanilla.entryClient(),
-    "src/hydrate.client.ts": vanilla.hydrateClient(),
-    "src/islands/counter.ts": vanilla.counterIsland(),
-    "src/pages/home.ts": vanilla.homePage(),
-    "src/pages/catalog.ts": vanilla.catalogPage(),
-    "src/pages/item-detail.ts": vanilla.itemDetailPage(),
-    "src/components/layout.ts": vanilla.layoutComponent(title),
-    "src/lib/shell-data.ts": vanilla.libShellData(),
-    "src/lib/cache-keys.ts": vanilla.cacheKeys(),
-    "src/lib/pagination.ts": paginationLib(),
-    "src/lib/metadata/site-defaults.ts": siteDefaults(title),
-    "src/routing/rules.ts": routingRules(),
-    "src/styles/globals.css": vanilla.globalsCss(standalone),
-
-    "tests/home.test.ts": homeTest(),
-    "tests/middleware.test.ts": middlewareTest(),
-
-    "CLAUDE.md": asset("generated-claude-vanilla.md"),
-    ".claude/settings.json": claudeSettings(),
-    ...renderSkills("vanilla"),
+    ...renderSkills({ i18n }),
   };
 }
 
@@ -379,8 +280,8 @@ const claudeSettings = () =>
     2,
   )}\n`;
 
-/** @param {{ standalone: boolean; version: string; renderer?: "react" | "vanilla" }} opts */
-const packageJson = (name, { standalone, version, renderer = "react", withOps = false }) => {
+/** @param {{ standalone: boolean; version: string }} opts */
+const packageJson = (name, { standalone, version, withOps = false }) => {
   // workspace apps link the packages by workspace:*; standalone apps pin the
   // published version range passed via --version.
   const originloom = standalone ? version : "workspace:*";
@@ -391,14 +292,10 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
   const pnpm = standalone
     ? {
         onlyBuiltDependencies: ["@tailwindcss/oxide", "esbuild", "protobufjs", "sharp"],
-        ...(renderer === "react"
-          ? {
-              // Autocannon 8 is current but still declares hyperid 3, whose only
-              // UUID source is the unsupported uuid 8 package. Hyperid 4 keeps
-              // the same CJS API and replaces that dependency with randomUUID.
-              overrides: { "autocannon>hyperid": "^4.0.0" },
-            }
-          : {}),
+        // Autocannon 8 is current but still declares hyperid 3, whose only UUID
+        // source is the unsupported uuid 8 package. Hyperid 4 keeps the same CJS
+        // API and replaces that dependency with randomUUID.
+        overrides: { "autocannon>hyperid": "^4.0.0" },
       }
     : undefined;
   return `${JSON.stringify(
@@ -406,7 +303,7 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
       name,
       private: true,
       type: "module",
-      engines: { node: renderer === "react" ? ">=22.19.0" : ">=22.13.0" },
+      engines: { node: ">=22.19.0" },
       scripts: {
         "origin:doctor": "origin-doctor",
         "origin:migrate": "origin-migrate",
@@ -418,22 +315,19 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
         smoke: "origin-smoke --gateway mock-gateway/server.mjs",
         typecheck: "tsc --noEmit",
         "check:cycles": "origin-check-cycles",
-        ...(renderer === "vanilla"
-          ? {}
-          : {
-              capacity: "node load-test/capacity.mjs",
-              "capacity:quick": "node load-test/capacity.mjs --profile quick",
-              "performance:compare": "node load-test/performance.mjs",
-              "performance:accept": "node load-test/performance.mjs --accept",
-              "capacity:profile": "node load-test/profile.mjs",
-              "contracts:fixtures": "origin-check-contracts",
-              "contracts:staging": "origin-check-contracts --require-base-url",
-              "budget:bundle": "origin-check-budgets",
-              "quality:server": "origin-quality-server --gateway mock-gateway/server.mjs",
-              lighthouse: "origin-lighthouse",
-            }),
-        // Icon codegen emits React components, so it ships with that renderer only.
-        ...(renderer === "vanilla" ? {} : { icons: "origin-generate-icons" }),
+        ...{
+          capacity: "node load-test/capacity.mjs",
+          "capacity:quick": "node load-test/capacity.mjs --profile quick",
+          "performance:compare": "node load-test/performance.mjs",
+          "performance:accept": "node load-test/performance.mjs --accept",
+          "capacity:profile": "node load-test/profile.mjs",
+          "contracts:fixtures": "origin-check-contracts",
+          "contracts:staging": "origin-check-contracts --require-base-url",
+          "budget:bundle": "origin-check-budgets",
+          "quality:server": "origin-quality-server --gateway mock-gateway/server.mjs",
+          lighthouse: "origin-lighthouse",
+        },
+        icons: "origin-generate-icons",
         media: "origin-build-media",
         lint: "eslint .",
         "lint:fix": "eslint . --fix",
@@ -441,15 +335,11 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
         "format:check": "prettier --check .",
         // Keep Playwright specs out of Vitest; e2e has its own runner below.
         test: "vitest run tests",
-        ...(renderer === "vanilla"
-          ? {}
-          : {
-              e2e: "playwright test",
-              "e2e:server": "pnpm run build && pnpm run start",
-              "e2e:ui": "playwright test --ui",
-              "e2e:report": "playwright show-report",
-              "e2e:install": "playwright install chromium",
-            }),
+        e2e: "playwright test",
+        "e2e:server": "pnpm run build && pnpm run start",
+        "e2e:ui": "playwright test --ui",
+        "e2e:report": "playwright show-report",
+        "e2e:install": "playwright install chromium",
         // Deployment helpers, generated only with --with-ops.
         ...(withOps
           ? {
@@ -465,24 +355,20 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
             }
           : {}),
         // What CI runs, in one command, so it can be run locally too.
-        ci:
-          renderer === "vanilla"
-            ? "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build && pnpm run smoke"
-            : "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run contracts:fixtures && pnpm run build && pnpm run budget:bundle && pnpm run e2e && pnpm run lighthouse && pnpm run smoke",
+        ci: "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run contracts:fixtures && pnpm run build && pnpm run budget:bundle && pnpm run e2e && pnpm run lighthouse && pnpm run smoke",
       },
       dependencies: {
         "@hono/node-server": "^2.0.12",
         "@originloom/core": originloom,
         "@originloom/shared": originloom,
-        ...(renderer === "vanilla"
-          ? { "@originloom/vanilla": originloom }
-          : { "@originloom/react": originloom }),
+        "@originloom/react": originloom,
         "@tailwindcss/vite": "^4.3.3",
-        ...(renderer === "vanilla" ? {} : { "@tanstack/react-query": "^5.101.4" }),
-        ...(renderer === "vanilla" ? {} : { "web-vitals": "^6.0.1" }),
-        ...(renderer === "vanilla" ? {} : { clsx: "^2.1.1" }),
+        "@tanstack/react-query": "^5.101.4",
+        "web-vitals": "^6.0.1",
+        clsx: "^2.1.1",
         hono: "^4.12.32",
-        ...(renderer === "vanilla" ? {} : { react: "^19.2.8", "react-dom": "^19.2.8" }),
+        react: "^19.2.8",
+        "react-dom": "^19.2.8",
         tailwindcss: "^4.3.3",
         tsx: "^4.23.1",
       },
@@ -494,17 +380,13 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
         "@napi-rs/wasm-runtime": "1.1.6",
         "@originloom/tooling": originloom,
         "@types/node": "^22.20.1",
-        ...(renderer === "vanilla"
-          ? {}
-          : {
-              "@axe-core/playwright": "^4.12.1",
-              "@playwright/test": "^1.62.0",
-              "@types/react": "^19.2.17",
-              "@types/react-dom": "^19.2.3",
-              "@vitejs/plugin-react": "^6.0.4",
-              autocannon: "^8.0.0",
-              lighthouse: "^13.4.1",
-            }),
+        "@axe-core/playwright": "^4.12.1",
+        "@playwright/test": "^1.62.0",
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.3",
+        "@vitejs/plugin-react": "^6.0.4",
+        autocannon: "^8.0.0",
+        lighthouse: "^13.4.1",
         eslint: "^10.8.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-simple-import-sort": "^14.0.0",
@@ -522,13 +404,13 @@ const packageJson = (name, { standalone, version, renderer = "react", withOps = 
   )}\n`;
 };
 
-const projectMetadata = ({ templateVersion, platformRange, renderer, mode }) =>
+const projectMetadata = ({ templateVersion, platformRange, mode }) =>
   JSON.stringify(
     {
       schemaVersion: PROJECT_SCHEMA_VERSION,
       templateVersion,
       platformRange,
-      renderer,
+      renderer: "react",
       mode,
       generatedBy: "@originloom/tooling",
       appliedMigrations: migrations
@@ -570,14 +452,9 @@ const APP_COMPILER_OPTIONS = `    "types": ["node", "vite/client"],
       "@server/*": ["./server/*"]
     }`;
 
-const tsconfig = (standalone, renderer = "react") => {
+const tsconfig = (standalone) => {
   const extendsLine = standalone ? "" : `  "extends": "../../tsconfig.base.json",\n`;
-  // A vanilla app has no JSX, so a standalone one does not carry the setting.
-  const base =
-    renderer === "vanilla"
-      ? BASE_COMPILER_OPTIONS.replace(`    "jsx": "react-jsx",\n`, "")
-      : BASE_COMPILER_OPTIONS;
-  const options = standalone ? base + APP_COMPILER_OPTIONS : APP_COMPILER_OPTIONS;
+  const options = standalone ? BASE_COMPILER_OPTIONS + APP_COMPILER_OPTIONS : APP_COMPILER_OPTIONS;
   return `{
 ${extendsLine}  "compilerOptions": {
 ${options}
@@ -980,6 +857,19 @@ test("catalog remains usable when JavaScript is disabled", async ({ page }) => {
   await expect(page).toHaveURL(/\\/items\\/alpha$/);
   await expect(page.getByRole("heading", { name: "Alpha" })).toBeVisible();
 });
+
+test("the contact form submits and reports back without JavaScript", async ({ page }) => {
+  await page.goto("/contact");
+
+  await page.getByLabel("Adınız").fill("Ada");
+  await page.getByLabel("E-posta").fill("ada@example.com");
+  await page.getByLabel("Mesajınız").fill("Merhaba");
+  await page.getByRole("button", { name: "Gönder" }).click();
+
+  // Post/Redirect/Get: the browser ends up on a GET it can reload safely.
+  await expect(page).toHaveURL(/\\/contact\\?status=sent$/);
+  await expect(page.getByRole("status")).toContainText("Mesajınız alındı");
+});
 `;
 
 const liveStreamEnv = `LIVE_STREAM_MAX_CONNECTIONS=1000
@@ -1315,13 +1205,18 @@ const REDIRECT_STATUS = [301, 302, 303, 307, 308] as const;
  * One lookup per URL per minute, not one per request. Without this every page
  * view pays a gateway round trip before it may render — the platform's own CMS
  * redirect step caches for the same reason (REDIRECT_CACHE_TTL_MS).
+ *
+ * Keyed by the whole URL because that is what the service is asked about;
+ * keying by anything narrower would answer one URL with another URL's rule. If
+ * your rules only ever depend on the path — the common case — ask with the path
+ * and key by it, so query strings cannot push entries out of a bounded cache.
  */
 const CACHE_TTL_MS = 60_000;
 const CACHE_MAX_ENTRIES = 1_000;
 const cache = new Map<string, { value: MiddlewareRedirect | null; expiresAt: number }>();
 
 async function decide(url: URL, signal: AbortSignal): Promise<MiddlewareRedirect | null> {
-  const key = url.pathname;
+  const key = url.toString();
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
@@ -1383,9 +1278,11 @@ function remember(key: string, value: MiddlewareRedirect | null): MiddlewareRedi
 }
 `;
 
-const middlewareIndex = () => `import type { OriginMiddleware } from "@originloom/core/middleware";
+const middlewareIndex = (
+  i18n = false,
+) => `import type { OriginMiddleware } from "@originloom/core/middleware";
 
-import { maintenanceMiddleware } from "./maintenance";
+${i18n ? 'import { localeMiddleware } from "./locale";\n' : ""}import { maintenanceMiddleware } from "./maintenance";
 import { redirectRulesMiddleware } from "./redirect-rules";
 import { searchIndexingMiddleware } from "./search-indexing";
 
@@ -1402,7 +1299,7 @@ import { searchIndexingMiddleware } from "./search-indexing";
 export const productMiddleware: readonly OriginMiddleware[] = [
   maintenanceMiddleware,
   redirectRulesMiddleware,
-  searchIndexingMiddleware,
+${i18n ? "  localeMiddleware,\n" : ""}  searchIndexingMiddleware,
 ];
 `;
 
@@ -1772,6 +1669,7 @@ const routesIndex = () => `import type { Route } from "@originloom/react/lib/typ
 
 import account from "./account";
 import catalog from "./catalog";
+import contact from "./contact";
 import dataCache from "./data-cache";
 import home from "./home";
 import itemDetail from "./item-detail";
@@ -1786,6 +1684,7 @@ export const routes: Route[] = [
   dataCache,
   itemDetail,
   account,
+  contact,
   live,
   media,
   showcase,
@@ -2577,6 +2476,7 @@ function isLiveMessage(value: unknown): value is LiveMessage {
 const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
 import { mountClientMetricApi } from "@originloom/core/api/client-metrics";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { mountEnquiryApi } from "@server/api/enquiries";
 import { mountPublicItemsApi } from "@server/api/items";
 import { mountLiveStreamApi } from "@server/api/live-stream";
 import { mountSessionApi } from "@server/api/session";
@@ -2593,6 +2493,10 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   mountClientMetricApi(app);
 
   mountPublicItemsApi(app);
+
+  // The contact form posts here. A public write, so it is same-origin checked
+  // and rate limited — see docs/mutations.md.
+  mountEnquiryApi(app);
 
   // "Who am I", answered from HttpOnly cookies. The account island calls it.
   mountSessionApi(app);
@@ -3631,22 +3535,30 @@ export function installProductRuntime(): void {
 
 const productDocumentShell = (
   title,
+  i18n = false,
 ) => `import type { DocumentShell } from "@originloom/core/runtime";
 import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
 import { resolveDocumentMetadata } from "@originloom/shared/lib/metadata/resolve";
 import type { Ctx, Route } from "@originloom/shared/lib/types";
 
-import { defaultPageMeta } from "~/lib/shell-data";
+${i18n ? 'import { languageAlternates, pageLocale } from "~/lib/i18n/config";\n' : ""}import { defaultPageMeta } from "~/lib/shell-data";
 
 const BOT_UA = /bot|crawl|spider|slurp|bingpreview/i;
 
 /** Document policy: language, bot detection, metadata. Views live in ./renderer. */
 export const productDocumentShell: DocumentShell = {
-  htmlLang: "tr",
+  ${i18n ? "// Resolved per request: a multi-language site cannot state its language once.\n  htmlLang: (ctx) => pageLocale(ctx)," : 'htmlLang: "tr",'}
   errorPageTitle: "Sayfa gösterilemiyor | ${title}",
   isBotRequest: (request) => BOT_UA.test(request.headers.get("user-agent") ?? ""),
-  resolveMetadata: <T>(route: Route<T>, data: T, ctx: Ctx) =>
-    resolveDocumentMetadata(route, data, ctx),
+  resolveMetadata: <T>(route: Route<T>, data: T, ctx: Ctx) =>${
+    i18n
+      ? `
+    // A route may name its own alternates; otherwise every page gets the full
+    // set, itself included — a one-sided hreflang map is worse than none.
+    withLanguageAlternates(resolveDocumentMetadata(route, data, ctx), ctx),`
+      : `
+    resolveDocumentMetadata(route, data, ctx),`
+  }
   boundaryMetadata: (kind, ctx) =>
     mergeMetadata(
       kind === "not-found"
@@ -3664,7 +3576,20 @@ export const productDocumentShell: DocumentShell = {
     ),
   defaultPageMeta: (ctx, pageType) => defaultPageMeta(ctx, pageType),
 };
-`;
+${
+  i18n
+    ? `
+function withLanguageAlternates(
+  metadata: ReturnType<typeof resolveDocumentMetadata>,
+  ctx: Ctx,
+): ReturnType<typeof resolveDocumentMetadata> {
+  if (Object.keys(metadata.languageAlternates).length > 0) return metadata;
+  const base = ctx.siteUrl ?? ctx.url.origin;
+  return { ...metadata, languageAlternates: languageAlternates(metadata.canonical, base) };
+}
+`
+    : ""
+}`;
 
 const productAnalytics = () => `import { config } from "@originloom/core/config";
 import type { CspSources } from "@originloom/core/middleware/security";
@@ -3948,10 +3873,11 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
 
 const rootLayout = (
   title,
+  i18n = false,
 ) => `import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
-import type { ShellData } from "~/lib/shell-data";
+${i18n ? 'import { LanguageSwitcher } from "~/components/layout/language-switcher";\n' : ""}import type { ShellData } from "~/lib/shell-data";
 
 export type RootLayoutProps = {
   shell: ShellData;
@@ -3972,17 +3898,19 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
             <a href="/" className="text-lg font-semibold text-slate-900">
               {SITE_NAME}
             </a>
-            <nav aria-label="Ana menü">
-              <ul className="flex gap-4 text-sm text-slate-600">
-                {shell.menu.map((item) => (
-                  <li key={item.href}>
-                    <a className="hover:text-slate-950 hover:underline" href={item.href}>
-                      {item.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+            <div className="flex items-center gap-6">
+              <nav aria-label="Ana menü">
+                <ul className="flex gap-4 text-sm text-slate-600">
+                  {shell.menu.map((item) => (
+                    <li key={item.href}>
+                      <a className="hover:text-slate-950 hover:underline" href={item.href}>
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+${i18n ? "              <LanguageSwitcher publicPath={shell.publicPath} />\n" : ""}            </div>
           </div>
         </header>
       )}
@@ -4054,7 +3982,7 @@ export function defaultPageMeta(
 }
 `;
 
-const cacheKeys = () => `import type {
+const cacheKeys = (i18n = false) => `import type {
   CachePolicy,
   Ctx,
   RouteCacheResolver,
@@ -4068,8 +3996,7 @@ import {
   contentQueryCacheFragment,
   type ContentQueryConfig,
 } from "@originloom/shared/lib/cache-query-params";
-import { locale } from "@originloom/shared/lib/request";
-
+${i18n ? "" : 'import { locale } from "@originloom/shared/lib/request";\n'}
 import { normalizePageParam } from "~/lib/pagination";
 import { layoutCacheFragment } from "~/lib/shell-data";
 
@@ -4086,11 +4013,20 @@ export {
  * HTML page cache identities. The purge API and the metrics route labels are
  * derived from this registry, so every cacheable page needs an entry here.
  */
-export const PageCacheId = {
+${
+  i18n
+    ? `// The locale is not listed in any key below. server/middleware/locale.ts
+// publishes it as a request value, and the platform folds every published value
+// into the shared cache key — so it fragments the cache exactly once, and it
+// cannot be forgotten by a page that builds its key by hand.
+`
+    : ""
+}export const PageCacheId = {
   home: "home",
   catalog: "catalog",
   itemDetail: "item-detail",
   account: "account",
+  contact: "contact",
   media: "media",
   showcase: "showcase",
 } as const;
@@ -4121,7 +4057,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     ttl: 3600,
     // Only normalized values that actually change the HTML belong in the key.
-    buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["home", ${i18n ? "" : "locale(ctx.request), "}layoutCacheFragment(ctx)],
   },
   [PageCacheId.catalog]: {
     id: PageCacheId.catalog,
@@ -4138,8 +4074,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     buildKey: (ctx) => [
       "catalog",
       contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.catalog].contentQuery!),
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      ${i18n ? "" : "locale(ctx.request),\n      "}      layoutCacheFragment(ctx),
     ],
   },
   [PageCacheId.itemDetail]: {
@@ -4151,8 +4086,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     buildKey: (ctx) => [
       "item-detail",
       ctx.params.slug ?? "",
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      ${i18n ? "" : "locale(ctx.request),\n      "}      layoutCacheFragment(ctx),
     ],
   },
   [PageCacheId.account]: {
@@ -4163,13 +4097,22 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "never",
     buildKey: () => ["account"],
   },
+  [PageCacheId.contact]: {
+    id: PageCacheId.contact,
+    description: "İletişim formu (yazma sonucu gösterir — cache'lenmez)",
+    path: "/contact",
+    // The page renders the outcome of a write; sharing that HTML would show one
+    // visitor's result to the next.
+    strategy: "never",
+    buildKey: () => ["contact"],
+  },
   [PageCacheId.media]: {
     id: PageCacheId.media,
     description: "Görsel pipeline demosu",
     path: "/media",
     strategy: "shared",
     ttl: 3600,
-    buildKey: (ctx) => ["media", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["media", ${i18n ? "" : "locale(ctx.request), "}layoutCacheFragment(ctx)],
   },
   [PageCacheId.showcase]: {
     id: PageCacheId.showcase,
@@ -4178,7 +4121,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     // Page cached for an hour; the fragment it embeds has its own 15s TTL.
     ttl: 3600,
-    buildKey: (ctx) => ["showcase", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["showcase", ${i18n ? "" : "locale(ctx.request), "}layoutCacheFragment(ctx)],
   },
 };
 
@@ -4254,7 +4197,25 @@ export function siteMetadata(baseUrl: string): SiteMetadataConfig {
 
 const routingRules = (
   includeExamples = false,
-) => `import type { RedirectRule, RewriteRule } from "@originloom/shared/routing/types";
+  locales,
+) => `import type { RedirectRule, RewriteRule } from "@originloom/shared/routing/types";${
+  Array.isArray(locales) && locales.length > 1
+    ? `
+
+/**
+ * Non-default locale prefixes are stripped before the route table is matched, so
+ * routes stay written once: /en/catalog matches the /catalog route while the
+ * browser-visible path — the one canonical URLs and cache keys use — keeps its
+ * prefix. The default language owns the bare path and needs no rule.
+ */
+const localePrefixes: RewriteRule[] = [
+${locales
+  .slice(1)
+  .map((locale) => `  { source: "/${locale}/:path*", destination: "/:path*" },`)
+  .join("\n")}
+];`
+    : ""
+}
 
 /**
  * Config-level redirects — the Next.js \`redirects()\` equivalent.
@@ -4276,10 +4237,12 @@ export const redirects: RedirectRule[] = ${
 export const rewrites: RewriteRule[] = ${
   includeExamples
     ? `[
-  // /products/alpha renders /items/:slug; cache and canonical logic still see the public path.
+${Array.isArray(locales) && locales.length > 1 ? "  ...localePrefixes,\n" : ""}  // /products/alpha renders /items/:slug; cache and canonical logic still see the public path.
   { source: "/products/:slug", destination: "/items/:slug" },
 ]`
-    : "[]"
+    : Array.isArray(locales) && locales.length > 1
+      ? "[...localePrefixes]"
+      : "[]"
 };
 
 export function createRewrites(gatewayUrl: string): RewriteRule[] {
@@ -4380,7 +4343,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
 CMD ["node", "--enable-source-maps", "dist/server/index.js"]
 `;
 
-const readme = (name, title, port, vitePort, standalone, withOps) => `# ${title}
+const readme = (name, title, port, vitePort, standalone, withOps, i18n = false) => `# ${title}
 
 OriginLoom ürün uygulaması. Platform runtime'ı \`@originloom/core\` ve \`@originloom/react\`
 paketlerinden gelir; bu repo route tablosunu, ürün kontratlarını, cache kimliğini ve kendi UI'ını
@@ -4534,6 +4497,7 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 - [Background workers](docs/background-workers.md)
 - [Redirect, rewrite ve proxy](docs/routing.md)
 - [Middleware](docs/middleware.md)
+- [Mutation (form ve yazma uçları)](docs/mutations.md)${i18n ? "\n- [i18n](docs/i18n.md)" : ""}
 - [Streaming ve SSE](docs/streaming.md)
 - [SEO](docs/seo.md)
 - [Observability](docs/observability.md)
@@ -4586,7 +4550,7 @@ Kubernetes, Prometheus, load/stress ve pentest readiness adımlarını gerçek o
 }
 `;
 
-const githubWorkflow = (name, renderer) => `name: CI
+const githubWorkflow = (name) => `name: CI
 
 on:
   pull_request:
@@ -4626,42 +4590,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-${
-  renderer === "react"
-    ? `      - name: Install Chromium
+      - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
-`
-    : ""
-}
+
       # typecheck, cycles, lint, format, tests, browser E2E, build and a smoke run.
       # Playwright and smoke each manage the mock gateway process they need.
       - name: Verify
         run: pnpm run ci
 
-${
-  renderer === "react"
-    ? `      - name: Upload Playwright report
+      - name: Upload Playwright report
         if: always() && hashFiles('playwright-report/**') != ''
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
-`
-    : ""
-}
-${
-  renderer === "react"
-    ? `      - name: Upload Lighthouse reports
+
+      - name: Upload Lighthouse reports
         if: always() && hashFiles('.lighthouseci/reports/**') != ''
         uses: actions/upload-artifact@v7
         with:
           name: lighthouse-reports
           path: .lighthouseci/reports/
           retention-days: 14
-`
-    : ""
-}
+
       - name: Build container
         run: docker build --tag ${name}:\${{ github.sha }} .
 `;
@@ -4743,6 +4695,20 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/menu") return json(res, 200, MENU);
+
+  // Where the contact form's endpoint sends what it accepted.
+  if (url.pathname === "/enquiries" && req.method === "POST") {
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      return json(res, 400, { error: "invalid_json" });
+    }
+    if (!body?.name || !body?.email || !body?.message) {
+      return json(res, 422, { error: "missing_fields" });
+    }
+    return json(res, 201, { id: "enq-" + Date.now().toString(36) });
+  }
 
 ${
   includeRoutingExamples
@@ -4889,6 +4855,7 @@ const gatewayContracts = (includeStreaming = false) =>
 export const GatewayContracts = {
   items: defineGatewayContract("items", 262_144),
 ${includeStreaming ? '  liveMessage: defineGatewayContract("live_message", 4_096),\n' : ""}  menu: defineGatewayContract("menu", 32_768),
+  enquiries: defineGatewayContract("enquiries", 4_096),
   profile: defineGatewayContract("profile", 16_384),
   routing: defineGatewayContract("routing", 4_096),
 } as const;
@@ -5328,13 +5295,13 @@ function sessionUnavailable(cookies: Parameters<typeof withBffAuthCookies>[1]): 
 }
 `;
 
-const seoRoutes = () => `import { config } from "@originloom/core/config";
+const seoRoutes = (i18n = false) => `import { config } from "@originloom/core/config";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { mountSeoRoutes as mountPlatformSeoRoutes } from "@originloom/core/seo";
 import { listItems } from "@server/services/items";
 import type { Hono } from "hono";
 
-/**
+${i18n ? 'import { localePath, LOCALES } from "~/lib/i18n/config";\n\n' : ""}/**
  * robots.txt and sitemap.xml. The platform owns the mechanics — headers,
  * caching, XML escaping, degradation — and this file owns the content: which
  * URLs exist, and what to serve when the source cannot answer.
@@ -5344,10 +5311,22 @@ export function mountSeo(app: Hono<{ Variables: AppVariables }>): void {
     siteUrl: config.siteUrl,
     entries: async (signal) => {
       const { items } = await listItems(1, 100, signal);
-      return [{ path: "/" }, { path: "/catalog" }, ...items.map((item) => ({ path: \`/items/\${item.slug}\` }))];
+      const paths = ["/", "/catalog", ...items.map((item) => \`/items/\${item.slug}\`)];
+      return ${
+        i18n
+          ? `LOCALES.flatMap((locale) => paths.map((path) => ({ path: localePath(locale, path) })))`
+          : `paths.map((path) => ({ path }))`
+      };
     },
     // Served when the gateway is down: a stale sitemap beats no sitemap.
-    fallbackEntries: [{ path: "/" }, { path: "/catalog" }],
+    fallbackEntries: ${
+      i18n
+        ? `LOCALES.flatMap((locale) => [
+      { path: localePath(locale, "/") },
+      { path: localePath(locale, "/catalog") },
+    ])`
+        : `[{ path: "/" }, { path: "/catalog" }]`
+    },
   });
 }
 `;
@@ -5548,6 +5527,656 @@ export function mountPublicItemsApi(app: Hono<{ Variables: AppVariables }>): voi
     );
   });
 }
+`;
+
+const enquiryApi = () => `import { logError } from "@originloom/core/logger";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
+import { submitEnquiry } from "@server/services/enquiries";
+import type { Hono } from "hono";
+
+/**
+ * A write anyone on the internet can reach, so it carries the two things a
+ * public mutation always needs: a same-origin check and a rate limit.
+ *
+ * \`requireSameOriginMutation\` is the CSRF defence. It reads Fetch Metadata and
+ * falls back to Origin/Referer — what a browser sends for a real form submission
+ * and what an attacker's page cannot forge. That is why this form needs no token.
+ *
+ * The per-IP limit is deliberately small: a person fills this in once. The global
+ * limit keeps one abusive network from spending the whole budget.
+ */
+const ENQUIRY_POLICY: PublicApiPolicy = {
+  name: "enquiry",
+  windowMs: 60_000,
+  globalLimit: 120,
+  ipLimit: 5,
+  requireSameOriginMutation: true,
+};
+
+export function mountEnquiryApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.post("/api/enquiries", async (c) => {
+    const request = contextRequest(c);
+    const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", ENQUIRY_POLICY);
+    if (denied) return denied;
+
+    const form = await readForm(request);
+    if (!form) return seeOther(FALLBACK_RETURN, "invalid");
+
+    // The page tells the endpoint where to send the visitor back to. Without it
+    // the answer is always the same URL, which is wrong the moment the same form
+    // is served from more than one path — a localized site, for instance.
+    const returnTo = sameSitePath(form.get("returnTo")) ?? FALLBACK_RETURN;
+
+    const enquiry = readEnquiry(form);
+    // Post/Redirect/Get: the browser lands on a GET, so a reload never resubmits
+    // and the outcome is a URL the visitor can share, bookmark or go back to.
+    if (!enquiry) return seeOther(returnTo, "invalid");
+
+    try {
+      await submitEnquiry(enquiry, request.signal);
+    } catch (error) {
+      logError(error, { msg: "enquiry submission failed" });
+      return seeOther(returnTo, "failed");
+    }
+    return seeOther(returnTo, "sent");
+  });
+}
+
+const FALLBACK_RETURN = "/contact";
+
+async function readForm(request: Request): Promise<FormData | null> {
+  if (!request.headers.get("content-type")?.includes("form")) return null;
+  try {
+    return await request.formData();
+  } catch {
+    return null;
+  }
+}
+
+/** Untrusted form input: bounded and shaped, and nothing else is carried through. */
+function readEnquiry(form: FormData) {
+  const name = trimmed(form.get("name"), 80);
+  const email = trimmed(form.get("email"), 160);
+  const message = trimmed(form.get("message"), 2_000);
+  if (!name || !email || !message || !EMAIL.test(email)) return null;
+  return { name, email, message };
+}
+
+/**
+ * A destination the browser supplied is a destination an attacker can supply.
+ * Only a path on this site is accepted — never an absolute URL, never a
+ * protocol-relative one, and never a query of its own.
+ */
+function sameSitePath(value: FormDataEntryValue | null): string | null {
+  const path = trimmed(value, 200);
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return null;
+  return /[?#\\s]/.test(path) ? null : path;
+}
+
+// Deliberately loose: an address is validated by sending to it, not by a regexp.
+// This only rejects what is obviously not one.
+const EMAIL = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/;
+
+function trimmed(value: FormDataEntryValue | null, maxLength: number): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return text.length > 0 && text.length <= maxLength ? text : null;
+}
+
+function seeOther(path: string, status: "sent" | "invalid" | "failed"): Response {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: \`\${path}?status=\${status}\`,
+      "cache-control": "private, no-store",
+    },
+  });
+}
+`;
+
+const enquiryService =
+  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+export type Enquiry = { name: string; email: string; message: string };
+export type EnquiryReceipt = { id: string };
+
+const INVALID = "Enquiry gateway returned an invalid payload";
+
+/** The endpoint owns validation; this owns the upstream call and its contract. */
+export async function submitEnquiry(enquiry: Enquiry, signal: AbortSignal): Promise<EnquiryReceipt> {
+  const response = await gatewayFetch("/enquiries", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(enquiry),
+    signal,
+  });
+  // requireGatewayOk drains the body before it throws, so a failed call never
+  // leaves a socket held open.
+  await requireGatewayOk(response, "Enquiry gateway returned");
+
+  const payload = await readGatewayJson(response, GatewayContracts.enquiries, INVALID);
+  return requireGatewayPayload(GatewayContracts.enquiries, payload, isReceipt, INVALID);
+}
+
+function isReceipt(value: unknown): value is EnquiryReceipt {
+  return isRecord(value) && isBoundedString(value.id, 100);
+}
+`;
+
+const contactRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+
+import { ContactPage, type EnquiryStatus } from "~/features/contact/contact-page";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+const STATUSES: readonly EnquiryStatus[] = ["sent", "invalid", "failed"];
+
+/**
+ * The form's own page, and the page the endpoint redirects back to.
+ *
+ * Never cached: what it renders depends on the outcome of a write. The status
+ * comes from an allowlist rather than the raw query string — a value echoed into
+ * the page is a value the caller gets to choose.
+ */
+export default defineRoute({
+  path: "/contact",
+  cache: pageCache(PageCacheId.contact),
+  loader: async (ctx) => {
+    const requested = ctx.url.searchParams.get("status");
+    return {
+      data: {
+        status: STATUSES.find((candidate) => candidate === requested) ?? null,
+        // The browser-visible path, so the form returns to the page it was on.
+        publicPath: ctx.publicPath,
+      },
+    };
+  },
+  generateMetadata: () => ({
+    title: "İletişim",
+    description: "Sorularınızı bize iletin.",
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "contact"),
+  Component: ({ data }) => <ContactPage status={data.status} publicPath={data.publicPath} />,
+});
+`;
+
+const contactPage = () => `export type EnquiryStatus = "sent" | "invalid" | "failed";
+
+const MESSAGES: Record<EnquiryStatus, { tone: string; text: string }> = {
+  sent: { tone: "text-emerald-700", text: "Mesajınız alındı. En kısa sürede döneceğiz." },
+  invalid: { tone: "text-amber-700", text: "Formu kontrol edip tekrar gönderin." },
+  failed: { tone: "text-rose-700", text: "Şu an gönderemedik. Biraz sonra tekrar deneyin." },
+};
+
+/**
+ * A plain form: method="post" to a real endpoint, no client JavaScript involved.
+ * It works before hydration, without hydration, and when a bundle fails to load.
+ */
+export function ContactPage({
+  status,
+  publicPath,
+}: {
+  status: EnquiryStatus | null;
+  publicPath: string;
+}) {
+  const notice = status ? MESSAGES[status] : null;
+  return (
+    <div className="max-w-xl space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">İletişim</h1>
+      {notice ? (
+        <p className={\`rounded-md bg-slate-50 px-4 py-3 text-sm \${notice.tone}\`} role="status">
+          {notice.text}
+        </p>
+      ) : null}
+      <form method="post" action="/api/enquiries" className="space-y-4">
+        {/* Where the endpoint sends the visitor back to. The same form served
+            from a second path — another language, say — returns to that path. */}
+        <input type="hidden" name="returnTo" value={publicPath} />
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-slate-700">Adınız</span>
+          <input
+            name="name"
+            required
+            maxLength={80}
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-slate-700">E-posta</span>
+          <input
+            type="email"
+            name="email"
+            required
+            maxLength={160}
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-slate-700">Mesajınız</span>
+          <textarea
+            name="message"
+            required
+            rows={5}
+            maxLength={2000}
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700"
+        >
+          Gönder
+        </button>
+      </form>
+    </div>
+  );
+}
+`;
+
+const enquiryApiTest =
+  () => `import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { mountEnquiryApi } from "@server/api/enquiries";
+import { Hono } from "hono";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ submitEnquiry: vi.fn() }));
+vi.mock("@server/services/enquiries", () => ({ submitEnquiry: mocks.submitEnquiry }));
+vi.mock("@originloom/core/logger", () => ({
+  logError: vi.fn(),
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+/** Each case gets its own client IP: the per-IP limiter outlives a single test. */
+function app(clientIp: string) {
+  const instance = new Hono<{ Variables: AppVariables }>();
+  instance.use("*", async (c, next) => {
+    c.set("clientIp", clientIp);
+    await next();
+  });
+  mountEnquiryApi(instance);
+  return instance;
+}
+
+function submission(fields: Record<string, string>, headers: Record<string, string> = {}) {
+  return {
+    method: "POST",
+    body: new URLSearchParams(fields),
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
+  };
+}
+
+const valid = { name: "Ada", email: "ada@example.com", message: "Merhaba" };
+
+describe("enquiry endpoint", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.submitEnquiry.mockResolvedValue({ id: "enq-1" });
+  });
+
+  it("accepts a same-origin submission and answers with a redirect, not a body", async () => {
+    const response = await app("10.0.0.1").request("/api/enquiries", submission(valid));
+
+    // Post/Redirect/Get: reloading the result must not resubmit the form.
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/contact?status=sent");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.submitEnquiry).toHaveBeenCalledWith(valid, expect.anything());
+  });
+
+  it("returns the visitor to the page they submitted from", async () => {
+    const response = await app("10.0.0.6").request(
+      "/api/enquiries",
+      submission({ ...valid, returnTo: "/en/contact" }),
+    );
+
+    expect(response.headers.get("location")).toBe("/en/contact?status=sent");
+  });
+
+  it("refuses a return path that would leave the site", async () => {
+    const response = await app("10.0.0.7").request(
+      "/api/enquiries",
+      submission({ ...valid, returnTo: "https://evil.example/x" }),
+    );
+
+    expect(response.headers.get("location")).toBe("/contact?status=sent");
+  });
+
+  it("rejects a cross-site submission without reaching the gateway", async () => {
+    const response = await app("10.0.0.2").request(
+      "/api/enquiries",
+      submission(valid, { "sec-fetch-site": "cross-site" }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.submitEnquiry).not.toHaveBeenCalled();
+  });
+
+  it("refuses input it cannot trust", async () => {
+    const response = await app("10.0.0.3").request(
+      "/api/enquiries",
+      submission({ ...valid, email: "not-an-address" }),
+    );
+
+    expect(response.headers.get("location")).toBe("/contact?status=invalid");
+    expect(mocks.submitEnquiry).not.toHaveBeenCalled();
+  });
+
+  it("tells the visitor the truth when the gateway fails", async () => {
+    mocks.submitEnquiry.mockRejectedValue(new Error("gateway down"));
+
+    const response = await app("10.0.0.4").request("/api/enquiries", submission(valid));
+
+    expect(response.headers.get("location")).toBe("/contact?status=failed");
+  });
+
+  it("stops one caller from spending the endpoint's budget", async () => {
+    const instance = app("10.0.0.5");
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await instance.request("/api/enquiries", submission(valid));
+    }
+
+    const limited = await instance.request("/api/enquiries", submission(valid));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBe("60");
+  });
+});
+`;
+
+/**
+ * Copy for the locales the generator knows about. A language it has never seen
+ * still generates — it falls back to English text with a TODO-shaped mismatch
+ * the app owner fixes in one file.
+ */
+const COPY = {
+  tr: { skipToContent: "İçeriğe geç", languageLabel: "Dil" },
+  en: { skipToContent: "Skip to content", languageLabel: "Language" },
+  de: { skipToContent: "Zum Inhalt springen", languageLabel: "Sprache" },
+  fr: { skipToContent: "Aller au contenu", languageLabel: "Langue" },
+  es: { skipToContent: "Ir al contenido", languageLabel: "Idioma" },
+};
+
+const NAMES = { tr: "Türkçe", en: "English", de: "Deutsch", fr: "Français", es: "Español" };
+
+const i18nConfig = (
+  locales,
+  defaultLocale,
+) => `import type { Ctx } from "@originloom/shared/lib/types";
+
+/**
+ * The locales this site serves. Everything else in here is derived from this
+ * list — routing rules, hreflang, the sitemap and the language switcher — so
+ * adding a language is one edit plus its message catalog.
+ */
+export const LOCALES = [${locales.map((l) => JSON.stringify(l)).join(", ")}] as const;
+export type Locale = (typeof LOCALES)[number];
+
+/**
+ * The language served at the unprefixed path, and the fallback everywhere.
+ *
+ * It carries no prefix on purpose: \`/catalog\` stays \`/catalog\` when a second
+ * language is added, so existing URLs, links and rankings survive, and the
+ * hottest pages answer without a redirect.
+ */
+export const DEFAULT_LOCALE: Locale = "${defaultLocale}";
+
+export function isLocale(value: unknown): value is Locale {
+  return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
+}
+
+/** \`/en/catalog\` -> \`{ locale: "en", rest: "/catalog" }\`; an unprefixed path -> null. */
+export function splitLocale(pathname: string): { locale: Locale; rest: string } | null {
+  const [, first = "", ...others] = pathname.split("/");
+  if (!isLocale(first)) return null;
+  return { locale: first, rest: "/" + others.join("/") };
+}
+
+/** The public path for one locale. The default language owns the bare path. */
+export function localePath(locale: Locale, path: string): string {
+  const rest = path === "/" ? "" : path.replace(/\\/+$/, "");
+  return locale === DEFAULT_LOCALE ? rest || "/" : "/" + locale + rest;
+}
+
+/**
+ * The locale this request resolved to.
+ *
+ * It comes from the middleware rather than the URL so that loaders, cache keys
+ * and the document shell all read the same decision — and so the value that
+ * fragments the HTML cache is the value the page rendered with.
+ */
+export function pageLocale(ctx: Ctx): Locale {
+  const value = ctx.values?.locale;
+  return isLocale(value) ? value : DEFAULT_LOCALE;
+}
+
+/**
+ * hreflang map for a page, itself included.
+ *
+ * Built from the canonical URL rather than the raw request: pagination and
+ * filters belong in an alternate (page 2 of the English catalogue is the
+ * translation of page 2, not of page 1), while tracking parameters do not — and
+ * the canonical has already made that distinction.
+ *
+ * A one-sided alternate set is worse than none: search engines read the
+ * translations as separate pages competing for the same query.
+ */
+export function languageAlternates(canonical: string, base: string): Record<string, string> {
+  const url = new URL(canonical, base);
+  const rest = splitLocale(url.pathname)?.rest ?? url.pathname;
+  const href = (locale: Locale) => {
+    const target = new URL(localePath(locale, rest), base);
+    target.search = url.search;
+    return target.toString();
+  };
+
+  const alternates: Record<string, string> = {};
+  for (const locale of LOCALES) alternates[locale] = href(locale);
+  alternates["x-default"] = href(DEFAULT_LOCALE);
+  return alternates;
+}
+`;
+
+const i18nMessages = (locales) => `import { DEFAULT_LOCALE, type Locale } from "./config";
+
+/**
+ * UI copy that belongs to this app rather than to its content.
+ *
+ * Content — product names, articles, prices — comes from the gateway already
+ * translated; this catalog is for the chrome around it. Keys are typed, so a
+ * language that forgets one fails the build instead of rendering an English
+ * string into a Turkish page.
+ */
+const MESSAGES = {
+${locales.map((l) => `  ${l}: {\n    skipToContent: ${JSON.stringify(COPY[l]?.skipToContent ?? COPY.en.skipToContent)},\n    languageLabel: ${JSON.stringify(COPY[l]?.languageLabel ?? COPY.en.languageLabel)},\n  },`).join("\n")}\n} as const satisfies Record<Locale, Record<string, string>>;
+
+export type MessageKey = keyof (typeof MESSAGES)[typeof DEFAULT_LOCALE];
+
+export function t(locale: Locale, key: MessageKey): string {
+  return MESSAGES[locale][key] ?? MESSAGES[DEFAULT_LOCALE][key];
+}
+
+export function localeName(locale: Locale): string {
+  return LOCALE_NAMES[locale];
+}
+
+const LOCALE_NAMES: Record<Locale, string> = {
+${locales.map((l) => `  ${l}: ${JSON.stringify(NAMES[l] ?? l.toUpperCase())},`).join("\n")}\n};
+`;
+
+const localeMiddlewareFile = () => `import { defineMiddleware } from "@originloom/core/middleware";
+
+import { DEFAULT_LOCALE, localePath, splitLocale } from "~/lib/i18n/config";
+
+/**
+ * Decides which language this request is in, before the page is matched.
+ *
+ * The default language owns the bare path and every other language is prefixed:
+ * \`/catalog\` is Turkish, \`/en/catalog\` is English. Two consequences worth
+ * knowing — adding a language does not move a single existing URL, and the
+ * busiest pages answer without a redirect in front of them.
+ *
+ * There is deliberately no Accept-Language redirect. Sending a visitor somewhere
+ * else based on their browser would make the canonical URL answer differently
+ * per visitor: uncacheable, and a well-known way to have the wrong language
+ * indexed. The switcher in the header is how a visitor changes language.
+ */
+export const localeMiddleware = defineMiddleware({
+  name: "locale",
+  phase: "before-render",
+  // Documents only. An endpoint has no language prefix and must not be redirected.
+  matcher: ["/:path*"],
+  exclude: ["/api/:path*"],
+  handler: (ctx) => {
+    const prefixed = splitLocale(ctx.publicPath);
+    if (!prefixed) {
+      // The bare path is the default language. Publishing the value keeps every
+      // reader — loader, cache key, document shell — on the same decision.
+      return { values: { locale: DEFAULT_LOCALE } };
+    }
+    if (prefixed.locale === DEFAULT_LOCALE) {
+      // One page, one URL: /tr/catalog is the same page as /catalog, so it moves
+      // there permanently rather than competing with it.
+      return {
+        redirect: { location: localePath(DEFAULT_LOCALE, prefixed.rest) + ctx.url.search, status: 308 },
+      };
+    }
+    // Published as a value, so it fragments the shared HTML cache: one visitor's
+    // Turkish page can never be served to an English one.
+    return { values: { locale: prefixed.locale } };
+  },
+});
+`;
+
+const languageSwitcher =
+  () => `import { DEFAULT_LOCALE, localePath, LOCALES, splitLocale } from "~/lib/i18n/config";
+import { localeName, t } from "~/lib/i18n/messages";
+
+/**
+ * Plain links, not a form or a script: each language is a real URL, so the
+ * switcher works without JavaScript and search engines can follow it.
+ */
+export function LanguageSwitcher({ publicPath }: { publicPath: string }) {
+  const current = splitLocale(publicPath);
+  const locale = current?.locale ?? DEFAULT_LOCALE;
+  const rest = current?.rest ?? publicPath;
+  return (
+    <nav aria-label={t(locale, "languageLabel")} className="flex gap-2 text-sm">
+      {LOCALES.map((candidate) => (
+        <a
+          key={candidate}
+          href={localePath(candidate, rest)}
+          hrefLang={candidate}
+          aria-current={candidate === locale ? "true" : undefined}
+          className={
+            candidate === locale
+              ? "font-semibold text-slate-900"
+              : "text-slate-500 hover:text-slate-900 hover:underline"
+          }
+        >
+          {localeName(candidate)}
+        </a>
+      ))}
+    </nav>
+  );
+}
+`;
+
+const i18nTest = () => `import { localeMiddleware } from "@server/middleware/locale";
+import { describe, expect, it } from "vitest";
+
+import {
+  DEFAULT_LOCALE,
+  languageAlternates,
+  localePath,
+  splitLocale,
+} from "~/lib/i18n/config";
+import { t } from "~/lib/i18n/messages";
+
+function context(url: string, headers: Record<string, string> = {}, cookie?: string) {
+  const request = new Request(url, { headers });
+  const parsed = new URL(url);
+  return {
+    request,
+    url: parsed,
+    publicPath: parsed.pathname,
+    params: {},
+    clientIp: "127.0.0.1",
+    values: {},
+    cookie: () => cookie,
+    header: (name: string) => request.headers.get(name) ?? undefined,
+  };
+}
+
+async function run(url: string, headers?: Record<string, string>, cookie?: string) {
+  return await localeMiddleware.handler(context(url, headers, cookie));
+}
+
+describe("locale routing", () => {
+  it("reads a prefixed locale out of the path and publishes it", async () => {
+    const result = await run("http://app.local/en/catalog");
+
+    expect(result).toMatchObject({ values: { locale: "en" } });
+    // Published values fragment the shared HTML cache, which is what keeps one
+    // language's page from being served to the other.
+    expect(result?.redirect).toBeUndefined();
+  });
+
+  it("serves the default language from the bare path without a redirect", async () => {
+    const result = await run("http://app.local/catalog?page=2", {
+      "accept-language": "en-GB,en;q=0.9",
+    });
+
+    // A redirect here would make the canonical URL answer differently per
+    // visitor — uncacheable, and the wrong language ends up indexed.
+    expect(result?.redirect).toBeUndefined();
+    expect(result).toMatchObject({ values: { locale: DEFAULT_LOCALE } });
+  });
+
+  it("collapses the default language's prefix onto the canonical URL", async () => {
+    const result = await run("http://app.local/" + DEFAULT_LOCALE + "/catalog?page=2");
+
+    expect(result?.redirect).toEqual({ location: "/catalog?page=2", status: 308 });
+  });
+});
+
+describe("i18n helpers", () => {
+  it("splits and rebuilds a localized path", () => {
+    expect(splitLocale("/en/items/alpha")).toEqual({ locale: "en", rest: "/items/alpha" });
+    expect(splitLocale("/items/alpha")).toBeNull();
+    expect(localePath("en", "/")).toBe("/en");
+    expect(localePath(DEFAULT_LOCALE, "/items/alpha")).toBe("/items/alpha");
+  });
+
+  it("names every locale plus x-default in the alternate set", () => {
+    const alternates = languageAlternates("https://app.local/en/catalog", "https://app.local");
+
+    expect(alternates["x-default"]).toBe(
+      "https://app.local" + localePath(DEFAULT_LOCALE, "/catalog"),
+    );
+    expect(alternates.en).toBe("https://app.local/en/catalog");
+  });
+
+  it("keeps the canonical query on every alternate", () => {
+    // Page 2 of one language is the translation of page 2, not of page 1.
+    const alternates = languageAlternates("https://app.local/catalog?page=2", "https://app.local");
+
+    expect(alternates.en).toBe("https://app.local/en/catalog?page=2");
+    expect(alternates["x-default"]).toBe("https://app.local/catalog?page=2");
+  });
+
+  it("falls back to the default locale's copy for a missing translation", () => {
+    expect(t(DEFAULT_LOCALE, "skipToContent")).toBeTruthy();
+  });
+});
 `;
 
 const svgrConfig =

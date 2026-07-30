@@ -10,7 +10,7 @@ Machine-readable kaynak packages/origin-tooling/bin/upgrade/compatibility.mjs do
 
 Kurallar:
 
-1. shared, core, react/vanilla ve tooling aynı fixed-group sürümünde yayınlanır.
+1. shared, core, react ve tooling aynı fixed-group sürümünde yayınlanır.
 2. Template sürümü package sürümü değildir: uygulamaya kopyalanan kaynakların geçtiği son migration
    seviyesidir.
 3. Patch upgrade'leri ve matrix'te açıkça ilan edilen minor geçişleri otomatik olabilir; diğer

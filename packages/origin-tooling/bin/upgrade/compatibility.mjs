@@ -13,6 +13,14 @@ export const TOOLING_VERSION = JSON.parse(
 
 export const COMPATIBILITY = [
   {
+    template: "0.7.x",
+    platform: "0.7.x",
+    tooling: "0.7.x",
+    node: ">=22.19.0",
+    automaticMigrationFrom: "0.5.12",
+    status: "supported",
+  },
+  {
     template: "0.6.x",
     platform: "0.6.x",
     tooling: "0.6.x",
