@@ -22,6 +22,7 @@ uyarlamak için kullanın.
 | Bounded background worker             | `OriginRuntime.onBotVisit` extension point               | [background-workers.md](./background-workers.md)         |
 | Responsive media ve ikon üretimi      | `server/media.config.json`, `src/assets/`                | `pnpm media`, `pnpm icons`                               |
 | Redirect, rewrite, proxy ve CMS gone  | `src/routing/rules.ts`, `mock-gateway/server.mjs`        | [routing.md](./routing.md)                               |
+| Link politikası ve request context    | `@originloom/react/lib/link`                             | [links.md](./links.md)                                   |
 | Deployment                            | `Dockerfile`; `--with-ops` kullanıldıysa `OPERATIONS.md` | Ortam değişkenleri `.env.*`                              |
 | Ortam değişkenleri                    | `.env.development`, `.env.production`                    | [configuration.md](./configuration.md)                   |
 | Test stratejisi                       | `tests/`                                                 | [testing.md](./testing.md)                               |

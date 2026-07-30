@@ -4,6 +4,7 @@ import { devClientPreamble } from "@originloom/shared/dev-client";
 import type { DocumentRenderInput } from "@originloom/shared/render";
 import type { ReactElement, ReactNode } from "react";
 
+import { REQUEST_CONTEXT_ELEMENT_ID, RequestContextProvider } from "../lib/request-context.js";
 import type { ReactRendererConfig } from "./types.js";
 
 const fontCssCache = new WeakMap<readonly FontAsset[], string>();
@@ -16,6 +17,9 @@ export type DocumentLayoutProps<Shell> = {
 export function DocumentLayout<Shell>({ input, config }: DocumentLayoutProps<Shell>): ReactElement {
   const {
     htmlLang,
+    publicPath,
+    publicSearch,
+    siteUrl,
     seo,
     assets,
     preconnectOrigins,
@@ -89,8 +93,22 @@ export function DocumentLayout<Shell>({ input, config }: DocumentLayoutProps<She
       <body>
         <div id="root">
           {/* `content` crossed the seam as an opaque node; here it is React again. */}
-          {config.renderLayout({ shell, pageMeta, children: content as ReactNode })}
+          <RequestContextProvider value={{ publicPath, search: publicSearch, siteUrl }}>
+            {config.renderLayout({ shell, pageMeta, children: content as ReactNode })}
+          </RequestContextProvider>
         </div>
+        <script
+          type="application/json"
+          id={REQUEST_CONTEXT_ELEMENT_ID}
+          // Data, not code: the browser never executes an application/json block,
+          // so this carries no nonce and adds no script to the CSP surface.
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({ publicPath, search: publicSearch, siteUrl }).replaceAll(
+              "<",
+              "\\u003c",
+            ),
+          }}
+        />
         <script
           type="module"
           src={assets.js}

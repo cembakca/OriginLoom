@@ -72,6 +72,8 @@ app-level providers such as TanStack Query. Omit it when the app does not need a
 | Entry                                          | What it does                                     |
 | ---------------------------------------------- | ------------------------------------------------ |
 | `@originloom/react/lib/types`                  | `Route` / `defineRoute` pinned to `ReactElement` |
+| `@originloom/react/lib/link`                   | `<Link>` — the app's only internal link          |
+| `@originloom/react/lib/request-context`        | The request identity views can read              |
 | `@originloom/react/lib/metadata/metadata-head` | `<MetadataHead>` — metadata → head tags          |
 | `@originloom/react/lib/query/provider`         | TanStack Query provider for islands              |
 | `@originloom/react/vite`                       | Client and SSR Vite configs, dev-reload plugin   |

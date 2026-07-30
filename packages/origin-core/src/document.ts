@@ -94,6 +94,10 @@ async function buildDocumentInput({
 
   return {
     htmlLang: resolveHtmlLang(runtime.document.htmlLang, routeCtx),
+    publicPath: routeCtx.publicPath,
+    // The query the browser sent, not the one a rewrite produced.
+    publicSearch: new URL(routeCtx.request.url).search,
+    siteUrl: routeCtx.siteUrl ?? routeCtx.url.origin,
     assets,
     seo: metadata,
     pageMeta,

@@ -17,6 +17,7 @@ playwright-report/
 test-results/
 .lighthouseci/
 load-test/reports/
+artifacts/sbom/
 
 # OS / editor
 .DS_Store

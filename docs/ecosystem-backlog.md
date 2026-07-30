@@ -26,6 +26,40 @@ uygulamada), **rehber** (yalnız doküman + skill).
 
 ---
 
+## Kaldırıldı: i18n — _ve nedeni_
+
+Eklenti mekanizmasının ilk örneği olarak yazıldı, değerlendirildi ve **template'ten tamamen
+kaldırıldı** (`f6a6be1`, `1e2b1df` commit'lerinde tarihte duruyor). Çalışan kısmı vardı: URL modeli
+(varsayılan dil öneksiz, diğerleri önekli), dil başına cache bölme, hreflang, dil değiştirici, dile
+göre menü.
+
+Çalışmayan kısmı, gerçek bir sitenin tam olarak dayandığı yerler:
+
+1. **Routing kuralları dili görmüyor.** Redirect'ler rewrite'lardan önce çalıştığı ve locale öneki
+   bir rewrite kuralı olarak kurulduğu için `/en/old-catalog` redirect kuralına hiç uğramıyor;
+   `/en/products/alpha` de tek geçişli rewrite yüzünden alias kuralına ulaşamıyor. İkisi de 404.
+2. **CMS redirect haritası** önekli path'i soruyor (`/en/legacy-catalog`), harita öneksiz tutuyor.
+3. **Route'ların elle yazdığı canonical'lar** öneksiz kalıyor: `/en/catalog` sayfası canonical olarak
+   Türkçe sayfayı gösteriyor — arama motoruna "bu sayfayı indexleme" demenin en net yolu.
+4. **Island'lar** locale context'ini görmüyor ve hata vermeden varsayılan dile düşüyor.
+
+Kök neden tasarımda: locale önekini bir routing **kuralı** yaptım, oysa kuralların **üstünde** bir
+katman. Doğru yer routing motoru — `configureRouting({ …, locales })` öneki eşleşmeden önce soyar,
+hatırlar ve redirect hedefine geri ekler; (1) ve (2) birlikte kapanır, ürün kuralları öneksiz
+yazılmaya devam eder. (3) template'te canonical'ı elle kurmayı bırakmak, (4) request context'ini
+island'lara da taşımaktır.
+
+Kod parkta tutulmadı: erişilemeyen bir dal her template değişikliğinde sessizce çürür ve her
+düzenlemede ikinci bir varyantı düşünmeyi gerektirirdi. Yeniden ele alınırsa doğru başlangıç
+noktası şudur — **locale routing motoruna girer**, template'e değil.
+
+Platformda bırakılanlar (küçük, bağımsız olarak da doğru): `PageMetadata.languageAlternates` ve onu
+`<link rel="alternate" hreflang>` olarak basan head render'ı; `DocumentShell.htmlLang`'in istek
+başına çözülebilmesi. İkisi de elle çok dillilik yapan bir uygulamanın işine yarar ve gelecekteki bir
+i18n'in core'da ihtiyaç duyacağı primitiflerdir.
+
+---
+
 ## 1. Auth sağlayıcıları — _eklenti_
 
 Bugün: cookie tabanlı JWT + gateway refresh, BFF deseniyle. Kendi auth backend'i olmayan bir ürün için

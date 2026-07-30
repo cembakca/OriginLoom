@@ -13,10 +13,10 @@
  * drive the production bundle through Chromium. Anything that only worked
  * because of the workspace fails here.
  *
- *   node scripts/release-verify.mjs [--locales tr,en] [--keep]
+ *   node scripts/release-verify.mjs [--keep]
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -64,11 +64,7 @@ try {
     console.log(`  published @originloom/${name}`);
   }
 
-  step(
-    options.locales
-      ? `scaffold an app with locales ${options.locales}`
-      : "scaffold an app outside the workspace",
-  );
+  step("scaffold an app outside the workspace");
   const appDir = join(workDir, "app", "verify-web");
   mkdirSync(join(workDir, "app"), { recursive: true });
   run(
@@ -82,13 +78,16 @@ try {
       join(workDir, "app"),
       "--port",
       String(appPort),
-      ...(options.locales ? ["--locales", options.locales] : []),
     ],
     { cwd: workDir },
   );
   // A scratch app must never inherit this repo's pnpm workspace or lockfile.
   writeNpmrc(join(appDir, ".npmrc"), registry);
-  writeFileSync(join(appDir, "pnpm-workspace.yaml"), "packages: []\n");
+  // The generated app ships its own pnpm-workspace.yaml — `packages: []` to
+  // isolate it, plus the build allowlist and the overrides it depends on.
+  // Overwriting it here would test a project no consumer will ever have, and
+  // would quietly drop the overrides with it.
+  assertGeneratedWorkspaceIsolation(appDir);
 
   step("install from the registry");
   run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: appDir, env: npmEnv });
@@ -163,7 +162,6 @@ function parseArgs(argv) {
   const parsed = { keep: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--keep") parsed.keep = true;
-    else if (argv[i] === "--locales") parsed.locales = argv[++i];
     else throw new Error(`Unknown option: ${argv[i]}`);
   }
   return parsed;
@@ -220,6 +218,21 @@ async function startVerdaccio(port, root) {
     throw error;
   }
   return child;
+}
+
+/**
+ * The isolation the rehearsal depends on has to come from the app itself: if the
+ * generator ever stops shipping it, the run would silently install against this
+ * repo's workspace and prove nothing.
+ */
+function assertGeneratedWorkspaceIsolation(appDir) {
+  const file = join(appDir, "pnpm-workspace.yaml");
+  if (!existsSync(file)) {
+    throw new Error("the generated app must ship a pnpm-workspace.yaml that isolates it");
+  }
+  if (!/^packages:\s*\[\]\s*$/m.test(readFileSync(file, "utf8"))) {
+    throw new Error("the generated pnpm-workspace.yaml must declare `packages: []`");
+  }
 }
 
 /** The point of the rehearsal: nothing may resolve back to the workspace. */

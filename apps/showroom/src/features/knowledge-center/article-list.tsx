@@ -1,3 +1,5 @@
+import { Link } from "@originloom/react/lib/link";
+
 import { CatalogPagination } from "~/components/catalog-pagination";
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
@@ -42,7 +44,7 @@ export function KnowledgeCenterPage({ data }: { data: KnowledgeArticleList }) {
         </form>
       </header>
       <nav aria-label="İçerik kategorileri" className="flex flex-wrap gap-2">
-        <a
+        <Link
           href="/bilgi-merkezi"
           className={buttonVariants({
             variant: data.query.category === "all" ? "default" : "secondary",
@@ -50,9 +52,9 @@ export function KnowledgeCenterPage({ data }: { data: KnowledgeArticleList }) {
           })}
         >
           Tüm içerikler
-        </a>
+        </Link>
         {data.facets.categories.map((category) => (
-          <a
+          <Link
             key={category.value}
             href={`/bilgi-merkezi?category=${category.value}`}
             className={buttonVariants({
@@ -62,7 +64,7 @@ export function KnowledgeCenterPage({ data }: { data: KnowledgeArticleList }) {
           >
             {labels[category.value] ?? category.value}{" "}
             <span className="opacity-60">{category.count}</span>
-          </a>
+          </Link>
         ))}
       </nav>
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -104,9 +106,9 @@ export function KnowledgeCenterPage({ data }: { data: KnowledgeArticleList }) {
               <span className="font-mono text-xs text-slate-400">0{index + 1}</span>
             </div>
             <h2 className="text-xl font-semibold leading-7">
-              <a href={`/bilgi-merkezi/${article.slug}`} className="group-hover:text-brand-700">
+              <Link href={`/bilgi-merkezi/${article.slug}`} className="group-hover:text-brand-700">
                 {article.title}
-              </a>
+              </Link>
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">{article.excerpt}</p>
             <div className="mt-5 flex items-center justify-between text-xs text-slate-500">

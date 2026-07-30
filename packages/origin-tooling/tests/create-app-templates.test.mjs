@@ -10,8 +10,11 @@ const workspace = (over = {}) =>
   renderTemplates({ ...base, mode: "workspace", version: "^0.1.0", ...over });
 
 describe("renderTemplates — shared shape", () => {
-  it("emits the same file set in both modes", () => {
-    expect(Object.keys(standalone()).sort()).toEqual(Object.keys(workspace()).sort());
+  it("emits the same app files while standalone owns its pnpm root config", () => {
+    const standaloneFiles = Object.keys(standalone()).filter(
+      (path) => path !== "pnpm-workspace.yaml",
+    );
+    expect(standaloneFiles.sort()).toEqual(Object.keys(workspace()).sort());
   });
 
   it("emits every file the generated app needs to boot", () => {
@@ -176,9 +179,7 @@ describe("renderTemplates — shared shape", () => {
       expect(ops["OPERATIONS.md"]).toContain("pnpm capacity");
       expect(JSON.parse(ops["package.json"]).scripts.capacity).toBe("node load-test/capacity.mjs");
       expect(JSON.parse(ops["package.json"]).devDependencies.autocannon).toBe("^8.0.0");
-      expect(JSON.parse(ops["package.json"]).pnpm.overrides).toEqual({
-        "autocannon>hyperid": "^4.0.0",
-      });
+      expect(ops["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
       expect(JSON.parse(ops["package.json"]).scripts["compose:redis"]).toBe(
         "origin-compose-up --redis",
       );
@@ -232,12 +233,20 @@ describe("renderTemplates — standalone mode", () => {
   it("approves native builds and scopes the unsupported uuid escape hatch", () => {
     // A standalone repo is its own pnpm root, so it must list these itself —
     // otherwise `pnpm install` warns about ignored build scripts.
-    const pkg = JSON.parse(standalone()["package.json"]);
-    expect(pkg.pnpm.onlyBuiltDependencies).toEqual(
-      expect.arrayContaining(["esbuild", "sharp", "@tailwindcss/oxide", "protobufjs"]),
-    );
-    expect(pkg.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
-    expect(Object.keys(pkg.pnpm.overrides)).toHaveLength(1);
+    const files = standalone();
+    const pkg = JSON.parse(files["package.json"]);
+    expect(files["pnpm-workspace.yaml"]).toContain("allowBuilds:");
+    for (const dependency of [
+      "esbuild",
+      "sharp",
+      "@tailwindcss/oxide",
+      "protobufjs",
+      "unrs-resolver",
+    ]) {
+      expect(files["pnpm-workspace.yaml"]).toContain(dependency);
+    }
+    expect(files["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
+    expect(pkg.packageManager).toBe("pnpm@11.18.0");
     expect(pkg.devDependencies["@napi-rs/wasm-runtime"]).toBe("1.1.6");
   });
 
@@ -289,6 +298,7 @@ describe("renderTemplates — workspace mode", () => {
   it("defers native build approval to the workspace root (no pnpm field)", () => {
     const pkg = JSON.parse(workspace()["package.json"]);
     expect(pkg.pnpm).toBeUndefined();
+    expect(workspace()).not.toHaveProperty(["pnpm-workspace.yaml"]);
   });
 
   it("extends the monorepo tsconfig base", () => {
@@ -558,72 +568,6 @@ describe("renderTemplates — browser E2E", () => {
   });
 });
 
-describe("renderTemplates — i18n plugin", () => {
-  const withI18n = (over = {}) =>
-    renderTemplates({
-      ...base,
-      mode: "standalone",
-      version: "^0.1.0",
-      locales: ["tr", "en"],
-      ...over,
-    });
-
-  it("leaves no trace of itself in an app that did not ask for it", () => {
-    const files = standalone();
-    for (const path of Object.keys(files)) {
-      expect(path, `${path} should not ship without --i18n`).not.toMatch(/i18n|locale|language/i);
-    }
-    // Not just the file list: the shared files must not reference it either.
-    for (const [path, contents] of Object.entries(files)) {
-      if (typeof contents !== "string") continue;
-      expect(contents, `${path} references the i18n plugin`).not.toContain("i18n/config");
-    }
-  });
-
-  it("ships the plugin as a contained set of files", () => {
-    const files = withI18n();
-    for (const path of [
-      "src/lib/i18n/config.ts",
-      "src/lib/i18n/messages.ts",
-      "server/middleware/locale.ts",
-      "src/components/layout/language-switcher.tsx",
-      "tests/i18n.test.ts",
-      "docs/i18n.md",
-      ".claude/skills/i18n/SKILL.md",
-    ]) {
-      expect(files, `missing ${path}`).toHaveProperty([path]);
-    }
-  });
-
-  it("leaves the default language's URLs where they were", () => {
-    const rules = withI18n()["src/routing/rules.ts"];
-    // Adding a language must not move a single existing URL, so only the
-    // non-default locales get a prefix rule.
-    expect(rules).toContain('{ source: "/en/:path*", destination: "/:path*" }');
-    expect(rules).not.toContain('source: "/tr/:path*"');
-  });
-
-  it("wires the locale into the pipeline, the cache key and the document", () => {
-    const files = withI18n();
-    expect(files["server/middleware/index.ts"]).toContain("localeMiddleware");
-    // The locale enters the key exactly once, through the value the middleware
-    // published — not by hand in every buildKey, where it can be forgotten.
-    expect(files["src/lib/cache-keys.ts"]).not.toContain("locale(ctx.request)");
-    expect(files["src/lib/cache-keys.ts"]).not.toContain("pageLocale");
-    expect(files["src/lib/cache-keys.ts"]).toContain("publishes it as a request value");
-    expect(files["server/product/document-shell.ts"]).toContain(
-      "htmlLang: (ctx) => pageLocale(ctx)",
-    );
-    expect(files["server/product/document-shell.ts"]).toContain("languageAlternates");
-    expect(files["server/seo.ts"]).toContain("LOCALES.flatMap");
-  });
-
-  it("generates a catalog for every locale it was asked for", () => {
-    const messages = withI18n({ locales: ["en", "de", "fr"] })["src/lib/i18n/messages.ts"];
-    for (const locale of ["en", "de", "fr"]) expect(messages).toContain(`${locale}: {`);
-  });
-});
-
 describe("renderTemplates — generated apps satisfy their own tooling", () => {
   const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
@@ -829,9 +773,29 @@ describe("renderTemplates — production reference coverage", () => {
     expect(pkg.scripts["performance:compare"]).toContain("performance.mjs");
     expect(pkg.scripts["performance:accept"]).toContain("--accept");
     expect(pkg.devDependencies.autocannon).toBe("^8.0.0");
-    expect(pkg.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
+    expect(files["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
     expect(files["docs/capacity.md"]).toContain("10 → 25 → 50 → 100 → 200 → 400");
     expect(files[".gitignore"]).toContain("load-test/reports/");
+  });
+
+  it("ships a native CycloneDX and Dependency-Track workflow", () => {
+    const files = standalone({ name: "payments-web" });
+    const pkg = JSON.parse(files["package.json"]);
+    const config = JSON.parse(files["dependency-track.config.json"]);
+
+    expect(pkg.version).toBe("0.1.0");
+    expect(pkg.packageManager).toBe("pnpm@11.18.0");
+    expect(pkg.scripts.sbom).toBe("origin-sbom");
+    expect(pkg.scripts["dependency-track:publish"]).toContain("origin-dependency-track");
+    expect(config).toMatchObject({
+      projectName: "payments-web",
+      bomPath: "artifacts/sbom/bom.cdx.json",
+      gate: { failOnSeverity: "critical", failOnPolicyViolation: "fail" },
+    });
+    expect(files).toHaveProperty(["docs/supply-chain-security.md"]);
+    expect(files[".github/workflows/dependency-track.yml"]).toContain("DEPENDENCY_TRACK_API_KEY");
+    expect(files[".github/workflows/dependency-track.yml"]).toContain("pnpm sbom");
+    expect(files[".gitignore"]).toContain("artifacts/sbom/");
   });
 
   it("records template provenance and makes upgrade health part of CI", () => {

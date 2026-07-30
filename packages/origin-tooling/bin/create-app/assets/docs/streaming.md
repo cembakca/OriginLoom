@@ -42,3 +42,10 @@ sayfada ürüne uygun bir error boundary/fallback sağlayın.
 Gerçek upstream akışında her browser için ayrı gateway socket açmayın. Symbol/topic bazlı ortak bir
 hub kurun. Slow consumer kuyruğunu sınırsız büyütmeyin; snapshot türü veride latest-value coalescing
 kullanın. Event payload'ı da gateway JSON'u gibi untrusted input'tur ve boyut/şema sınırından geçer.
+
+## SSE ve geri tuşu
+
+Açık bir bağlantı sayfayı tarayıcının back/forward cache'ine uygunsuz kılar: ziyaretçi geri
+döndüğünde anlık restore yerine tam sayfa yükü olur. `src/islands/live-ticks.tsx` bu yüzden
+bağlantıyı bileşenin ömrüne değil sayfanın geçmişteki görünürlüğüne bağlar — `pagehide`'da kapatır,
+`pageshow` (`event.persisted`) ile geri açar. SSE veya WebSocket açan her island aynısını yapmalıdır.

@@ -1,3 +1,5 @@
+import { Link } from "@originloom/react/lib/link";
+
 import { Badge } from "~/components/ui/badge";
 import type { HousingLoanDetail } from "~/lib/contracts/financial-products";
 
@@ -9,9 +11,9 @@ export function HousingLoanDetailPage({ data }: { data: HousingLoanDetail }) {
   return (
     <div className="space-y-8">
       <nav aria-label="İçerik yolu" className="text-sm text-slate-500">
-        <a href="/konut-kredisi" className="hover:text-brand-700">
+        <Link href="/konut-kredisi" className="hover:text-brand-700">
           Konut Kredileri
-        </a>{" "}
+        </Link>{" "}
         <span aria-hidden="true">/</span> {product.bank.name}
       </nav>
       <header className="grid gap-8 rounded-2xl bg-slate-950 p-6 text-white md:p-8 lg:grid-cols-[1.2fr_0.8fr]">

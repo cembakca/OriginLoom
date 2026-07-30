@@ -968,6 +968,27 @@ Loader'ı React Query ile değiştirme — HTML cache mimarisi bozulur.
 
 ---
 
+## Linkler
+
+Uygulama içi linkler `@originloom/react/lib/link` içindeki `Link`'ten geçer; showroom ve generated
+template bunu kullanır. Politika framework'süz olduğu için `@originloom/shared/lib/link` içindedir
+(`classifyHref`, `resolveLinkAttributes`, `isCurrentPath`).
+
+Kuralları: çalıştıran şemalar (`javascript:`, `vbscript:`, `data:`, `blob:`, `file:`) reddedilir ve
+**href hiç basılmaz**; şema tespiti tarayıcı gibi boşluk/kontrol karakterlerini yok sayar;
+`target="_blank"` → `noopener noreferrer`; farklı origin → `noopener` (referrer'a dokunulmaz, çünkü
+partner atıfı ona bağlıdır); bulunulan sayfa `aria-current="page"` alır ve bu karşılaştırma
+**query'yi de** sayar (2. sayfadayken 1. sayfa linki "buradasınız" olmaz).
+
+Bileşenin okuduğu istek kimliğini (`publicPath`, `search`, `siteUrl`) platform sağlar: sunucuda
+document layout, client'ta island runtime. İkincisi dokümana basılan
+`<script type="application/json" id="originloom-request">` bloğundan okunur — veri olduğu için
+tarayıcı çalıştırmaz ve CSP nonce'u gerektirmez.
+
+Client-side navigation yoktur ve planlanmamaktadır: her gezinme tam sayfa yüküdür, geri tuşu
+tarayıcının bfcache'iyle çalışır. Bunun koşulu açık bağlantı bırakmamaktır — SSE/WebSocket açan
+island'lar `pagehide`'da kapatıp `pageshow`'da açar.
+
 ## Middleware pipeline
 
 Next.js `middleware.ts` karşılığı: [`packages/origin-core/src/middleware/pipeline.ts`](../packages/origin-core/src/middleware/pipeline.ts)

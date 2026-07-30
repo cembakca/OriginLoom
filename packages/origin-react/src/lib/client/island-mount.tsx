@@ -10,6 +10,8 @@ import { parseEmbeddedJson } from "@originloom/shared/lib/embedded-json";
 import { type ComponentType, type ReactNode, useEffect } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
+import { readRequestContext, RequestContextProvider } from "../request-context.js";
+
 export type IslandModule = { default: ComponentType<Record<string, unknown>> };
 
 /** Map of module path → lazy loader, e.g. the result of `import.meta.glob("./islands/*.tsx")`. */
@@ -59,6 +61,10 @@ export function createIslandMounter(options: {
 }): IslandMounter {
   const byName = new Map<string, () => Promise<IslandModule>>();
   const Wrapper = options.Wrapper;
+  // An island is its own React root, so it would otherwise start with none of
+  // the request identity the document rendered with — and a link inside it
+  // would quietly point somewhere else than the same link outside it.
+  const requestContext = readRequestContext();
   for (const [path, load] of Object.entries(options.modules)) {
     byName.set(islandNameFromPath(path), load);
   }
@@ -111,7 +117,9 @@ export function createIslandMounter(options: {
       const islandTree = <Comp {...props} />;
       const tree = (
         <IslandCommitSignal onCommit={markCommitted}>
-          {Wrapper ? <Wrapper>{islandTree}</Wrapper> : islandTree}
+          <RequestContextProvider value={requestContext}>
+            {Wrapper ? <Wrapper>{islandTree}</Wrapper> : islandTree}
+          </RequestContextProvider>
         </IslandCommitSignal>
       );
       const errorOptions = reactErrorOptions(island, cancelMountTimeout);

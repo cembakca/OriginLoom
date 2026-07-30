@@ -54,10 +54,11 @@ description: Use when writing or reviewing code in this OriginLoom app — folde
 
 ## Links
 
-Internal links go through `<Link href="/catalog">` from `~/components/link`, not a raw `<a>`. It is
-the one place a site-wide rule about links can live — and in an app generated with `--i18n` it is
-what keeps the locale on the URL when a visitor clicks. External URLs, `/api/*` paths and `#anchors`
-are left exactly as written.
+Internal links go through `<Link href="/catalog">` from `@originloom/react/lib/link`, not a raw
+`<a>`. The platform owns it, so one place decides what a link may be: an executing scheme
+(`javascript:`, `data:`) is refused outright, `target="_blank"` gets `noopener noreferrer`, a
+cross-origin link gets `noopener`, and the link to the page you are on is marked
+`aria-current="page"`. External URLs, `/api/*` paths and `#anchors` are otherwise left as written.
 
 ## Checks before you call it done
 

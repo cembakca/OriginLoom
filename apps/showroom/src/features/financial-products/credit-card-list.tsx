@@ -1,3 +1,5 @@
+import { Link } from "@originloom/react/lib/link";
+
 import { CatalogPagination } from "~/components/catalog-pagination";
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
@@ -44,9 +46,9 @@ export function CreditCardListPage({ data }: { data: CreditCardList }) {
                     {card.bank.name} · {card.network}
                   </p>
                   <h3 className="text-lg font-semibold">
-                    <a href={`/kredi-kartlari/${card.slug}`} className="hover:text-brand-700">
+                    <Link href={`/kredi-kartlari/${card.slug}`} className="hover:text-brand-700">
                       {card.name}
-                    </a>
+                    </Link>
                   </h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -57,12 +59,12 @@ export function CreditCardListPage({ data }: { data: CreditCardList }) {
                 </div>
                 <p className="text-sm leading-6 text-slate-600">{card.summary}</p>
                 <div className="flex flex-wrap gap-2">
-                  <a
+                  <Link
                     className={buttonVariants({ size: "sm" })}
                     href={`/kredi-kartlari/${card.slug}`}
                   >
                     Detay ve kampanyalar
-                  </a>
+                  </Link>
                   <ReferralCta
                     productType={card.productType}
                     slug={card.slug}

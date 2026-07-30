@@ -1,6 +1,6 @@
 {
   "name": "@originloom/tooling",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -32,6 +32,7 @@
     "origin-dev-local": "./bin/dev-local.mjs",
     "origin-docker-clean": "./bin/docker-clean.mjs",
     "origin-doctor": "./bin/doctor.mjs",
+    "origin-dependency-track": "./bin/dependency-track.mjs",
     "origin-generate-icons": "./bin/generate-icons.mjs",
     "origin-local-redis": "./bin/local-redis.mjs",
     "origin-lighthouse": "./bin/run-lighthouse.mjs",
@@ -40,6 +41,7 @@
     "origin-run-local": "./bin/run-local.mjs",
     "origin-run-with-env": "./bin/run-with-env.mjs",
     "origin-smoke": "./bin/smoke-server.mjs",
+    "origin-sbom": "./bin/sbom.mjs",
     "origin-start-memory": "./bin/start-memory.mjs"
   },
   "exports": {

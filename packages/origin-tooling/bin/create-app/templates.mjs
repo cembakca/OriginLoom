@@ -34,7 +34,6 @@ const asset = (name) =>
  *   port: number;
  *   metricsPort: number;
  *   mode: "workspace" | "standalone";
- *   locales?: readonly string[];
  *   version: string;
  *   templateVersion?: string;
  *   vitePort?: number;
@@ -49,8 +48,6 @@ export function renderTemplates({
   mode,
   version,
   templateVersion = TOOLING_VERSION,
-  // Opt-in i18n. An app that does not ask for it contains no locale code at all.
-  locales,
   vitePort = port + VITE_PORT_OFFSET,
   registry,
   withOps = false,
@@ -60,13 +57,6 @@ export function renderTemplates({
   // via workspace:*. The two modes differ only in how they reach the packages
   // and how they build — the app source they generate is identical.
   const standalone = mode === "standalone";
-  // One language is not i18n. Failing here beats silently generating an app that
-  // asked for the plugin and did not get it.
-  if (locales !== undefined && (!Array.isArray(locales) || locales.length < 2)) {
-    throw new Error('renderTemplates: locales needs at least two languages, e.g. ["tr", "en"]');
-  }
-  const i18n = locales !== undefined;
-  const defaultLocale = i18n ? locales[0] : undefined;
   return {
     // npm config is not inherited from parent directories, so an app that
     // installs @originloom/* from somewhere other than npmjs carries its own.
@@ -77,6 +67,7 @@ export function renderTemplates({
       mode,
     }),
     "package.json": packageJson(name, { standalone, version, withOps }),
+    ...(standalone ? { "pnpm-workspace.yaml": standalonePnpmWorkspace() } : {}),
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
     ".prettierrc.json": asset("prettierrc.json"),
@@ -87,7 +78,7 @@ export function renderTemplates({
     "playwright.config.ts": playwrightConfig(name, port, metricsPort),
     ".env.development": envDevelopment(name, port, metricsPort, vitePort, true),
     ".env.production": envProduction(port, metricsPort, true),
-    "README.md": readme(name, title, port, vitePort, standalone, withOps, i18n),
+    "README.md": readme(name, title, port, vitePort, standalone, withOps),
     "docs/auth.md": asset("docs/auth.md"),
     "docs/background-workers.md": asset("docs/background-workers.md"),
     "docs/caching.md": asset("docs/caching.md"),
@@ -95,12 +86,14 @@ export function renderTemplates({
     "docs/configuration.md": asset("docs/configuration.md"),
     "docs/dynamic-shell.md": asset("docs/dynamic-shell.md"),
     "docs/features.md": asset("docs/features.md"),
+    "docs/links.md": asset("docs/links.md"),
     "docs/middleware.md": asset("docs/middleware.md"),
     "docs/mutations.md": asset("docs/mutations.md"),
     "docs/observability.md": asset("docs/observability.md"),
     "docs/react-query.md": asset("docs/react-query.md"),
     "docs/routing.md": asset("docs/routing.md"),
     "docs/seo.md": asset("docs/seo.md"),
+    "docs/supply-chain-security.md": asset("docs/supply-chain-security.md"),
     "docs/streaming.md": asset("docs/streaming.md"),
     "docs/testing.md": asset("docs/testing.md"),
     "docs/contracts.md": asset("docs/contracts.md"),
@@ -114,6 +107,7 @@ export function renderTemplates({
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
     ".github/workflows/ci.yml": githubWorkflow(name),
+    ".github/workflows/dependency-track.yml": dependencyTrackWorkflow(),
     // Opt-in deployment assets: compose, k8s manifests, a load generator.
     ...(withOps ? renderOpsTemplates({ name, port, metricsPort, includeCapacity: true }) : {}),
     "load-test/capacity.mjs": asset("load-test/capacity.mjs"),
@@ -126,26 +120,14 @@ export function renderTemplates({
     "load-test/profile-target.mjs": asset("load-test/profile-target.mjs"),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
-    "server/middleware/index.ts": middlewareIndex(i18n),
+    "server/middleware/index.ts": middlewareIndex(),
     "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
     "server/middleware/redirect-rules.ts": redirectRulesMiddlewareFile(),
     "server/middleware/search-indexing.ts": searchIndexingMiddlewareFile(),
-    ...(i18n
-      ? {
-          "server/middleware/locale.ts": localeMiddlewareFile(),
-          "src/lib/i18n/config.ts": i18nConfig(locales, defaultLocale),
-          "src/lib/i18n/messages.ts": i18nMessages(locales),
-          "src/lib/i18n/context.tsx": localeContext(),
-          "src/components/layout/language-switcher.tsx": languageSwitcher(),
-          "tests/i18n.test.ts": i18nTest(),
-          "docs/i18n.md": asset("docs/i18n.md"),
-          "e2e/i18n.spec.ts": i18nE2e(),
-        }
-      : {}),
     "server/api/index.ts": apiIndex(),
     "server/api/live-stream/admission.ts": liveStreamAdmission(),
     "server/api/live-stream/index.ts": liveStreamApi(),
-    "server/seo.ts": seoRoutes(i18n),
+    "server/seo.ts": seoRoutes(),
     "server/metrics/catalog.ts": productMetrics(),
     "server/metrics/live-stream.ts": liveStreamMetrics(),
     "server/product/config.ts": productConfigFile(true),
@@ -171,7 +153,7 @@ export function renderTemplates({
     "server/routes/item-detail.tsx": itemDetailRoute(),
     "server/routes/account.tsx": accountRoute(),
     "server/routes/contact.tsx": contactRoute(),
-    "src/features/contact/contact-page.tsx": contactPage(i18n),
+    "src/features/contact/contact-page.tsx": contactPage(),
     "server/routes/live.tsx": liveRoute(),
     "server/services/shell-data.ts": serverShellData(),
     "server/services/menu.ts": menuService(),
@@ -189,11 +171,12 @@ export function renderTemplates({
     "contracts/fixtures/menu.json": gatewayMenuFixture(),
     "performance-budgets.json": performanceBudgets(),
     "performance-policy.json": performancePolicy(),
+    "dependency-track.config.json": dependencyTrackConfig(name),
     "lighthouserc.json": lighthouseConfig(port),
     ".github/workflows/contract-staging.yml": stagingContractWorkflow(name),
     "mock-gateway/server.mjs": mockGateway(true),
     "server/product/runtime.ts": productRuntime(),
-    "server/product/document-shell.ts": productDocumentShell(title, i18n),
+    "server/product/document-shell.ts": productDocumentShell(title),
     "server/product/renderer.tsx": productRenderer(),
     "server/product/boundary-pages.tsx": boundaryPages(),
     "server/product/fragments.tsx": fragmentsFile(),
@@ -210,17 +193,16 @@ export function renderTemplates({
     "src/features/data-cache/data-cache-page.tsx": dataCachePage(),
     "src/features/items/item-detail-page.tsx": itemDetailPage(),
     "src/features/live/live-page.tsx": livePage(),
-    "src/components/layout/root-layout.tsx": rootLayout(title, i18n),
-    "src/components/link.tsx": linkComponent(i18n),
+    "src/components/layout/root-layout.tsx": rootLayout(title),
     "src/components/ui/responsive-image.tsx": responsiveImageComponent(),
     "src/lib/shell-data.ts": libShellData(),
-    "src/lib/cache-keys.ts": cacheKeys(i18n),
+    "src/lib/cache-keys.ts": cacheKeys(),
     "src/lib/pagination.ts": paginationLib(),
     "src/lib/query/hooks/use-session.ts": sessionQueryHook(),
     "src/lib/query/keys.ts": queryKeys(),
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
     "src/lib/menu.ts": menuLib(),
-    "src/routing/rules.ts": routingRules(true, locales),
+    "src/routing/rules.ts": routingRules(true),
     "src/styles/globals.css": globalsCss(standalone),
     "src/global.d.ts": globalDts(),
 
@@ -247,7 +229,7 @@ export function renderTemplates({
     // generated app source they describe is too.
     "CLAUDE.md": asset("generated-claude.md"),
     ".claude/settings.json": claudeSettings(),
-    ...renderSkills({ i18n }),
+    ...renderSkills(),
   };
 }
 
@@ -292,24 +274,21 @@ const packageJson = (name, { standalone, version, withOps = false }) => {
   // (pnpm-workspace.yaml). A standalone repo is its own root, so it must approve
   // the ones its dependency tree pulls in — otherwise pnpm install prints an
   // "Ignored build scripts" warning. Mirrors the platform's trusted set.
-  const pnpm = standalone
-    ? {
-        onlyBuiltDependencies: ["@tailwindcss/oxide", "esbuild", "protobufjs", "sharp"],
-        // Autocannon 8 is current but still declares hyperid 3, whose only UUID
-        // source is the unsupported uuid 8 package. Hyperid 4 keeps the same CJS
-        // API and replaces that dependency with randomUUID.
-        overrides: { "autocannon>hyperid": "^4.0.0" },
-      }
-    : undefined;
   return `${JSON.stringify(
     {
       name,
+      version: "0.1.0",
       private: true,
       type: "module",
+      packageManager: "pnpm@11.18.0",
       engines: { node: ">=22.19.0" },
       scripts: {
         "origin:doctor": "origin-doctor",
         "origin:migrate": "origin-migrate",
+        sbom: "origin-sbom",
+        "sbom:prod": "origin-sbom --prod",
+        "dependency-track:publish": "origin-dependency-track publish",
+        "dependency-track:gate": "origin-dependency-track gate",
         dev: "origin-dev --gateway mock-gateway/server.mjs",
         "mock-gw": "origin-run-with-env development node mock-gateway/server.mjs",
         build: "origin-build",
@@ -400,12 +379,28 @@ const packageJson = (name, { standalone, version, withOps = false }) => {
         vite: "^8.1.5",
         vitest: "^4.1.10",
       },
-      ...(pnpm ? { pnpm } : {}),
     },
     null,
     2,
   )}\n`;
 };
+
+const standalonePnpmWorkspace = () => `packages: []
+
+# pnpm 11 denies unreviewed dependency lifecycle scripts. Keep this list small
+# and review every addition instead of enabling all builds globally.
+allowBuilds:
+  "@tailwindcss/oxide": true
+  esbuild: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
+
+# Autocannon 8 still declares hyperid 3, which pulls the unsupported uuid 8.
+# Hyperid 4 preserves the API and uses randomUUID instead.
+overrides:
+  autocannon>hyperid: ^4.0.0
+`;
 
 const projectMetadata = ({ templateVersion, platformRange, mode }) =>
   JSON.stringify(
@@ -510,6 +505,9 @@ coverage
 playwright-report
 test-results
 pnpm-lock.yaml
+# pnpm owns this file and rewrites it — release-age exclusions, for one — in its
+# own style. Formatting it is a fight with the tool that writes it.
+pnpm-workspace.yaml
 `;
 
 const viteConfig = (vitePort) => `import { resolve } from "node:path";
@@ -1281,11 +1279,9 @@ function remember(key: string, value: MiddlewareRedirect | null): MiddlewareRedi
 }
 `;
 
-const middlewareIndex = (
-  i18n = false,
-) => `import type { OriginMiddleware } from "@originloom/core/middleware";
+const middlewareIndex = () => `import type { OriginMiddleware } from "@originloom/core/middleware";
 
-${i18n ? 'import { localeMiddleware } from "./locale";\n' : ""}import { maintenanceMiddleware } from "./maintenance";
+import { maintenanceMiddleware } from "./maintenance";
 import { redirectRulesMiddleware } from "./redirect-rules";
 import { searchIndexingMiddleware } from "./search-indexing";
 
@@ -1302,7 +1298,7 @@ import { searchIndexingMiddleware } from "./search-indexing";
 export const productMiddleware: readonly OriginMiddleware[] = [
   maintenanceMiddleware,
   redirectRulesMiddleware,
-${i18n ? "  localeMiddleware,\n" : ""}  searchIndexingMiddleware,
+  searchIndexingMiddleware,
 ];
 `;
 
@@ -1886,25 +1882,9 @@ describe("menu data cache", () => {
 
     expect(mocks.gatewayFetch).toHaveBeenCalledWith("/menu");
     expect(mocks.write).toHaveBeenCalledWith(
-      "menu:public:v1\\0default",
+      "menu:public:v1",
       JSON.stringify(menu),
-      expect.objectContaining({ kind: "shared", key: ["menu:public:v1", "default"] }),
-    );
-  });
-
-  it("asks and caches per language", async () => {
-    // The locale rides on the request header the locale middleware injects. It
-    // has to reach the key too: a cache that ignores it serves the first
-    // language that warmed it to every other one.
-    const english = new Request("http://app.local/", { headers: { "x-locale": "en" } });
-
-    await expect(getMenu(english)).resolves.toEqual(menu);
-
-    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/menu?locale=en");
-    expect(mocks.write).toHaveBeenCalledWith(
-      "menu:public:v1\\0en",
-      JSON.stringify(menu),
-      expect.objectContaining({ key: ["menu:public:v1", "en"] }),
+      expect.objectContaining({ kind: "shared", key: ["menu:public:v1"] }),
     );
   });
 
@@ -2765,9 +2745,8 @@ export default defineRoute<Data>({
 });
 `;
 
-const itemDetailPage = () => `import type { Item } from "@server/services/items";
-
-import { Link } from "~/components/link";
+const itemDetailPage = () => `import { Link } from "@originloom/react/lib/link";
+import type { Item } from "@server/services/items";
 
 export function ItemDetailPage({ data }: { data: { item: Item } }) {
   return (
@@ -2942,10 +2921,8 @@ export default defineRoute<Data>({
 });
 `;
 
-const dataCachePage =
-  () => `import type { FeaturedItemsResult } from "@server/services/featured-items";
-
-import { Link } from "~/components/link";
+const dataCachePage = () => `import { Link } from "@originloom/react/lib/link";
+import type { FeaturedItemsResult } from "@server/services/featured-items";
 
 type Props = { data: { apiData: FeaturedItemsResult; pageRenderedAt: string } };
 
@@ -3056,9 +3033,8 @@ export default defineRoute<Data>({
 });
 `;
 
-const catalogPage = () => `import type { Item } from "@server/services/items";
-
-import { Link } from "~/components/link";
+const catalogPage = () => `import { Link } from "@originloom/react/lib/link";
+import type { Item } from "@server/services/items";
 
 type Props = { data: { items: Item[]; page: number; totalPages: number } };
 
@@ -3174,19 +3150,53 @@ function SlowMessage({ promise }: { promise: Promise<string> }) {
 
 const liveTicksIsland = () => `import { useEffect, useState } from "react";
 
-/** Defer island: subscribes to the /api/ticks SSE stream in the browser. */
+/**
+ * Defer island: subscribes to the /api/ticks SSE stream in the browser.
+ *
+ * The stream is opened and closed around the page's visibility in the session
+ * history, not just around the component's lifetime. An open connection makes
+ * the page ineligible for the back/forward cache, which turns the browser's
+ * instant restore into a full reload — on every page this island appears.
+ */
 export default function LiveTicks() {
   const [tick, setTick] = useState("bağlanıyor…");
   useEffect(() => {
-    const source = new EventSource("/api/ticks");
-    source.addEventListener("tick", (event: MessageEvent<string>) => setTick(event.data));
-    source.addEventListener("rotate", () => {
-      setTick("bağlantı yenileniyor…");
-      source.close();
-    });
-    // EventSource reconnects automatically after transient failures.
-    source.onerror = () => setTick("yeniden bağlanıyor…");
-    return () => source.close();
+    let source: EventSource | null = null;
+
+    const open = () => {
+      if (source) return;
+      const stream = new EventSource("/api/ticks");
+      source = stream;
+      stream.addEventListener("tick", (event: MessageEvent<string>) => setTick(event.data));
+      stream.addEventListener("rotate", () => {
+        setTick("bağlantı yenileniyor…");
+        close();
+        open();
+      });
+      // EventSource reconnects automatically after transient failures.
+      stream.onerror = () => setTick("yeniden bağlanıyor…");
+    };
+
+    const close = () => {
+      source?.close();
+      source = null;
+    };
+
+    open();
+    // pagehide fires for a bfcache entry where unload does not; pageshow tells us
+    // whether we came back from that cache and have to reopen.
+    const onHide = () => close();
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) open();
+    };
+    addEventListener("pagehide", onHide);
+    addEventListener("pageshow", onShow);
+
+    return () => {
+      removeEventListener("pagehide", onHide);
+      removeEventListener("pageshow", onShow);
+      close();
+    };
   }, []);
   return (
     <p className="text-slate-700">
@@ -3248,52 +3258,39 @@ const FALLBACK_MENU: MenuItem[] = [
   { label: "Katalog", href: "/catalog" },
 ];
 const MENU_CACHE_KEY = "menu:public:v1";
-/**
- * Chrome comes from the gateway, so it arrives in whatever language the gateway
- * was asked for — and the language therefore belongs in the cache key. A
- * single-language app has one entry under "default"; adding a language later
- * needs no edit here, which is the point of keying it from the start.
- */
-const menuCachePolicy = (locale: string) => ({
+const MENU_CACHE_POLICY = {
   kind: "shared" as const,
   ttl: productConfig.menuCacheTtl,
   swr: productConfig.menuCacheSwr,
-  key: [MENU_CACHE_KEY, locale || "default"],
-});
-const refreshInFlight = new Map<string, Promise<MenuItem[]>>();
-const parsedSnapshots = new Map<string, { body: string; menu: MenuItem[] }>();
-
-/** Set by the locale middleware when the app serves more than one language. */
-function requestLocale(request: Request): string {
-  return request.headers.get("x-locale") ?? "";
-}
+  key: [MENU_CACHE_KEY],
+};
+let refreshInFlight: Promise<MenuItem[]> | undefined;
+let parsedSnapshot: { body: string; menu: MenuItem[] } | undefined;
 
 /**
  * Public chrome data with read-through cache. Fresh entries return immediately;
  * stale entries return immediately and trigger one process-local refresh.
  */
 export function getMenu(request: Request): Promise<MenuItem[]> {
-  const locale = requestLocale(request);
-  return memoizeRequestValue("gateway:menu:public:" + locale, () => loadMenu(request, locale));
+  return memoizeRequestValue("gateway:menu:public", () => loadMenu(request));
 }
 
-async function loadMenu(request: Request, locale: string): Promise<MenuItem[]> {
+async function loadMenu(request: Request): Promise<MenuItem[]> {
   try {
-    const key = cache.cacheKey(menuCachePolicy(locale));
+    const key = cache.cacheKey(MENU_CACHE_POLICY);
     if (!key) throw new Error("Menu cache policy must be shared");
 
     const hit = await cache.read(key);
     if (hit) {
-      const snapshot = parsedSnapshots.get(locale);
-      if (snapshot?.body === hit.body) {
-        if (hit.state === "stale") scheduleRefresh(locale);
-        return snapshot.menu;
+      if (parsedSnapshot?.body === hit.body) {
+        if (hit.state === "stale") scheduleRefresh();
+        return parsedSnapshot.menu;
       }
       const cached = parseCachedMenu(hit.body);
       if (cached) {
         const menu = freezeMenu(cached);
-        parsedSnapshots.set(locale, { body: hit.body, menu });
-        if (hit.state === "stale") scheduleRefresh(locale);
+        parsedSnapshot = { body: hit.body, menu };
+        if (hit.state === "stale") scheduleRefresh();
         return menu;
       }
       // Old/corrupt values never poison future reads. A failed delete is harmless:
@@ -3305,7 +3302,7 @@ async function loadMenu(request: Request, locale: string): Promise<MenuItem[]> {
       }
     }
 
-    return await waitForRequest(refreshMenu(locale, key), request.signal);
+    return await waitForRequest(refreshMenu(key), request.signal);
   } catch (error) {
     if (isRequestDeadlineError(error) || request.signal.aborted) throw error;
     logger.warn("menu degraded to local fallback", { error: errorMessage(error) });
@@ -3314,36 +3311,35 @@ async function loadMenu(request: Request, locale: string): Promise<MenuItem[]> {
 }
 
 /** Single-flight refresh bounds cold-miss and stale-refresh pressure on the gateway. */
-function refreshMenu(locale: string, key = cache.cacheKey(menuCachePolicy(locale))): Promise<MenuItem[]> {
-  const inFlight = refreshInFlight.get(locale);
-  if (inFlight) return inFlight;
+function refreshMenu(key = cache.cacheKey(MENU_CACHE_POLICY)): Promise<MenuItem[]> {
+  if (refreshInFlight) return refreshInFlight;
   if (!key) return Promise.reject(new Error("Menu cache policy must be shared"));
 
-  const pending = fetchMenuFromGateway(locale)
+  const pending = fetchMenuFromGateway()
     .then(async (menu) => {
       const immutable = freezeMenu(menu);
       const body = JSON.stringify(immutable);
-      await cache.write(key, body, menuCachePolicy(locale));
-      parsedSnapshots.set(locale, { body, menu: immutable });
+      await cache.write(key, body, MENU_CACHE_POLICY);
+      parsedSnapshot = { body, menu: immutable };
       return immutable;
     })
     .finally(() => {
-      if (refreshInFlight.get(locale) === pending) refreshInFlight.delete(locale);
+      if (refreshInFlight === pending) refreshInFlight = undefined;
     });
-  refreshInFlight.set(locale, pending);
+  refreshInFlight = pending;
   return pending;
 }
 
-function scheduleRefresh(locale: string): void {
-  void refreshMenu(locale).catch((error: unknown) => {
+function scheduleRefresh(): void {
+  void refreshMenu().catch((error: unknown) => {
     // The stale value remains usable until staleUntil; the next stale request may retry.
     logger.warn("stale menu refresh failed", { error: errorMessage(error) });
   });
 }
 
-async function fetchMenuFromGateway(locale: string): Promise<MenuItem[]> {
+async function fetchMenuFromGateway(): Promise<MenuItem[]> {
   // Menu is public/cacheable, so never forward a caller's Authorization header.
-  const response = await gatewayFetch(locale ? \`/menu?locale=\${encodeURIComponent(locale)}\` : "/menu");
+  const response = await gatewayFetch("/menu");
   await requireGatewayOk(response, "Menu gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.menu, "Invalid menu payload");
   return requireGatewayPayload(GatewayContracts.menu, payload, isMenu, "Invalid menu payload");
@@ -3574,30 +3570,22 @@ export function installProductRuntime(): void {
 
 const productDocumentShell = (
   title,
-  i18n = false,
 ) => `import type { DocumentShell } from "@originloom/core/runtime";
 import { mergeMetadata } from "@originloom/shared/lib/metadata/merge";
 import { resolveDocumentMetadata } from "@originloom/shared/lib/metadata/resolve";
 import type { Ctx, Route } from "@originloom/shared/lib/types";
 
-${i18n ? 'import { languageAlternates, pageLocale } from "~/lib/i18n/config";\n' : ""}import { defaultPageMeta } from "~/lib/shell-data";
+import { defaultPageMeta } from "~/lib/shell-data";
 
 const BOT_UA = /bot|crawl|spider|slurp|bingpreview/i;
 
 /** Document policy: language, bot detection, metadata. Views live in ./renderer. */
 export const productDocumentShell: DocumentShell = {
-  ${i18n ? "// Resolved per request: a multi-language site cannot state its language once.\n  htmlLang: (ctx) => pageLocale(ctx)," : 'htmlLang: "tr",'}
+htmlLang: "tr",
   errorPageTitle: "Sayfa gösterilemiyor | ${title}",
   isBotRequest: (request) => BOT_UA.test(request.headers.get("user-agent") ?? ""),
-  resolveMetadata: <T>(route: Route<T>, data: T, ctx: Ctx) =>${
-    i18n
-      ? `
-    // A route may name its own alternates; otherwise every page gets the full
-    // set, itself included — a one-sided hreflang map is worse than none.
-    withLanguageAlternates(resolveDocumentMetadata(route, data, ctx), ctx),`
-      : `
-    resolveDocumentMetadata(route, data, ctx),`
-  }
+  resolveMetadata: <T>(route: Route<T>, data: T, ctx: Ctx) =>
+    resolveDocumentMetadata(route, data, ctx),
   boundaryMetadata: (kind, ctx) =>
     mergeMetadata(
       kind === "not-found"
@@ -3615,20 +3603,7 @@ export const productDocumentShell: DocumentShell = {
     ),
   defaultPageMeta: (ctx, pageType) => defaultPageMeta(ctx, pageType),
 };
-${
-  i18n
-    ? `
-function withLanguageAlternates(
-  metadata: ReturnType<typeof resolveDocumentMetadata>,
-  ctx: Ctx,
-): ReturnType<typeof resolveDocumentMetadata> {
-  if (Object.keys(metadata.languageAlternates).length > 0) return metadata;
-  const base = ctx.siteUrl ?? ctx.url.origin;
-  return { ...metadata, languageAlternates: languageAlternates(metadata.canonical, base) };
-}
-`
-    : ""
-}`;
+`;
 
 const productAnalytics = () => `import { config } from "@originloom/core/config";
 import type { CspSources } from "@originloom/core/middleware/security";
@@ -3804,9 +3779,9 @@ export default function Counter({ start = 0 }: { start?: number }) {
 `;
 
 const homePage = () => `import { Island } from "@originloom/react/lib/island";
+import { Link } from "@originloom/react/lib/link";
 import type { ResponsiveImageData } from "@originloom/shared/lib/media";
 
-import { Link } from "~/components/link";
 import { ResponsiveImage } from "~/components/ui/responsive-image";
 
 /**
@@ -3911,14 +3886,11 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
 }
 `;
 
-const rootLayout = (
-  title,
-  i18n = false,
-) => `import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
+const rootLayout = (title) => `import { Link } from "@originloom/react/lib/link";
+import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
-${i18n ? 'import { LanguageSwitcher } from "~/components/layout/language-switcher";\n' : ""}import { Link } from "~/components/link";
-${i18n ? 'import { pageLocaleFromPath } from "~/lib/i18n/config";\nimport { LocaleProvider } from "~/lib/i18n/context";\n' : ""}import type { ShellData } from "~/lib/shell-data";
+import type { ShellData } from "~/lib/shell-data";
 
 export type RootLayoutProps = {
   shell: ShellData;
@@ -3931,13 +3903,7 @@ const SITE_NAME = "${title}";
 
 /** Application shell. Header/footer that need their own cache lifetime belong in fragments. */
 export function RootLayout({ shell, children }: RootLayoutProps) {
-  ${
-    i18n
-      ? `// The locale of the page being rendered, read from the path the browser
-  // asked for. Everything below — links included — takes it from here.
-  const body = (`
-      : "return ("
-  }
+  return (
     <div className="flex min-h-screen flex-col">
       {shell.minimalChrome ? null : (
         <header className="border-b border-slate-200">
@@ -3957,7 +3923,7 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
                   ))}
                 </ul>
               </nav>
-${i18n ? "              <LanguageSwitcher publicPath={shell.publicPath} />\n" : ""}            </div>
+            </div>
           </div>
         </header>
       )}
@@ -3975,11 +3941,6 @@ ${i18n ? "              <LanguageSwitcher publicPath={shell.publicPath} />\n" : 
       )}
     </div>
   );
-${
-  i18n
-    ? `  return <LocaleProvider locale={pageLocaleFromPath(shell.publicPath)}>{body}</LocaleProvider>;
-}`
-    : "}"
 }
 `;
 
@@ -4034,7 +3995,7 @@ export function defaultPageMeta(
 }
 `;
 
-const cacheKeys = (i18n = false) => `import type {
+const cacheKeys = () => `import type {
   CachePolicy,
   Ctx,
   RouteCacheResolver,
@@ -4048,7 +4009,8 @@ import {
   contentQueryCacheFragment,
   type ContentQueryConfig,
 } from "@originloom/shared/lib/cache-query-params";
-${i18n ? "" : 'import { locale } from "@originloom/shared/lib/request";\n'}
+import { locale } from "@originloom/shared/lib/request";
+
 import { normalizePageParam } from "~/lib/pagination";
 import { layoutCacheFragment } from "~/lib/shell-data";
 
@@ -4065,15 +4027,7 @@ export {
  * HTML page cache identities. The purge API and the metrics route labels are
  * derived from this registry, so every cacheable page needs an entry here.
  */
-${
-  i18n
-    ? `// The locale is not listed in any key below. server/middleware/locale.ts
-// publishes it as a request value, and the platform folds every published value
-// into the shared cache key — so it fragments the cache exactly once, and it
-// cannot be forgotten by a page that builds its key by hand.
-`
-    : ""
-}export const PageCacheId = {
+export const PageCacheId = {
   home: "home",
   catalog: "catalog",
   itemDetail: "item-detail",
@@ -4109,7 +4063,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     ttl: 3600,
     // Only normalized values that actually change the HTML belong in the key.
-    buildKey: (ctx) => ["home", ${i18n ? "" : "locale(ctx.request), "}layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
   },
   [PageCacheId.catalog]: {
     id: PageCacheId.catalog,
@@ -4126,7 +4080,8 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     buildKey: (ctx) => [
       "catalog",
       contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.catalog].contentQuery!),
-      ${i18n ? "" : "locale(ctx.request),\n      "}      layoutCacheFragment(ctx),
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
     ],
   },
   [PageCacheId.itemDetail]: {
@@ -4138,7 +4093,8 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     buildKey: (ctx) => [
       "item-detail",
       ctx.params.slug ?? "",
-      ${i18n ? "" : "locale(ctx.request),\n      "}      layoutCacheFragment(ctx),
+      locale(ctx.request),
+      layoutCacheFragment(ctx),
     ],
   },
   [PageCacheId.account]: {
@@ -4164,7 +4120,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/media",
     strategy: "shared",
     ttl: 3600,
-    buildKey: (ctx) => ["media", ${i18n ? "" : "locale(ctx.request), "}layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["media", locale(ctx.request), layoutCacheFragment(ctx)],
   },
   [PageCacheId.showcase]: {
     id: PageCacheId.showcase,
@@ -4173,7 +4129,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     // Page cached for an hour; the fragment it embeds has its own 15s TTL.
     ttl: 3600,
-    buildKey: (ctx) => ["showcase", ${i18n ? "" : "locale(ctx.request), "}layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["showcase", locale(ctx.request), layoutCacheFragment(ctx)],
   },
 };
 
@@ -4395,7 +4351,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
 CMD ["node", "--enable-source-maps", "dist/server/index.js"]
 `;
 
-const readme = (name, title, port, vitePort, standalone, withOps, i18n = false) => `# ${title}
+const readme = (name, title, port, vitePort, standalone, withOps) => `# ${title}
 
 OriginLoom ürün uygulaması. Platform runtime'ı \`@originloom/core\` ve \`@originloom/react\`
 paketlerinden gelir; bu repo route tablosunu, ürün kontratlarını, cache kimliğini ve kendi UI'ını
@@ -4474,6 +4430,9 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 | \`pnpm dev\`            | SSR, Vite ve mock gateway'i birlikte çalıştırır              |
 | \`pnpm origin:doctor\`  | Platform/template uyumluluğunu read-only denetler             |
 | \`pnpm origin:migrate\` | Upgrade planını dry-run gösterir; \`--apply\` ile uygular       |
+| \`pnpm sbom\`           | CycloneDX 1.6 full dependency envanteri üretir                  |
+| \`pnpm sbom:prod\`      | Yalnız production dependency envanterini üretir                 |
+| \`pnpm dependency-track:publish\` | SBOM'u yükler, analizi bekler ve güvenlik kapısını çalıştırır |
 | \`pnpm typecheck\`      | TypeScript kontrolü                                          |
 | \`pnpm check:cycles\`   | Import cycle ve katman sınırlarını kontrol eder              |
 | \`pnpm test\`           | Unit/integration testlerini çalıştırır                       |
@@ -4548,10 +4507,12 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 - [Dynamic shell](docs/dynamic-shell.md)
 - [Background workers](docs/background-workers.md)
 - [Redirect, rewrite ve proxy](docs/routing.md)
+- [Linkler](docs/links.md)
 - [Middleware](docs/middleware.md)
-- [Mutation (form ve yazma uçları)](docs/mutations.md)${i18n ? "\n- [i18n](docs/i18n.md)" : ""}
+- [Mutation (form ve yazma uçları)](docs/mutations.md)
 - [Streaming ve SSE](docs/streaming.md)
 - [SEO](docs/seo.md)
+- [SBOM ve Dependency-Track](docs/supply-chain-security.md)
 - [Observability](docs/observability.md)
 - [TanStack Query kullanımı ve kaldırma](docs/react-query.md)
 - [Testing](docs/testing.md)
@@ -4670,6 +4631,64 @@ jobs:
         run: docker build --tag ${name}:\${{ github.sha }} .
 `;
 
+const dependencyTrackWorkflow = () => `name: Dependency inventory
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-track-\${{ github.workflow }}-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPENDENCY_TRACK_URL: \${{ vars.DEPENDENCY_TRACK_URL }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate CycloneDX SBOM
+        run: pnpm sbom
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cyclonedx-sbom-\${{ github.sha }}
+          path: artifacts/sbom/bom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+      # Pull requests never receive the API key. Push/tag runs publish only after
+      # DEPENDENCY_TRACK_URL is configured as a repository variable.
+      - name: Publish and enforce Dependency-Track gate
+        if: github.event_name != 'pull_request' && env.DEPENDENCY_TRACK_URL != ''
+        env:
+          DEPENDENCY_TRACK_API_KEY: \${{ secrets.DEPENDENCY_TRACK_API_KEY }}
+        run: pnpm dependency-track:publish
+`;
+
 const mockGateway = (includeRoutingExamples = false) => `#!/usr/bin/env node
 /**
  * Local stand-in for the upstream gateway, so \`pnpm dev\` works before a real one
@@ -4698,21 +4717,12 @@ const ITEMS = [
   { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt.", seo: { title: "Zeta", description: "Zeta detay sayfası." } },
   { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt.", seo: { title: "Eta", description: "Eta detay sayfası." } },
 ];
-const MENU = {
-  tr: [
-    { label: "Ana sayfa", href: "/" },
-    { label: "Katalog", href: "/catalog" },
-    { label: "API cache", href: "/data-cache" },
-    { label: "Canlı veri", href: "/live" },
-  ],
-  en: [
-    { label: "Home", href: "/" },
-    { label: "Catalogue", href: "/catalog" },
-    { label: "API cache", href: "/data-cache" },
-    { label: "Live data", href: "/live" },
-  ],
-};
-const DEFAULT_MENU_LOCALE = "tr";
+const MENU = [
+  { label: "Ana sayfa", href: "/" },
+  { label: "Katalog", href: "/catalog" },
+  { label: "API cache", href: "/data-cache" },
+  { label: "Canlı veri", href: "/live" },
+];
 ${
   includeRoutingExamples
     ? `const CMS_ROUTES = new Map([
@@ -4755,12 +4765,7 @@ const server = createServer(async (req, res) => {
     return json(res, 200, { items: ITEMS.slice(start, start + perPage), total: ITEMS.length });
   }
 
-  // Chrome is content: the gateway answers it per language, which is why the
-  // app keys its menu cache by locale.
-  if (url.pathname === "/menu") {
-    const locale = url.searchParams.get("locale") ?? DEFAULT_MENU_LOCALE;
-    return json(res, 200, MENU[locale] ?? MENU[DEFAULT_MENU_LOCALE]);
-  }
+  if (url.pathname === "/menu") return json(res, 200, MENU);
 
   // Where the contact form's endpoint sends what it accepted.
   if (url.pathname === "/enquiries" && req.method === "POST") {
@@ -5160,6 +5165,27 @@ const performancePolicy = () =>
     2,
   ) + "\n";
 
+const dependencyTrackConfig = (name) =>
+  JSON.stringify(
+    {
+      schemaVersion: 1,
+      projectName: name,
+      bomPath: "artifacts/sbom/bom.cdx.json",
+      autoCreate: true,
+      isLatest: true,
+      tags: ["originloom", "javascript"],
+      gate: {
+        enabled: true,
+        failOnSeverity: "critical",
+        failOnPolicyViolation: "fail",
+        timeoutSeconds: 300,
+        pollIntervalSeconds: 2,
+      },
+    },
+    null,
+    2,
+  ) + "\n";
+
 const lighthouseConfig = (port) =>
   JSON.stringify(
     {
@@ -5361,13 +5387,13 @@ function sessionUnavailable(cookies: Parameters<typeof withBffAuthCookies>[1]): 
 }
 `;
 
-const seoRoutes = (i18n = false) => `import { config } from "@originloom/core/config";
+const seoRoutes = () => `import { config } from "@originloom/core/config";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { mountSeoRoutes as mountPlatformSeoRoutes } from "@originloom/core/seo";
 import { listItems } from "@server/services/items";
 import type { Hono } from "hono";
 
-${i18n ? 'import { localePath, LOCALES } from "~/lib/i18n/config";\n\n' : ""}/**
+/**
  * robots.txt and sitemap.xml. The platform owns the mechanics — headers,
  * caching, XML escaping, degradation — and this file owns the content: which
  * URLs exist, and what to serve when the source cannot answer.
@@ -5378,21 +5404,10 @@ export function mountSeo(app: Hono<{ Variables: AppVariables }>): void {
     entries: async (signal) => {
       const { items } = await listItems(1, 100, signal);
       const paths = ["/", "/catalog", ...items.map((item) => \`/items/\${item.slug}\`)];
-      return ${
-        i18n
-          ? `LOCALES.flatMap((locale) => paths.map((path) => ({ path: localePath(locale, path) })))`
-          : `paths.map((path) => ({ path }))`
-      };
+      return paths.map((path) => ({ path }));
     },
     // Served when the gateway is down: a stale sitemap beats no sitemap.
-    fallbackEntries: ${
-      i18n
-        ? `LOCALES.flatMap((locale) => [
-      { path: localePath(locale, "/") },
-      { path: localePath(locale, "/catalog") },
-    ])`
-        : `[{ path: "/" }, { path: "/catalog" }]`
-    },
+    fallbackEntries: [{ path: "/" }, { path: "/catalog" }],
   });
 }
 `;
@@ -5772,24 +5787,14 @@ export default defineRoute({
 });
 `;
 
-const contactPage = (i18n = false) => `${
-  i18n
-    ? `import { pageLocaleFromPath } from "~/lib/i18n/config";
-import { t } from "~/lib/i18n/messages";
-
-`
-    : ""
-}export type EnquiryStatus = "sent" | "invalid" | "failed";
+const contactPage = () => `export type EnquiryStatus = "sent" | "invalid" | "failed";
 
 const TONES: Record<EnquiryStatus, string> = {
   sent: "text-emerald-700",
   invalid: "text-amber-700",
   failed: "text-rose-700",
 };
-${
-  i18n
-    ? ""
-    : `
+
 const TEXT = {
   title: "İletişim",
   name: "Adınız",
@@ -5800,8 +5805,7 @@ const TEXT = {
   invalid: "Formu kontrol edip tekrar gönderin.",
   failed: "Şu an gönderemedik. Biraz sonra tekrar deneyin.",
 };
-`
-}
+
 
 /**
  * A plain form: method="post" to a real endpoint, no client JavaScript involved.
@@ -5814,23 +5818,7 @@ export function ContactPage({
   status: EnquiryStatus | null;
   publicPath: string;
 }) {
-${
-  i18n
-    ? `  // The copy follows the page's own language, which is the language the URL
-  // asked for — not the visitor's browser and not a global default.
-  const locale = pageLocaleFromPath(publicPath);
-  const text = {
-    title: t(locale, "contactTitle"),
-    name: t(locale, "contactName"),
-    email: t(locale, "contactEmail"),
-    message: t(locale, "contactMessage"),
-    submit: t(locale, "contactSubmit"),
-    sent: t(locale, "contactSent"),
-    invalid: t(locale, "contactInvalid"),
-    failed: t(locale, "contactFailed"),
-  };`
-    : "  const text = TEXT;"
-}
+  const text = TEXT;
   return (
     <div className="max-w-xl space-y-6">
       <h1 className="text-3xl font-bold tracking-tight text-slate-900">{text.title}</h1>
@@ -5994,464 +5982,6 @@ describe("enquiry endpoint", () => {
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("60");
   });
-});
-`;
-
-/**
- * Copy for the locales the generator knows about. A language it has never seen
- * still generates — it falls back to English text with a TODO-shaped mismatch
- * the app owner fixes in one file.
- */
-const COPY = {
-  tr: {
-    languageLabel: "Dil",
-    contactTitle: "İletişim",
-    contactName: "Adınız",
-    contactEmail: "E-posta",
-    contactMessage: "Mesajınız",
-    contactSubmit: "Gönder",
-    contactSent: "Mesajınız alındı. En kısa sürede döneceğiz.",
-    contactInvalid: "Formu kontrol edip tekrar gönderin.",
-    contactFailed: "Şu an gönderemedik. Biraz sonra tekrar deneyin.",
-  },
-  en: {
-    languageLabel: "Language",
-    contactTitle: "Contact",
-    contactName: "Your name",
-    contactEmail: "Email",
-    contactMessage: "Your message",
-    contactSubmit: "Send",
-    contactSent: "Thanks — we have your message and will reply shortly.",
-    contactInvalid: "Please check the form and send it again.",
-    contactFailed: "We could not send it just now. Please try again shortly.",
-  },
-};
-
-const NAMES = { tr: "Türkçe", en: "English", de: "Deutsch", fr: "Français", es: "Español" };
-
-/**
- * A locale the generator has no copy for still generates: it gets the English
- * text with a marker, which is a translation task the app owner can find, not a
- * silent English string pretending to be translated.
- */
-const copyFor = (locale) =>
-  COPY[locale] ??
-  Object.fromEntries(
-    Object.entries(COPY.en).map(([key, value]) => [key, "TODO(" + locale + "): " + value]),
-  );
-
-const i18nConfig = (
-  locales,
-  defaultLocale,
-) => `import type { Ctx } from "@originloom/shared/lib/types";
-
-/**
- * The locales this site serves. Everything else in here is derived from this
- * list — routing rules, hreflang, the sitemap and the language switcher — so
- * adding a language is one edit plus its message catalog.
- */
-export const LOCALES = [${locales.map((l) => JSON.stringify(l)).join(", ")}] as const;
-export type Locale = (typeof LOCALES)[number];
-
-/**
- * The language served at the unprefixed path, and the fallback everywhere.
- *
- * It carries no prefix on purpose: \`/catalog\` stays \`/catalog\` when a second
- * language is added, so existing URLs, links and rankings survive, and the
- * hottest pages answer without a redirect.
- */
-export const DEFAULT_LOCALE: Locale = "${defaultLocale}";
-
-export function isLocale(value: unknown): value is Locale {
-  return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
-}
-
-/** \`/en/catalog\` -> \`{ locale: "en", rest: "/catalog" }\`; an unprefixed path -> null. */
-export function splitLocale(pathname: string): { locale: Locale; rest: string } | null {
-  const [, first = "", ...others] = pathname.split("/");
-  if (!isLocale(first)) return null;
-  return { locale: first, rest: "/" + others.join("/") };
-}
-
-/** The public path for one locale. The default language owns the bare path. */
-export function localePath(locale: Locale, path: string): string {
-  const rest = path === "/" ? "" : path.replace(/\\/+$/, "");
-  return locale === DEFAULT_LOCALE ? rest || "/" : "/" + locale + rest;
-}
-
-/**
- * The locale this request resolved to.
- *
- * It comes from the middleware rather than the URL so that loaders, cache keys
- * and the document shell all read the same decision — and so the value that
- * fragments the HTML cache is the value the page rendered with.
- */
-export function pageLocale(ctx: Ctx): Locale {
-  const value = ctx.values?.locale;
-  return isLocale(value) ? value : pageLocaleFromPath(ctx.publicPath);
-}
-
-/**
- * The locale a public path belongs to, for the places that have the path but no
- * request context — the layout, above all. The bare path is the default
- * language, which is why an unprefixed path is an answer and not a miss.
- */
-export function pageLocaleFromPath(publicPath: string): Locale {
-  return splitLocale(publicPath)?.locale ?? DEFAULT_LOCALE;
-}
-
-/**
- * The locale prefix rule for one link.
- *
- * Only paths on this site get a prefix. An endpoint has no language, an
- * absolute URL belongs to someone else, and a fragment or a bare query stays on
- * the page it was written for — prefixing any of those breaks the link instead
- * of translating it.
- */
-export function localeHref(locale: Locale, href: string): string {
-  if (!href.startsWith("/") || href.startsWith("//")) return href;
-  if (href.startsWith("/api/")) return href;
-
-  const [pathAndQuery = "", hash = ""] = splitOnce(href, "#");
-  const [path = "", query = ""] = splitOnce(pathAndQuery, "?");
-  const localized = localePath(locale, path);
-  return localized + (query ? "?" + query : "") + (hash ? "#" + hash : "");
-}
-
-function splitOnce(value: string, separator: string): [string, string] {
-  const index = value.indexOf(separator);
-  return index === -1 ? [value, ""] : [value.slice(0, index), value.slice(index + 1)];
-}
-
-/**
- * hreflang map for a page, itself included.
- *
- * Built from the canonical URL rather than the raw request: pagination and
- * filters belong in an alternate (page 2 of the English catalogue is the
- * translation of page 2, not of page 1), while tracking parameters do not — and
- * the canonical has already made that distinction.
- *
- * A one-sided alternate set is worse than none: search engines read the
- * translations as separate pages competing for the same query.
- */
-export function languageAlternates(canonical: string, base: string): Record<string, string> {
-  const url = new URL(canonical, base);
-  const rest = splitLocale(url.pathname)?.rest ?? url.pathname;
-  const href = (locale: Locale) => {
-    const target = new URL(localePath(locale, rest), base);
-    target.search = url.search;
-    return target.toString();
-  };
-
-  const alternates: Record<string, string> = {};
-  for (const locale of LOCALES) alternates[locale] = href(locale);
-  alternates["x-default"] = href(DEFAULT_LOCALE);
-  return alternates;
-}
-`;
-
-const i18nMessages = (locales) => `import { DEFAULT_LOCALE, type Locale } from "./config";
-
-/**
- * UI copy that belongs to this app rather than to its content.
- *
- * Content — product names, articles, prices — comes from the gateway already
- * translated; this catalog is for the chrome around it. Keys are typed, so a
- * language that forgets one fails the build instead of rendering an English
- * string into a Turkish page.
- */
-const MESSAGES = {
-${locales
-  .map(
-    (l) =>
-      `  ${l}: {\n${Object.entries(copyFor(l))
-        .map(([k, v]) => `    ${k}: ${JSON.stringify(v)},`)
-        .join("\n")}\n  },`,
-  )
-  .join("\n")}\n} as const satisfies Record<Locale, Record<string, string>>;
-
-export type MessageKey = keyof (typeof MESSAGES)[typeof DEFAULT_LOCALE];
-
-export function t(locale: Locale, key: MessageKey): string {
-  return MESSAGES[locale][key] ?? MESSAGES[DEFAULT_LOCALE][key];
-}
-
-export function localeName(locale: Locale): string {
-  return LOCALE_NAMES[locale];
-}
-
-const LOCALE_NAMES: Record<Locale, string> = {
-${locales.map((l) => `  ${l}: ${JSON.stringify(NAMES[l] ?? l.toUpperCase())},`).join("\n")}\n};
-`;
-
-const localeMiddlewareFile = () => `import { defineMiddleware } from "@originloom/core/middleware";
-
-import { DEFAULT_LOCALE, localePath, splitLocale } from "~/lib/i18n/config";
-
-/**
- * Decides which language this request is in, before the page is matched.
- *
- * The default language owns the bare path and every other language is prefixed:
- * \`/catalog\` is Turkish, \`/en/catalog\` is English. Two consequences worth
- * knowing — adding a language does not move a single existing URL, and the
- * busiest pages answer without a redirect in front of them.
- *
- * There is deliberately no Accept-Language redirect. Sending a visitor somewhere
- * else based on their browser would make the canonical URL answer differently
- * per visitor: uncacheable, and a well-known way to have the wrong language
- * indexed. The switcher in the header is how a visitor changes language.
- */
-export const localeMiddleware = defineMiddleware({
-  name: "locale",
-  phase: "before-render",
-  // Documents only. An endpoint has no language prefix and must not be redirected.
-  matcher: ["/:path*"],
-  exclude: ["/api/:path*"],
-  handler: (ctx) => {
-    const prefixed = splitLocale(ctx.publicPath);
-    if (!prefixed) {
-      // The bare path is the default language. Publishing the value keeps every
-      // reader — loader, cache key, document shell — on the same decision, and
-      // the header carries it to services that take a Request and nothing else.
-      return { values: { locale: DEFAULT_LOCALE }, requestHeaders: LOCALE_HEADER(DEFAULT_LOCALE) };
-    }
-    if (prefixed.locale === DEFAULT_LOCALE) {
-      // One page, one URL: /tr/catalog is the same page as /catalog, so it moves
-      // there permanently rather than competing with it.
-      return {
-        redirect: { location: localePath(DEFAULT_LOCALE, prefixed.rest) + ctx.url.search, status: 308 },
-      };
-    }
-    // Published as a value, so it fragments the shared HTML cache: one visitor's
-    // Turkish page can never be served to an English one.
-    return { values: { locale: prefixed.locale }, requestHeaders: LOCALE_HEADER(prefixed.locale) };
-  },
-});
-
-const LOCALE_HEADER = (locale: string) => ({ "x-locale": locale });
-`;
-
-const languageSwitcher =
-  () => `import { DEFAULT_LOCALE, localePath, LOCALES, splitLocale } from "~/lib/i18n/config";
-import { localeName, t } from "~/lib/i18n/messages";
-
-/**
- * Plain links, not a form or a script: each language is a real URL, so the
- * switcher works without JavaScript and search engines can follow it.
- */
-export function LanguageSwitcher({ publicPath }: { publicPath: string }) {
-  const current = splitLocale(publicPath);
-  const locale = current?.locale ?? DEFAULT_LOCALE;
-  const rest = current?.rest ?? publicPath;
-  return (
-    <nav aria-label={t(locale, "languageLabel")} className="flex gap-2 text-sm">
-      {LOCALES.map((candidate) => (
-        <a
-          key={candidate}
-          href={localePath(candidate, rest)}
-          hrefLang={candidate}
-          aria-current={candidate === locale ? "true" : undefined}
-          className={
-            candidate === locale
-              ? "font-semibold text-slate-900"
-              : "text-slate-500 hover:text-slate-900 hover:underline"
-          }
-        >
-          {localeName(candidate)}
-        </a>
-      ))}
-    </nav>
-  );
-}
-`;
-
-const i18nTest = () => `import { localeMiddleware } from "@server/middleware/locale";
-import { describe, expect, it } from "vitest";
-
-import {
-  DEFAULT_LOCALE,
-  languageAlternates,
-  localeHref,
-  localePath,
-  splitLocale,
-} from "~/lib/i18n/config";
-import { t } from "~/lib/i18n/messages";
-
-function context(url: string, headers: Record<string, string> = {}, cookie?: string) {
-  const request = new Request(url, { headers });
-  const parsed = new URL(url);
-  return {
-    request,
-    url: parsed,
-    publicPath: parsed.pathname,
-    params: {},
-    clientIp: "127.0.0.1",
-    values: {},
-    cookie: () => cookie,
-    header: (name: string) => request.headers.get(name) ?? undefined,
-  };
-}
-
-async function run(url: string, headers?: Record<string, string>, cookie?: string) {
-  return await localeMiddleware.handler(context(url, headers, cookie));
-}
-
-describe("locale routing", () => {
-  it("reads a prefixed locale out of the path and publishes it", async () => {
-    const result = await run("http://app.local/en/catalog");
-
-    expect(result).toMatchObject({ values: { locale: "en" } });
-    // Published values fragment the shared HTML cache, which is what keeps one
-    // language's page from being served to the other.
-    expect(result?.redirect).toBeUndefined();
-  });
-
-  it("serves the default language from the bare path without a redirect", async () => {
-    const result = await run("http://app.local/catalog?page=2", {
-      "accept-language": "en-GB,en;q=0.9",
-    });
-
-    // A redirect here would make the canonical URL answer differently per
-    // visitor — uncacheable, and the wrong language ends up indexed.
-    expect(result?.redirect).toBeUndefined();
-    expect(result).toMatchObject({ values: { locale: DEFAULT_LOCALE } });
-  });
-
-  it("collapses the default language's prefix onto the canonical URL", async () => {
-    const result = await run("http://app.local/" + DEFAULT_LOCALE + "/catalog?page=2");
-
-    expect(result?.redirect).toEqual({ location: "/catalog?page=2", status: 308 });
-  });
-});
-
-describe("i18n helpers", () => {
-  it("splits and rebuilds a localized path", () => {
-    expect(splitLocale("/en/items/alpha")).toEqual({ locale: "en", rest: "/items/alpha" });
-    expect(splitLocale("/items/alpha")).toBeNull();
-    expect(localePath("en", "/")).toBe("/en");
-    expect(localePath(DEFAULT_LOCALE, "/items/alpha")).toBe("/items/alpha");
-  });
-
-  it("names every locale plus x-default in the alternate set", () => {
-    const alternates = languageAlternates("https://app.local/en/catalog", "https://app.local");
-
-    expect(alternates["x-default"]).toBe(
-      "https://app.local" + localePath(DEFAULT_LOCALE, "/catalog"),
-    );
-    expect(alternates.en).toBe("https://app.local/en/catalog");
-  });
-
-  it("keeps the canonical query on every alternate", () => {
-    // Page 2 of one language is the translation of page 2, not of page 1.
-    const alternates = languageAlternates("https://app.local/catalog?page=2", "https://app.local");
-
-    expect(alternates.en).toBe("https://app.local/en/catalog?page=2");
-    expect(alternates["x-default"]).toBe("https://app.local/catalog?page=2");
-  });
-
-  it("prefixes an internal link and leaves everything else alone", () => {
-    expect(localeHref("en", "/catalog")).toBe("/en/catalog");
-    expect(localeHref("en", "/catalog?page=2#list")).toBe("/en/catalog?page=2#list");
-    expect(localeHref(DEFAULT_LOCALE, "/catalog")).toBe("/catalog");
-    // An endpoint has no language, and these three belong to someone else.
-    expect(localeHref("en", "/api/enquiries")).toBe("/api/enquiries");
-    expect(localeHref("en", "https://example.com/catalog")).toBe("https://example.com/catalog");
-    expect(localeHref("en", "//cdn.example.com/x")).toBe("//cdn.example.com/x");
-    expect(localeHref("en", "#section")).toBe("#section");
-  });
-
-  it("falls back to the default locale's copy for a missing translation", () => {
-    expect(t(DEFAULT_LOCALE, "contactSubmit")).toBeTruthy();
-  });
-});
-`;
-
-const linkComponent = (i18n = false) =>
-  i18n
-    ? `import type { AnchorHTMLAttributes } from "react";
-
-import { localeHref } from "~/lib/i18n/config";
-import { useLocale } from "~/lib/i18n/context";
-
-/**
- * Every internal link in this app goes through here, because a link that
- * forgets the locale sends the visitor back to the default language mid-visit —
- * the switcher takes you to /en/catalog and the first link takes it away again.
- *
- * The prefix is applied at render time from the locale of the page being
- * rendered, so pages keep writing plain paths: \`<Link href="/catalog">\`.
- */
-export function Link({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) {
-  const locale = useLocale();
-  return <a href={href === undefined ? undefined : localeHref(locale, href)} {...props} />;
-}
-`
-    : `import type { AnchorHTMLAttributes } from "react";
-
-/**
- * Every internal link in this app goes through here.
- *
- * Today it is an \`<a>\`. It exists so that a rule about links — a locale prefix,
- * a campaign parameter, a prefetch — has one place to live instead of being
- * applied by hand at eighteen call sites and forgotten at the nineteenth.
- */
-export function Link(props: AnchorHTMLAttributes<HTMLAnchorElement>) {
-  return <a {...props} />;
-}
-`;
-
-const localeContext = () => `import { createContext, type ReactNode, useContext } from "react";
-
-import { DEFAULT_LOCALE, type Locale } from "./config";
-
-/**
- * The locale of the page being rendered, for components that are too far from
- * the loader to be handed it as a prop — links, above all.
- *
- * The layout provides it, so anything rendered inside the document reads the
- * right value. An island is a separate React root and does not: give an island
- * that needs the locale a prop, the same way it gets the rest of its data.
- */
-const LocaleContext = createContext<Locale>(DEFAULT_LOCALE);
-
-export function LocaleProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
-  return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
-}
-
-export function useLocale(): Locale {
-  return useContext(LocaleContext);
-}
-`;
-
-const i18nE2e = () => `import { expect, test } from "@playwright/test";
-
-test("switching language survives the next click", async ({ page }) => {
-  await page.goto("/catalog");
-
-  // The switcher is a link, so this works with or without JavaScript.
-  await page.getByRole("navigation", { name: /language|dil/i }).getByRole("link", { name: "English" }).click();
-  await expect(page).toHaveURL(/\\/en\\/catalog$/);
-
-  // Chrome comes from the gateway per language, so the menu changed with it.
-  await expect(page.getByRole("link", { name: "Catalogue" })).toBeVisible();
-
-  // The real test: a link inside the page must not drop the language.
-  await page.getByRole("link", { name: "Alpha" }).click();
-  await expect(page).toHaveURL(/\\/en\\/items\\/alpha$/);
-  await expect(page.getByRole("link", { name: "Catalogue" })).toBeVisible();
-});
-
-test("the default language keeps the bare path and the prefix collapses onto it", async ({
-  request,
-}) => {
-  const bare = await request.get("/catalog", { maxRedirects: 0 });
-  expect(bare.status()).toBe(200);
-
-  const prefixed = await request.get("/tr/catalog", { maxRedirects: 0 });
-  expect(prefixed.status()).toBe(308);
-  // The platform resolves a middleware redirect against the request URL, so the
-  // header is absolute; what matters here is where it points.
-  expect(new URL(prefixed.headers().location ?? "", "http://localhost").pathname).toBe("/catalog");
 });
 `;
 

@@ -9,6 +9,9 @@ için [çok ürünlü adoption rehberi](docs/multi-product-adoption.md); platfor
 uygulaması eklemek için [new-product-app.md](docs/new-product-app.md). Production güvenlik kabulü, secret rotation
 ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur.
 Paketlerin sürümlenmesi ve yayın hattı için [releasing.md](docs/releasing.md).
+Çok dillilik (i18n) **kapsam dışı**: bir eklenti olarak denendi ve kaldırıldı — nedeni, neyin
+çalıştığı ve yeniden ele alınırsa doğru başlangıç noktası
+[ekosistem backlog'unda](docs/ecosystem-backlog.md).
 Template/platform uyumluluk penceresi [compatibility.md](docs/compatibility.md), sürüm bazlı
 değişiklikler ise [migration kayıtlarında](docs/migrations/README.md) tutulur. Platformun bundan
 sonra hangi entegrasyonları kapsayabileceği [ekosistem backlog'unda](docs/ecosystem-backlog.md)

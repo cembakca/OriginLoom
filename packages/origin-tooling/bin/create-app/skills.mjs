@@ -15,21 +15,11 @@ import { fileURLToPath } from "node:url";
 const skillsDir = fileURLToPath(new URL("./skills", import.meta.url));
 
 /**
- * Skills that describe an opt-in plugin. Shipping one to an app that does not
- * have the feature is worse than shipping none: it tells Claude Code to use
- * files that are not there.
- */
-const OPTIONAL_SKILLS = { "i18n.md": "i18n" };
-
-/**
- * @param {{ i18n?: boolean }} enabled which optional plugins this app generated
  * @returns {Record<string, string>} map of app-relative path -> file contents
  */
-export function renderSkills(enabled = {}) {
+export function renderSkills() {
   const files = {};
   for (const entry of markdownFiles(skillsDir)) {
-    const plugin = OPTIONAL_SKILLS[entry];
-    if (plugin && !enabled[plugin]) continue;
     const name = entry.slice(0, -".md".length);
     files[`.claude/skills/${name}/SKILL.md`] = readFileSync(join(skillsDir, entry), "utf8");
   }
