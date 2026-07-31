@@ -58,17 +58,22 @@ this file owns the content:
 ```ts
 mountPlatformSeoRoutes(app, {
   siteUrl: config.siteUrl,
-  entries: async (signal) => {
-    const { items } = await listItems(1, 100, signal);
-    return [{ path: "/" }, ...items.map((item) => ({ path: `/items/${item.slug}` }))];
-  },
-  fallbackEntries: [{ path: "/" }], // served when the source is down
+  entries: (request) => fetchSitemapEntries(request),
+  fallbackEntries: [{ path: "/" }, { path: "/catalog" }], // served when the source is down
 });
 ```
 
-`entries` runs per request with the request's signal. If it throws, the fallback
-is served and the failure is logged — a stale sitemap beats a 500 to a crawler.
-Add `disallow: ["/api/", "/hesabim"]` to keep paths out of robots.txt.
+The list is **asked for, not derived**. Building it from the first page of a
+catalogue works until the catalogue is bigger than one page, and then it quietly
+ships a sitemap missing most of the site — a failure with no error and no log
+line. `server/services/sitemap.ts` asks the gateway and validates what comes
+back: every entry must be a public path on this site, so an upstream mistake
+cannot publish `//somebody-else.example/…` under this domain's authority.
+
+`entries` receives the `Request` — it carries both the cancellation signal and
+the gateway identity. If it throws, the fallback is served and the failure is
+logged: a stale sitemap beats a 500 to a crawler. Add
+`disallow: ["/api/", "/hesabim"]` to keep paths out of robots.txt.
 
 ## Rules
 

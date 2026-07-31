@@ -312,21 +312,59 @@ publish akışında kullanılmamalıdır.
 - [ ] Multi-pod davranışı Redis kesintisi dahil doğrulandı.
 - [ ] Dashboard ve alarmlar fill, revalidation, L2 health ve cardinality sinyallerini kapsıyor.
 
-## İki gateway çağrısı, iki farklı anlam
+## Üç gateway çağrısı, üç farklı anlam
 
-`@originloom/core/adapters/gateway` iki fonksiyon verir ve aradaki fark cache güvenliğidir:
+`@originloom/core/adapters/gateway` üç fonksiyon verir; fark, isteğin kimliğini ne kadar taşıdığıdır:
 
-| Fonksiyon                               | Ne taşır                             | Nerede kullanılır                    |
-| --------------------------------------- | ------------------------------------ | ------------------------------------ |
-| `gatewayFetch(path)`                    | Kimlik taşımaz                       | Cache'lenen her şey                  |
-| `gatewayFetchForRequest(request, path)` | Çağıranın `Authorization`'ını iletir | BFF uçları ve `neverCache` route'lar |
+| Fonksiyon                                 | Kimlik | `Authorization` | Nerede                              |
+| ----------------------------------------- | ------ | --------------- | ----------------------------------- |
+| `gatewayFetchWithIdentity(request, path)` | ✓      | ✗               | **Varsayılan** — servislerin çoğu   |
+| `gatewayFetchForRequest(request, path)`   | ✓      | ✓               | BFF uçları, `neverCache` route'lar  |
+| `gatewayFetch(path)`                      | ✗      | ✗               | İsteği olmayan işler (kuyruk, cron) |
 
-Kural tek cümle: **`gatewayFetchForRequest` sonucu paylaşımlı cache'lenen bir HTML'e girmemelidir.**
-Girerse bir ziyaretçinin kişisel verisi diğerlerine servis edilir; platform bunu sizin için
-engellemez, çünkü hangi alanın kişisel olduğunu yalnız siz bilirsiniz.
+**Kimlik** her istekte gateway'e giden üç değerdir: ziyaretçinin tracking id'si, çözülmüş client IP
+ve cihaz tipi. Üçü de **istekten okunur** — tracking id session step'in çözdüğü değerden, IP
+platformun trusted-proxy zincirinden, cihaz User-Agent'tan. Yani bir servis bunları geçirmeyi
+unutamaz ve bir çağıran header set ederek başkasıymış gibi konuşamaz.
+
+Header adları gateway'inizle sizin aranızdaki kontrattır; varsayılanlar `x-user-tracking-id`,
+`x-client-ip`, `x-device-type`. Farklıysa başlangıçta bir kez değiştirin:
+
+```ts
+import { configureGatewayIdentityHeaders } from "@originloom/core/adapters/gateway-identity";
+
+configureGatewayIdentityHeaders({ userTrackingId: "X-Visitor-Id" });
+```
+
+`tests/gateway-identity.test.ts` bu kuralı korur: `server/` altında ham `gatewayFetch` kullanan her
+dosyayı bulur ve gerekçesiyle listelenmemişse build'i düşürür.
+
+### Bunun cache ile ilişkisi
+
+Kimlik **telemetri ve güvenlik bağlamıdır, içerik boyutu değildir.** Cache key bu değerleri içermez
+ve içermemelidir — tracking id ziyaretçi başına bir entry demektir. Gateway cevabını bu üç değere
+göre değiştiriyorsa, o cevap paylaşımlı cache'lenen bir HTML'e giremez.
+
+Aynı kural `Authorization` için daha da katıdır: **`gatewayFetchForRequest` sonucu paylaşımlı
+cache'lenen bir HTML'e girmemelidir.** Girerse bir ziyaretçinin kişisel verisi diğerlerine servis
+edilir; platform bunu sizin için engellemez, çünkü hangi alanın kişisel olduğunu yalnız siz
+bilirsiniz.
 
 Kişisel içerik için doğru sıra: önce `defer` island + `/api/internal/*` (doküman paylaşımlı kalır),
 o mümkün değilse route'u `strategy: "never"` yapın.
+
+### Servisler `signal` değil `Request` alır
+
+Kimliğin gateway'e ulaşmasının yolu budur:
+
+```ts
+export async function listItems(search: URLSearchParams, request: Request) {
+  const response = await gatewayFetchWithIdentity(request, `/items?${search}`);
+}
+```
+
+`Request` hem iptal sinyalini hem kimliği taşır; `signal` yalnız yarısını. İsteği olmayan bir iş (bot
+analytics kuyruğu) `gatewayFetch` kullanır ve kimliği payload'ında taşır.
 
 ## Üç seviyeyi yan yana görmek
 
