@@ -249,6 +249,7 @@ export function createMockGatewayServer() {
       })
       .finally(() => {
         if (!quiet) {
+          const headers = request.headers;
           console.log(
             JSON.stringify({
               service: "mock-gw",
@@ -256,12 +257,34 @@ export function createMockGatewayServer() {
               path: request.url,
               status: response.statusCode,
               durationMs: Date.now() - started,
+              // The identity the app sends on every call: the values you check
+              // when something upstream looks wrong.
+              identity: {
+                trackingId: headers["x-user-tracking-id"] ?? null,
+                clientIp: headers["x-client-ip"] ?? null,
+                device: headers.device ?? headers["x-device-type"] ?? null,
+                authorization: headers.authorization ? "present" : null,
+              },
+              // MOCK_GW_HEADERS=1 for the whole set. Credentials stay redacted:
+              // a log line and a screenshot are both places a token must not be.
+              ...(process.env.MOCK_GW_HEADERS
+                ? {
+                    headers: Object.fromEntries(
+                      Object.entries(headers).map(([name, value]) => [
+                        name,
+                        REDACTED_HEADERS.has(name) ? "<redacted>" : value,
+                      ]),
+                    ),
+                  }
+                : {}),
             }),
           );
         }
       });
   });
 }
+
+const REDACTED_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);
 
 const isEntryPoint = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isEntryPoint) {

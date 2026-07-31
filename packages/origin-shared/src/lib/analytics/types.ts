@@ -4,6 +4,8 @@ export type PageDetails = {
   category?: string;
   mid?: string;
   sub?: string;
+  experiment?: string;
+  campaign?: string;
   platform?: string;
   loginState?: boolean;
   bot?: boolean;
@@ -29,6 +31,16 @@ export type PageAnalyticsMeta = {
   sub?: string;
   title?: string;
   publicPath: string;
+  /**
+   * Which arm of an experiment rendered this page.
+   *
+   * Page-level, like `category`: an analysis that cannot tell the arms apart is
+   * not an analysis. It is a dimension and never an identifier — a value with
+   * one entry per visitor belongs nowhere near this.
+   */
+  experiment?: string;
+  /** Campaign the visit arrived on. Attribution only; it changes no rendering. */
+  campaign?: string;
 };
 
 export type GtmLifecycleEvent = {

@@ -24,6 +24,8 @@ export function buildPageDetails(meta: PageAnalyticsMeta): PageDetails {
       category: meta.category,
       mid: meta.mid,
       sub: meta.sub,
+      experiment: meta.experiment,
+      campaign: meta.campaign,
     }),
   };
 }

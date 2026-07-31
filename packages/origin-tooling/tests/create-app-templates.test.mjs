@@ -622,8 +622,73 @@ describe("renderTemplates — gateway wiring", () => {
     expect(gateway).not.toContain("process.env.PORT ?? 4002");
     expect(files[".env.development"]).toContain("MOCK_GATEWAY_PORT=4002");
     const scripts = JSON.parse(files["package.json"]).scripts;
-    expect(scripts.dev).toContain("--gateway mock-gateway/server.mjs");
+    // `dev` runs the app and Vite and nothing else: a gateway is usually someone
+    // else's process by the time anyone is developing against it. The bundled
+    // mock is one command away, and the first-run instructions name that one.
+    expect(scripts.dev).toBe("origin-dev");
+    expect(scripts["dev:mock"]).toContain("--gateway mock-gateway/server.mjs");
+    expect(scripts["mock-gw"]).toContain("mock-gateway/server.mjs");
     expect(scripts.smoke).toContain("--gateway mock-gateway/server.mjs");
+  });
+
+  it.each(modes)(
+    "%s: shows a middleware value that varies the cache and one that must not",
+    (_name, files) => {
+      const middleware = files["server/middleware/experiments.ts"];
+      // The platform's subtlest mechanism, and the one whose failure is silent:
+      // forget cacheVary and the first visitor to miss the cache decides what
+      // everybody sees for the whole TTL.
+      expect(middleware).toContain("values");
+      expect(middleware).toContain("cacheVary");
+      // The bucket is read where it renders, which is what makes the vary required.
+      expect(files["server/routes/catalog.tsx"]).toContain("ctx.values?.variant");
+      // And a test that puts two buckets through the app rather than trusting the
+      // middleware's return value.
+      expect(files["tests/experiment-cache.test.ts"]).toContain("serves each bucket its own page");
+      expect(files["docs/middleware.md"]).toContain("Unutmanın bedeli neden sessiz");
+    },
+  );
+
+  it.each(modes)("%s: proves one visitor's identity cannot reach another", (_name, files) => {
+    const test = files["tests/tracking-id-leak.test.ts"];
+    // Three independent reasons, asserted separately because any one of them
+    // could be undone by an ordinary-looking change.
+    expect(test).toContain("never puts the tracking id in the HTML");
+    expect(test).toContain("does not hand the first visitor's id to the second");
+    expect(test).toContain("still mints a new visitor their own cookie on a cache hit");
+    expect(files["docs/caching.md"]).toContain("Cache'lenen şey nedir: yalnız gövde");
+  });
+
+  it.each(modes)("%s: ships a webhook that verifies, bounds and de-duplicates", (_name, files) => {
+    const api = files["server/api/webhooks.ts"];
+    // The signature covers the raw body: verifying a re-serialized object checks
+    // this app's JSON encoder rather than the sender.
+    expect(api).toContain("createHmac");
+    expect(api).toContain("timingSafeEqual");
+    expect(api).toContain("REPLAY_WINDOW_MS");
+    expect(api).toContain("MAX_BODY_BYTES");
+    // A retry processed twice is a duplicate payment.
+    expect(api).toContain("already-seen");
+    // No secret, no deliveries.
+    expect(api).toContain('refuse(503, "not_configured")');
+    expect(files["docs/webhooks.md"]).toContain("ham gövde");
+  });
+
+  it.each(modes)("%s: shows what the app sent, without showing its credentials", (_name, files) => {
+    const gateway = files["mock-gateway/server.mjs"];
+    // Reading the identity off a real request is how you check it yourself.
+    expect(gateway).toContain("logRequest(req, url)");
+    expect(gateway).toContain("MOCK_GW_HEADERS");
+    // A terminal scrollback and a screenshot are both places a token must not be.
+    expect(gateway).toContain('REDACTED_HEADERS = new Set(["authorization", "cookie"');
+    expect(files["docs/configuration.md"]).toContain("MOCK_GW_HEADERS=1");
+  });
+
+  it.each(modes)("%s: keeps the operations listener out of development", (_name, files) => {
+    // Two ports for one dev command is one more chance to collide with the next
+    // project — and a laptop rarely needs /metrics.
+    expect(files["server/index.ts"]).toContain("if (config.metricsEnabled) {");
+    expect(files["docs/configuration.md"]).toContain("METRICS_ENABLED");
   });
 
   it.each(modes)("%s: hands the loader's gateway call the whole request", (_name, files) => {

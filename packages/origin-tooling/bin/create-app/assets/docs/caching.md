@@ -312,6 +312,44 @@ publish akışında kullanılmamalıdır.
 - [ ] Multi-pod davranışı Redis kesintisi dahil doğrulandı.
 - [ ] Dashboard ve alarmlar fill, revalidation, L2 health ve cardinality sinyallerini kapsıyor.
 
+## Cache'lenen şey nedir: yalnız gövde
+
+Paylaşımlı HTML cache'i hakkında sorulması gereken soru şu: bir ziyaretçinin kimliği başka bir
+ziyaretçinin tarayıcısına ulaşabilir mi?
+
+**Ulaşamaz** — ve bu, birbirinden bağımsız üç sebeple böyle:
+
+1. **Cache entry'si yalnız gövdeyi saklar.** `CacheEntry` bir string ve iki zaman damgasıdır; header
+   yoktur. Dolayısıyla bir entry'den `Set-Cookie` **tekrar oynatılamaz**, çünkü orada hiç yoktur.
+2. **Tracking id HTML'e girmez.** Gateway'e istek header'ı olarak gider (`gatewayFetchWithIdentity`).
+   Shell verisi (`buildLayoutClientProps`) bilerek cache-güvenlidir: trackingId yok, token yok.
+3. **Cookie yazan yanıt saklanmaz.** `applyCookies`, `Set-Cookie` eklediği her yanıta
+   `cache-control: private, no-store` koyar. Ne tarayıcı ne CDN o yanıtı tutar.
+
+Sıra da önemlidir: **session step cache aramasından sonra, istek başına çalışır.** Yani cache HIT
+olsa bile cookie'si olmayan yeni bir ziyaretçi paylaşımlı HTML'i alır ve **kendi** tracking id'sini
+üretip alır. Paylaşılan tek şey gövdedir; kimlik her istekte yeniden hesaplanır.
+
+Ölçülmüş hali (`tests/tracking-id-leak.test.ts`):
+
+| İstek                       | x-cache | Set-Cookie           | Cache-Control                  |
+| --------------------------- | ------- | -------------------- | ------------------------------ |
+| A (cookie'si var)           | MISS    | yok                  | `private, no-cache, max-age=0` |
+| C (başka cookie, aynı kova) | **HIT** | yok                  | `private, no-cache, max-age=0` |
+| Yeni ziyaretçi (cookie'siz) | **HIT** | **kendi yeni id'si** | `private, no-store`            |
+
+C'nin HTML'inde A'nın id'si **yoktur** — test bunu doğrudan doğrular.
+
+### Bunu bozabilecek tek şey: siz
+
+Platform, bir loader'ın `ctx.trackingId`'yi route verisine koymasını engelleyemez. "Tekrar hoş
+geldiniz" satırı, bir debug alanı, analitik için gövdeye gömülen bir id — hepsi o değeri
+cache'lenmiş gövdeye sokar ve o gövde bir sonraki ziyaretçiye gider.
+
+Kural tek cümle: **kişiye özel hiçbir değer paylaşımlı cache'lenen HTML'e girmez.** Kişisel içerik
+için sıra: önce `defer` island + `/api/internal/*`, o mümkün değilse route'u `strategy: "never"`
+yapın. `tests/tracking-id-leak.test.ts` bu kuralın kırıldığını yakalar.
+
 ## Üç gateway çağrısı, üç farklı anlam
 
 `@originloom/core/adapters/gateway` üç fonksiyon verir; fark, isteğin kimliğini ne kadar taşıdığıdır:

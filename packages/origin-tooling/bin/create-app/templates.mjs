@@ -101,6 +101,7 @@ export function renderTemplates({
     "docs/streaming.md": asset("docs/streaming.md"),
     "docs/testing.md": asset("docs/testing.md"),
     "docs/tools.md": asset("docs/tools.md"),
+    "docs/webhooks.md": asset("docs/webhooks.md"),
     "docs/contracts.md": asset("docs/contracts.md"),
     "docs/performance.md": asset("docs/performance.md"),
     "docs/performance-acceptance.md": asset("docs/performance-acceptance.md"),
@@ -126,6 +127,7 @@ export function renderTemplates({
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/middleware/index.ts": middlewareIndex(),
+    "server/middleware/experiments.ts": experimentsMiddleware(),
     "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
     "server/middleware/redirect-rules.ts": redirectRulesMiddlewareFile(),
     "server/middleware/search-indexing.ts": searchIndexingMiddlewareFile(),
@@ -139,6 +141,7 @@ export function renderTemplates({
     "server/product/analytics.ts": productAnalytics(),
     "server/api/items.ts": publicItemsApi(),
     "server/api/referrals.ts": referralApi(),
+    "server/api/webhooks.ts": webhookApi(),
     "server/api/calculator.ts": calculatorApi(),
     "server/api/enquiries.ts": enquiryApi(),
     "server/services/enquiries.ts": enquiryService(),
@@ -235,6 +238,9 @@ export function renderTemplates({
 
     "tests/home.test.ts": homeTest(),
     "tests/middleware.test.ts": middlewareTest(),
+    "tests/experiments.test.ts": experimentsMiddlewareTest(),
+    "tests/experiment-cache.test.ts": experimentCacheTest(),
+    "tests/tracking-id-leak.test.ts": trackingLeakTest(),
     "tests/auth-client.test.ts": authClientTest(),
     "tests/live-stream-admission.test.ts": liveStreamAdmissionTest(),
     "tests/live-stream-api.test.ts": liveStreamApiTest(),
@@ -252,6 +258,7 @@ export function renderTemplates({
     "tests/catalog-query.test.ts": catalogQueryTest(),
     "tests/quote-query.test.ts": quoteQueryTest(),
     "tests/referrals.test.ts": referralApiTest(),
+    "tests/webhooks.test.ts": webhookApiTest(),
     "tests/calculator.test.ts": calculatorTest(),
     "tests/guides.test.ts": guidesTest(),
     "tests/detail-seo.test.ts": detailSeoTest(),
@@ -282,6 +289,7 @@ const claudeSettings = () =>
         allow: [
           "Bash(pnpm install)",
           "Bash(pnpm dev)",
+          "Bash(pnpm dev:mock)",
           "Bash(pnpm build)",
           "Bash(pnpm typecheck)",
           "Bash(pnpm check:cycles)",
@@ -328,7 +336,8 @@ const packageJson = (name, { standalone, version, withOps = false }) => {
         "sbom:prod": "origin-sbom --prod",
         "dependency-track:publish": "origin-dependency-track publish",
         "dependency-track:gate": "origin-dependency-track gate",
-        dev: "origin-dev --gateway mock-gateway/server.mjs",
+        dev: "origin-dev",
+        "dev:mock": "origin-dev --gateway mock-gateway/server.mjs",
         "mock-gw": "origin-run-with-env development node mock-gateway/server.mjs",
         build: "origin-build",
         start: "origin-run-with-env production node --enable-source-maps dist/server/index.js",
@@ -1196,13 +1205,19 @@ ${
       port: info.port,
       cacheTopology: cacheTopology(),
       tracingEnabled,
-      metricsPort: config.metricsPort,
+      metricsPort: config.metricsEnabled ? config.metricsPort : null,
     });
   });
   // The operations listener is never exposed publicly, so cache inspection and
   // purge live here rather than on the site itself. CACHE_PURGE_SECRET gates them.
-  const metricsApp = createMetricsApp({ mounts: (app) => mountCachePurgeApi(app) });
-  metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
+  //
+  // Off in development: a laptop rarely needs /metrics, and a dev command that
+  // binds two ports collides with the next project twice as often. Turn it on
+  // with METRICS_ENABLED=true when you actually want to look.
+  if (config.metricsEnabled) {
+    const metricsApp = createMetricsApp({ mounts: (app) => mountCachePurgeApi(app) });
+    metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
+  }
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
@@ -1374,6 +1389,7 @@ function remember(key: string, value: MiddlewareRedirect | null): MiddlewareRedi
 
 const middlewareIndex = () => `import type { OriginMiddleware } from "@originloom/core/middleware";
 
+import { experimentsMiddleware } from "./experiments";
 import { maintenanceMiddleware } from "./maintenance";
 import { redirectRulesMiddleware } from "./redirect-rules";
 import { searchIndexingMiddleware } from "./search-indexing";
@@ -1391,8 +1407,388 @@ import { searchIndexingMiddleware } from "./search-indexing";
 export const productMiddleware: readonly OriginMiddleware[] = [
   maintenanceMiddleware,
   redirectRulesMiddleware,
+  experimentsMiddleware,
   searchIndexingMiddleware,
 ];
+`;
+
+const experimentsMiddleware = () => `import { defineMiddleware } from "@originloom/core/middleware";
+
+/**
+ * Two values, and the whole reason \`cacheVary\` exists.
+ *
+ * \`variant\` changes what the page renders, so it has to fragment the shared HTML
+ * cache — which is the default: every value in \`values\` enters the key unless
+ * you say otherwise. Forget that and the first visitor to miss the cache decides
+ * which variant everybody sees, for the whole TTL. Nothing errors; the
+ * experiment simply reports that both arms behave identically, because they were
+ * the same page.
+ *
+ * \`campaign\` is the opposite case. It is read by analytics and by nothing that
+ * renders, so splitting the cache on it would multiply entries of byte-identical
+ * HTML — one per campaign code anyone has ever linked with. \`cacheVary: []\` opts
+ * it out, and that opt-out is only correct while no loader reads it.
+ */
+export const experimentsMiddleware = defineMiddleware({
+  name: "experiments",
+  // Needs the tracking id, which the session step resolves — so, after it.
+  phase: "before-render",
+  // Documents only. An endpoint has no HTML to vary and no bucket to be in.
+  matcher: ["/:path*"],
+  exclude: ["/api/:path*"],
+  handler: (ctx) => {
+    const values: Record<string, string> = { variant: bucketFor(ctx.trackingId) };
+
+    const campaign = sanitizeCampaign(ctx.url.searchParams.get("utm_campaign"));
+    if (campaign) values.campaign = campaign;
+
+    return {
+      values,
+      // Everything in \`values\` varies the cache by default; this names the
+      // exceptions. \`variant\` is deliberately absent from the list — it varies.
+      cacheVary: Object.keys(values).filter((name) => name !== "campaign"),
+    };
+  },
+});
+
+/**
+ * The same visitor lands in the same bucket, on every page, across visits.
+ *
+ * Deriving it from the tracking id rather than rolling a die per request is what
+ * makes the experiment measurable: a visitor who sees A on one page and B on the
+ * next is not in either arm. A visitor with no tracking id — a first request
+ * whose cookie is still being minted, a crawler — gets the control arm rather
+ * than a random one, so nothing an experiment does can change what a crawler
+ * indexes.
+ */
+function bucketFor(trackingId: string | undefined): "a" | "b" {
+  if (!trackingId) return "a";
+  let hash = 0;
+  for (const character of trackingId) hash = (hash * 31 + character.charCodeAt(0)) % 1_000_003;
+  return hash % 2 === 0 ? "a" : "b";
+}
+
+/**
+ * Bounded and allowlisted by shape.
+ *
+ * A campaign code is attacker-controlled: it arrives in a URL anyone can send.
+ * It reaches analytics and, on a page that reads it, the cache key — so a
+ * 4 KB one, or one with a newline in it, is refused rather than carried.
+ */
+function sanitizeCampaign(raw: string | null): string | undefined {
+  if (!raw || raw.length > 60) return undefined;
+  return /^[a-z0-9_-]+$/i.test(raw) ? raw.toLowerCase() : undefined;
+}
+`;
+
+const trackingLeakTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { productMiddleware } from "@server/middleware";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const page = {
+  items: [],
+  total: 0,
+  page: 1,
+  totalPages: 1,
+  facets: { categories: [] },
+  query: { category: "all", sortBy: "recommended" },
+  seoInfo: { title: "Krediler", friendlyUrl: "/catalog" },
+};
+
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140 Safari/537.36";
+// Two ids the experiment middleware puts in the same bucket, so the second
+// request is a cache hit on the first one's HTML — the case under test.
+const FIRST = "00000000-0000-4000-8000-000000000000";
+const SECOND = "00000000-0000-4000-8000-000000000002";
+
+function app() {
+  return createApp({
+    assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+    routes,
+    middleware: productMiddleware,
+    readinessCheck: async () => true,
+  });
+}
+
+function visit(instance: ReturnType<typeof app>, trackingId?: string) {
+  return instance.request("http://app.local/catalog", {
+    headers: {
+      "user-agent": UA,
+      ...(trackingId ? { cookie: \`user_tracking_id=\${trackingId}\` } : {}),
+    },
+  });
+}
+
+/**
+ * The question every shared HTML cache has to answer: can one visitor's identity
+ * reach another visitor's browser?
+ *
+ * It cannot, for three separate reasons, and this asserts all three because any
+ * one of them could be undone by an ordinary-looking change.
+ */
+describe("a visitor's tracking id and the shared cache", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("never puts the tracking id in the HTML", async () => {
+    const instance = app();
+
+    const html = await (await visit(instance, FIRST)).text();
+
+    // The id goes to the gateway as a request header. The moment a loader puts
+    // it in route data — a "welcome back" line, a debug field — it is in the
+    // cached body and belongs to whoever gets that entry next.
+    expect(html).not.toContain(FIRST);
+  });
+
+  it("does not hand the first visitor's id to the second", async () => {
+    const instance = app();
+
+    await visit(instance, FIRST);
+    const second = await visit(instance, SECOND);
+    const html = await second.text();
+
+    expect(second.headers.get("x-cache")).toBe("HIT");
+    expect(html).not.toContain(FIRST);
+    // The cache stores the body and nothing else, so no Set-Cookie can be
+    // replayed out of an entry.
+    expect(second.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("still mints a new visitor their own cookie on a cache hit", async () => {
+    const instance = app();
+    await visit(instance, FIRST);
+
+    // A visitor with no cookie is served the shared HTML and still gets an
+    // identity of their own: the session step runs per request, after the cache
+    // lookup, and its Set-Cookie is attached to this response only.
+    let hit: Response | undefined;
+    for (let attempt = 0; attempt < 8 && !hit; attempt++) {
+      const response = await visit(instance);
+      await response.text();
+      if (response.headers.get("x-cache") === "HIT") hit = response;
+    }
+
+    expect(hit, "expected a cookieless visitor to land on the warm entry").toBeDefined();
+    expect(hit?.headers.get("set-cookie")).toMatch(/^user_tracking_id=/);
+    // And a response that sets a cookie is never stored — not by a browser, not
+    // by a CDN. Without this the Set-Cookie could be reused for someone else.
+    expect(hit?.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
+`;
+
+const experimentCacheTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { productMiddleware } from "@server/middleware";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const item = {
+  slug: "konut-avantaj",
+  name: "Konut Avantaj",
+  blurb: "Uzun vadeli konut finansmanı.",
+  category: "konut",
+  provider: "Örnek Bank",
+  interestRate: 2.79,
+  minAmount: 50_000,
+  maxAmount: 5_000_000,
+  terms: [12, 24, 36],
+  seo: { title: "Konut Avantaj", description: "detay" },
+};
+const page = {
+  items: [item],
+  total: 1,
+  page: 1,
+  totalPages: 1,
+  facets: { categories: [{ value: "all", count: 1 }] },
+  query: { category: "all", sortBy: "recommended" },
+  seoInfo: { title: "Krediler", friendlyUrl: "/catalog" },
+};
+
+/**
+ * The whole point of \`cacheVary\`, asserted against real cached HTML.
+ *
+ * A unit test on the middleware can only say what it returned. This one puts two
+ * visitors from different buckets through the app and checks that the second one
+ * is not served the first one's page — which is the failure \`cacheVary\` prevents
+ * and the one nothing else would catch.
+ */
+function visitor(trackingId: string): RequestInit {
+  return {
+    headers: {
+      cookie: \`user_tracking_id=\${trackingId}\`,
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+    },
+  };
+}
+
+// Two ids the middleware's hash puts in different arms.
+const IN_A = "00000000-0000-4000-8000-000000000000";
+const IN_B = "00000000-0000-4000-8000-000000000001";
+
+function app() {
+  return createApp({
+    assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+    routes,
+    middleware: productMiddleware,
+    readinessCheck: async () => true,
+  });
+}
+
+async function bucketOf(instance: ReturnType<typeof app>, trackingId: string): Promise<string> {
+  const html = await (await instance.request("http://app.local/catalog", visitor(trackingId))).text();
+  // React SSR puts comment markers around an interpolated expression, so the
+  // bucket is not adjacent to the label in the HTML.
+  return /deney kovası: (?:<!-- -->)?([ab])/.exec(html)?.[1] ?? "?";
+}
+
+describe("an experiment inside cached HTML", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    // Menu and catalog both go through this; the menu degrading to empty is
+    // fine here, the catalogue is what the test renders.
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("serves each bucket its own page instead of whichever was cached first", async () => {
+    const instance = app();
+
+    const first = await bucketOf(instance, IN_A);
+    const second = await bucketOf(instance, IN_B);
+
+    // The two ids land in different arms; without cacheVary the second request
+    // would be a cache hit on the first one's HTML and both would read the same.
+    expect(first).not.toBe(second);
+  });
+
+  it("reuses one entry for two visitors in the same bucket", async () => {
+    const instance = app();
+
+    const first = await instance.request("http://app.local/catalog", visitor(IN_A));
+    const second = await instance.request("http://app.local/catalog", visitor(IN_A));
+
+    // Varying is not the same as not caching: the bucket splits the cache in
+    // two, it does not disable it.
+    expect(first.headers.get("x-cache")).toBe("MISS");
+    expect(second.headers.get("x-cache")).toBe("HIT");
+  });
+
+  it("does not split the cache on a campaign code", async () => {
+    const instance = app();
+
+    await instance.request("http://app.local/catalog", visitor(IN_A));
+    const campaigned = await instance.request(
+      "http://app.local/catalog?utm_campaign=bahar-2026",
+      visitor(IN_A),
+    );
+
+    // Byte-identical HTML. One entry per campaign code anyone has ever linked
+    // with is how a cache stops being one.
+    expect(campaigned.headers.get("x-cache")).toBe("HIT");
+  });
+});
+`;
+
+const experimentsMiddlewareTest =
+  () => `import type { MiddlewareContext, MiddlewareResult } from "@originloom/core/middleware";
+import { experimentsMiddleware } from "@server/middleware/experiments";
+import { describe, expect, it } from "vitest";
+
+function context(url: string, trackingId?: string): MiddlewareContext {
+  const request = new Request(url);
+  const parsed = new URL(url);
+  return {
+    request,
+    url: parsed,
+    publicPath: parsed.pathname,
+    params: {},
+    clientIp: "127.0.0.1",
+    values: {},
+    ...(trackingId ? { trackingId } : {}),
+    cookie: () => undefined,
+    header: (name) => request.headers.get(name) ?? undefined,
+  } as MiddlewareContext;
+}
+
+function run(url: string, trackingId?: string): MiddlewareResult {
+  return experimentsMiddleware.handler(context(url, trackingId)) as MiddlewareResult;
+}
+
+const VISITOR = "9f1f2f7e-0f0e-4d3c-8b6a-2c1d0e5f4a3b";
+
+describe("the experiment bucket", () => {
+  it("puts the same visitor in the same bucket on every page", () => {
+    const home = run("http://app.local/", VISITOR);
+    const catalog = run("http://app.local/catalog", VISITOR);
+
+    // A visitor who sees A on one page and B on the next is in neither arm, and
+    // the experiment measures nothing.
+    expect(home.values?.variant).toBe(catalog.values?.variant);
+  });
+
+  it("varies the shared cache on the bucket", () => {
+    const result = run("http://app.local/", VISITOR);
+
+    // Without this the first visitor to miss the cache decides which variant
+    // everybody sees for the whole TTL — silently, and the experiment reports
+    // that both arms behave identically.
+    expect(result.cacheVary).toContain("variant");
+  });
+
+  it("gives a visitor with no tracking id the control arm", () => {
+    // A crawler, or the very first request while the cookie is still being
+    // minted. Random would mean an experiment can change what gets indexed.
+    expect(run("http://app.local/").values?.variant).toBe("a");
+  });
+
+  it("keeps an analytics-only value out of the cache key", () => {
+    const result = run("http://app.local/?utm_campaign=Bahar-2026", VISITOR);
+
+    expect(result.values?.campaign).toBe("bahar-2026");
+    // Splitting on this would multiply entries of byte-identical HTML — one per
+    // campaign code anyone has ever linked with.
+    expect(result.cacheVary).not.toContain("campaign");
+  });
+
+  it("refuses a campaign code that was never a campaign code", () => {
+    // It arrives in a URL anyone can send, and it reaches analytics.
+    expect(run("http://app.local/?utm_campaign=" + "x".repeat(200), VISITOR).values?.campaign).toBeUndefined();
+    expect(run("http://app.local/?utm_campaign=bad%0Avalue", VISITOR).values?.campaign).toBeUndefined();
+  });
+});
 `;
 
 const maintenanceMiddlewareFile =
@@ -2849,6 +3245,7 @@ import { mountPublicItemsApi } from "@server/api/items";
 import { mountLiveStreamApi } from "@server/api/live-stream";
 import { mountReferralApi } from "@server/api/referrals";
 import { mountSessionApi } from "@server/api/session";
+import { mountWebhookApi } from "@server/api/webhooks";
 import type { Hono } from "hono";
 
 /**
@@ -2870,6 +3267,10 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   // The tool page renders its first result from this same endpoint, so the
   // island refines a plan instead of computing a second one.
   mountCalculatorApi(app);
+
+  // The provider writing back to us. Signed, time-bounded and idempotent —
+  // see docs/webhooks.md before changing any of the three.
+  mountWebhookApi(app);
 
   // The contact form posts here. A public write, so it is same-origin checked
   // and rate limited — see docs/mutations.md.
@@ -3558,7 +3959,9 @@ import { pageCache, PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { catalogSearch } from "~/lib/catalog-query";
 import { defaultPageMeta } from "~/lib/shell-data";
 
-export default defineRoute<ItemPage>({
+type Data = ItemPage & { variant: string };
+
+export default defineRoute<Data>({
   path: "/catalog",
   // Only allowlisted, normalized query values change the HTML, so only they enter
   // the key. A URL that is going to 404 or redirect is not cached at all —
@@ -3587,7 +3990,11 @@ export default defineRoute<ItemPage>({
     if (page.page > data.totalPages || data.page !== page.page) return notFound();
 
     observeCatalogView(page.page);
-    return { data };
+    // \`ctx.values\` is what server/middleware/experiments.ts published for this
+    // request. Reading it here is what makes the bucket real — and what makes
+    // \`cacheVary\` in that middleware mandatory rather than tidy: this page now
+    // renders differently per bucket, so its cached HTML must too.
+    return { data: { ...data, variant: ctx.values?.variant ?? "a" } };
   },
   generateMetadata: (data, ctx) => {
     const base = ctx.siteUrl ?? ctx.url.origin;
@@ -3618,7 +4025,14 @@ export default defineRoute<ItemPage>({
       ]),
     };
   },
-  pageMeta: (data, ctx) => defaultPageMeta(ctx, "catalog", { category: data.query.category }),
+  // The bucket and the campaign both belong in analytics; only one of them
+  // belongs in the cache key.
+  pageMeta: (data, ctx) =>
+    defaultPageMeta(ctx, "catalog", {
+      category: data.query.category,
+      experiment: data.variant,
+      ...(ctx.values?.campaign ? { campaign: ctx.values.campaign } : {}),
+    }),
   Component: CatalogPage,
 });
 
@@ -3630,7 +4044,13 @@ import type { ItemPage } from "@server/services/items";
 
 import { CATALOG_SORTS, catalogHref } from "~/lib/catalog-query";
 
-type Props = { data: ItemPage };
+type Props = { data: ItemPage & { variant: string } };
+
+/** The two arms server/middleware/experiments.ts buckets visitors into. */
+const PROMO = {
+  a: "Faiz oranlarını karşılaştırın.",
+  b: "Taksitinizi saniyeler içinde hesaplayın.",
+} as const;
 
 const SORT_LABELS: Record<string, string> = {
   recommended: "Önerilen",
@@ -3661,6 +4081,14 @@ export function CatalogPage({ data }: Props) {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight text-slate-900">Krediler</h1>
+
+      {/* The experiment arm, rendered on the server inside cached HTML — which
+          is exactly why the middleware that chose it varies the cache key.
+          See docs/middleware.md. */}
+      <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        {PROMO[data.variant === "b" ? "b" : "a"]}{" "}
+        <span className="text-xs text-slate-500">(deney kovası: {data.variant})</span>
+      </p>
 
       <div className="flex flex-wrap gap-6">
         <nav aria-label="Kategori" className="flex flex-wrap items-center gap-2">
@@ -5978,6 +6406,7 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
         Bu sayfa sunucuda render edildi. Aşağıdaki buton bağımsız bir island olarak hydrate olur —
         sayfanın geri kalanı statik HTML kalır.
       </p>
+
       <Island name="counter" props={{ start: 0 }}>
         <button
           type="button"
@@ -5998,7 +6427,7 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
             — sayfalı liste (query param cache key'de)
           </li>
           <li>
-            <Link className="hover:underline" href="/items/alpha">
+            <Link className="hover:underline" href="/items/konut-avantaj">
               /items/:slug
             </Link>{" "}
             — dinamik route, <code>validateParams</code> + <code>notFound()</code> + SEO
@@ -6716,7 +7145,10 @@ pnpm e2e:install
 # Commit/PR açmadan önce tüm kalite kapısını doğrulayın.
 pnpm ci
 
-# SSR, Vite ve mock gateway'i birlikte başlatır.
+# Uygulama + Vite + paketli mock gateway. İlk çalıştırma için bu.
+pnpm dev:mock
+
+# Kendi gateway'iniz varsa (GATEWAY_URL) yalnız uygulama + Vite:
 pnpm dev
 \`\`\`
 
@@ -6738,8 +7170,8 @@ pnpm --filter ${name} dev
 | ------------------- | --------------------------------- | ---------------------------------------- |
 | SSR uygulaması      | \`http://127.0.0.1:${port}\`       | Browser'ın açacağı adres                 |
 | Vite dev server     | \`http://127.0.0.1:${vitePort}\`   | Client modülleri; doğrudan açmayın       |
-| Mock gateway        | \`.env.development:GATEWAY_URL\`   | \`pnpm dev\` otomatik başlatır          |
-| Metrics/operations  | \`:${port + 6000}\`                | Public ingress'e açılmamalıdır           |
+| Mock gateway        | \`.env.development:GATEWAY_URL\`   | Yalnız \`pnpm dev:mock\` başlatır       |
+| Metrics/operations  | \`:${port + 6000}\`                | Development'ta kapalı (METRICS_ENABLED)  |
 
 Gerçek entegrasyonda \`.env.development\` içindeki \`GATEWAY_URL\` değerini değiştirin ve
 \`mock-gateway/server.mjs\` payload'larını gerçek kontratlarla karşılaştırın. Production secret'larını
@@ -6775,7 +7207,9 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 
 | Komut                 | Açıklama                                                     |
 | --------------------- | ------------------------------------------------------------ |
-| \`pnpm dev\`            | SSR, Vite ve mock gateway'i birlikte çalıştırır              |
+| \`pnpm dev\`            | Yalnız SSR + Vite; gateway sizin (GATEWAY_URL)               |
+| \`pnpm dev:mock\`       | SSR + Vite + paketli mock gateway                            |
+| \`pnpm mock-gw\`        | Yalnız mock gateway (ayrı terminalde)                        |
 | \`pnpm origin:doctor\`  | Platform/template uyumluluğunu read-only denetler             |
 | \`pnpm origin:migrate\` | Upgrade planını dry-run gösterir; \`--apply\` ile uygular       |
 | \`pnpm sbom\`           | CycloneDX 1.6 full dependency envanteri üretir                  |
@@ -6817,7 +7251,7 @@ ${
 | \`server/product/\`         | Runtime, document shell, fragments, CSP ve boundary kontratları           |
 | \`server/services/\`        | Gateway çağrıları, payload guard'ları ve background worker'lar            |
 | \`server/metrics/\`         | Bounded product metric kaynakları                                        |
-| \`mock-gateway/\`           | Local fixture; \`pnpm dev\` ve \`pnpm smoke\` otomatik başlatır          |
+| \`mock-gateway/\`           | Local fixture; \`pnpm dev:mock\` ve \`pnpm smoke\` başlatır              |
 | \`src/features/\`           | Server-rendered sayfa bileşenleri                                        |
 | \`src/islands/\`            | Client etkileşim noktaları; dosya adı island adıdır                       |
 | \`src/lib/cache-keys.ts\`   | Cache registry, vary parçaları ve purge transport codec'i                 |
@@ -6854,6 +7288,7 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 - [Route param doğrulama](docs/route-params.md)
 - [Sağlayıcıya yönlendirme](docs/referrals.md)
 - [Araç sayfaları (hesaplayıcı)](docs/tools.md)
+- [Webhook alıcısı](docs/webhooks.md)
 - [Kademeli kapasite testi ve raporlama](docs/capacity.md)
 - [Performans kabul politikası, payload bütçeleri ve profiling](docs/performance-acceptance.md)
 - [Configuration](docs/configuration.md)
@@ -7044,8 +7479,9 @@ jobs:
 
 const mockGateway = (includeRoutingExamples = false) => `#!/usr/bin/env node
 /**
- * Local stand-in for the upstream gateway, so \`pnpm dev\` works before a real one
- * exists. \`origin-dev --gateway\` and \`origin-smoke --gateway\` start it for you.
+ * Local stand-in for the upstream gateway, so the app runs before a real one
+ * exists. \`pnpm dev:mock\` and \`pnpm smoke\` start it for you; \`pnpm dev\` does not,
+ * because by then the gateway is usually someone else's process.
  *
  * Keep it dumb: fixed data in the shapes the real gateway returns. It is a
  * development fixture, not a second implementation of your backend.
@@ -7260,6 +7696,7 @@ const server = createServer(async (req, res) => {
 
   stats.total++;
   stats.byPath[url.pathname] = (stats.byPath[url.pathname] ?? 0) + 1;
+  logRequest(req, url);
   if (DELAY_MS) await new Promise((resolveDelay) => setTimeout(resolveDelay, DELAY_MS));
 
   if (url.pathname === "/items") {
@@ -7582,7 +8019,33 @@ ${
     ? `function empty(res, status = 204) {
   res.writeHead(status, { "cache-control": "no-store" });
   res.end();
-}`
+}
+
+/**
+ * What the app actually sent, printed where you can read it.
+ *
+ * The identity headers are on every line because they are the ones you check
+ * when something upstream looks wrong: is the tracking id there on a first
+ * visit, is the client IP the visitor's or the proxy's, is the device what the
+ * page cached under. \`MOCK_GW_HEADERS=1\` prints the whole set when that is not
+ * enough; \`MOCK_GW_QUIET=1\` turns the log off for load tests.
+ */
+function logRequest(req, url) {
+  if (process.env.MOCK_GW_QUIET) return;
+  const h = req.headers;
+  console.log(
+    \`[mock-gw] \${req.method} \${url.pathname}\${url.search} · tracking=\${h["x-user-tracking-id"] ?? "-"} ip=\${h["x-client-ip"] ?? "-"} device=\${h["device"] ?? h["x-device-type"] ?? "-"} auth=\${h.authorization ? "yes" : "no"}\`,
+  );
+  if (!process.env.MOCK_GW_HEADERS) return;
+  for (const [name, value] of Object.entries(h)) {
+    // Never print the value of a credential: a terminal scrollback and a
+    // screenshot are both places a token should not end up.
+    const shown = REDACTED_HEADERS.has(name) ? "<redacted>" : value;
+    console.log(\`[mock-gw]     \${name}: \${shown}\`);
+  }
+}
+
+const REDACTED_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);`
     : ""
 }
 
@@ -8632,6 +9095,307 @@ describe("the cache purge endpoints", () => {
   });
 });
 
+`;
+
+const webhookApi = () => `import { createHmac, timingSafeEqual } from "node:crypto";
+
+import { config } from "@originloom/core/config";
+import { logger } from "@originloom/core/logger";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { isRecord } from "@originloom/shared/lib/runtime-schema";
+import type { Hono } from "hono";
+
+/**
+ * An endpoint the internet can reach, which acts on what it is told.
+ *
+ * Everything here is about the gap between "a request arrived" and "the provider
+ * sent it". Four separate things have to hold, and each one is a real incident
+ * when it does not:
+ *
+ * 1. **Signature** over the *raw* body. Verifying a re-serialized object checks
+ *    your own JSON encoder, not the sender.
+ * 2. **Timestamp window.** A valid signature stays valid forever; without a
+ *    window, a captured request can be replayed a year later.
+ * 3. **Idempotency.** Providers retry, and a retry that is processed twice is a
+ *    duplicate payment, a duplicate application, a duplicate email.
+ * 4. **A bounded read.** An unbounded body on an unauthenticated endpoint is a
+ *    memory-exhaustion button.
+ *
+ * The signature scheme is the provider's, not this app's — check theirs before
+ * copying this one.
+ */
+const MAX_BODY_BYTES = 64 * 1024;
+const REPLAY_WINDOW_MS = 5 * 60 * 1000;
+const SEEN_MAX_ENTRIES = 5_000;
+
+/** Ids already processed, with the time they may be forgotten. Bounded on purpose. */
+const seen = new Map<string, number>();
+
+export async function handleProviderWebhook(request: Request): Promise<Response> {
+  const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) {
+    // Failing closed: without a secret nothing here can tell the provider from
+    // anyone else, and an open webhook is a way to write to your system.
+    logger.error("webhook secret is not configured — refusing to accept deliveries");
+    return refuse(503, "not_configured");
+  }
+
+  const signature = request.headers.get("x-signature");
+  const timestamp = Number(request.headers.get("x-timestamp"));
+  if (!signature || !Number.isFinite(timestamp)) return refuse(400, "missing_signature");
+
+  // The window is checked before the HMAC so a flood of stale replays costs a
+  // comparison rather than a hash over 64 KB.
+  const age = Math.abs(Date.now() - timestamp);
+  if (age > REPLAY_WINDOW_MS) return refuse(400, "stale_timestamp");
+
+  const raw = await readBounded(request);
+  if (raw === null) return refuse(413, "body_too_large");
+
+  // The signature covers timestamp *and* body: signing the body alone would let
+  // a captured delivery be re-sent with a fresh timestamp.
+  const expected = createHmac("sha256", secret).update(\`\${timestamp}.\${raw}\`).digest("hex");
+  if (!constantTimeEquals(signature, expected)) return refuse(401, "bad_signature");
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return refuse(400, "invalid_json");
+  }
+  if (!isRecord(payload) || typeof payload.id !== "string" || payload.id.length > 200) {
+    return refuse(400, "invalid_payload");
+  }
+
+  // A retry is the provider doing its job. Answering 200 without acting again is
+  // the only correct response to one.
+  if (rememberOnce(payload.id) === "already-seen") {
+    return accept({ status: "duplicate" });
+  }
+
+  logger.info("webhook accepted", { id: payload.id, event: String(payload.event ?? "unknown") });
+  // Nothing slow here: the provider is holding a connection open and will retry
+  // on a timeout. Hand the work to a queue and answer.
+  return accept({ status: "accepted" });
+}
+
+export function mountWebhookApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.post("/api/webhooks/provider", (c) => {
+    c.set("requestRoute", "<api webhook>");
+    return handleProviderWebhook(contextRequest(c));
+  });
+}
+
+/** Reads at most \`MAX_BODY_BYTES\`; returns null when the sender exceeds it. */
+async function readBounded(request: Request): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return null;
+  if (!request.body) return "";
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    // Content-Length is the sender's claim; this is the check.
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(concat(chunks, size));
+}
+
+function concat(chunks: readonly Uint8Array[], size: number): Uint8Array {
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
+/**
+ * Constant-time, and length-safe.
+ *
+ * \`timingSafeEqual\` throws on a length mismatch, and returning early on one
+ * leaks the expected length — so both sides are hashed to a fixed width first.
+ */
+function constantTimeEquals(candidate: string, expected: string): boolean {
+  const digest = (value: string) => createHmac("sha256", "compare").update(value).digest();
+  return timingSafeEqual(digest(candidate), digest(expected));
+}
+
+/** @returns \`"already-seen"\` when this delivery was processed before. */
+function rememberOnce(id: string): "new" | "already-seen" {
+  const now = Date.now();
+  const until = seen.get(id);
+  if (until !== undefined && until > now) return "already-seen";
+
+  // Bounded: an unbounded set of ids on a public endpoint is a slow memory leak
+  // with a sender who controls its rate.
+  if (seen.size >= SEEN_MAX_ENTRIES) {
+    for (const [key, expiry] of seen) {
+      if (expiry <= now) seen.delete(key);
+    }
+    if (seen.size >= SEEN_MAX_ENTRIES) {
+      const oldest = seen.keys().next().value;
+      if (oldest !== undefined) seen.delete(oldest);
+    }
+  }
+  seen.set(id, now + REPLAY_WINDOW_MS * 2);
+  return "new";
+}
+
+function refuse(status: 400 | 401 | 413 | 503, reason: string): Response {
+  // The reason is for your logs, not for whoever is probing: it says what was
+  // wrong with the request, never what the expected value was.
+  logger.warn("webhook refused", { reason, status });
+  return json({ error: reason }, status);
+}
+
+function accept(body: Record<string, string>): Response {
+  return json(body, 202);
+}
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "private, no-store",
+    },
+  });
+}
+
+/** Exported for tests only: the seen-id table is process state. */
+export function resetWebhookState(): void {
+  if (!config.isProduction) seen.clear();
+}
+`;
+
+const webhookApiTest = () => `import { createHmac } from "node:crypto";
+
+import { handleProviderWebhook, resetWebhookState } from "@server/api/webhooks";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@originloom/core/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+const SECRET = "correct-horse-battery-staple";
+
+function delivery(
+  body: unknown,
+  options: { timestamp?: number; signature?: string; secret?: string } = {},
+): Request {
+  const raw = JSON.stringify(body);
+  const timestamp = options.timestamp ?? Date.now();
+  const signature =
+    options.signature ??
+    createHmac("sha256", options.secret ?? SECRET).update(\`\${timestamp}.\${raw}\`).digest("hex");
+  return new Request("http://app.local/api/webhooks/provider", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-signature": signature,
+      "x-timestamp": String(timestamp),
+    },
+    body: raw,
+  });
+}
+
+describe("the provider webhook", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.WEBHOOK_SECRET = SECRET;
+    resetWebhookState();
+  });
+  afterEach(() => {
+    delete process.env.WEBHOOK_SECRET;
+  });
+
+  it("accepts a correctly signed delivery", async () => {
+    const response = await handleProviderWebhook(delivery({ id: "evt-1", event: "approved" }));
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ status: "accepted" });
+  });
+
+  it("refuses a body signed with the wrong secret", async () => {
+    const response = await handleProviderWebhook(
+      delivery({ id: "evt-2" }, { secret: "not-the-secret" }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("refuses a body that changed after it was signed", async () => {
+    const timestamp = Date.now();
+    const signature = createHmac("sha256", SECRET)
+      .update(\`\${timestamp}.\${JSON.stringify({ id: "evt-3", amount: 10 })}\`)
+      .digest("hex");
+
+    // The signature covers the raw bytes. Verifying a re-serialized object would
+    // check this app's JSON encoder rather than the sender.
+    const response = await handleProviderWebhook(
+      delivery({ id: "evt-3", amount: 1_000_000 }, { timestamp, signature }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("refuses a delivery older than the replay window", async () => {
+    // A valid signature stays valid forever; the window is what stops a captured
+    // request from being replayed next year.
+    const response = await handleProviderWebhook(
+      delivery({ id: "evt-4" }, { timestamp: Date.now() - 10 * 60 * 1000 }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "stale_timestamp" });
+  });
+
+  it("answers a retry without acting on it twice", async () => {
+    const first = await handleProviderWebhook(delivery({ id: "evt-5", event: "approved" }));
+    const retry = await handleProviderWebhook(delivery({ id: "evt-5", event: "approved" }));
+
+    // Providers retry. A retry processed twice is a duplicate payment, a
+    // duplicate application, a duplicate email.
+    expect(first.status).toBe(202);
+    await expect(first.json()).resolves.toEqual({ status: "accepted" });
+    await expect(retry.json()).resolves.toEqual({ status: "duplicate" });
+  });
+
+  it("refuses a body larger than the limit", async () => {
+    const huge = { id: "evt-6", note: "x".repeat(100 * 1024) };
+
+    // An unbounded read on an endpoint the internet can reach is a
+    // memory-exhaustion button.
+    expect((await handleProviderWebhook(delivery(huge))).status).toBe(413);
+  });
+
+  it("refuses everything when no secret is configured", async () => {
+    delete process.env.WEBHOOK_SECRET;
+
+    // Failing closed: without a secret this endpoint cannot tell the provider
+    // from anyone else, and an open webhook is a way to write to your system.
+    expect((await handleProviderWebhook(delivery({ id: "evt-7" }))).status).toBe(503);
+  });
+
+  it("never says what the expected signature was", async () => {
+    const response = await handleProviderWebhook(delivery({ id: "evt-8" }, { signature: "nope" }));
+
+    const body = await response.text();
+    expect(body).not.toMatch(/[0-9a-f]{64}/);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
 `;
 
 const referralService = () => `import {

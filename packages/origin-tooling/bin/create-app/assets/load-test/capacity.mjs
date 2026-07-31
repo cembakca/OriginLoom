@@ -6,6 +6,15 @@ import { createServer } from "node:net";
 
 import autocannon from "autocannon";
 
+/**
+ * One visitor for the whole run.
+ *
+ * Without a tracking id the session step mints a fresh one per request, which
+ * spreads the load across every experiment bucket — a cold-burst run would then
+ * measure bucketing rather than the request coalescing it exists to measure.
+ */
+const CAPACITY_VISITOR = "00000000-0000-4000-8000-0000000000ca";
+
 import {
   createResourceSummary,
   fetchMetrics,
@@ -463,6 +472,7 @@ function runCannon({ url, route, connections, duration, amount }) {
         headers: {
           accept: route.accept ?? "text/html",
           "user-agent": "OriginLoom-Capacity-Test/1.0",
+          cookie: `user_tracking_id=${CAPACITY_VISITOR}`,
         },
       },
       (error, result) => {
@@ -509,7 +519,10 @@ async function verifyEnvironment(env) {
 async function verifyRoute(baseUrl, route) {
   const response = await fetch(new URL(route.path, baseUrl), {
     redirect: "manual",
-    headers: { accept: route.accept ?? "text/html" },
+    headers: {
+      accept: route.accept ?? "text/html",
+      cookie: `user_tracking_id=${CAPACITY_VISITOR}`,
+    },
     signal: AbortSignal.timeout(10_000),
   });
   if (!route.expectedStatuses.includes(response.status)) {

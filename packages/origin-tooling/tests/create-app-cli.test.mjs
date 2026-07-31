@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
+
+// Every test here spawns the generator, which writes and formats 200+ files —
+// about a second of real work each, and more under parallel load. The 5s default
+// was thin when the template was half this size and is now the reason this file
+// fails on a busy machine rather than on a defect.
+vi.setConfig({ testTimeout: 30_000 });
 
 const CLI = fileURLToPath(new URL("../bin/create-app.mjs", import.meta.url));
 /** The generator defaults the platform range to its own version, so they move together. */

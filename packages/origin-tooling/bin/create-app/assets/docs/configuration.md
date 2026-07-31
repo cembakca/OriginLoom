@@ -9,6 +9,39 @@ Production'da `SITE_URL`, `GATEWAY_URL`, `RELEASE_ID` ve
 `CACHE_PURGE_SECRET` secret manager'dan gelir. Secret'ları image, repo, ConfigMap veya client bundle'a
 yazmayın.
 
+## Development'ta ne çalışır
+
+`pnpm dev` yalnız **uygulamayı ve Vite'ı** başlatır. İki şey kasıtlı olarak dışarıda:
+
+- **Gateway.** Genellikle başka birinin süreci: bir staging upstream'i, başka bir terminalde çalışan
+  bir servis. Paketli mock'u istiyorsanız `pnpm dev:mock` (ya da ayrı terminalde `pnpm mock-gw`).
+  `GATEWAY_URL`'de hiçbir şey dinlemiyorsa `pnpm dev` bunu açıkça söyler — boş menülü, veri
+  sayfaları 500 dönen bir site "şablon bozuk" gibi okunur, oysa 4002'de kimse yoktur.
+- **Operations listener.** `/metrics`, readiness ve cache purge uçları development'ta kapalıdır
+  (`METRICS_ENABLED`, varsayılan: yalnız production). Bir metriğe bakmak ya da yerelde purge etmek
+  isterseniz `METRICS_ENABLED=true` verin. Kapalı olmasının pratik faydası: `pnpm dev` iki yerine tek
+  port tutar, yani aynı anda açık ikinci bir projeyle iki kat daha az çakışır.
+
+## Mock gateway ne gördüğünü yazar
+
+Her istekte uygulamanın gerçekten ne gönderdiğini görürsünüz:
+
+```
+[mock-gw] GET /items?category=konut · tracking=9f1f2f7e-abc ip=203.0.113.9 device=Mobile auth=yes
+```
+
+Kimlik değerleri her satırda, çünkü yukarı akışta bir şey ters göründüğünde bakılan şeyler bunlar:
+ilk ziyarette tracking id var mı, client IP ziyaretçininki mi yoksa proxy'ninki mi, cihaz sayfanın
+cache'lendiği değer mi.
+
+| Değişken            | Etkisi                             |
+| ------------------- | ---------------------------------- |
+| `MOCK_GW_HEADERS=1` | Gelen **tüm** header'ları da yazar |
+| `MOCK_GW_QUIET=1`   | Log'u kapatır (load test için)     |
+
+`authorization`, `cookie` ve `proxy-authorization` değerleri **her zaman redakte edilir**. Bir
+terminal scrollback'i de bir ekran görüntüsü de token'ın bulunmaması gereken yerlerdir.
+
 Başlıca kapasite grupları:
 
 - SSR: `SSR_REQUEST_TIMEOUT_MS`, `SSR_MAX_CONCURRENCY`, `SSR_MAX_QUEUE`, `SSR_QUEUE_WAIT_MS`.
@@ -26,6 +59,7 @@ Başlıca kapasite grupları:
   Bakım bayrağı her istekte okunur; çalışan deployment'ta değiştirildiğinde rollout beklemez.
 - Delivery: `HTTP_COMPRESSION_THRESHOLD_BYTES`, `ASSET_CDN_URL`, `IMAGE_CDN_URL`,
   `IMAGE_TRANSFORM_URL`.
+- Operations: `METRICS_ENABLED`, `METRICS_PORT`, `CACHE_PURGE_SECRET`.
 - Security/telemetry: `CSP_ENFORCE`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`,
   `LOG_LEVEL`, `REQUEST_LOG_SAMPLE_RATE`.
 

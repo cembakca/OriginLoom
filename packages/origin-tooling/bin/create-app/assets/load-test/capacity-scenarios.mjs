@@ -10,7 +10,7 @@ export const CAPACITY_ROUTES = [
   {
     id: "item-detail",
     title: "Dinamik route",
-    path: "/items/alpha",
+    path: "/items/konut-avantaj",
     expectedStatuses: [200],
     category: "html-shared",
   },
