@@ -1545,23 +1545,25 @@ describe("the analytics chain", () => {
     expect(queue).toBeGreaterThan(trackingId);
   });
 
-  it("loads no tag manager when the consent tool is not configured", async () => {
+  it("reports a missing consent tool rather than quietly changing behaviour", async () => {
     vi.resetModules();
     const previous = { env: process.env.NODE_ENV, gtm: process.env.GTM_CONTAINER_ID };
     process.env.NODE_ENV = "production";
     process.env.GTM_CONTAINER_ID = "GTM-TEST123";
     delete process.env.EFILLI_SCRIPT_URL;
+    const { logger } = await import("@originloom/core/logger");
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => undefined);
 
     const { analyticsSequence: withoutConsent } = await import("@server/product/analytics");
 
-    // Failing closed. With no consent tool there is nothing to wait for, and
-    // loading the container anyway would fire tags on visitors who were never
-    // asked. A missing measurement is a reporting gap; measuring without consent
-    // is not.
-    expect(withoutConsent).not.toContain("googletagmanager.com");
-    // The visitor's own id is still pushed: it is this site's cookie, not a tag.
-    expect(withoutConsent).toContain("user_tracking_id");
+    // The container is not gated on the consent tool: deciding which tags may
+    // fire is the consent platform's job. Refusing to load GTM because a
+    // variable is unset would turn one misconfiguration into zero measurement,
+    // which reads as "no traffic" and is found weeks later.
+    expect(withoutConsent).toContain("googletagmanager.com");
+    expect(reported).toHaveBeenCalledWith(expect.stringContaining("EFILLI_SCRIPT_URL"));
 
+    reported.mockRestore();
     process.env.NODE_ENV = previous.env;
     if (previous.gtm === undefined) delete process.env.GTM_CONTAINER_ID;
     else process.env.GTM_CONTAINER_ID = previous.gtm;
@@ -6334,6 +6336,7 @@ htmlLang: "tr",
 `;
 
 const productAnalytics = () => `import { config } from "@originloom/core/config";
+import { logger } from "@originloom/core/logger";
 import type { CspSources } from "@originloom/core/middleware/security";
 import { sequencedScript } from "@originloom/shared/head-scripts";
 import {
@@ -6377,13 +6380,19 @@ const efilliReadyEvent = process.env.EFILLI_READY_EVENT?.trim() || "efilli.conse
 const gtmContainerId = process.env.GTM_CONTAINER_ID?.trim();
 
 /**
- * No consent tool, no tag manager.
+ * A missing consent tool is loud, not silent.
  *
- * Failing closed: if Efilli is not configured there is nothing to wait for, and
- * loading the container anyway would fire tags on visitors who were never asked.
- * A missing measurement is a reporting gap; measuring without consent is not.
+ * The container is not gated on it: Efilli is a consent platform, and deciding
+ * which tags may fire is its job, not this file's. Refusing to load GTM because
+ * an environment variable is unset would turn one misconfiguration into zero
+ * measurement — which reads as "no traffic" rather than "someone forgot a
+ * variable", and is found weeks later.
+ *
+ * So it is reported instead, once, at startup.
  */
-const measurementAllowed = Boolean(efilliUrl);
+if (config.isProduction && !efilliUrl) {
+  logger.error("EFILLI_SCRIPT_URL is not set — the site is measuring without a consent tool");
+}
 
 /**
  * The head chain, and the reason it is a chain.
@@ -6424,7 +6433,7 @@ export const analyticsSequence = sequencedScript(
     { code: eventQueueScript({ failOpenMs: 5_000 }) },
     // 4. The container. Without an id the chain simply ends here, which is the
     //    correct behaviour in a development checkout with no GTM property.
-    ...(gtmContainerId && measurementAllowed
+    ...(gtmContainerId
       ? [{ code: gtmStartScript() }, { src: gtmContainerUrl(gtmContainerId) }]
       : []),
   ],
@@ -6436,7 +6445,7 @@ export const analyticsSequence = sequencedScript(
 export const analyticsCsp: CspSources = {
   scriptSrc: [
     ...(efilliUrl ? [new URL(efilliUrl).origin] : []),
-    ...(gtmContainerId && measurementAllowed ? ["https://www.googletagmanager.com"] : []),
+    ...(gtmContainerId ? ["https://www.googletagmanager.com"] : []),
   ],
 };
 

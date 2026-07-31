@@ -673,6 +673,9 @@ describe("renderTemplates — gateway wiring", () => {
         "reads the tracking id in the browser rather than rendering it",
       );
       expect(files["docs/analytics.md"]).toContain("gtm.load");
+      // A consent tool pushes several entries in one synchronous block; the
+      // sequencer must let it finish rather than stepping between them.
+      expect(files["server/product/analytics.ts"]).toContain("awaitDataLayerEvent");
     },
   );
 

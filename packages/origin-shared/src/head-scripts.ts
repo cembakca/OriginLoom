@@ -115,7 +115,11 @@ function awaitPush(name,ready){
     var out=prev.apply(null,arguments);
     for(var k=0;k<arguments.length;k++){
       var p=arguments[k];
-      if(p&&p.event===name){window.dataLayer.push=prev;ready();break;}
+      // Deferred, not immediate: a consent tool pushes several entries in one
+      // synchronous block, and continuing inside this call would run the next
+      // step between them — the tracking id would land before the tool has
+      // finished announcing itself.
+      if(p&&p.event===name){window.dataLayer.push=prev;setTimeout(ready,0);break;}
     }
     return out;
   };

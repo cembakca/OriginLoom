@@ -1,6 +1,6 @@
-import { createContext, runInContext } from "node:vm";
+import { createContext, runInContext, runInNewContext } from "node:vm";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   type HeadScript,
@@ -235,5 +235,69 @@ describe("waiting for a dataLayer event", () => {
     // A script that pushes while it executes does so before its own `load`
     // fires, so the watcher would attach too late to ever see it.
     expect(code).toContain("for(var j=0;j<window.dataLayer.length;j++)");
+  });
+});
+
+describe("a consent tool that pushes more than one entry", () => {
+  /** A head that runs inline scripts on append and remembers external ones. */
+  function fakeHead() {
+    const layer: Record<string, unknown>[] = [];
+    const external: { src: string; fire: (name: string) => void }[] = [];
+    const window = { dataLayer: layer } as Record<string, unknown>;
+    const document = {
+      currentScript: { nonce: "" },
+      head: {
+        appendChild(el: Record<string, unknown>) {
+          if (typeof el.text === "string") {
+            runInNewContext(el.text, { window, document });
+            return;
+          }
+          const listeners: Record<string, () => void> = el.listeners as Record<string, () => void>;
+          external.push({ src: el.src as string, fire: (name) => listeners[name]?.() });
+        },
+      },
+      createElement() {
+        const listeners: Record<string, () => void> = {};
+        return {
+          listeners,
+          addEventListener(name: string, fn: () => void) {
+            listeners[name] = fn;
+          },
+        } as Record<string, unknown>;
+      },
+    };
+    return { layer, external, window, document };
+  }
+
+  it("lets the tool finish before the next step runs", async () => {
+    vi.useFakeTimers();
+    const { layer, external, window, document } = fakeHead();
+
+    runInNewContext(
+      sequencedScript([
+        { src: "https://efilli.example/e.js", awaitDataLayerEvent: "efilli.consent" },
+        { code: 'window.dataLayer.push({ hkUserTrackingId: "abc" });' },
+        { code: 'window.dataLayer.push({ event: "gtm.js" });' },
+      ]),
+      { window, document, setTimeout, clearTimeout, addEventListener: () => {} },
+    );
+
+    external[0]?.fire("load");
+    // Efilli announces itself with two entries, in one synchronous block — the
+    // shape a real consent tool has.
+    (window.dataLayer as Record<string, unknown>[]).push({ event: "efilli.consent" });
+    (window.dataLayer as Record<string, unknown>[]).push({ event: "efilli_essential_granted" });
+
+    await vi.advanceTimersByTimeAsync(1);
+
+    // Continuing inside the first push would have put the tracking id between
+    // the tool's own two entries.
+    expect(layer.map((entry) => entry.event ?? Object.keys(entry)[0])).toEqual([
+      "efilli.consent",
+      "efilli_essential_granted",
+      "hkUserTrackingId",
+      "gtm.js",
+    ]);
+    vi.useRealTimers();
   });
 });
