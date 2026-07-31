@@ -8,7 +8,7 @@ import type { Hono } from "hono";
 export async function handleReferralStats(request: Request): Promise<Response> {
   const denied = assertReferralStatsAuthorized(request);
   if (denied) return denied;
-  const stats = await getReferralStats(request.signal);
+  const stats = await getReferralStats(request);
   return json(stats);
 }
 

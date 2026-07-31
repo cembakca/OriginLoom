@@ -158,11 +158,13 @@ describe("fragment cache", () => {
     expect(results[0]).toContain("Popüler finans rehberleri");
   });
 
-  it("passes the request abort signal to asynchronous fragment resolvers", async () => {
+  it("passes the request to asynchronous fragment resolvers, cancellation included", async () => {
     const controller = new AbortController();
     const abortedCtx = fragmentContext(controller.signal);
+    // The resolver takes the whole Request — it carries the gateway identity as
+    // well as the signal — so cancellation now travels through `request.signal`.
     getPopularKnowledgeArticles.mockImplementation(
-      (signal: AbortSignal) =>
+      ({ signal }: Request) =>
         new Promise((_resolve, reject) => {
           if (signal.aborted) {
             reject(abortReason(signal));
@@ -175,7 +177,7 @@ describe("fragment cache", () => {
     for (let turn = 0; turn < 20 && getPopularKnowledgeArticles.mock.calls.length === 0; turn++) {
       await Promise.resolve();
     }
-    expect(getPopularKnowledgeArticles).toHaveBeenCalledWith(abortedCtx.request.signal);
+    expect(getPopularKnowledgeArticles).toHaveBeenCalledWith(abortedCtx.request);
     controller.abort(new DOMException("Aborted", "AbortError"));
 
     await expect(pending).rejects.toMatchObject({

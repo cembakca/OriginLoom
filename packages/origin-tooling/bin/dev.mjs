@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { createServer } from "node:net";
+import { connect, createServer } from "node:net";
 import { resolve } from "node:path";
 
 import { loadEnv } from "./load-env.mjs";
@@ -94,6 +94,24 @@ if (existsSync(resolve(root, "server/media.config.json")))
  * there, and nothing on screen points at the real cause. Every generated app
  * defaults to the same port, so two projects collide the moment both are open.
  */
+/** A TCP connect, not a request: the upstream owes this runner no health route. */
+function gatewayAnswers(url) {
+  return new Promise((settle) => {
+    const socket = connect({
+      host: url.hostname,
+      port: Number(url.port || (url.protocol === "https:" ? 443 : 80)),
+    });
+    const done = (answer) => {
+      socket.destroy();
+      settle(answer);
+    };
+    socket.setTimeout(500);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
+}
+
 function portOwner(port) {
   return new Promise((settle) => {
     const probe = createServer();
@@ -132,11 +150,28 @@ if (taken.length > 0) {
 console.log(
   `[dev] starting ${process.env.APP_ENV} · cache: ${process.env.CACHE_BACKEND ?? "memory"}`,
 );
-console.log(
-  gatewayEntry
-    ? `[dev] Gateway: ${gatewayUrl.origin} (${gatewayEntry})`
-    : `[dev] Gateway: ${gatewayUrl.origin} (start it yourself; see GATEWAY_URL)`,
-);
+if (gatewayEntry) {
+  console.log(`[dev] Gateway: ${gatewayUrl.origin} (${gatewayEntry})`);
+} else {
+  // `pnpm dev` runs the app and Vite and nothing else, because a gateway is
+  // usually someone else's process — a staging upstream, a service running in
+  // another terminal. When it is not running, say so here: the alternative is a
+  // site that renders with an empty menu and 500s on its data pages, which reads
+  // as "the template is broken" rather than "nothing is listening on 4002".
+  const reachable = await gatewayAnswers(gatewayUrl);
+  console.log(
+    reachable
+      ? `[dev] Gateway: ${gatewayUrl.origin} (already running)`
+      : `[dev] Gateway: ${gatewayUrl.origin} — nothing is listening there`,
+  );
+  if (!reachable) {
+    console.log(
+      "       Point GATEWAY_URL at your own, or run the bundled mock instead:\n" +
+        "         pnpm dev:mock        # app + Vite + mock gateway\n" +
+        "         pnpm mock-gw         # just the mock, in another terminal\n",
+    );
+  }
+}
 
 start(
   "vite",

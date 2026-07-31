@@ -29,6 +29,15 @@ const ssrRequestTimeoutMs = numberEnv("SSR_REQUEST_TIMEOUT_MS", 15_000);
 export const config = {
   port: numberEnv("PORT", 3005),
   metricsPort: numberEnv("METRICS_PORT", 9090),
+  /**
+   * Whether the operations listener runs at all.
+   *
+   * It carries `/metrics`, readiness and the cache purge endpoints — things a
+   * deployment needs and a laptop usually does not. Off in development so
+   * `pnpm dev` binds one port instead of two; set `METRICS_ENABLED=true` when
+   * you want to look at a metric or purge a key locally.
+   */
+  metricsEnabled: booleanEnv("METRICS_ENABLED", nodeEnv === "production"),
   cacheBackend: (process.env.CACHE_BACKEND ?? "memory") as CacheBackend,
   cacheRequired: booleanEnv("CACHE_REQUIRED", false),
   redisUrl: process.env.REDIS_URL,

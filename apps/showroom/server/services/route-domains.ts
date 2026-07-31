@@ -1,4 +1,8 @@
-import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import {
+  gatewayFetch,
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
@@ -17,7 +21,7 @@ export type RouteDomains = {
  * The validated snapshot is shared through Redis so param validation happens
  * before page-cache lookup without calling the gateway for every request.
  */
-export async function fetchRouteDomains(signal?: AbortSignal): Promise<RouteDomains> {
+export async function fetchRouteDomains(request?: Request): Promise<RouteDomains> {
   const policy = {
     kind: "shared" as const,
     ttl: 300,
@@ -39,9 +43,12 @@ export async function fetchRouteDomains(signal?: AbortSignal): Promise<RouteDoma
     }
   }
 
-  const response = await gatewayFetch("/routing/domains", {
-    ...(signal ? { signal } : {}),
-  });
+  // The snapshot is shared, so identity here is telemetry rather than a content
+  // dimension — and a refresh triggered by a background task has no request to
+  // read it from.
+  const response = request
+    ? await gatewayFetchWithIdentity(request, "/routing/domains")
+    : await gatewayFetch("/routing/domains");
   await requireGatewayOk(response, "Route domains gateway returned");
 
   const payload = await readGatewayJson(
@@ -63,10 +70,10 @@ export async function fetchRouteDomains(signal?: AbortSignal): Promise<RouteDoma
 
 export async function isKnownRecoursePage(
   page: string | undefined,
-  signal?: AbortSignal,
+  request?: Request,
 ): Promise<boolean> {
   if (!page || !isBoundedRouteSlug(page)) return false;
-  return (await fetchRouteDomains(signal)).recoursePages.includes(page);
+  return (await fetchRouteDomains(request)).recoursePages.includes(page);
 }
 
 function isRouteDomains(value: unknown): value is RouteDomains {

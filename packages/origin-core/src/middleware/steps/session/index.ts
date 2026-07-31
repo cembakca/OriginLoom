@@ -1,6 +1,7 @@
 import { parseTheme } from "@originloom/shared/lib/content-values";
 import { cookie } from "@originloom/shared/lib/request";
 
+import { RESOLVED_TRACKING_ID_HEADER } from "../../../adapters/gateway-identity.js";
 import { tryGetRuntime } from "../../../runtime.js";
 import { sanitizeUuid, sanitizeValue } from "../../sanitize.js";
 import { cloneRequestWithHeaders } from "../../sequential.js";
@@ -44,6 +45,10 @@ export const sessionStep: MiddlewareStep = async (ctx, acc) => {
   const headers = new Headers(acc.request.headers);
   headers.set("x-pathname", ctx.publicPath);
   headers.set("x-client-ip", ctx.clientIp);
+  // On a first visit the cookie only exists in the response, so without this the
+  // very requests that create a visitor would reach the gateway anonymous. `set`
+  // rather than a conditional: an inbound value is a forgery attempt, not input.
+  headers.set(RESOLVED_TRACKING_ID_HEADER, trackingId);
 
   return {
     request: cloneRequestWithHeaders(acc.request, headers),

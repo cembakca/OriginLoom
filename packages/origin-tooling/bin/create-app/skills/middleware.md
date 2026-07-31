@@ -9,10 +9,16 @@ Cross-cutting request rules live in `server/middleware/`, one file per rule, and
 are listed in `server/middleware/index.ts`. The list is passed to
 `createApp({ middleware })` in `server/index.ts` — nothing else registers them.
 
-The generator ships three working examples: `maintenance.ts` (a terminal 503 before
+The generator ships four working examples: `maintenance.ts` (a terminal 503 before
 anything touches session state), `redirect-rules.ts` (asks the gateway what to do
-with this URL, redirects or carries on) and `search-indexing.ts` (a response header
-off production).
+with this URL, redirects or carries on), `experiments.ts` (an experiment bucket
+that varies the cache and a campaign code that must not) and `search-indexing.ts`
+(a response header off production).
+
+Read `experiments.ts` before writing anything that returns `values`: every value
+fragments the shared HTML cache by default, and the failure mode of forgetting
+that is silent — the first visitor to miss the cache decides what everybody sees
+for the whole TTL, and the experiment reports that both arms behave identically.
 
 ## Order
 

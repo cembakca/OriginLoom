@@ -1,4 +1,4 @@
-import { gatewayFetchForRequest, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
 import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-payload";
@@ -84,7 +84,10 @@ function freezeMenu(menu: IMenuItems): IMenuItems {
 }
 
 async function fetchMenuFromGateway(request: Request, device: DeviceType): Promise<IMenuItems> {
-  const res = await gatewayFetchForRequest(request, "/pages/menuitem/list", {
+  // The menu is cached under a device key and shared by every visitor, so this
+  // call must not carry the caller's credentials — only the identity the gateway
+  // wants for telemetry.
+  const res = await gatewayFetchWithIdentity(request, "/pages/menuitem/list", {
     headers: {
       "content-type": "application/json",
       device,

@@ -35,7 +35,7 @@ export default defineRoute<CreditCardList>({
       target.searchParams.delete("page");
       return redirect(`${target.pathname}${target.search}`, 308);
     }
-    const data = await getCreditCards(normalizedSearch(ctx.url, QUERY), ctx.request.signal);
+    const data = await getCreditCards(normalizedSearch(ctx.url, QUERY), ctx.request);
     if (page.page > data.pagination.totalPages || data.pagination.page !== page.page)
       return notFound();
     return { data };

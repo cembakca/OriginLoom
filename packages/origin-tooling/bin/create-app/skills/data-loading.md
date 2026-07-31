@@ -13,6 +13,11 @@ description: Use when fetching data for a page — wiring gateway/API calls, wri
   response validation live here, not inline in routes. `server/services/items.ts`
   is the working example the generator ships.
 
+Services take the **`Request`**, not a bare `AbortSignal`: it carries both the cancellation and the
+identity every gateway call sends (tracking id, client IP, device). `gatewayFetchWithIdentity` is
+the default; `gatewayFetchForRequest` adds the caller's `Authorization` and its result must never be
+rendered into shared-cached HTML; plain `gatewayFetch` is for work with no request behind it.
+
 Copy that shape:
 
 ```ts

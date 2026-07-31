@@ -1,4 +1,4 @@
-import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 import {
@@ -18,8 +18,8 @@ import type { Stock, StockList } from "~/lib/contracts/markets";
 
 const INVALID_MARKETS = "Markets gateway returned an invalid payload";
 
-export async function getBist100(search: URLSearchParams, signal: AbortSignal) {
-  const response = await gatewayFetch(`/markets/bist100?${search}`, { signal });
+export async function getBist100(search: URLSearchParams, request: Request) {
+  const response = await gatewayFetchWithIdentity(request, `/markets/bist100?${search}`);
   await requireGatewayOk(response, "Markets gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.markets, INVALID_MARKETS);
   return requireGatewayPayload(GatewayContracts.markets, payload, isStockList, INVALID_MARKETS);

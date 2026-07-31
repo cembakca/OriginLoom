@@ -16,7 +16,7 @@ browser JavaScript'i token görmez.
 
 ## Local cookie ile deneme
 
-`pnpm dev`, `mock-gateway/server.mjs` dosyasını `127.0.0.1:4002` üzerinde otomatik başlatır. Cookie'leri
+`pnpm dev:mock`, `mock-gateway/server.mjs` dosyasını `127.0.0.1:4002` üzerinde başlatır (`pnpm dev` başlatmaz). Cookie'leri
 tarayıcının Application/Storage panelinden `http://127.0.0.1:3010` origin'i için ekleyin. `localhost`
 ile `127.0.0.1` farklı cookie origin'leridir; uygulamayı hangi host ile açtıysanız cookie'yi aynı hosta
 ekleyin.

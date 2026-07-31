@@ -78,25 +78,64 @@ Mount edilmiş `/api/*` route'ları zaten bu pipeline'a girmez; ama karşılığ
 `/api/internal/*` yolu SSR fallback'ine düşer ve pipeline çalışır. Gateway'e istek atan bir
 middleware'in orada boşa çalışmaması için `exclude` şart.
 
-## Cache güvenliği
+## Cache güvenliği — `values` ve `cacheVary`
+
+Bu bölüm platformun en ince mekanizması ve yanlış yapmanın **sessiz** olduğu tek yer. Çalışan örnek:
+`server/middleware/experiments.ts`.
+
+> Şablondaki deney **kapalı gelir.** `server/middleware/index.ts` içindeki `experimentsMiddleware`
+> satırını açarak etkinleştirirsiniz — ve o an katalog sayfasının cache girdisi sayısı ikiye katlanır.
+> Boyut maliyeti için bkz. [caching.md](./caching.md) → "Cache key boyutları".
 
 `values`'daki her değer **varsayılan olarak paylaşımlı HTML cache key'ini böler**. Sebebi tek
 cümleyle: bir middleware sayfanın render'ını değiştiriyorsa, bir ziyaretçinin HTML'i diğerine
 servis edilemez.
 
 ```ts
-// Deney kovası HTML'i değiştirir → cache key'e girer (varsayılan davranış).
-return { values: { variant } };
+// experiments.ts, kısaltılmış
+const values: Record<string, string> = { variant: bucketFor(ctx.trackingId) };
+const campaign = sanitizeCampaign(ctx.url.searchParams.get("utm_campaign"));
+if (campaign) values.campaign = campaign;
 
-// Kampanya kodu yalnız analitik içindir, HTML'i değiştirmez → tek entry paylaşılır.
-return { values: { campaign }, cacheVary: [] };
+return {
+  values,
+  // Her şey varsayılan olarak böler; bu liste istisnaları söyler.
+  cacheVary: Object.keys(values).filter((name) => name !== "campaign"),
+};
 ```
 
-`cacheVary: []` yalnızca değerin sayfanın çıktısını **kesinlikle** etkilemediği durumda doğrudur.
-Bir loader `ctx.values.campaign`'i render ediyorsa, ilk isteğin HTML'i herkese gider.
+- **`variant` böler.** Sayfa ona göre farklı render ediliyor (`server/routes/catalog.tsx` içinde
+  `ctx.values?.variant` okunuyor), dolayısıyla cache'lenmiş HTML de bölünmek zorunda.
+- **`campaign` bölmez.** Yalnız analitiğe gidiyor, hiçbir şeyi render etmiyor. Bölseydi bayt bayt
+  aynı HTML'in kopyaları oluşurdu — birisinin link verdiği her kampanya kodu için bir tane.
 
-Kova sayısı cache'i böler: iki değerli bir deney, o sayfanın entry sayısını ikiye katlar. Sınırsız
-değerli bir şeyi (kullanıcı id'si, arama terimi) `values`'a koymayın.
+### Unutmanın bedeli neden sessiz
+
+`cacheVary`'yi unutan bir deneyde hiçbir şey hata vermez. Cache'i ilk ıskalayan ziyaretçi hangi
+kovadaysa, TTL boyunca **herkes** o varyantı görür. Deney de "iki kol aynı davranıyor" diye rapor
+eder — çünkü gerçekten aynı sayfaydılar. Tek istekle bakan bir test de doğru görür.
+
+Bu yüzden `tests/experiment-cache.test.ts` tek isteğe bakmaz: iki farklı kovadan ziyaretçiyi
+uygulamadan geçirir ve ikincisinin birincinin sayfasını **almadığını** doğrular. Ayrıca aynı kovadan
+iki ziyaretçinin tek entry paylaştığını (bölmek ≠ cache'i kapatmak) ve kampanya kodunun bölmediğini
+kontrol eder.
+
+### Kurallar
+
+- `cacheVary: []` yalnızca değerin sayfanın çıktısını **kesinlikle** etkilemediği durumda doğrudur.
+  Bir loader `ctx.values.campaign`'i render etmeye başladığı gün bu satır yalan olur.
+- **Kova sayısı cache'i böler.** İki değerli bir deney, o sayfanın entry sayısını ikiye katlar; üç
+  deneyi aynı anda çalıştırmak sekize. Bu soyut bir uyarı değil: bu deney eklendiğinde kapasite
+  kapısı düştü, çünkü 20 eşzamanlı soğuk isteğin tek upstream dolumuna inmesi beklenirken **iki**
+  dolum oldu — cookie'siz her ziyaretçi yeni bir tracking id, yani rastgele bir kova. Anonim trafikte
+  bir deney, o sayfanın soğuk maliyetini kova sayısıyla çarpar. (`load-test/capacity.mjs` artık sabit
+  bir tracking id gönderir: senaryonun ölçtüğü şey coalescing, kovalama değil.)
+- **Sınırsız değerli hiçbir şeyi `values`'a koymayın** — kullanıcı id'si, arama terimi, tam URL.
+  Kişi başına bir cache entry, cache'in olmaması demektir.
+- **Kova kararlı olmalı.** Örnek onu tracking id'den türetir; istek başına zar atmak, bir sayfada A
+  diğerinde B gören ziyaretçi üretir ve o ziyaretçi hiçbir kolda değildir.
+- **Tracking id yoksa kontrol kolu.** Crawler ve cookie'si daha yeni yazılan ilk istek buraya düşer;
+  rastgele olsaydı bir deney indekslenen içeriği değiştirebilirdi.
 
 ## Sınırlar
 

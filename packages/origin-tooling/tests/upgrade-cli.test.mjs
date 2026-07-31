@@ -177,6 +177,7 @@ function project({ version, metadata }) {
                   "0.5.36-product-middleware",
                   "0.6.0-gateway-backed-streaming",
                   "0.7.0-react-only",
+                  "0.7.3-gateway-identity",
                 ]
               : []),
           ],

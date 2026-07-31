@@ -1,6 +1,10 @@
 import { isRecord } from "@originloom/shared/lib/runtime-schema";
 
-import { gatewayFetch, releaseGatewayResponse } from "../../adapters/gateway.js";
+import {
+  gatewayFetch,
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+} from "../../adapters/gateway.js";
 import { config } from "../../config.js";
 import {
   defineGatewayContract,
@@ -48,7 +52,7 @@ function parseRule(value: unknown): CmsRedirectRule | null {
 
 export async function lookupRedirect(
   pathname: string,
-  signal?: AbortSignal,
+  request?: Request,
 ): Promise<CmsRedirectRule | null> {
   const cached = cache.get(pathname);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
@@ -56,10 +60,13 @@ export async function lookupRedirect(
   let value: CmsRedirectRule | null = null;
   let shouldCache = true;
   try {
-    const res = await gatewayFetch(`/cms/redirects?path=${encodeURIComponent(pathname)}`, {
-      method: "GET",
-      ...(signal ? { signal } : {}),
-    });
+    const path = `/cms/redirects?path=${encodeURIComponent(pathname)}`;
+    // The rule is the same for everyone and cached by path, so identity here is
+    // telemetry — but the gateway is told who asked on this call as on any other.
+    // A lookup with no request behind it (a warm-up, a test) simply has none.
+    const res = request
+      ? await gatewayFetchWithIdentity(request, path, { method: "GET" })
+      : await gatewayFetch(path, { method: "GET" });
     if (res.ok) {
       const payload = await readGatewayJson(
         res,
@@ -76,7 +83,7 @@ export async function lookupRedirect(
       await releaseGatewayResponse(res);
     }
   } catch (error) {
-    if (isRequestDeadlineError(signal?.reason)) throw signal.reason;
+    if (isRequestDeadlineError(request?.signal.reason)) throw request.signal.reason;
     if (isRequestDeadlineError(error)) throw error;
     logger.warn("redirect lookup failed", {
       pathname,

@@ -33,7 +33,7 @@ export default defineRoute<StockList>({
       target.searchParams.delete("page");
       return redirect(`${target.pathname}${target.search}`, 308);
     }
-    const data = await getBist100(marketSearch(ctx.url), ctx.request.signal);
+    const data = await getBist100(marketSearch(ctx.url), ctx.request);
     if (page.page > data.pagination.totalPages || data.pagination.page !== page.page)
       return notFound();
     return { data };

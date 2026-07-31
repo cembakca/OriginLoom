@@ -8,10 +8,13 @@ import { redirectRulesMiddleware } from "@server/middleware/redirect-rules";
 import { searchIndexingMiddleware } from "@server/middleware/search-indexing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ gatewayFetch: vi.fn(), releaseGatewayResponse: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  gatewayFetchWithIdentity: vi.fn(),
+  releaseGatewayResponse: vi.fn(),
+}));
 
 vi.mock("@originloom/core/adapters/gateway", () => ({
-  gatewayFetch: mocks.gatewayFetch,
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
   releaseGatewayResponse: mocks.releaseGatewayResponse,
 }));
 vi.mock("@originloom/core/logger", () => ({
@@ -87,37 +90,39 @@ describe("redirect rules middleware", () => {
 
   // Each case uses its own path: the middleware caches a decision per pathname.
   it("obeys a destination the service names", async () => {
-    mocks.gatewayFetch.mockResolvedValue(
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(
       Response.json({ action: "redirect", location: "/kredi-kartlari", status: 301 }),
     );
 
     const result = await run(redirectRulesMiddleware, context("http://app.local/tasindi"));
 
     expect(result?.redirect).toEqual({ location: "/kredi-kartlari", status: 301 });
-    expect(mocks.gatewayFetch).toHaveBeenCalledWith(
+    // The request itself goes to the gateway helper: it is what carries the
+    // visitor's identity and the cancellation signal to the routing service.
+    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledWith(
+      expect.any(Request),
       "/routing/decide?url=" + encodeURIComponent("http://app.local/tasindi"),
-      expect.objectContaining({ signal: expect.anything() }),
     );
   });
 
   it("asks once per path and serves the rest from its own cache", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ action: "next" }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ action: "next" }));
 
     await run(redirectRulesMiddleware, context("http://app.local/tekrar"));
     await run(redirectRulesMiddleware, context("http://app.local/tekrar?utm_source=x"));
 
     // A gateway round trip in front of every page view is the cost this cache exists to avoid.
-    expect(mocks.gatewayFetch).toHaveBeenCalledTimes(1);
+    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledTimes(1);
   });
 
   it("carries on when the service says next", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ action: "next" }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ action: "next" }));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/kalir"))).toBeUndefined();
   });
 
   it("refuses a destination that would send visitors off-site", async () => {
-    mocks.gatewayFetch.mockResolvedValue(
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(
       Response.json({ action: "redirect", location: "https://evil.example/x" }),
     );
 
@@ -125,7 +130,7 @@ describe("redirect rules middleware", () => {
   });
 
   it("falls back to a temporary redirect when the service invents a status", async () => {
-    mocks.gatewayFetch.mockResolvedValue(
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(
       Response.json({ action: "redirect", location: "/kredi-kartlari", status: 999 }),
     );
 
@@ -135,7 +140,7 @@ describe("redirect rules middleware", () => {
   });
 
   it("renders the page when the routing service is down", async () => {
-    mocks.gatewayFetch.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    mocks.gatewayFetchWithIdentity.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/cokmus"))).toBeUndefined();
   });

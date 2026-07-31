@@ -19,6 +19,13 @@
  * the next one. Every step has a fail-open budget: a vendor that never loads
  * must not strand the steps behind it — the measurement is worth less than the
  * page, and analytics that blocks a site is a bug in the analytics.
+ *
+ * Waiting is for readiness, not for a person. A consent banner is answered when
+ * the visitor gets around to it — immediately for someone who already decided,
+ * ten seconds later on a first visit, never if they ignore it. A chain that
+ * waits on that stops having an order: the same site produces one sequence in a
+ * normal window and another in an incognito one. Load a consent tool in order
+ * and let it announce itself whenever it does.
  */
 export type HeadScript = {
   /** External script URL. The step finishes when it has loaded and executed. */

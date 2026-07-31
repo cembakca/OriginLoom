@@ -12,6 +12,7 @@ export const ROUTE_BUILD_MANIFEST_MIGRATION = "0.5.35-route-build-manifest";
 export const PRODUCT_MIDDLEWARE_MIGRATION = "0.5.36-product-middleware";
 export const GATEWAY_STREAMING_MIGRATION = "0.6.0-gateway-backed-streaming";
 export const REACT_ONLY_MIGRATION = "0.7.0-react-only";
+export const GATEWAY_IDENTITY_MIGRATION = "0.7.3-gateway-identity";
 
 export const migrations = [
   {
@@ -104,6 +105,12 @@ export const migrations = [
           "@originloom/vanilla artık yayınlanmıyor — bu proje React renderer'a elle taşınmalıdır (docs/migrations/0.7.0.md)",
       });
     },
+  },
+  {
+    id: GATEWAY_IDENTITY_MIGRATION,
+    introducedIn: "0.7.3",
+    description:
+      "gatewayFetchWithIdentity carries the visitor's tracking id, client IP and device on every upstream call; existing services keep working and adopt it by taking the Request instead of an AbortSignal (docs/migrations/0.7.3.md).",
   },
 ];
 

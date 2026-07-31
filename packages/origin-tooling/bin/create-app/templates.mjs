@@ -82,20 +82,27 @@ export function renderTemplates({
     "docs/auth.md": asset("docs/auth.md"),
     "docs/background-workers.md": asset("docs/background-workers.md"),
     "docs/caching.md": asset("docs/caching.md"),
+    "docs/cache-purge.md": asset("docs/cache-purge.md"),
     "docs/capacity.md": asset("docs/capacity.md"),
     "docs/configuration.md": asset("docs/configuration.md"),
     "docs/dynamic-shell.md": asset("docs/dynamic-shell.md"),
     "docs/features.md": asset("docs/features.md"),
     "docs/links.md": asset("docs/links.md"),
+    "docs/lists.md": asset("docs/lists.md"),
     "docs/middleware.md": asset("docs/middleware.md"),
     "docs/mutations.md": asset("docs/mutations.md"),
     "docs/observability.md": asset("docs/observability.md"),
     "docs/react-query.md": asset("docs/react-query.md"),
+    "docs/route-params.md": asset("docs/route-params.md"),
+    "docs/referrals.md": asset("docs/referrals.md"),
     "docs/routing.md": asset("docs/routing.md"),
     "docs/seo.md": asset("docs/seo.md"),
     "docs/supply-chain-security.md": asset("docs/supply-chain-security.md"),
     "docs/streaming.md": asset("docs/streaming.md"),
     "docs/testing.md": asset("docs/testing.md"),
+    "docs/tools.md": asset("docs/tools.md"),
+    "docs/analytics.md": asset("docs/analytics.md"),
+    "docs/webhooks.md": asset("docs/webhooks.md"),
     "docs/contracts.md": asset("docs/contracts.md"),
     "docs/performance.md": asset("docs/performance.md"),
     "docs/performance-acceptance.md": asset("docs/performance-acceptance.md"),
@@ -121,6 +128,7 @@ export function renderTemplates({
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
     "server/middleware/index.ts": middlewareIndex(),
+    "server/middleware/experiments.ts": experimentsMiddleware(),
     "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
     "server/middleware/redirect-rules.ts": redirectRulesMiddlewareFile(),
     "server/middleware/search-indexing.ts": searchIndexingMiddlewareFile(),
@@ -133,6 +141,9 @@ export function renderTemplates({
     "server/product/config.ts": productConfigFile(true),
     "server/product/analytics.ts": productAnalytics(),
     "server/api/items.ts": publicItemsApi(),
+    "server/api/referrals.ts": referralApi(),
+    "server/api/webhooks.ts": webhookApi(),
+    "server/api/calculator.ts": calculatorApi(),
     "server/api/enquiries.ts": enquiryApi(),
     "server/services/enquiries.ts": enquiryService(),
     "server/api/session.ts": sessionApi(),
@@ -149,7 +160,13 @@ export function renderTemplates({
     "server/routes/media.tsx": mediaRoute(),
     "src/features/media/media-page.tsx": mediaPage(),
     "server/routes/catalog.tsx": catalogRoute(),
+    "server/routes/calculator.tsx": calculatorRoute(),
+    "server/routes/guides.tsx": guidesRoute(),
+    "server/routes/guide-detail.tsx": guideDetailRoute(),
+    "server/routes/catalog-category.tsx": catalogCategoryRoute(),
     "server/routes/data-cache.tsx": dataCacheRoute(),
+    "server/routes/no-cache.tsx": noCacheRoute(),
+    "src/features/no-cache/no-cache-page.tsx": noCachePage(),
     "server/routes/item-detail.tsx": itemDetailRoute(),
     "server/routes/account.tsx": accountRoute(),
     "server/routes/contact.tsx": contactRoute(),
@@ -159,6 +176,11 @@ export function renderTemplates({
     "server/services/menu.ts": menuService(),
     "server/services/bot-analytics.ts": botAnalyticsService(),
     "server/services/items.ts": itemsService(),
+    "server/services/referrals.ts": referralService(),
+    "server/services/calculator.ts": calculatorService(),
+    "server/services/guides.ts": guidesService(),
+    "server/services/route-domains.ts": routeDomainsService(),
+    "server/services/sitemap.ts": sitemapService(),
     "server/services/featured-items.ts": featuredItemsService(),
     "server/services/live-message.ts": liveMessageService(),
     "server/services/profile.ts": profileService(),
@@ -166,6 +188,7 @@ export function renderTemplates({
     "contracts/openapi.json": gatewayOpenApi(),
     "contracts/gateway-contracts.json": gatewayContractConfig(),
     "contracts/fixtures/items-page.json": gatewayItemsPageFixture(),
+    "contracts/fixtures/item-reviews.json": gatewayReviewsFixture(),
     "contracts/fixtures/item.json": gatewayItemFixture(),
     "contracts/fixtures/live-message.json": gatewayLiveMessageFixture(),
     "contracts/fixtures/menu.json": gatewayMenuFixture(),
@@ -184,12 +207,18 @@ export function renderTemplates({
     "src/entry.client.tsx": entryClient(),
     "src/hydrate.client.tsx": hydrateClient(),
     "src/islands/counter.tsx": counterIsland(),
+    "src/islands/page-analytics.tsx": pageAnalyticsIsland(),
+    "src/islands/loan-calculator.tsx": calculatorIsland(),
     "src/islands/account-panel.tsx": accountPanelIsland(),
     "src/islands/live-ticks.tsx": liveTicksIsland(),
     "src/features/home/home-page.tsx": homePage(),
     "src/features/showcase/showcase-page.tsx": showcasePage(),
     "src/features/showcase/server-time-fragment.tsx": serverTimeFragment(),
     "src/features/catalog/catalog-page.tsx": catalogPage(),
+    "src/features/calculator/calculator-page.tsx": calculatorPage(),
+    "src/features/guides/guides-page.tsx": guidesPage(),
+    "src/features/guides/guide-page.tsx": guidePage(),
+    "src/lib/metadata/jsonld-article.ts": articleJsonLdLib(),
     "src/features/data-cache/data-cache-page.tsx": dataCachePage(),
     "src/features/items/item-detail-page.tsx": itemDetailPage(),
     "src/features/live/live-page.tsx": livePage(),
@@ -198,6 +227,9 @@ export function renderTemplates({
     "src/lib/shell-data.ts": libShellData(),
     "src/lib/cache-keys.ts": cacheKeys(),
     "src/lib/pagination.ts": paginationLib(),
+    "src/lib/catalog-query.ts": catalogQueryLib(),
+    "src/lib/quote-query.ts": quoteQueryLib(),
+    "src/lib/calculator-query.ts": calculatorQueryLib(),
     "src/lib/query/hooks/use-session.ts": sessionQueryHook(),
     "src/lib/query/keys.ts": queryKeys(),
     "src/lib/metadata/site-defaults.ts": siteDefaults(title),
@@ -208,6 +240,10 @@ export function renderTemplates({
 
     "tests/home.test.ts": homeTest(),
     "tests/middleware.test.ts": middlewareTest(),
+    "tests/experiments.test.ts": experimentsMiddlewareTest(),
+    "tests/experiment-cache.test.ts": experimentCacheTest(),
+    "tests/tracking-id-leak.test.ts": trackingLeakTest(),
+    "tests/analytics-chain.test.ts": analyticsChainTest(),
     "tests/auth-client.test.ts": authClientTest(),
     "tests/live-stream-admission.test.ts": liveStreamAdmissionTest(),
     "tests/live-stream-api.test.ts": liveStreamApiTest(),
@@ -220,7 +256,21 @@ export function renderTemplates({
     "tests/routing-rules.test.ts": routingRulesTest(),
     "tests/session-api.test.ts": sessionApiTest(),
     "tests/enquiries-api.test.ts": enquiryApiTest(),
+    "tests/no-cache.test.ts": noCacheTest(),
+    "tests/gateway-identity.test.ts": gatewayIdentityCoverageTest(),
+    "tests/catalog-query.test.ts": catalogQueryTest(),
+    "tests/quote-query.test.ts": quoteQueryTest(),
+    "tests/referrals.test.ts": referralApiTest(),
+    "tests/webhooks.test.ts": webhookApiTest(),
+    "tests/calculator.test.ts": calculatorTest(),
+    "tests/guides.test.ts": guidesTest(),
+    "tests/detail-seo.test.ts": detailSeoTest(),
+    "tests/cache-purge.test.ts": cachePurgeApiTest(),
+    "tests/route-domains.test.ts": routeDomainsTest(),
+    "tests/sitemap.test.ts": sitemapServiceTest(),
+    "tests/item-detail-reviews.test.ts": itemDetailReviewsTest(),
     "e2e/critical-paths.spec.ts": criticalPathsE2e(port, metricsPort),
+    "e2e/analytics.spec.ts": analyticsE2e(),
     "e2e/accessibility.spec.ts": accessibilityE2e(),
     "e2e/ssr.no-js.spec.ts": noJavaScriptE2e(),
 
@@ -243,6 +293,7 @@ const claudeSettings = () =>
         allow: [
           "Bash(pnpm install)",
           "Bash(pnpm dev)",
+          "Bash(pnpm dev:mock)",
           "Bash(pnpm build)",
           "Bash(pnpm typecheck)",
           "Bash(pnpm check:cycles)",
@@ -289,7 +340,8 @@ const packageJson = (name, { standalone, version, withOps = false }) => {
         "sbom:prod": "origin-sbom --prod",
         "dependency-track:publish": "origin-dependency-track publish",
         "dependency-track:gate": "origin-dependency-track gate",
-        dev: "origin-dev --gateway mock-gateway/server.mjs",
+        dev: "origin-dev",
+        "dev:mock": "origin-dev --gateway mock-gateway/server.mjs",
         "mock-gw": "origin-run-with-env development node mock-gateway/server.mjs",
         build: "origin-build",
         start: "origin-run-with-env production node --enable-source-maps dist/server/index.js",
@@ -630,6 +682,10 @@ export default defineConfig({
               SITE_URL: baseURL,
               GATEWAY_URL: mockGatewayURL,
               ALLOW_INSECURE_GATEWAY: "true",
+              // The consent tool, so the analytics chain is the real one. The
+              // container is deliberately left unset: loading GTM would reach
+              // the internet, and these tests run offline.
+              EFILLI_SCRIPT_URL: mockGatewayURL + "/vendor/consent.js",
               RELEASE_ID: "e2e",
               AUTH_REFRESH_COORDINATION_SECRET: "0123456789abcdef0123456789abcdef",
               CACHE_BACKEND: "memory",
@@ -705,11 +761,11 @@ test.describe("SSR and island critical paths", () => {
 
     await page.goto("/old-catalog?source=e2e");
     await expect(page).toHaveURL(/\\/catalog\\?source=e2e$/);
-    await expect(page.getByRole("heading", { name: "Katalog" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Krediler" })).toBeVisible();
 
-    await page.goto("/products/alpha?source=e2e");
-    await expect(page).toHaveURL(/\\/products\\/alpha\\?source=e2e$/);
-    await expect(page.getByRole("heading", { name: "Alpha" })).toBeVisible();
+    await page.goto("/products/konut-avantaj?source=e2e");
+    await expect(page).toHaveURL(/\\/products\\/konut-avantaj\\?source=e2e$/);
+    await expect(page.getByRole("heading", { name: "Konut Avantaj" })).toBeVisible();
   });
 
   test("refreshes a challenged session once and retries the profile request", async ({
@@ -774,6 +830,20 @@ test.describe("SSR and island critical paths", () => {
   });
 
   test("renders HTML again while reusing the public API data snapshot", async ({ page }) => {
+    // Land inside a fresh window before measuring. A load that falls in the
+    // stale-while-revalidate window is served immediately *and* starts a
+    // background refresh, so the snapshot can legitimately change between two
+    // loads — which is the behaviour under test elsewhere, not here.
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/data-cache");
+          return (await page.getByTestId("api-cache-status").textContent()) ?? "";
+        },
+        { timeout: 15_000 },
+      )
+      .toContain("FRESH");
+
     const firstResponse = await page.goto("/data-cache");
     expect(firstResponse?.headers()["x-cache"]).toBe("BYPASS");
     const firstRenderedAt = await page.getByTestId("page-rendered-at").textContent();
@@ -783,6 +853,7 @@ test.describe("SSR and island critical paths", () => {
     const secondResponse = await page.reload();
     expect(secondResponse?.headers()["x-cache"]).toBe("BYPASS");
     await expect(page.getByTestId("api-cache-status")).toContainText("FRESH");
+    // The document is rendered again — and the upstream snapshot behind it is not.
     await expect(page.getByTestId("page-rendered-at")).not.toHaveText(firstRenderedAt ?? "");
     await expect(page.getByTestId("api-fetched-at")).toHaveText(firstFetchedAt ?? "");
   });
@@ -823,10 +894,108 @@ test.describe("SSR and island critical paths", () => {
 });
 `;
 
+const analyticsE2e = () => `import { expect, test } from "@playwright/test";
+
+/**
+ * The dataLayer as a browser actually builds it.
+ *
+ * Every other test here asserts the *script* order in the head, or the builders
+ * in isolation. This one loads the page, lets the scripts run, and reads
+ * \`window.dataLayer\` — the only thing that answers "is the order right", and the
+ * only thing that catches an ordering bug caused by *when* a script runs rather
+ * than where it is written.
+ */
+type Entry = Record<string, unknown>;
+
+async function dataLayer(page: import("@playwright/test").Page): Promise<Entry[]> {
+  return page.evaluate(() => (window as unknown as { dataLayer?: Entry[] }).dataLayer ?? []);
+}
+
+function events(entries: Entry[]): string[] {
+  return entries.map((entry) => String(entry.event ?? Object.keys(entry)[0] ?? "?"));
+}
+
+test.describe("dataLayer", () => {
+  test("builds in one order, whatever the visitor arrived with", async ({ browser }) => {
+    // A visitor with no cookies — what an incognito window is.
+    const fresh = await browser.newContext();
+    const firstVisit = await fresh.newPage();
+    await firstVisit.goto("/");
+    await expect.poll(async () => events(await dataLayer(firstVisit))).toContain("GAVirtual");
+    const firstOrder = events(await dataLayer(firstVisit));
+    await fresh.close();
+
+    // The same browser again, now carrying the cookies a first visit set.
+    const returning = await browser.newContext();
+    const warmup = await returning.newPage();
+    await warmup.goto("/");
+    await warmup.close();
+    const secondVisit = await returning.newPage();
+    await secondVisit.goto("/");
+    await expect.poll(async () => events(await dataLayer(secondVisit))).toContain("GAVirtual");
+    const secondOrder = events(await dataLayer(secondVisit));
+    await returning.close();
+
+    // The bug this replaces: the chain waited for the consent tool's event, and
+    // a returning visitor's decision is already known while a first visit's is
+    // not — so the two produced different sequences. Nothing waits now, and the
+    // order is a property of the document rather than of the visitor.
+    expect(firstOrder).toEqual(secondOrder);
+  });
+
+  test("puts the page view after the tracking id, in head order", async ({ page }) => {
+    await page.goto("/");
+    await expect.poll(async () => events(await dataLayer(page))).toContain("GAVirtual");
+
+    const order = events(await dataLayer(page));
+    const at = (name: string) => order.indexOf(name);
+
+    // Efilli announces itself first because it is the first script in the head.
+    expect(at("efilli.consent")).toBe(0);
+    expect(at("efilli_essential_granted")).toBe(1);
+    // Then the visitor's own id — a value, not an event.
+    expect(at("userTrackingId")).toBeGreaterThan(at("efilli_essential_granted"));
+    // Then React: where the visit started, then the view itself.
+    expect(at("originalLocation")).toBeGreaterThan(at("userTrackingId"));
+    expect(at("GAVirtual")).toBeGreaterThan(at("originalLocation"));
+  });
+
+  test("carries the visitor's own id, and never another's", async ({ page }) => {
+    await page.goto("/");
+    await expect.poll(async () => events(await dataLayer(page))).toContain("userTrackingId");
+
+    const entries = await dataLayer(page);
+    const pushed = entries.find((entry) => "userTrackingId" in entry)?.userTrackingId;
+    const cookie = (await page.context().cookies()).find(
+      (entry) => entry.name === "user_tracking_id",
+    )?.value;
+
+    // Read from this browser's cookie, not rendered into the shared-cached HTML.
+    expect(pushed).toBe(cookie);
+    expect(await page.content()).not.toContain(String(pushed));
+  });
+
+  test("lets gtm.dom through once the page view has landed", async ({ page }) => {
+    await page.goto("/");
+    await expect.poll(async () => events(await dataLayer(page))).toContain("GAVirtual");
+
+    // The container is not configured here, so GTM never fires this itself.
+    await page.evaluate(() => {
+      (window as unknown as { dataLayer: Record<string, unknown>[] }).dataLayer.push({
+        event: "gtm.dom",
+      });
+    });
+
+    const order = events(await dataLayer(page));
+    expect(order.indexOf("gtm.dom")).toBeGreaterThan(order.indexOf("GAVirtual"));
+  });
+});
+`;
+
 const accessibilityE2e = () => `import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-for (const path of ["/", "/catalog", "/data-cache", "/account"] as const) {
+for (const path of ["/", "/catalog", "/calculator", "/guides", "/data-cache", "/account"] as const) {
   test(\`\${path} has no serious or critical accessibility violations\`, async ({ page }) => {
     await page.goto(path);
     await page.locator("main").waitFor();
@@ -847,16 +1016,54 @@ for (const path of ["/", "/catalog", "/data-cache", "/account"] as const) {
 const noJavaScriptE2e = () => `import { expect, test } from "@playwright/test";
 
 test("catalog remains usable when JavaScript is disabled", async ({ page }) => {
-  const response = await page.goto("/catalog?page=1");
+  const response = await page.goto("/catalog");
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: "Katalog" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Alpha" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Krediler" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Konut Avantaj" })).toBeVisible();
   await expect(page.getByText("Sayfa 1 / 3")).toBeVisible();
 
-  await page.getByRole("link", { name: "Alpha" }).click();
-  await expect(page).toHaveURL(/\\/items\\/alpha$/);
-  await expect(page.getByRole("heading", { name: "Alpha" })).toBeVisible();
+  await page.getByRole("link", { name: "Konut Avantaj" }).click();
+  await expect(page).toHaveURL(/\\/items\\/konut-avantaj$/);
+  await expect(page.getByRole("heading", { name: "Konut Avantaj" })).toBeVisible();
+  // The second gateway call is part of the document, not something a script
+  // fetches afterwards — so it is here with JavaScript switched off.
+  await expect(page.getByRole("heading", { name: "Değerlendirmeler" })).toBeVisible();
+  // And so is the quote: the amount comes from the URL, not from a script.
+  await expect(page.getByRole("heading", { name: "Örnek ödeme planı" })).toBeVisible();
+});
+
+test("catalog filters work without JavaScript and stay in the URL", async ({ page }) => {
+  await page.goto("/catalog");
+
+  // Filters are links. With scripting off that is the difference between a
+  // catalogue you can browse and one you cannot.
+  await page
+    .getByRole("navigation", { name: "Kategori" })
+    .getByRole("link", { name: /^Konut kredisi/ })
+    .click();
+
+  await expect(page).toHaveURL(/\\/catalog\\?category=konut$/);
+  await expect(page.getByRole("link", { name: "İhtiyaç Hızlı" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Konut Avantaj" })).toBeVisible();
+});
+
+test("one page keeps one URL", async ({ page, request }) => {
+  // ?page=1 is the catalog under a second name, and a second name is a duplicate
+  // for a crawler. It is corrected permanently rather than served.
+  const canonicalised = await request.get("/catalog?page=1", { maxRedirects: 0 });
+  expect(canonicalised.status()).toBe(308);
+  const location = canonicalised.headers().location;
+  expect(location).toBeDefined();
+  expect(new URL(location ?? "", "http://localhost").pathname).toBe("/catalog");
+
+  // A page number that was never valid is not page 1 — it is a 404.
+  expect((await request.get("/catalog?page=abc")).status()).toBe(404);
+  // And a page past the end is a 404 too, not an empty 200.
+  expect((await request.get("/catalog?page=99")).status()).toBe(404);
+
+  await page.goto("/catalog?category=konut");
+  await expect(page.getByRole("heading", { name: "Krediler" })).toBeVisible();
 });
 
 test("the contact form submits and reports back without JavaScript", async ({ page }) => {
@@ -916,6 +1123,14 @@ ALLOW_INSECURE_GATEWAY=true
 # This app's own settings — see server/product/config.ts, validated at startup.
 CATALOG_PAGE_SIZE=3
 ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
+# Analytics. Both come from the environment: a deployment points at its own
+# properties, and a checkout without them is not silently measuring people.
+# Without EFILLI_SCRIPT_URL the container is not loaded either — no consent
+# tool, no tag manager. In development the mock gateway stands in for Efilli.
+# GTM_CONTAINER_ID=GTM-XXXXXXX
+# EFILLI_SCRIPT_URL=https://cdn.efilli.com/…
+# ANALYTICS_TRACKING_ID_KEY=userTrackingId
+# ANALYTICS_FIELD_PREFIX=
 # SUPPORT_EMAIL is optional here and required in production.
 # SUPPORT_EMAIL=destek@example.com
 
@@ -1078,7 +1293,9 @@ async function main() {
 
   // The entry path is the app's, not the platform's — in dev it is fetched from
   // the Vite server, so it has to match the file this app actually ships.
-  const assets = readAssets({ clientEntry: "${clientEntry}", eagerIslands: [] });
+  // Preloaded rather than discovered: the page-analytics chunk is what releases
+  // the gtm.dom/gtm.load the head bootstrap is holding.
+  const assets = readAssets({ clientEntry: "${clientEntry}", eagerIslands: ["page-analytics"] });
   const app = createApp({
     assets,
     routes,
@@ -1104,13 +1321,19 @@ ${
       port: info.port,
       cacheTopology: cacheTopology(),
       tracingEnabled,
-      metricsPort: config.metricsPort,
+      metricsPort: config.metricsEnabled ? config.metricsPort : null,
     });
   });
   // The operations listener is never exposed publicly, so cache inspection and
   // purge live here rather than on the site itself. CACHE_PURGE_SECRET gates them.
-  const metricsApp = createMetricsApp({ mounts: (app) => mountCachePurgeApi(app) });
-  metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
+  //
+  // Off in development: a laptop rarely needs /metrics, and a dev command that
+  // binds two ports collides with the next project twice as often. Turn it on
+  // with METRICS_ENABLED=true when you actually want to look.
+  if (config.metricsEnabled) {
+    const metricsApp = createMetricsApp({ mounts: (app) => mountCachePurgeApi(app) });
+    metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
+  }
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
@@ -1192,7 +1415,7 @@ export const redirectRulesMiddleware = defineMiddleware({
   matcher: ["/:path*"],
   exclude: ["/api/:path*"],
   handler: async (ctx) => {
-    const rule = await decide(ctx.url, ctx.request.signal);
+    const rule = await decide(ctx.url, ctx.request);
     // No rule is the common case: return nothing and the request carries on to
     // auth, session and the route it was always going to render.
     return rule ? { redirect: rule } : undefined;
@@ -1216,15 +1439,21 @@ const CACHE_TTL_MS = 60_000;
 const CACHE_MAX_ENTRIES = 1_000;
 const cache = new Map<string, { value: MiddlewareRedirect | null; expiresAt: number }>();
 
-async function decide(url: URL, signal: AbortSignal): Promise<MiddlewareRedirect | null> {
+async function decide(url: URL, request: Request): Promise<MiddlewareRedirect | null> {
+  const signal = request.signal;
   const key = url.toString();
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
   try {
+    // No identity, deliberately. The answer is a property of the URL — the same
+    // for every visitor, cached by path here and almost certainly upstream too.
+    // This step also runs \`before-auth\`, so there is no tracking id and no
+    // resolved client IP yet: sending the header set would carry one device type
+    // and two empty values, which reads like a per-visitor call and is not one.
     const response = await gatewayFetch(
       \`/routing/decide?url=\${encodeURIComponent(url.toString())}\`,
-      { signal },
+      { signal: request.signal },
     );
     if (!response.ok) {
       await releaseGatewayResponse(response);
@@ -1299,7 +1528,523 @@ export const productMiddleware: readonly OriginMiddleware[] = [
   maintenanceMiddleware,
   redirectRulesMiddleware,
   searchIndexingMiddleware,
+  // An A/B experiment, off by default. Turning it on is this line plus its
+  // import — and it doubles the cache entries of every page that reads the
+  // bucket, which is the trade it exists to make visible:
+  //
+  //   import { experimentsMiddleware } from "./experiments";
+  //   …
+  //   experimentsMiddleware,
+  //
+  // See server/middleware/experiments.ts and docs/middleware.md.
 ];
+`;
+
+const experimentsMiddleware = () => `import { defineMiddleware } from "@originloom/core/middleware";
+
+/**
+ * Two values, and the whole reason \`cacheVary\` exists.
+ *
+ * \`variant\` changes what the page renders, so it has to fragment the shared HTML
+ * cache — which is the default: every value in \`values\` enters the key unless
+ * you say otherwise. Forget that and the first visitor to miss the cache decides
+ * which variant everybody sees, for the whole TTL. Nothing errors; the
+ * experiment simply reports that both arms behave identically, because they were
+ * the same page.
+ *
+ * \`campaign\` is the opposite case. It is read by analytics and by nothing that
+ * renders, so splitting the cache on it would multiply entries of byte-identical
+ * HTML — one per campaign code anyone has ever linked with. \`cacheVary: []\` opts
+ * it out, and that opt-out is only correct while no loader reads it.
+ */
+export const experimentsMiddleware = defineMiddleware({
+  name: "experiments",
+  // Needs the tracking id, which the session step resolves — so, after it.
+  phase: "before-render",
+  // Documents only. An endpoint has no HTML to vary and no bucket to be in.
+  matcher: ["/:path*"],
+  exclude: ["/api/:path*"],
+  handler: (ctx) => {
+    const values: Record<string, string> = { variant: bucketFor(ctx.trackingId) };
+
+    const campaign = sanitizeCampaign(ctx.url.searchParams.get("utm_campaign"));
+    if (campaign) values.campaign = campaign;
+
+    return {
+      values,
+      // Everything in \`values\` varies the cache by default; this names the
+      // exceptions. \`variant\` is deliberately absent from the list — it varies.
+      cacheVary: Object.keys(values).filter((name) => name !== "campaign"),
+    };
+  },
+});
+
+/**
+ * The same visitor lands in the same bucket, on every page, across visits.
+ *
+ * Deriving it from the tracking id rather than rolling a die per request is what
+ * makes the experiment measurable: a visitor who sees A on one page and B on the
+ * next is not in either arm. A visitor with no tracking id — a first request
+ * whose cookie is still being minted, a crawler — gets the control arm rather
+ * than a random one, so nothing an experiment does can change what a crawler
+ * indexes.
+ */
+function bucketFor(trackingId: string | undefined): "a" | "b" {
+  if (!trackingId) return "a";
+  let hash = 0;
+  for (const character of trackingId) hash = (hash * 31 + character.charCodeAt(0)) % 1_000_003;
+  return hash % 2 === 0 ? "a" : "b";
+}
+
+/**
+ * Bounded and allowlisted by shape.
+ *
+ * A campaign code is attacker-controlled: it arrives in a URL anyone can send.
+ * It reaches analytics and, on a page that reads it, the cache key — so a
+ * 4 KB one, or one with a newline in it, is refused rather than carried.
+ */
+function sanitizeCampaign(raw: string | null): string | undefined {
+  if (!raw || raw.length > 60) return undefined;
+  return /^[a-z0-9_-]+$/i.test(raw) ? raw.toLowerCase() : undefined;
+}
+`;
+
+const analyticsChainTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { analyticsSequence } from "@server/product/analytics";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const page = {
+  items: [],
+  total: 0,
+  page: 1,
+  totalPages: 1,
+  facets: { categories: [] },
+  query: { category: "all", sortBy: "recommended" },
+  seoInfo: { title: "Krediler", friendlyUrl: "/catalog" },
+};
+
+const VISITOR = "d1195a49-29da-457b-bb56-bfa9ce641601";
+
+describe("the analytics chain", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("orders the head steps: consent, tracking id, queue, container", () => {
+    const consent = analyticsSequence.indexOf("consent.js");
+    const trackingId = analyticsSequence.indexOf("user_tracking_id");
+    const queue = analyticsSequence.indexOf("gtm.dom");
+
+    // Script order, which the browser guarantees. The queue comes before the
+    // container because it wraps \`dataLayer.push\` and can only hold what is
+    // pushed after it is installed.
+    expect(consent).toBeGreaterThan(-1);
+    expect(trackingId).toBeGreaterThan(consent);
+    expect(queue).toBeGreaterThan(trackingId);
+  });
+
+  it("waits for no consent event, so the order is the same for every visitor", () => {
+    // An earlier version waited for \`efilli.consent\`. A returning visitor gets
+    // that during execution and a first visit gets it when the banner is
+    // answered — ten seconds later, or never — so the same site produced one
+    // sequence in a normal window and another in an incognito one.
+    expect(analyticsSequence).not.toContain("awaitDataLayerEvent");
+    expect(analyticsSequence).not.toContain("efilli.consent");
+  });
+
+  it("reports a missing consent tool rather than quietly changing behaviour", async () => {
+    vi.resetModules();
+    const previous = { env: process.env.NODE_ENV, gtm: process.env.GTM_CONTAINER_ID };
+    process.env.NODE_ENV = "production";
+    process.env.GTM_CONTAINER_ID = "GTM-TEST123";
+    delete process.env.EFILLI_SCRIPT_URL;
+    const { logger } = await import("@originloom/core/logger");
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    const { analyticsSequence: withoutConsent } = await import("@server/product/analytics");
+
+    // The container is not gated on the consent tool: deciding which tags may
+    // fire is the consent platform's job. Refusing to load GTM because a
+    // variable is unset would turn one misconfiguration into zero measurement,
+    // which reads as "no traffic" and is found weeks later.
+    expect(withoutConsent).toContain("googletagmanager.com");
+    expect(reported).toHaveBeenCalledWith(expect.stringContaining("EFILLI_SCRIPT_URL"));
+
+    reported.mockRestore();
+    process.env.NODE_ENV = previous.env;
+    if (previous.gtm === undefined) delete process.env.GTM_CONTAINER_ID;
+    else process.env.GTM_CONTAINER_ID = previous.gtm;
+    vi.resetModules();
+  });
+
+  it("reads the tracking id in the browser rather than rendering it", async () => {
+    const app = createApp({
+      assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+      routes,
+      readinessCheck: async () => true,
+    });
+
+    const html = await (
+      await app.request("http://app.local/catalog", {
+        headers: {
+          cookie: \`user_tracking_id=\${VISITOR}\`,
+          "user-agent": "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+        },
+      })
+    ).text();
+
+    // The document is shared-cached: an id rendered into it would belong to
+    // whoever filled the cache and would then be served to everybody else.
+    expect(html).not.toContain(VISITOR);
+    // What is in the HTML is the code that reads the cookie, which is the same
+    // for every visitor and therefore cacheable.
+    expect(html).toContain("user_tracking_id");
+  });
+
+  it("mounts the island that pushes the page view", async () => {
+    const app = createApp({
+      assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+      routes,
+      readinessCheck: async () => true,
+    });
+
+    const html = await (await app.request("http://app.local/catalog")).text();
+
+    // Without this the route's pageMeta is computed on every request and thrown
+    // away — the chain looks wired and measures nothing.
+    expect(html).toContain('data-island="page-analytics"');
+    expect(html).toContain("data-eager");
+  });
+});
+`;
+
+const trackingLeakTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { productMiddleware } from "@server/middleware";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const page = {
+  items: [],
+  total: 0,
+  page: 1,
+  totalPages: 1,
+  facets: { categories: [] },
+  query: { category: "all", sortBy: "recommended" },
+  seoInfo: { title: "Krediler", friendlyUrl: "/catalog" },
+};
+
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140 Safari/537.36";
+// Two ids the experiment middleware puts in the same bucket, so the second
+// request is a cache hit on the first one's HTML — the case under test.
+const FIRST = "00000000-0000-4000-8000-000000000000";
+const SECOND = "00000000-0000-4000-8000-000000000002";
+
+function app() {
+  return createApp({
+    assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+    routes,
+    middleware: productMiddleware,
+    readinessCheck: async () => true,
+  });
+}
+
+function visit(instance: ReturnType<typeof app>, trackingId?: string) {
+  return instance.request("http://app.local/catalog", {
+    headers: {
+      "user-agent": UA,
+      ...(trackingId ? { cookie: \`user_tracking_id=\${trackingId}\` } : {}),
+    },
+  });
+}
+
+/**
+ * The question every shared HTML cache has to answer: can one visitor's identity
+ * reach another visitor's browser?
+ *
+ * It cannot, for three separate reasons, and this asserts all three because any
+ * one of them could be undone by an ordinary-looking change.
+ */
+describe("a visitor's tracking id and the shared cache", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("never puts the tracking id in the HTML", async () => {
+    const instance = app();
+
+    const html = await (await visit(instance, FIRST)).text();
+
+    // The id goes to the gateway as a request header. The moment a loader puts
+    // it in route data — a "welcome back" line, a debug field — it is in the
+    // cached body and belongs to whoever gets that entry next.
+    expect(html).not.toContain(FIRST);
+  });
+
+  it("does not hand the first visitor's id to the second", async () => {
+    const instance = app();
+
+    await visit(instance, FIRST);
+    const second = await visit(instance, SECOND);
+    const html = await second.text();
+
+    expect(second.headers.get("x-cache")).toBe("HIT");
+    expect(html).not.toContain(FIRST);
+    // The cache stores the body and nothing else, so no Set-Cookie can be
+    // replayed out of an entry.
+    expect(second.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("still mints a new visitor their own cookie on a cache hit", async () => {
+    const instance = app();
+    await visit(instance, FIRST);
+
+    // A visitor with no cookie is served the shared HTML and still gets an
+    // identity of their own: the session step runs per request, after the cache
+    // lookup, and its Set-Cookie is attached to this response only.
+    let hit: Response | undefined;
+    for (let attempt = 0; attempt < 8 && !hit; attempt++) {
+      const response = await visit(instance);
+      await response.text();
+      if (response.headers.get("x-cache") === "HIT") hit = response;
+    }
+
+    expect(hit, "expected a cookieless visitor to land on the warm entry").toBeDefined();
+    expect(hit?.headers.get("set-cookie")).toMatch(/^user_tracking_id=/);
+    // And a response that sets a cookie is never stored — not by a browser, not
+    // by a CDN. Without this the Set-Cookie could be reused for someone else.
+    expect(hit?.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
+`;
+
+const experimentCacheTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { productMiddleware } from "@server/middleware";
+import { experimentsMiddleware } from "@server/middleware/experiments";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const item = {
+  slug: "konut-avantaj",
+  name: "Konut Avantaj",
+  blurb: "Uzun vadeli konut finansmanı.",
+  category: "konut",
+  provider: "Örnek Bank",
+  interestRate: 2.79,
+  minAmount: 50_000,
+  maxAmount: 5_000_000,
+  terms: [12, 24, 36],
+  seo: { title: "Konut Avantaj", description: "detay" },
+};
+const page = {
+  items: [item],
+  total: 1,
+  page: 1,
+  totalPages: 1,
+  facets: { categories: [{ value: "all", count: 1 }] },
+  query: { category: "all", sortBy: "recommended" },
+  seoInfo: { title: "Krediler", friendlyUrl: "/catalog" },
+};
+
+/**
+ * The whole point of \`cacheVary\`, asserted against real cached HTML.
+ *
+ * A unit test on the middleware can only say what it returned. This one puts two
+ * visitors from different buckets through the app and checks that the second one
+ * is not served the first one's page — which is the failure \`cacheVary\` prevents
+ * and the one nothing else would catch.
+ */
+function visitor(trackingId: string): RequestInit {
+  return {
+    headers: {
+      cookie: \`user_tracking_id=\${trackingId}\`,
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+    },
+  };
+}
+
+// Two ids the middleware's hash puts in different arms.
+const IN_A = "00000000-0000-4000-8000-000000000000";
+const IN_B = "00000000-0000-4000-8000-000000000001";
+
+function app() {
+  return createApp({
+    assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+    routes,
+    // Registered here rather than in the app's list: the experiment ships off,
+    // because a dimension nobody uses still doubles every entry.
+    middleware: [...productMiddleware, experimentsMiddleware],
+    readinessCheck: async () => true,
+  });
+}
+
+async function bucketOf(instance: ReturnType<typeof app>, trackingId: string): Promise<string> {
+  const html = await (await instance.request("http://app.local/catalog", visitor(trackingId))).text();
+  // React SSR puts comment markers around an interpolated expression, so the
+  // bucket is not adjacent to the label in the HTML.
+  return /deney kovası: (?:<!-- -->)?([ab])/.exec(html)?.[1] ?? "?";
+}
+
+describe("an experiment inside cached HTML", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    // Menu and catalog both go through this; the menu degrading to empty is
+    // fine here, the catalogue is what the test renders.
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("serves each bucket its own page instead of whichever was cached first", async () => {
+    const instance = app();
+
+    const first = await bucketOf(instance, IN_A);
+    const second = await bucketOf(instance, IN_B);
+
+    // The two ids land in different arms; without cacheVary the second request
+    // would be a cache hit on the first one's HTML and both would read the same.
+    expect(first).not.toBe(second);
+  });
+
+  it("reuses one entry for two visitors in the same bucket", async () => {
+    const instance = app();
+
+    const first = await instance.request("http://app.local/catalog", visitor(IN_A));
+    const second = await instance.request("http://app.local/catalog", visitor(IN_A));
+
+    // Varying is not the same as not caching: the bucket splits the cache in
+    // two, it does not disable it.
+    expect(first.headers.get("x-cache")).toBe("MISS");
+    expect(second.headers.get("x-cache")).toBe("HIT");
+  });
+
+  it("does not split the cache on a campaign code", async () => {
+    const instance = app();
+
+    await instance.request("http://app.local/catalog", visitor(IN_A));
+    const campaigned = await instance.request(
+      "http://app.local/catalog?utm_campaign=bahar-2026",
+      visitor(IN_A),
+    );
+
+    // Byte-identical HTML. One entry per campaign code anyone has ever linked
+    // with is how a cache stops being one.
+    expect(campaigned.headers.get("x-cache")).toBe("HIT");
+  });
+});
+`;
+
+const experimentsMiddlewareTest =
+  () => `import type { MiddlewareContext, MiddlewareResult } from "@originloom/core/middleware";
+import { experimentsMiddleware } from "@server/middleware/experiments";
+import { describe, expect, it } from "vitest";
+
+function context(url: string, trackingId?: string): MiddlewareContext {
+  const request = new Request(url);
+  const parsed = new URL(url);
+  return {
+    request,
+    url: parsed,
+    publicPath: parsed.pathname,
+    params: {},
+    clientIp: "127.0.0.1",
+    values: {},
+    ...(trackingId ? { trackingId } : {}),
+    cookie: () => undefined,
+    header: (name) => request.headers.get(name) ?? undefined,
+  } as MiddlewareContext;
+}
+
+function run(url: string, trackingId?: string): MiddlewareResult {
+  return experimentsMiddleware.handler(context(url, trackingId)) as MiddlewareResult;
+}
+
+const VISITOR = "9f1f2f7e-0f0e-4d3c-8b6a-2c1d0e5f4a3b";
+
+describe("the experiment bucket", () => {
+  it("puts the same visitor in the same bucket on every page", () => {
+    const home = run("http://app.local/", VISITOR);
+    const catalog = run("http://app.local/catalog", VISITOR);
+
+    // A visitor who sees A on one page and B on the next is in neither arm, and
+    // the experiment measures nothing.
+    expect(home.values?.variant).toBe(catalog.values?.variant);
+  });
+
+  it("varies the shared cache on the bucket", () => {
+    const result = run("http://app.local/", VISITOR);
+
+    // Without this the first visitor to miss the cache decides which variant
+    // everybody sees for the whole TTL — silently, and the experiment reports
+    // that both arms behave identically.
+    expect(result.cacheVary).toContain("variant");
+  });
+
+  it("gives a visitor with no tracking id the control arm", () => {
+    // A crawler, or the very first request while the cookie is still being
+    // minted. Random would mean an experiment can change what gets indexed.
+    expect(run("http://app.local/").values?.variant).toBe("a");
+  });
+
+  it("keeps an analytics-only value out of the cache key", () => {
+    const result = run("http://app.local/?utm_campaign=Bahar-2026", VISITOR);
+
+    expect(result.values?.campaign).toBe("bahar-2026");
+    // Splitting on this would multiply entries of byte-identical HTML — one per
+    // campaign code anyone has ever linked with.
+    expect(result.cacheVary).not.toContain("campaign");
+  });
+
+  it("refuses a campaign code that was never a campaign code", () => {
+    // It arrives in a URL anyone can send, and it reaches analytics.
+    expect(run("http://app.local/?utm_campaign=" + "x".repeat(200), VISITOR).values?.campaign).toBeUndefined();
+    expect(run("http://app.local/?utm_campaign=bad%0Avalue", VISITOR).values?.campaign).toBeUndefined();
+  });
+});
 `;
 
 const maintenanceMiddlewareFile =
@@ -1389,7 +2134,10 @@ import { redirectRulesMiddleware } from "@server/middleware/redirect-rules";
 import { searchIndexingMiddleware } from "@server/middleware/search-indexing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ gatewayFetch: vi.fn(), releaseGatewayResponse: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  gatewayFetch: vi.fn(),
+  releaseGatewayResponse: vi.fn(),
+}));
 
 vi.mock("@originloom/core/adapters/gateway", () => ({
   gatewayFetch: mocks.gatewayFetch,
@@ -1466,6 +2214,9 @@ describe("redirect rules middleware", () => {
     const result = await run(redirectRulesMiddleware, context("http://app.local/moved"));
 
     expect(result?.redirect).toEqual({ location: "/catalog", status: 301 });
+    // No identity: the answer is a property of the URL, not of the visitor, and
+    // this step runs before-auth where no identity exists yet. The cancellation
+    // signal still travels, so an abandoned request does not keep the call alive.
     expect(mocks.gatewayFetch).toHaveBeenCalledWith(
       "/routing/decide?url=" + encodeURIComponent("http://app.local/moved"),
       expect.objectContaining({ signal: expect.anything() }),
@@ -1667,24 +2418,34 @@ export default defineRoute<MediaPageData>({
 const routesIndex = () => `import type { Route } from "@originloom/react/lib/types";
 
 import account from "./account";
+import calculator from "./calculator";
 import catalog from "./catalog";
+import catalogCategory from "./catalog-category";
 import contact from "./contact";
 import dataCache from "./data-cache";
+import guideDetail from "./guide-detail";
+import guides from "./guides";
 import home from "./home";
 import itemDetail from "./item-detail";
 import live from "./live";
 import media from "./media";
+import noCache from "./no-cache";
 import showcase from "./showcase";
 
 /** The route table. Order matters: the first match wins. */
 export const routes: Route[] = [
   home,
   catalog,
+  catalogCategory,
+  calculator,
+  guides,
+  guideDetail,
   dataCache,
   itemDetail,
   account,
   contact,
   live,
+  noCache,
   media,
   showcase,
 ];
@@ -1859,7 +2620,23 @@ vi.mock("@originloom/core/cache", () => ({
 }));
 vi.mock("@originloom/core/logger", () => ({ logger: { warn: mocks.warn } }));
 
-const menu = [{ label: "Katalog", href: "/catalog" }];
+const item = (over: Record<string, unknown> = {}) => ({
+  id: 1,
+  name: "Katalog",
+  url: "/catalog",
+  displayOrder: 1,
+  mobileDisplayOrder: 2,
+  ...over,
+});
+
+const payload = {
+  headerItems: [item({ subMenuItemList: [item({ id: 11, parentId: 1, name: "Araçlar" })] })],
+  footerItems: [item({ id: 100, name: "İletişim", url: "/contact" })],
+};
+
+function request(path = "/") {
+  return new Request(\`http://app.local\${path}\`);
+}
 
 describe("menu data cache", () => {
   beforeEach(() => {
@@ -1867,51 +2644,95 @@ describe("menu data cache", () => {
     mocks.read.mockResolvedValue(null);
     mocks.write.mockResolvedValue(true);
     mocks.deleteKey.mockResolvedValue(true);
-    mocks.gatewayFetch.mockResolvedValue(Response.json(menu));
+    mocks.gatewayFetch.mockImplementation(async () => Response.json(payload));
   });
 
   it("serves a fresh cache hit without calling the gateway", async () => {
+    const menu = await getMenu(request(), "Desktop");
+    mocks.read.mockResolvedValue({ body: JSON.stringify(menu), state: "fresh" });
+    vi.clearAllMocks();
     mocks.read.mockResolvedValue({ body: JSON.stringify(menu), state: "fresh" });
 
-    await expect(getMenu(new Request("http://app.local/"))).resolves.toEqual(menu);
+    await expect(getMenu(request("/again"), "Desktop")).resolves.toEqual(menu);
     expect(mocks.gatewayFetch).not.toHaveBeenCalled();
   });
 
-  it("fills the shared cache after a cold miss", async () => {
-    await expect(getMenu(new Request("http://app.local/"))).resolves.toEqual(menu);
+  it("keeps one entry per device, and tells the gateway which one it wants", async () => {
+    await getMenu(request("/d"), "Desktop");
+    await getMenu(request("/m"), "Mobile");
 
-    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/menu");
-    expect(mocks.write).toHaveBeenCalledWith(
-      "menu:public:v1",
-      JSON.stringify(menu),
-      expect.objectContaining({ kind: "shared", key: ["menu:public:v1"] }),
+    const keys = mocks.write.mock.calls.map((call) => call[0] as string);
+    // Desktop and mobile order the same items differently, so one cached copy
+    // cannot serve both.
+    expect(keys).toEqual(["menu:Desktop", "menu:Mobile"]);
+    // No identity headers here on purpose — this answer is shared by every
+    // visitor on that device. \`device\` is the one dimension that matters.
+    const devices = mocks.gatewayFetch.mock.calls.map(
+      (call) => (call[1] as { headers: Record<string, string> }).headers.device,
     );
+    expect(devices).toEqual(["Desktop", "Mobile"]);
   });
 
-  it("returns stale data immediately and coalesces background refreshes", async () => {
-    const stale = [{ label: "Eski katalog", href: "/catalog" }];
-    mocks.read.mockResolvedValue({ body: JSON.stringify(stale), state: "stale" });
+  it("falls back to the drawer list when the gateway ships only one", async () => {
+    const menu = await getMenu(request(), "Desktop");
 
-    await expect(
-      Promise.all([
-        getMenu(new Request("http://app.local/one")),
-        getMenu(new Request("http://app.local/two")),
-      ]),
-    ).resolves.toEqual([stale, stale]);
-    await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
-    expect(mocks.gatewayFetch).toHaveBeenCalledOnce();
+    // A gateway that returns no hamburgerItems means the drawer shows the header
+    // items — not that the drawer is empty.
+    expect(menu.hamburgerItems).toEqual(menu.headerItems);
   });
 
-  it("does not cache the local fallback when the gateway fails", async () => {
-    mocks.gatewayFetch.mockResolvedValue(new Response(null, { status: 503 }));
+  it("drops the whole menu when one item's URL cannot be trusted", async () => {
+    mocks.gatewayFetch.mockImplementation(async () =>
+      Response.json({ headerItems: [item({ url: "javascript:alert(1)" })] }),
+    );
 
-    await expect(getMenu(new Request("http://app.local/"))).resolves.toContainEqual({
-      label: "Ana sayfa",
-      href: "/",
+    // Rendering the other items and quietly skipping this one would put a menu
+    // on the page that is missing an entry nobody notices. Failing is louder.
+    await expect(getMenu(request(), "Desktop")).resolves.toEqual({
+      headerItems: [],
+      hamburgerItems: [],
+      footerItems: [],
     });
-    expect(mocks.write).not.toHaveBeenCalled();
+    expect(mocks.warn).toHaveBeenCalled();
+  });
+
+  it("refuses a menu nested deeper than it will render", async () => {
+    const deep = item({ subMenuItemList: [item({ subMenuItemList: [item({ subMenuItemList: [item()] })] })] });
+    mocks.gatewayFetch.mockImplementation(async () =>
+      Response.json({ headerItems: [deep] }),
+    );
+
+    // Depth is bounded because this data becomes a render: an upstream loop
+    // would otherwise become an unbounded one here.
+    await expect(getMenu(request(), "Desktop")).resolves.toEqual({
+      headerItems: [],
+      hamburgerItems: [],
+      footerItems: [],
+    });
+  });
+
+  it("renders without a menu rather than failing the page", async () => {
+    mocks.gatewayFetch.mockRejectedValue(new Error("connect ECONNREFUSED"));
+
+    // A missing menu costs navigation; a thrown one costs the page.
+    await expect(getMenu(request(), "Desktop")).resolves.toEqual({
+      headerItems: [],
+      hamburgerItems: [],
+      footerItems: [],
+    });
+    expect(mocks.warn).toHaveBeenCalled();
+  });
+
+  it("replaces a corrupt cache entry instead of trusting it", async () => {
+    mocks.read.mockResolvedValue({ body: "{not json", state: "fresh" });
+
+    await getMenu(request(), "Desktop");
+
+    expect(mocks.deleteKey).toHaveBeenCalledWith("menu:Desktop");
+    expect(mocks.gatewayFetch).toHaveBeenCalled();
   });
 });
+
 `;
 
 const featuredItemsCacheTest =
@@ -1944,10 +2765,21 @@ const page = {
       slug: "alpha",
       name: "Alpha",
       blurb: "İlk örnek kayıt.",
+      category: "ihtiyac",
+      provider: "Örnek Bank",
+      interestRate: 3.1,
+      minAmount: 10_000,
+      maxAmount: 500_000,
+      terms: [12, 24, 36],
       seo: { title: "Alpha", description: "Alpha detay sayfası." },
     },
   ],
   total: 1,
+  page: 1,
+  totalPages: 1,
+  facets: { categories: [{ value: "all", count: 1 }] },
+  query: { category: "all", sortBy: "recommended" },
+  seoInfo: { title: "Katalog", friendlyUrl: "/catalog" },
 };
 
 describe("featured items API data cache", () => {
@@ -1975,7 +2807,11 @@ describe("featured items API data cache", () => {
 
     expect(result).toMatchObject({ ...page, cacheStatus: "miss" });
     expect(result.fetchedAt).toEqual(expect.any(String));
-    expect(mocks.listItems).toHaveBeenCalledWith(1, 3);
+    // The request goes with it: the identity headers the gateway sees on every
+    // call are read from it, not passed around separately.
+    // The whole query goes to the service, not a page number: filters and
+    // sorting are part of what identifies this snapshot.
+    expect(mocks.listItems).toHaveBeenCalledWith(expect.any(URLSearchParams), expect.any(Request));
     expect(mocks.write).toHaveBeenCalledWith(
       "items:featured:v1",
       expect.any(String),
@@ -2146,27 +2982,29 @@ const liveMessageServiceTest =
   () => `import { getLiveMessage } from "@server/services/live-message";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ gatewayFetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
-  gatewayFetch: mocks.gatewayFetch,
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
 }));
 
 describe("gateway-backed progressive message", () => {
-  beforeEach(() => mocks.gatewayFetch.mockReset());
+  beforeEach(() => mocks.gatewayFetchWithIdentity.mockReset());
 
   it("reads and validates the deferred gateway payload", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ message: "gateway-ready" }));
-    const signal = AbortSignal.timeout(1_000);
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ message: "gateway-ready" }));
+    const request = new Request("http://app.local/live");
 
-    await expect(getLiveMessage(signal)).resolves.toBe("gateway-ready");
-    expect(mocks.gatewayFetch).toHaveBeenCalledWith("/live/message", { signal });
+    await expect(getLiveMessage(request)).resolves.toBe("gateway-ready");
+    // The identity — tracking id, client IP, device — rides along because the
+    // service was handed the request instead of a bare signal.
+    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledWith(request, "/live/message");
   });
 
   it("rejects an invalid payload instead of streaming untrusted data", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ message: 42 }));
-    await expect(getLiveMessage(AbortSignal.timeout(1_000))).rejects.toThrow(
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ message: 42 }));
+    await expect(getLiveMessage(new Request("http://app.local/live"))).rejects.toThrow(
       "Live message gateway returned an invalid payload",
     );
   });
@@ -2263,31 +3101,93 @@ describe("operations cache key codec", () => {
 });
 `;
 
-const itemsService =
-  () => `import { gatewayFetch, releaseGatewayResponse, requireGatewayOk } from "@originloom/core/adapters/gateway";
+const itemsService = () => `import {
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
+import { config } from "@originloom/core/config";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
+import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
 import { GatewayContracts } from "./gateway-contracts";
 
 export type ItemSeo = { title: string; description: string };
-export type Item = { slug: string; name: string; blurb: string; seo: ItemSeo };
-export type ItemPage = { items: Item[]; total: number };
+
+/**
+ * A credit product as the catalogue lists it.
+ *
+ * The rate and the limits are the product's; the monthly payment is not — that
+ * depends on what the visitor asked for, so it lives on the quote instead.
+ */
+export type Item = {
+  slug: string;
+  name: string;
+  blurb: string;
+  category: string;
+  provider: string;
+  interestRate: number;
+  minAmount: number;
+  maxAmount: number;
+  terms: number[];
+  seo: ItemSeo;
+};
+
+export type ItemReview = { author: string; rating: number; comment: string };
+
+/**
+ * What this product costs for the amount and term the visitor asked for.
+ *
+ * Computed upstream, not here: an interest formula duplicated in the frontend is
+ * a second source of truth for a number people make decisions with, and the two
+ * copies diverge the first time the business changes a rounding rule.
+ */
+export type ItemQuote = {
+  amount: number;
+  term: number;
+  monthlyPayment: number;
+  totalPayment: number;
+  annualCostRate: number;
+};
+
+/**
+ * A detail *page*, not just the record it is about.
+ *
+ * \`seoInfo\` is page-level and belongs to whoever writes the copy, so it arrives
+ * beside the entity rather than inside it — the same shape the list endpoint
+ * returns, and the same one \`generateMetaDataForPageWithSeoInfo\` consumes.
+ */
+export type ItemDetail = { item: Item; quote: ItemQuote; seoInfo: SeoInfo };
+
+/** One selectable value and how many items carry it, as the gateway counted them. */
+export type ItemFacet = { value: string; count: number };
+
+export type ItemPage = {
+  items: Item[];
+  total: number;
+  page: number;
+  totalPages: number;
+  facets: { categories: ItemFacet[] };
+  /** What the gateway understood the filters to be, after its own normalization. */
+  query: { category: string; sortBy: string };
+  /** Page title, description and indexing flags — owned by the CMS, not the route. */
+  seoInfo: SeoInfo;
+};
 
 const INVALID = "Items gateway returned an invalid payload";
 
 /**
  * Server-only data orchestration. Loaders call these; nothing here runs in the
  * browser, so this is where upstream calls, validation and error mapping live.
+ *
+ * The search params are passed through rather than rebuilt: the caller has
+ * already normalized them (see \`~/lib/catalog-query\`), and normalizing twice in
+ * two places is how the cache key and the request drift apart.
  */
-export async function listItems(
-  page: number,
-  perPage: number,
-  signal?: AbortSignal,
-): Promise<ItemPage> {
-  const response = await gatewayFetch(\`/items?page=\${page}&perPage=\${perPage}\`,
-    signal ? { signal } : {},
-  );
+export async function listItems(search: URLSearchParams, request: Request): Promise<ItemPage> {
+  const response = await gatewayFetchWithIdentity(request, \`/items?\${search}\`);
   await requireGatewayOk(response, "Items gateway returned");
 
   // Bounded read against this endpoint's contract, then a runtime guard: gateway
@@ -2296,8 +3196,15 @@ export async function listItems(
   return requireGatewayPayload(GatewayContracts.items, payload, isItemPage, INVALID);
 }
 
-export async function getItem(slug: string, signal: AbortSignal): Promise<Item | null> {
-  const response = await gatewayFetch(\`/items/\${encodeURIComponent(slug)}\`, { signal });
+export async function getItem(
+  slug: string,
+  search: URLSearchParams,
+  request: Request,
+): Promise<ItemDetail | null> {
+  const response = await gatewayFetchWithIdentity(
+    request,
+    \`/items/\${encodeURIComponent(slug)}?\${search}\`,
+  );
   // A missing item is data, not a failure — the route turns it into notFound().
   if (response.status === 404) {
     await releaseGatewayResponse(response);
@@ -2306,7 +3213,34 @@ export async function getItem(slug: string, signal: AbortSignal): Promise<Item |
   await requireGatewayOk(response, "Items gateway returned");
 
   const payload = await readGatewayJson(response, GatewayContracts.items, INVALID);
-  return requireGatewayPayload(GatewayContracts.items, payload, isItem, INVALID);
+  return requireGatewayPayload(GatewayContracts.items, payload, isItemDetail, INVALID);
+}
+
+/**
+ * The slower half of the detail page, fetched separately on purpose.
+ *
+ * The route hands the promise to React rather than awaiting it, so the shell
+ * streams while this is still in flight. See docs/streaming.md.
+ */
+export async function getItemReviews(slug: string, request: Request): Promise<ItemReview[]> {
+  const response = await gatewayFetchWithIdentity(
+    request,
+    \`/items/\${encodeURIComponent(slug)}/reviews\`,
+  );
+  // Reviews are an addition to the page, not the page: a missing or broken
+  // response costs the section, not the product.
+  if (!response.ok) {
+    await releaseGatewayResponse(response);
+    return [];
+  }
+  const payload = await readGatewayJson(response, GatewayContracts.items, INVALID);
+  const reviews = requireGatewayPayload(
+    GatewayContracts.items,
+    payload,
+    isReviewList,
+    INVALID,
+  );
+  return reviews.reviews;
 }
 
 function isItem(value: unknown): value is Item {
@@ -2315,19 +3249,103 @@ function isItem(value: unknown): value is Item {
     isBoundedString(value.slug, 100) &&
     isBoundedString(value.name, 200) &&
     isBoundedString(value.blurb, 1_000) &&
+    isBoundedString(value.category, 60) &&
+    isBoundedString(value.provider, 120) &&
+    isRate(value.interestRate) &&
+    isMoney(value.minAmount) &&
+    isMoney(value.maxAmount) &&
+    isBoundedArray(value.terms, 20, isTerm) &&
     isRecord(value.seo) &&
     isBoundedString(value.seo.title, 200) &&
     isBoundedString(value.seo.description, 500)
   );
 }
 
+/**
+ * Money and rates are checked for range, not just for type.
+ *
+ * A negative payment or a 900% rate is not a display bug — it is a number a
+ * visitor may act on, and it must not reach the page even if the upstream is
+ * confident about it.
+ */
+function isMoney(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1e12;
+}
+
+function isRate(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
+}
+
+function isTerm(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= 480;
+}
+
+function isQuote(value: unknown): value is ItemQuote {
+  return (
+    isRecord(value) &&
+    isMoney(value.amount) &&
+    isTerm(value.term) &&
+    isMoney(value.monthlyPayment) &&
+    isMoney(value.totalPayment) &&
+    isRate(value.annualCostRate)
+  );
+}
+
+function isItemDetail(value: unknown): value is ItemDetail {
+  return (
+    isRecord(value) &&
+    isItem(value.item) &&
+    isQuote(value.quote) &&
+    parseSeoInfo(value.seoInfo, config.siteUrl) !== null
+  );
+}
+
+function isFacet(value: unknown): value is ItemFacet {
+  return (
+    isRecord(value) &&
+    isBoundedString(value.value, 60) &&
+    typeof value.count === "number" &&
+    Number.isSafeInteger(value.count) &&
+    value.count >= 0
+  );
+}
+
+function isReview(value: unknown): value is ItemReview {
+  return (
+    isRecord(value) &&
+    isBoundedString(value.author, 120) &&
+    typeof value.rating === "number" &&
+    Number.isFinite(value.rating) &&
+    value.rating >= 1 &&
+    value.rating <= 5 &&
+    isBoundedString(value.comment, 2_000)
+  );
+}
+
+function isReviewList(value: unknown): value is { reviews: ItemReview[] } {
+  return isRecord(value) && isBoundedArray(value.reviews, 50, isReview);
+}
+
 export function isItemPage(value: unknown): value is ItemPage {
   return (
     isRecord(value) &&
     isBoundedArray(value.items, 100, isItem) &&
-    typeof value.total === "number" &&
-    Number.isFinite(value.total)
+    isCount(value.total) &&
+    isCount(value.page) &&
+    isCount(value.totalPages) &&
+    isRecord(value.facets) &&
+    isBoundedArray(value.facets.categories, 50, isFacet) &&
+    isRecord(value.query) &&
+    isBoundedString(value.query.category, 60) &&
+    isBoundedString(value.query.sortBy, 60) &&
+    // SEO text is the CMS's to write. Parsing it here means a route never has to
+    // guess whether the upstream gave it a usable canonical or an empty string.
+    parseSeoInfo(value.seoInfo, config.siteUrl) !== null
   );
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 `;
 
@@ -2335,6 +3353,8 @@ const featuredItemsService = () => `import * as cache from "@originloom/core/cac
 import { logger } from "@originloom/core/logger";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import { productConfig } from "@server/product/config";
+
+import { itemsQuery } from "~/lib/catalog-query";
 
 import { isItemPage, type ItemPage, listItems } from "./items";
 
@@ -2366,7 +3386,7 @@ export async function getFeaturedItems(request: Request): Promise<FeaturedItemsR
   if (hit) {
     const cached = parseSnapshot(hit.body);
     if (cached) {
-      if (hit.state === "stale") scheduleRefresh();
+      if (hit.state === "stale") scheduleRefresh(request);
       return { ...cached, cacheStatus: hit.state };
     }
     try {
@@ -2378,15 +3398,18 @@ export async function getFeaturedItems(request: Request): Promise<FeaturedItemsR
     }
   }
 
-  const snapshot = await waitForRequest(refresh(key), request.signal);
+  const snapshot = await waitForRequest(refresh(request, key), request.signal);
   return { ...snapshot, cacheStatus: "miss" };
 }
 
-function refresh(key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY)): Promise<FeaturedItemsSnapshot> {
+function refresh(
+  request: Request,
+  key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY),
+): Promise<FeaturedItemsSnapshot> {
   if (refreshInFlight) return refreshInFlight;
   if (!key) return Promise.reject(new Error("Featured items cache policy must be shared"));
 
-  const pending = listItems(1, productConfig.catalogPageSize)
+  const pending = listItems(itemsQuery({ perPage: productConfig.catalogPageSize }), request)
     .then(async (page) => {
       const snapshot = { ...page, fetchedAt: new Date().toISOString() };
       await cache.write(key, JSON.stringify(snapshot), FEATURED_ITEMS_CACHE_POLICY);
@@ -2399,8 +3422,8 @@ function refresh(key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY)): Promise<Fea
   return pending;
 }
 
-function scheduleRefresh(): void {
-  void refresh().catch((error: unknown) => {
+function scheduleRefresh(request: Request): void {
+  void refresh(request).catch((error: unknown) => {
     logger.warn("stale featured-items refresh failed", { error: errorMessage(error) });
   });
 }
@@ -2439,8 +3462,10 @@ function errorMessage(error: unknown): string {
 }
 `;
 
-const liveMessageService =
-  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+const liveMessageService = () => `import {
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
@@ -2455,8 +3480,8 @@ const INVALID = "Live message gateway returned an invalid payload";
  * deliberately keeps this Promise pending in its data so React can stream the
  * shell while the gateway response is still in flight.
  */
-export async function getLiveMessage(signal: AbortSignal): Promise<string> {
-  const response = await gatewayFetch("/live/message", { signal });
+export async function getLiveMessage(request: Request): Promise<string> {
+  const response = await gatewayFetchWithIdentity(request, "/live/message");
   await requireGatewayOk(response, "Live message gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.liveMessage, INVALID);
   return requireGatewayPayload(
@@ -2475,10 +3500,13 @@ function isLiveMessage(value: unknown): value is LiveMessage {
 const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
 import { mountClientMetricApi } from "@originloom/core/api/client-metrics";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { mountCalculatorApi } from "@server/api/calculator";
 import { mountEnquiryApi } from "@server/api/enquiries";
 import { mountPublicItemsApi } from "@server/api/items";
 import { mountLiveStreamApi } from "@server/api/live-stream";
+import { mountReferralApi } from "@server/api/referrals";
 import { mountSessionApi } from "@server/api/session";
+import { mountWebhookApi } from "@server/api/webhooks";
 import type { Hono } from "hono";
 
 /**
@@ -2492,6 +3520,18 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   mountClientMetricApi(app);
 
   mountPublicItemsApi(app);
+
+  // Leaving the site for a provider records something and sets a cookie, so
+  // it is a POST, not a link — see docs/referrals.md.
+  mountReferralApi(app);
+
+  // The tool page renders its first result from this same endpoint, so the
+  // island refines a plan instead of computing a second one.
+  mountCalculatorApi(app);
+
+  // The provider writing back to us. Signed, time-bounded and idempotent —
+  // see docs/webhooks.md before changing any of the three.
+  mountWebhookApi(app);
 
   // The contact form posts here. A public write, so it is same-origin checked
   // and rate limited — see docs/mutations.md.
@@ -2701,68 +3741,241 @@ function wait(ms: number): Promise<void> {
 
 const itemDetailRoute = () => `import { defineRoute, notFound } from "@originloom/react/lib/types";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
-import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata/jsonld";
-import { getItem, type Item } from "@server/services/items";
+import {
+  generateMetaDataForPageWithSeoInfo,
+  publicAbsoluteUrl,
+} from "@originloom/shared/lib/metadata/generate";
+import {
+  breadcrumbJsonLd,
+  compactJsonLd,
+  type JsonLdObject,
+} from "@originloom/shared/lib/metadata/jsonld";
+import { getItem, getItemReviews, type ItemDetail, type ItemReview } from "@server/services/items";
 
 import { ItemDetailPage } from "~/features/items/item-detail-page";
 import { pageCache, PageCacheId } from "~/lib/cache-keys";
+import { quoteSearch } from "~/lib/quote-query";
 import { defaultPageMeta } from "~/lib/shell-data";
 
-type Data = { item: Item };
+type Data = ItemDetail & { reviews: ItemReview[] };
 
 export default defineRoute<Data>({
   path: "/items/:slug",
   // Reject unbounded / garbage slugs before any cache lookup or render.
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
-  // The slug is part of the cache key (see cache-keys.ts), so each item caches on its own.
+  // Slug *and* the normalized quote query fragment the cache: two visitors asking
+  // the same product for the same amount and term are asking for the same page.
+  // Nothing here is personal, which is exactly why it can be shared.
   cache: pageCache(PageCacheId.itemDetail),
   loader: async (ctx) => {
-    const item = await getItem(ctx.params.slug ?? "", ctx.request.signal);
+    const slug = ctx.params.slug ?? "";
+    const detail = await getItem(slug, quoteSearch(ctx.url), ctx.request);
     // Terminal result, not a thrown error — an unknown slug is a 404, never cached.
-    return item ? { data: { item } } : notFound();
+    if (!detail) return notFound();
+
+    // A second, slower call — and deliberately *not* streamed. This page is
+    // shared-cached, and a cached response cannot be a partial one: the entry
+    // has to be the finished document or it is not an entry. So the cost is
+    // paid once per key per TTL, by whoever misses the cache, and every other
+    // visitor gets both halves for free.
+    //
+    // When a page cannot be cached, the trade is the other way round and
+    // streaming wins — see server/routes/live.tsx and docs/streaming.md.
+    const reviews = await getItemReviews(slug, ctx.request);
+
+    return { data: { ...detail, reviews } };
   },
   generateMetadata: (data, ctx) => {
-    const baseUrl = ctx.siteUrl ?? ctx.url.origin;
-    const canonical = baseUrl + "/items/" + data.item.slug;
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    const url = publicAbsoluteUrl(ctx, \`/items/\${data.item.slug}\`);
+    // Title, description, OG image and the indexing flags are the CMS's, parsed
+    // and normalized by the platform. Writing them in the route instead means
+    // every copy change is a deploy — and the fields nobody remembers by hand
+    // (og:image, imageAlt, modifiedTime) are simply never set.
+    const metadata = generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx);
     return {
-      title: data.item.seo.title,
-      description: data.item.seo.description,
-      canonical,
-      jsonLd: compactJsonLd([
+      ...metadata,
+      // The canonical is the product's address without the quote query: the
+      // amount is a view of one page, not a page of its own.
+      canonical: url,
+      openGraph: { ...metadata.openGraph, url },
+      structuredData: compactJsonLd([
         breadcrumbJsonLd(
           [
-            { name: "Ana sayfa", url: "/" },
-            { name: "Katalog", url: "/catalog" },
-            { name: data.item.name, url: canonical },
+            { name: "Ana sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Ürünler", url: publicAbsoluteUrl(ctx, "/catalog") },
+            { name: data.item.name, url },
           ],
-          baseUrl,
+          base,
         ),
+        offerJsonLd(data, url),
+        // Only claimed when there is something to claim: a rating summary with no
+        // ratings behind it is the kind of structured data that earns a penalty.
+        ...(data.reviews.length > 0 ? [aggregateRatingJsonLd(data, url)] : []),
       ]),
     };
   },
-  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "item-detail"),
+  pageMeta: (data, ctx) => defaultPageMeta(ctx, "item-detail", { category: data.item.category }),
   Component: ItemDetailPage,
 });
+
+function offerJsonLd(data: Data, url: string): JsonLdObject {
+  return {
+    "@type": "FinancialProduct",
+    "@id": \`\${url}#product\`,
+    name: data.item.name,
+    description: data.item.blurb,
+    url,
+    provider: { "@type": "Organization", name: data.item.provider },
+    interestRate: data.item.interestRate,
+    annualPercentageRate: data.quote.annualCostRate,
+    amount: { "@type": "MonetaryAmount", currency: "TRY", value: data.quote.amount },
+  };
+}
+
+function aggregateRatingJsonLd(data: Data, url: string): JsonLdObject {
+  const total = data.reviews.reduce((sum, review) => sum + review.rating, 0);
+  return {
+    "@type": "AggregateRating",
+    itemReviewed: { "@id": \`\${url}#product\` },
+    ratingValue: Number((total / data.reviews.length).toFixed(1)),
+    reviewCount: data.reviews.length,
+  };
+}
+
 `;
 
 const itemDetailPage = () => `import { Link } from "@originloom/react/lib/link";
-import type { Item } from "@server/services/items";
+import { useRequestContext } from "@originloom/react/lib/request-context";
+import type { ItemDetail, ItemReview } from "@server/services/items";
 
-export function ItemDetailPage({ data }: { data: { item: Item } }) {
+import { formatMoney, QUOTE_TERMS, quoteHref } from "~/lib/quote-query";
+
+type Data = ItemDetail & { reviews: ItemReview[] };
+
+const AMOUNT_STEPS = [50_000, 100_000, 250_000, 500_000];
+
+export function ItemDetailPage({ data }: { data: Data }) {
+  const { search } = useRequestContext();
+  const current = new URLSearchParams(search);
+  const { item, quote } = data;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Link className="text-sm text-slate-500 hover:underline" href="/catalog">
-        ← Kataloğa dön
+        ← Ürünlere dön
       </Link>
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{data.item.name}</h1>
-      <p className="max-w-2xl text-slate-600">{data.item.blurb}</p>
+
+      <header className="space-y-1">
+        <p className="text-sm text-slate-500">{item.provider}</p>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">{item.name}</h1>
+        <p className="max-w-2xl text-slate-600">{item.blurb}</p>
+      </header>
+
+      {/* The quote is server-rendered from the URL, so it is shareable, indexable
+          and cached — and it is here with JavaScript switched off. */}
+      <section aria-labelledby="quote-heading" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+        <h2 id="quote-heading" className="text-xl font-semibold text-slate-900">
+          Örnek ödeme planı
+        </h2>
+
+        <div className="flex flex-wrap gap-6">
+          <nav aria-label="Tutar" className="flex flex-wrap items-center gap-2">
+            {AMOUNT_STEPS.filter((amount) => amount >= item.minAmount && amount <= item.maxAmount).map(
+              (amount) => (
+                <Link
+                  key={amount}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-700 hover:border-slate-400 aria-[current=true]:border-slate-900 aria-[current=true]:bg-slate-900 aria-[current=true]:text-white"
+                  href={quoteHref(item.slug, current, { amount: String(amount) })}
+                  current={quote.amount === amount}
+                >
+                  {formatMoney(amount)}
+                </Link>
+              ),
+            )}
+          </nav>
+
+          <nav aria-label="Vade" className="flex flex-wrap items-center gap-2">
+            {QUOTE_TERMS.filter((term) => item.terms.includes(term)).map((term) => (
+              <Link
+                key={term}
+                className="text-sm text-slate-600 underline-offset-4 hover:underline aria-[current=true]:font-semibold aria-[current=true]:text-slate-900"
+                href={quoteHref(item.slug, current, { term: String(term) })}
+                current={quote.term === term}
+              >
+                {term} ay
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <dl className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <dt className="text-sm text-slate-500">Aylık taksit</dt>
+            <dd className="text-lg font-semibold text-slate-900">
+              {formatMoney(quote.monthlyPayment)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-slate-500">Toplam geri ödeme</dt>
+            <dd className="text-lg font-semibold text-slate-900">
+              {formatMoney(quote.totalPayment)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-slate-500">Yıllık maliyet oranı</dt>
+            <dd className="text-lg font-semibold text-slate-900">%{quote.annualCostRate}</dd>
+          </div>
+        </dl>
+
+        <p className="text-xs text-slate-500">
+          Faiz oranı %{item.interestRate}. Rakamlar örnektir ve başvuru sonucuna göre değişebilir.
+        </p>
+
+        {/* The application itself happens at the provider. Leaving this site is a
+            write, not a link: see server/api/referrals.ts and docs/referrals.md. */}
+        <form method="post" action="/api/referrals">
+          <input type="hidden" name="slug" value={item.slug} />
+          <input type="hidden" name="returnTo" value={quoteHref(item.slug, current, {})} />
+          <button
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            type="submit"
+          >
+            {item.provider} ile devam et
+          </button>
+        </form>
+      </section>
+
+      <section aria-labelledby="reviews-heading" className="space-y-3">
+        <h2 id="reviews-heading" className="text-xl font-semibold text-slate-900">
+          Değerlendirmeler
+        </h2>
+        {data.reviews.length === 0 ? (
+          <p className="text-sm text-slate-500">Bu ürün için henüz değerlendirme yok.</p>
+        ) : (
+          <ul className="space-y-3">
+            {data.reviews.map((review, index) => (
+              <li key={\`\${review.author}-\${index}\`} className="rounded-lg border border-slate-200 p-4">
+                <p className="font-medium text-slate-800">
+                  {review.author} ·{" "}
+                  <span aria-label={\`\${review.rating} / 5\`}>{"★".repeat(Math.round(review.rating))}</span>
+                </p>
+                <p className="text-sm text-slate-600">{review.comment}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <p className="text-sm text-slate-500">
-        Bu sayfa dinamik bir route (<code>/items/:slug</code>). Slug cache key'e girer, bilinmeyen
-        slug <code>validateParams</code> + <code>notFound()</code> ile 404 olur.
+        Dinamik route (<code>/items/:slug</code>). Slug ve normalize edilmiş <code>?amount</code>/
+        <code>?term</code> cache key&apos;e girer — teklif paylaşımlıdır, kişisel değildir. Tutar
+        1.000&apos;e yuvarlanır: aksi halde her farklı rakam kendi cache girdisi olurdu.
       </p>
     </div>
   );
 }
+
 `;
 
 const accountRoute = () => `import { Island } from "@originloom/react/lib/island";
@@ -2989,95 +4202,239 @@ export function DataCachePage({ data }: Props) {
 }
 `;
 
-const catalogRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
-import { compactJsonLd, itemListJsonLd } from "@originloom/shared/lib/metadata/jsonld";
+const catalogRoute =
+  () => `import { defineRoute, notFound, redirect } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
+import { resolvePageParam } from "@originloom/shared/lib/content-values";
+import {
+  generatePaginatedMetadata,
+  publicAbsoluteUrl,
+} from "@originloom/shared/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd, itemListJsonLd } from "@originloom/shared/lib/metadata/jsonld";
 import { observeCatalogView } from "@server/metrics/catalog";
 import { productConfig } from "@server/product/config";
-import { type Item, listItems } from "@server/services/items";
+import { type ItemPage, listItems } from "@server/services/items";
 
 import { CatalogPage } from "~/features/catalog/catalog-page";
-import { pageCache, PageCacheId } from "~/lib/cache-keys";
-import { pageParam } from "~/lib/pagination";
+import { pageCache, PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
+import { catalogSearch } from "~/lib/catalog-query";
 import { defaultPageMeta } from "~/lib/shell-data";
 
-type Data = { items: Item[]; page: number; totalPages: number };
+type Data = ItemPage & { variant?: string };
 
 export default defineRoute<Data>({
   path: "/catalog",
-  // Only the normalized ?page value changes the HTML, so only it enters the key.
-  cache: pageCache(PageCacheId.catalog),
+  // Only allowlisted, normalized query values change the HTML, so only they enter
+  // the key. A URL that is going to 404 or redirect is not cached at all —
+  // otherwise a single bad link fills the cache with copies of an error.
+  cache: pageCache(PageCacheId.catalog, (ctx) =>
+    resolvePageParam(ctx.url.searchParams.get("page")).kind === "valid"
+      ? pageCachePolicy(PageCacheId.catalog, ctx)
+      : neverCache(),
+  ),
   loader: async (ctx) => {
-    const page = pageParam(ctx.url);
-    const perPage = productConfig.catalogPageSize;
-    const { items, total } = await listItems(page, perPage, ctx.request.signal);
-    observeCatalogView(page);
-    return { data: { items, page, totalPages: Math.max(1, Math.ceil(total / perPage)) } };
+    const page = resolvePageParam(ctx.url.searchParams.get("page"));
+    // \`?page=abc\` is not page 1 — it is a URL that was never valid. Silently
+    // clamping it would serve the catalog under infinitely many addresses.
+    if (page.kind === "invalid") return notFound();
+    // \`?page=1\` and \`?page=01\` are the catalog under a second name. One page,
+    // one URL: send the visitor and the crawler to the canonical one.
+    if (page.kind === "redirect") {
+      const target = new URL(ctx.url);
+      target.searchParams.delete("page");
+      return redirect(\`\${target.pathname}\${target.search}\`, 308);
+    }
+
+    const data = await listItems(catalogSearch(ctx.url, productConfig.catalogPageSize), ctx.request);
+    // A page past the end is empty, and an empty page that returns 200 is a soft
+    // 404 — the one SEO failure that never shows up in logs.
+    if (page.page > data.totalPages || data.page !== page.page) return notFound();
+
+    observeCatalogView(page.page);
+    // \`ctx.values\` is what server/middleware/experiments.ts published for this
+    // request. Reading it here is what makes the bucket real — and what makes
+    // \`cacheVary\` in that middleware mandatory rather than tidy: this page now
+    // renders differently per bucket, so its cached HTML must too.
+    // Absent — not \`undefined\` — when the experiment middleware is not
+    // registered, so the page renders without an arm rather than pretending to
+    // have one.
+    return {
+      data: { ...data, ...(ctx.values?.variant ? { variant: ctx.values.variant } : {}) },
+    };
   },
   generateMetadata: (data, ctx) => {
-    const baseUrl = ctx.siteUrl ?? ctx.url.origin;
-    const canonical = data.page === 1 ? baseUrl + "/catalog" : baseUrl + "/catalog?page=" + data.page;
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    // Title, description and indexing flags come from the gateway; the route adds
+    // only what it alone knows — which page of the sequence this is.
+    const metadata = generatePaginatedMetadata(
+      data.seoInfo,
+      ctx,
+      data.page,
+      data.totalPages,
+      "/catalog",
+    );
     return {
-      title: data.page === 1 ? "Katalog" : \`Katalog — Sayfa \${data.page}\`,
-      canonical,
-      jsonLd: compactJsonLd([
+      ...metadata,
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Katalog", url: metadata.canonical ?? "/catalog" },
+          ],
+          base,
+        ),
         itemListJsonLd(
           "Katalog",
-          data.items.map((item) => ({ name: item.name, url: "/items/" + item.slug })),
-          baseUrl,
+          data.items.map((item) => ({ name: item.name, url: \`/items/\${item.slug}\` })),
+          base,
         ),
       ]),
     };
   },
-  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "catalog"),
+  // The bucket and the campaign both belong in analytics; only one of them
+  // belongs in the cache key.
+  pageMeta: (data, ctx) =>
+    defaultPageMeta(ctx, "catalog", {
+      category: data.query.category,
+      ...(data.variant ? { experiment: data.variant } : {}),
+      ...(ctx.values?.campaign ? { campaign: ctx.values.campaign } : {}),
+    }),
   Component: CatalogPage,
 });
+
 `;
 
 const catalogPage = () => `import { Link } from "@originloom/react/lib/link";
-import type { Item } from "@server/services/items";
+import { useRequestContext } from "@originloom/react/lib/request-context";
+import type { ItemPage } from "@server/services/items";
 
-type Props = { data: { items: Item[]; page: number; totalPages: number } };
+import { CATALOG_SORTS, catalogHref } from "~/lib/catalog-query";
 
+type Props = { data: ItemPage & { variant?: string } };
+
+/** The two arms server/middleware/experiments.ts buckets visitors into. */
+const PROMO = {
+  a: "Faiz oranlarını karşılaştırın.",
+  b: "Taksitinizi saniyeler içinde hesaplayın.",
+} as const;
+
+const SORT_LABELS: Record<string, string> = {
+  recommended: "Önerilen",
+  "rate-asc": "En düşük faiz",
+  "name-asc": "İsme göre",
+  newest: "En yeni",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  all: "Tümü",
+  konut: "Konut kredisi",
+  ihtiyac: "İhtiyaç kredisi",
+  tasit: "Taşıt kredisi",
+};
+
+/**
+ * Filters are links, not a form.
+ *
+ * Every filtered view is a real URL: it can be shared, indexed, opened in a new
+ * tab and — because the query is allowlisted and normalized — served from the
+ * shared HTML cache. A \`fetch\`-and-replace filter is faster to write and gives
+ * up all four.
+ */
 export function CatalogPage({ data }: Props) {
+  const { search } = useRequestContext();
+  const current = new URLSearchParams(search);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Katalog</h1>
-      <ul className="divide-y divide-slate-100">
-        {data.items.map((item) => (
-          <li key={item.slug} className="py-3">
-            <Link className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
-              {item.name}
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Krediler</h1>
+
+      {/* The experiment arm, rendered on the server inside cached HTML — which
+          is exactly why the middleware that chose it varies the cache key.
+          Absent until that middleware is registered. See docs/middleware.md. */}
+      {data.variant ? (
+        <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {PROMO[data.variant === "b" ? "b" : "a"]}{" "}
+          <span className="text-xs text-slate-500">(deney kovası: {data.variant})</span>
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-6">
+        <nav aria-label="Kategori" className="flex flex-wrap items-center gap-2">
+          {data.facets.categories.map((facet) => (
+            <Link
+              key={facet.value}
+              className="rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-700 hover:border-slate-400 aria-[current=true]:border-slate-900 aria-[current=true]:bg-slate-900 aria-[current=true]:text-white"
+              href={catalogHref(current, { category: facet.value })}
+              current={data.query.category === facet.value}
+            >
+              {CATEGORY_LABELS[facet.value] ?? facet.value} ({facet.count})
             </Link>
-            <p className="text-sm text-slate-500">{item.blurb}</p>
-          </li>
-        ))}
-      </ul>
-      <nav className="flex items-center gap-4 text-sm">
+          ))}
+        </nav>
+
+        <nav aria-label="Sıralama" className="flex flex-wrap items-center gap-2">
+          {CATALOG_SORTS.map((sort) => (
+            <Link
+              key={sort}
+              className="text-sm text-slate-600 underline-offset-4 hover:underline aria-[current=true]:font-semibold aria-[current=true]:text-slate-900"
+              href={catalogHref(current, { sortBy: sort })}
+              current={data.query.sortBy === sort}
+            >
+              {SORT_LABELS[sort] ?? sort}
+            </Link>
+          ))}
+        </nav>
+      </div>
+
+      {data.items.length === 0 ? (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-slate-600">
+          Bu filtreyle eşleşen kayıt yok. <Link href="/catalog">Filtreleri temizle</Link>.
+        </p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {data.items.map((item) => (
+            <li key={item.slug} className="py-3">
+              <Link className="font-medium text-slate-800 hover:underline" href={\`/items/\${item.slug}\`}>
+                {item.name}
+              </Link>
+              <p className="text-sm text-slate-500">{item.blurb}</p>
+              <p className="text-xs text-slate-500">
+                {item.provider} · faiz %{item.interestRate} · {item.terms.at(-1)} aya kadar
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <nav aria-label="Sayfalama" className="flex items-center gap-4 text-sm">
         {data.page > 1 ? (
-          <a className="text-slate-700 hover:underline" href={"?page=" + (data.page - 1)}>
+          <Link className="text-slate-700 hover:underline" href={catalogHref(current, { page: String(data.page - 1) })}>
             ← Önceki
-          </a>
+          </Link>
         ) : (
           <span className="text-slate-500">← Önceki</span>
         )}
-        <span aria-current="page" className="text-slate-500">
-          Sayfa {data.page} / {data.totalPages}
+        <span className="text-slate-500">
+          Sayfa {data.page} / {data.totalPages} · {data.total} kayıt
         </span>
         {data.page < data.totalPages ? (
-          <a className="text-slate-700 hover:underline" href={"?page=" + (data.page + 1)}>
+          <Link className="text-slate-700 hover:underline" href={catalogHref(current, { page: String(data.page + 1) })}>
             Sonraki →
-          </a>
+          </Link>
         ) : (
           <span className="text-slate-500">Sonraki →</span>
         )}
       </nav>
+
       <p className="text-sm text-slate-500">
-        Query param (<code>?page</code>) allowlist ile cache key'e girer; tracking param'ları
-        girmez.
+        Filtreler ve <code>?page</code> allowlist ile cache key&apos;e girer; tracking param&apos;ları
+        girmez. Bilinmeyen bir değer 404 değil, varsayılandır — <code>?page=abc</code> hariç, çünkü o
+        hiç var olmamış bir adres.
       </p>
     </div>
   );
 }
+
 `;
 
 const liveRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
@@ -3098,7 +4455,7 @@ export default defineRoute<Data>({
     data: {
       // Do not await this non-critical upstream value. The shell streams while
       // the gateway is in flight; Suspense fills the boundary when it resolves.
-      slowMessage: getLiveMessage(ctx.request.signal),
+      slowMessage: getLiveMessage(ctx.request),
     },
   }),
   title: () => "Canlı veri",
@@ -3206,6 +4563,1389 @@ export default function LiveTicks() {
 }
 `;
 
+const sitemapService = () => `import {
+  gatewayFetch,
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+const MAX_SITEMAP_ENTRIES = 50_000;
+const MAX_PATH_LENGTH = 2_048;
+const INVALID = "Sitemap gateway returned an invalid payload";
+
+export type SitemapEntry = { path: string; lastModified?: string };
+
+/**
+ * Which URLs exist, asked rather than derived.
+ *
+ * Deriving the sitemap from the first page of the catalogue works until the
+ * catalogue is bigger than one page — and then it silently ships a sitemap that
+ * omits most of the site. The gateway is the only thing that knows the whole
+ * set, so it is the thing that answers.
+ */
+export async function fetchSitemapEntries(request?: Request): Promise<SitemapEntry[]> {
+  const response = request
+    ? await gatewayFetchWithIdentity(request, "/seo/sitemap")
+    : await gatewayFetch("/seo/sitemap");
+  await requireGatewayOk(response, "Sitemap gateway returned");
+
+  const payload = await readGatewayJson(response, GatewayContracts.sitemap, INVALID);
+  const result = requireGatewayPayload(GatewayContracts.sitemap, payload, isSitemapPayload, INVALID);
+  // Last one wins on a duplicate path: a sitemap that lists the same URL twice is
+  // a sitemap a crawler distrusts.
+  return [...new Map(result.entries.map((entry) => [entry.path, entry])).values()];
+}
+
+function isSitemapPayload(value: unknown): value is { entries: SitemapEntry[] } {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.entries) &&
+    value.entries.length > 0 &&
+    value.entries.length <= MAX_SITEMAP_ENTRIES &&
+    value.entries.every(isSitemapEntry)
+  );
+}
+
+function isSitemapEntry(value: unknown): value is SitemapEntry {
+  if (!isRecord(value) || !isPublicPath(value.path)) return false;
+  return value.lastModified === undefined || isIsoDate(value.lastModified);
+}
+
+/**
+ * A sitemap entry is a public path on this site and nothing else.
+ *
+ * Rejecting \`//host/path\`, a query, a fragment or a control character here is
+ * what stops an upstream mistake from publishing someone else's URLs under this
+ * domain's authority.
+ */
+function isPublicPath(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_PATH_LENGTH &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.includes("?") &&
+    !value.includes("#") &&
+    !value.includes("\\\\") &&
+    ![...value].some((character) => {
+      const code = character.charCodeAt(0);
+      return code <= 31 || code === 127;
+    })
+  );
+}
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+`;
+
+const sitemapServiceTest = () => `import { fetchSitemapEntries } from "@server/services/sitemap";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const request = new Request("http://app.local/sitemap.xml");
+
+function upstream(entries: unknown[]) {
+  mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json({ entries }));
+}
+
+describe("the sitemap source", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("asks the gateway which URLs exist", async () => {
+    upstream([{ path: "/" }, { path: "/catalog" }, { path: "/items/alpha" }]);
+
+    await expect(fetchSitemapEntries(request)).resolves.toEqual([
+      { path: "/" },
+      { path: "/catalog" },
+      { path: "/items/alpha" },
+    ]);
+  });
+
+  it("lists a duplicated path once", async () => {
+    upstream([{ path: "/catalog" }, { path: "/catalog", lastModified: "2026-01-01T00:00:00.000Z" }]);
+
+    const entries = await fetchSitemapEntries(request);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.lastModified).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it.each([
+    ["//evil.example/takeover", "a protocol-relative URL is somebody else's host"],
+    ["/search?q=x", "a query makes it a different URL than the one indexed"],
+    ["/page#section", "a fragment is not a page"],
+    ["not-a-path", "a relative string is not a public path"],
+  ])("refuses %s", async (path) => {
+    upstream([{ path }]);
+
+    // An upstream mistake must not be able to publish arbitrary URLs under this
+    // domain's authority.
+    await expect(fetchSitemapEntries(request)).rejects.toThrow(/invalid payload/i);
+  });
+});
+`;
+
+const routeDomainsService =
+  () => `import { gatewayFetch, gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import * as cache from "@originloom/core/cache";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+const ROUTE_DOMAINS_CACHE_KEY = "route-domains";
+const MAX_DOMAIN_VALUES = 500;
+const INVALID = "Route domains gateway returned an invalid payload";
+
+export type RouteDomains = {
+  /** The category slugs that exist, as the gateway currently defines them. */
+  categories: string[];
+};
+
+/**
+ * Which values a route param may take, when the answer is not in this codebase.
+ *
+ * \`isBoundedRouteSlug\` answers "is this the right shape" — cheap, offline, and
+ * it lets \`/catalog/anything-shaped-like-a-slug\` through. This answers "does it
+ * exist", which only the gateway knows, and which changes without a deploy.
+ *
+ * The snapshot goes through the shared cache so the check costs one upstream
+ * call per TTL for the whole fleet rather than one per request. That matters
+ * because validateParams runs *before* the page cache is consulted: it is on the
+ * path of every request to the route, hit or miss.
+ */
+export async function fetchRouteDomains(request?: Request): Promise<RouteDomains> {
+  const policy = { kind: "shared" as const, ttl: 300, swr: 0, key: [ROUTE_DOMAINS_CACHE_KEY] };
+  const key = cache.cacheKey(policy);
+
+  if (key) {
+    const hit = await cache.read(key);
+    if (hit) {
+      try {
+        const cached: unknown = JSON.parse(hit.body);
+        if (isRouteDomains(cached)) return normalize(cached);
+      } catch {
+        // A corrupt or older snapshot is not worth repairing: drop it and refetch.
+      }
+      await cache.deleteKey(key);
+    }
+  }
+
+  // A refresh triggered outside a request — a warm-up, a test — has no identity
+  // to carry, and inventing one would be worse than sending none.
+  const response = request
+    ? await gatewayFetchWithIdentity(request, "/routing/domains")
+    : await gatewayFetch("/routing/domains");
+  await requireGatewayOk(response, "Route domains gateway returned");
+
+  const payload = await readGatewayJson(response, GatewayContracts.routeDomains, INVALID);
+  const domains = normalize(
+    requireGatewayPayload(GatewayContracts.routeDomains, payload, isRouteDomains, INVALID),
+  );
+  if (key) await cache.write(key, JSON.stringify(domains), policy);
+  return domains;
+}
+
+export async function isKnownCategory(
+  category: string | undefined,
+  request?: Request,
+): Promise<boolean> {
+  // Shape first, and only then the upstream: a 4 KB param is rejected without
+  // ever reaching the cache or the gateway.
+  if (!category || !isBoundedRouteSlug(category)) return false;
+  return (await fetchRouteDomains(request)).categories.includes(category);
+}
+
+function isRouteDomains(value: unknown): value is RouteDomains {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return isSlugList((value as Record<string, unknown>).categories);
+}
+
+function isSlugList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= MAX_DOMAIN_VALUES &&
+    value.every((item) => typeof item === "string" && isBoundedRouteSlug(item))
+  );
+}
+
+/** Sorted and de-duplicated, so the same upstream answer is the same cache body. */
+function normalize(domains: RouteDomains): RouteDomains {
+  return { categories: [...new Set(domains.categories)].sort() };
+}
+`;
+
+const catalogCategoryRoute =
+  () => `import { defineRoute, redirect } from "@originloom/react/lib/types";
+import { isKnownCategory } from "@server/services/route-domains";
+
+/**
+ * A path-shaped alias for a query-shaped page.
+ *
+ * \`/catalog/tools\` reads better in a link and a campaign than
+ * \`/catalog?category=tools\`, but two URLs for one page is a duplicate — so this
+ * one is not a page at all: it validates and redirects, permanently.
+ *
+ * The point of the example is \`validateParams\`. It runs before the page cache is
+ * consulted, so an unknown category never allocates a cache entry, and a
+ * thousand requests for \`/catalog/does-not-exist\` cost one upstream lookup per
+ * TTL rather than a thousand renders.
+ */
+export default defineRoute({
+  path: "/catalog/:category",
+  minimalChrome: true,
+
+  // Not a shape check: the answer lives in the gateway and changes without a
+  // deploy. Returning false here is a 404 before anything else runs.
+  validateParams: (ctx) => isKnownCategory(ctx.params.category, ctx.request),
+
+  loader: async (ctx) =>
+    redirect(\`/catalog?category=\${encodeURIComponent(ctx.params.category ?? "")}\`, 301),
+
+  // Never reached: the loader always terminates with a redirect. A route still
+  // has to name a component, so this one says so out loud rather than pretending.
+  Component: () => <p>Yönlendiriliyorsunuz…</p>,
+});
+`;
+
+const routeDomainsTest =
+  () => `import { fetchRouteDomains, isKnownCategory } from "@server/services/route-domains";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  gatewayFetch: vi.fn(),
+  gatewayFetchWithIdentity: vi.fn(),
+  read: vi.fn(),
+  write: vi.fn(),
+  deleteKey: vi.fn(),
+}));
+
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetch: mocks.gatewayFetch,
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+vi.mock("@originloom/core/cache", () => ({
+  cacheKey: (policy: { key: string[] }) => policy.key.join("\\0"),
+  read: mocks.read,
+  write: mocks.write,
+  deleteKey: mocks.deleteKey,
+}));
+
+const domains = { categories: ["tools", "materials"] };
+const request = new Request("http://app.local/catalog/tools");
+
+describe("route params validated against the gateway", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.read.mockResolvedValue(null);
+    mocks.write.mockResolvedValue(true);
+    mocks.deleteKey.mockResolvedValue(true);
+    // A fresh Response per call: a body can only be read once, and reusing one
+    // would fail for a reason that has nothing to do with the code under test.
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(domains));
+    mocks.gatewayFetch.mockImplementation(async () => Response.json(domains));
+  });
+
+  it("accepts a value the gateway knows and rejects one it does not", async () => {
+    await expect(isKnownCategory("tools", request)).resolves.toBe(true);
+    await expect(isKnownCategory("nonsense", request)).resolves.toBe(false);
+  });
+
+  it("rejects a malformed param without asking the gateway at all", async () => {
+    await expect(isKnownCategory("../../etc/passwd", request)).resolves.toBe(false);
+    await expect(isKnownCategory("A".repeat(500), request)).resolves.toBe(false);
+
+    // Shape is checked offline, so a flood of garbage params cannot be turned
+    // into a flood of upstream calls.
+    expect(mocks.gatewayFetchWithIdentity).not.toHaveBeenCalled();
+  });
+
+  it("serves the snapshot from the shared cache instead of calling again", async () => {
+    mocks.read.mockResolvedValue({ body: JSON.stringify(domains), state: "fresh" });
+
+    await fetchRouteDomains(request);
+
+    // validateParams runs before the page cache, on hits as well as misses. One
+    // gateway call per TTL for the fleet, not one per request.
+    expect(mocks.gatewayFetchWithIdentity).not.toHaveBeenCalled();
+  });
+
+  it("drops a corrupt snapshot rather than trusting it", async () => {
+    mocks.read.mockResolvedValue({ body: "{not json", state: "fresh" });
+
+    await expect(fetchRouteDomains(request)).resolves.toEqual({
+      categories: ["materials", "tools"],
+    });
+    expect(mocks.deleteKey).toHaveBeenCalledWith("route-domains");
+  });
+
+  it("refuses an upstream answer that is not a list of slugs", async () => {
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
+      Response.json({ categories: ["Not A Slug"] }),
+    );
+
+    // Letting this through would put unvalidated upstream data in the position
+    // of deciding which URLs exist.
+    await expect(fetchRouteDomains(request)).rejects.toThrow(/invalid payload/i);
+  });
+});
+`;
+
+const guidesService = () => `import {
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
+import { config } from "@originloom/core/config";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
+import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
+import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+const INVALID = "Guides gateway returned an invalid payload";
+
+export type GuideSection = { heading: string; body: string };
+export type GuideQuestion = { question: string; answer: string };
+
+export type Guide = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  category: string;
+  author: string;
+  tags: string[];
+  publishedAt: string;
+  updatedAt: string;
+  sections: GuideSection[];
+  faq: GuideQuestion[];
+};
+
+export type GuideDetail = { guide: Guide; seoInfo: SeoInfo };
+export type GuideList = { items: Pick<Guide, "slug" | "title" | "excerpt" | "category">[] };
+
+export async function listGuides(request: Request): Promise<GuideList> {
+  const response = await gatewayFetchWithIdentity(request, "/guides");
+  await requireGatewayOk(response, "Guides gateway returned");
+
+  const payload = await readGatewayJson(response, GatewayContracts.guides, INVALID);
+  return requireGatewayPayload(GatewayContracts.guides, payload, isGuideList, INVALID);
+}
+
+export async function getGuide(slug: string, request: Request): Promise<GuideDetail | null> {
+  const response = await gatewayFetchWithIdentity(request, \`/guides/\${encodeURIComponent(slug)}\`);
+  if (response.status === 404) {
+    await releaseGatewayResponse(response);
+    return null;
+  }
+  await requireGatewayOk(response, "Guides gateway returned");
+
+  const payload = await readGatewayJson(response, GatewayContracts.guides, INVALID);
+  return requireGatewayPayload(GatewayContracts.guides, payload, isGuideDetail, INVALID);
+}
+
+function isGuideList(value: unknown): value is GuideList {
+  return (
+    isRecord(value) &&
+    isBoundedArray(
+      value.items,
+      100,
+      (item): item is GuideList["items"][number] =>
+        isRecord(item) &&
+        isBoundedString(item.slug, 100) &&
+        isBoundedString(item.title, 300) &&
+        isBoundedString(item.excerpt, 2_000) &&
+        isBoundedString(item.category, 60),
+    )
+  );
+}
+
+function isGuideDetail(value: unknown): value is GuideDetail {
+  return (
+    isRecord(value) &&
+    isGuide(value.guide) &&
+    parseSeoInfo(value.seoInfo, config.siteUrl) !== null
+  );
+}
+
+function isGuide(value: unknown): value is Guide {
+  return (
+    isRecord(value) &&
+    isBoundedString(value.slug, 100) &&
+    isBoundedString(value.title, 300) &&
+    isBoundedString(value.excerpt, 2_000) &&
+    isBoundedString(value.category, 60) &&
+    isBoundedString(value.author, 160) &&
+    isBoundedArray(value.tags, 30, (tag): tag is string => isBoundedString(tag, 60)) &&
+    // Dates go into \`datePublished\`/\`dateModified\`. A malformed one is a broken
+    // claim in the structured data, not just a formatting slip.
+    isIsoDate(value.publishedAt) &&
+    isIsoDate(value.updatedAt) &&
+    isBoundedArray(
+      value.sections,
+      100,
+      (section): section is GuideSection =>
+        isRecord(section) &&
+        isBoundedString(section.heading, 300) &&
+        isBoundedString(section.body, 20_000),
+    ) &&
+    isBoundedArray(
+      value.faq,
+      50,
+      (item): item is GuideQuestion =>
+        isRecord(item) &&
+        isBoundedString(item.question, 500) &&
+        isBoundedString(item.answer, 8_000),
+    )
+  );
+}
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+`;
+
+const articleJsonLdLib =
+  () => `import type { JsonLdObject } from "@originloom/shared/lib/metadata/jsonld";
+import type { Guide } from "@server/services/guides";
+
+/**
+ * The two node types an editorial page earns and a product page does not.
+ *
+ * \`Article\` is what makes a guide eligible for the article treatments in search
+ * results; \`FAQPage\` is what turns its questions into expandable answers there.
+ * Both are claims about the page, so both are built from the loader's validated
+ * data rather than from anything assembled by hand.
+ */
+export function articleJsonLd(guide: Guide, canonical: string, siteUrl: string): JsonLdObject {
+  const base = siteUrl.replace(/\\/$/, "");
+  return {
+    "@type": "Article",
+    "@id": \`\${canonical}#article\`,
+    mainEntityOfPage: { "@id": \`\${canonical}#webpage\` },
+    headline: guide.title,
+    description: guide.excerpt,
+    datePublished: guide.publishedAt,
+    dateModified: guide.updatedAt,
+    author: { "@type": "Person", name: guide.author },
+    publisher: { "@id": \`\${base}/#organization\` },
+    articleSection: guide.category,
+    keywords: guide.tags,
+    inLanguage: "tr-TR",
+    isAccessibleForFree: true,
+  };
+}
+
+/**
+ * Null when there are no questions.
+ *
+ * An empty \`FAQPage\` is a claim that the page answers questions it does not, and
+ * \`compactJsonLd\` drops the null rather than emitting a hollow node.
+ */
+export function faqJsonLd(items: readonly { question: string; answer: string }[]): JsonLdObject | null {
+  if (items.length === 0) return null;
+  return {
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer },
+    })),
+  };
+}
+`;
+
+const guidesRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { publicAbsoluteUrl } from "@originloom/shared/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd, itemListJsonLd } from "@originloom/shared/lib/metadata/jsonld";
+import { type GuideList, listGuides } from "@server/services/guides";
+
+import { GuidesPage } from "~/features/guides/guides-page";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+export default defineRoute<GuideList>({
+  path: "/guides",
+  cache: pageCache(PageCacheId.guides),
+  loader: async (ctx) => ({ data: await listGuides(ctx.request) }),
+  generateMetadata: (data, ctx) => ({
+    title: "Rehberler",
+    description: "Kredi ürünleri hakkında rehberler ve sık sorulan sorular.",
+    canonical: publicAbsoluteUrl(ctx, "/guides"),
+    structuredData: compactJsonLd([
+      breadcrumbJsonLd(
+        [
+          { name: "Ana sayfa", url: publicAbsoluteUrl(ctx, "/") },
+          { name: "Rehberler", url: publicAbsoluteUrl(ctx, "/guides") },
+        ],
+        ctx.siteUrl ?? ctx.url.origin,
+      ),
+      itemListJsonLd(
+        "Rehberler",
+        data.items.map((guide) => ({ name: guide.title, url: \`/guides/\${guide.slug}\` })),
+        ctx.siteUrl ?? ctx.url.origin,
+      ),
+    ]),
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "guides"),
+  Component: GuidesPage,
+});
+`;
+
+const guideDetailRoute = () => `import { defineRoute, notFound } from "@originloom/react/lib/types";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
+import {
+  generateMetaDataForPageWithSeoInfo,
+  publicAbsoluteUrl,
+} from "@originloom/shared/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata/jsonld";
+import { getGuide, type GuideDetail } from "@server/services/guides";
+
+import { GuidePage } from "~/features/guides/guide-page";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
+import { articleJsonLd, faqJsonLd } from "~/lib/metadata/jsonld-article";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+/**
+ * An editorial page.
+ *
+ * The difference from a product page is what it can claim: \`Article\` makes it
+ * eligible for the article treatments in search results, and \`FAQPage\` turns its
+ * questions into expandable answers there. Both are claims, so both come from
+ * validated loader data — including the dates, which is why the service parses
+ * them rather than passing strings through.
+ */
+export default defineRoute<GuideDetail>({
+  path: "/guides/:slug",
+  validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
+  cache: pageCache(PageCacheId.guideDetail),
+  loader: async (ctx) => {
+    const detail = await getGuide(ctx.params.slug ?? "", ctx.request);
+    return detail ? { data: detail } : notFound();
+  },
+  generateMetadata: (data, ctx) => {
+    const base = ctx.siteUrl ?? ctx.url.origin;
+    const url = publicAbsoluteUrl(ctx, \`/guides/\${data.guide.slug}\`);
+    const metadata = generateMetaDataForPageWithSeoInfo(data.seoInfo, ctx);
+    return {
+      ...metadata,
+      canonical: url,
+      openGraph: { ...metadata.openGraph, url },
+      structuredData: compactJsonLd([
+        breadcrumbJsonLd(
+          [
+            { name: "Ana sayfa", url: publicAbsoluteUrl(ctx, "/") },
+            { name: "Rehberler", url: publicAbsoluteUrl(ctx, "/guides") },
+            { name: data.guide.title, url },
+          ],
+          base,
+        ),
+        articleJsonLd(data.guide, url, base),
+        faqJsonLd(data.guide.faq),
+      ]),
+    };
+  },
+  pageMeta: (data, ctx) => defaultPageMeta(ctx, "guide-detail", { category: data.guide.category }),
+  Component: GuidePage,
+});
+`;
+
+const guidesPage = () => `import { Link } from "@originloom/react/lib/link";
+import type { GuideList } from "@server/services/guides";
+
+export function GuidesPage({ data }: { data: GuideList }) {
+  return (
+    <div className="space-y-6">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Rehberler</h1>
+        <p className="max-w-2xl text-slate-600">
+          Ürün sayfaları teklif verir, rehberler açıklar. İkisinin yapısal verisi de farklıdır —
+          <code>Article</code> ve <code>FAQPage</code> yalnız buraya aittir.
+        </p>
+      </header>
+      <ul className="divide-y divide-slate-100">
+        {data.items.map((guide) => (
+          <li key={guide.slug} className="py-3">
+            <Link className="font-medium text-slate-800 hover:underline" href={\`/guides/\${guide.slug}\`}>
+              {guide.title}
+            </Link>
+            <p className="text-sm text-slate-500">{guide.excerpt}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+`;
+
+const guidePage = () => `import { Link } from "@originloom/react/lib/link";
+import type { GuideDetail } from "@server/services/guides";
+
+export function GuidePage({ data }: { data: GuideDetail }) {
+  const { guide } = data;
+  return (
+    <article className="space-y-6">
+      <Link className="text-sm text-slate-500 hover:underline" href="/guides">
+        ← Rehberlere dön
+      </Link>
+
+      <header className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">{guide.title}</h1>
+        <p className="text-sm text-slate-500">
+          {guide.author} ·{" "}
+          {/* The machine-readable date is the one in the structured data; this is
+              the human one, and they come from the same field. */}
+          <time dateTime={guide.publishedAt}>
+            {new Date(guide.publishedAt).toLocaleDateString("tr-TR")}
+          </time>
+        </p>
+        <p className="max-w-2xl text-slate-600">{guide.excerpt}</p>
+      </header>
+
+      {guide.sections.map((section) => (
+        <section key={section.heading} className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-900">{section.heading}</h2>
+          <p className="max-w-2xl text-slate-600">{section.body}</p>
+        </section>
+      ))}
+
+      {guide.faq.length > 0 ? (
+        <section aria-labelledby="faq-heading" className="space-y-3">
+          <h2 id="faq-heading" className="text-xl font-semibold text-slate-900">
+            Sık sorulan sorular
+          </h2>
+          {/* The visible answers and the FAQPage nodes are the same content. A
+              structured-data block describing text that is not on the page is the
+              kind of mismatch that gets a site's rich results removed. */}
+          <dl className="space-y-3">
+            {guide.faq.map((item) => (
+              <div key={item.question} className="rounded-lg border border-slate-200 p-4">
+                <dt className="font-medium text-slate-800">{item.question}</dt>
+                <dd className="text-sm text-slate-600">{item.answer}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+    </article>
+  );
+}
+`;
+
+const guidesTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const guide = {
+  slug: "konut-kredisi-rehberi",
+  title: "Konut kredisi rehberi",
+  excerpt: "Başvurudan önce bilmeniz gerekenler.",
+  category: "konut",
+  author: "Ada Lovelace",
+  tags: ["konut", "kredi"],
+  publishedAt: "2026-01-10T00:00:00.000Z",
+  updatedAt: "2026-02-01T00:00:00.000Z",
+  sections: [{ heading: "Faiz nasıl hesaplanır?", body: "Anüite yöntemiyle." }],
+  faq: [{ question: "Peşinat şart mı?", answer: "Genellikle %20." }],
+};
+const seoInfo = { title: "Konut kredisi rehberi", friendlyUrl: "/guides/konut-kredisi-rehberi" };
+
+function structuredData(html: string): Record<string, unknown>[] {
+  const block = /<script type="application\\/ld\\+json"[^>]*>(.*?)<\\/script>/s.exec(html);
+  if (!block) return [];
+  const parsed = JSON.parse(block[1] ?? "{}") as { "@graph"?: Record<string, unknown>[] };
+  return parsed["@graph"] ?? [];
+}
+
+async function render(path: string): Promise<string> {
+  const app = createApp({
+    assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+    routes,
+    readinessCheck: async () => true,
+  });
+  return (await app.request(\`http://app.local\${path}\`)).text();
+}
+
+describe("an editorial page", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json({ guide, seoInfo }));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("claims Article and FAQPage, which a product page must not", async () => {
+    const types = structuredData(await render("/guides/konut-kredisi-rehberi")).map(
+      (node) => node["@type"],
+    );
+
+    expect(types).toContain("Article");
+    expect(types).toContain("FAQPage");
+    expect(types).toContain("BreadcrumbList");
+  });
+
+  it("puts the same questions in the markup as in the structured data", async () => {
+    const html = await render("/guides/konut-kredisi-rehberi");
+
+    // Structured data describing text that is not on the page is the mismatch
+    // that gets a site's rich results removed.
+    expect(html).toContain("Peşinat şart mı?");
+    const faq = structuredData(html).find((node) => node["@type"] === "FAQPage");
+    expect(JSON.stringify(faq)).toContain("Peşinat şart mı?");
+  });
+
+  it("makes no FAQ claim when the guide has no questions", async () => {
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
+      Response.json({ guide: { ...guide, faq: [] }, seoInfo }),
+    );
+
+    const types = structuredData(await render("/guides/konut-kredisi-rehberi")).map(
+      (node) => node["@type"],
+    );
+
+    // An empty FAQPage is a claim that the page answers questions it does not.
+    expect(types).not.toContain("FAQPage");
+    expect(types).toContain("Article");
+  });
+
+  it("refuses a guide whose dates the upstream got wrong", async () => {
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
+      Response.json({ guide: { ...guide, publishedAt: "yakında" }, seoInfo }),
+    );
+
+    // datePublished is a claim in the structured data, not a formatting detail.
+    const response = await render("/guides/konut-kredisi-rehberi");
+    expect(response).not.toContain("Konut kredisi rehberi");
+  });
+});
+`;
+
+const calculatorService =
+  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedArray, isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+const INVALID = "Calculator gateway returned an invalid payload";
+
+export type PaymentRow = { month: number; payment: number; interest: number; principal: number };
+export type PaymentPlan = {
+  amount: number;
+  term: number;
+  interestRate: number;
+  monthlyPayment: number;
+  totalPayment: number;
+  rows: PaymentRow[];
+};
+
+/**
+ * The payment plan, computed upstream.
+ *
+ * The same call backs the server render and the island: one implementation of
+ * the arithmetic, one place where a rounding rule changes. A calculator that
+ * does its own maths in the browser is a second source of truth for a number
+ * people make decisions with.
+ */
+export async function getPaymentPlan(
+  search: URLSearchParams,
+  request: Request,
+): Promise<PaymentPlan> {
+  const response = await gatewayFetchWithIdentity(request, \`/calculators/loan?\${search}\`);
+  await requireGatewayOk(response, "Calculator gateway returned");
+
+  const payload = await readGatewayJson(response, GatewayContracts.calculator, INVALID);
+  return requireGatewayPayload(GatewayContracts.calculator, payload, isPaymentPlan, INVALID);
+}
+
+function isPaymentPlan(value: unknown): value is PaymentPlan {
+  return (
+    isRecord(value) &&
+    isNumber(value.amount) &&
+    isNumber(value.term) &&
+    isNumber(value.interestRate) &&
+    isNumber(value.monthlyPayment) &&
+    isNumber(value.totalPayment) &&
+    isBoundedArray(value.rows, 480, isRow)
+  );
+}
+
+function isRow(value: unknown): value is PaymentRow {
+  return (
+    isRecord(value) &&
+    isNumber(value.month) &&
+    isNumber(value.payment) &&
+    isNumber(value.interest) &&
+    isNumber(value.principal)
+  );
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+`;
+
+const calculatorApi =
+  () => `import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
+import { getPaymentPlan } from "@server/services/calculator";
+import type { Hono } from "hono";
+
+import { calculatorSearch } from "~/lib/calculator-query";
+
+/**
+ * The same answer the page renders, as JSON.
+ *
+ * The island calls this rather than recomputing anything, so the numbers on the
+ * screen after an interaction are the numbers the server would have produced.
+ */
+const CALCULATOR_POLICY: PublicApiPolicy = {
+  name: "calculator",
+  windowMs: 60_000,
+  globalLimit: 1_200,
+  ipLimit: 120,
+  requireSameOriginMutation: true,
+};
+
+export function mountCalculatorApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.get("/api/calculator", async (c) => {
+    const request = contextRequest(c);
+    const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", CALCULATOR_POLICY);
+    if (denied) return denied;
+
+    // Normalized with the same contract the page uses, so a URL that renders one
+    // plan cannot fetch a different one.
+    const plan = await getPaymentPlan(calculatorSearch(new URL(request.url)), request);
+    return c.json(plan, 200, {
+      // Public, identical for everyone with the same inputs, and normalized to a
+      // small set of them — so an intermediary may hold it.
+      "cache-control": "public, max-age=60, stale-while-revalidate=300",
+    });
+  });
+}
+`;
+
+const calculatorQueryLib = () => `/**
+ * The calculator's query contract, shared by the page, the cache key and the API.
+ *
+ * A third reader here, and the same rule: one definition. If the island
+ * normalized differently from the route, the plan you see after moving a slider
+ * would not be the plan the URL renders when you share it.
+ */
+export const CALCULATOR_QUERY = ["amount", "term", "rate"] as const;
+
+export const CALCULATOR_TERMS = [12, 24, 36, 48, 60] as const;
+export const DEFAULT_CALCULATOR = { amount: 100_000, term: 36, rate: 3.1 };
+
+const MIN_AMOUNT = 10_000;
+const MAX_AMOUNT = 5_000_000;
+const AMOUNT_STEP = 1_000;
+const TERMS = new Set<number>(CALCULATOR_TERMS);
+
+export const calculatorNormalizers: Record<string, (raw: string | null) => string> = {
+  amount: (raw) => {
+    if (raw === null || raw.trim() === "") return String(DEFAULT_CALCULATOR.amount);
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return String(DEFAULT_CALCULATOR.amount);
+    const clamped = Math.min(MAX_AMOUNT, Math.max(MIN_AMOUNT, value));
+    return String(Math.round(clamped / AMOUNT_STEP) * AMOUNT_STEP);
+  },
+  term: (raw) => {
+    if (raw === null || raw.trim() === "") return String(DEFAULT_CALCULATOR.term);
+    const value = Number(raw);
+    return String(TERMS.has(value) ? value : DEFAULT_CALCULATOR.term);
+  },
+  rate: (raw) => {
+    if (raw === null || raw.trim() === "") return String(DEFAULT_CALCULATOR.rate);
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return String(DEFAULT_CALCULATOR.rate);
+    // Two decimals: a rate is quoted that way, and every extra digit would be
+    // another cache entry of the same table.
+    return String(Math.min(10, Math.max(0.1, Math.round(value * 100) / 100)));
+  },
+};
+
+export function calculatorSearch(url: URL): URLSearchParams {
+  const search = new URLSearchParams();
+  for (const name of CALCULATOR_QUERY) {
+    search.set(name, calculatorNormalizers[name]!(url.searchParams.get(name)));
+  }
+  return search;
+}
+`;
+
+const calculatorRoute = () => `import { Island } from "@originloom/react/lib/island";
+import { defineRoute } from "@originloom/react/lib/types";
+import { publicAbsoluteUrl } from "@originloom/shared/lib/metadata/generate";
+import { breadcrumbJsonLd, compactJsonLd } from "@originloom/shared/lib/metadata/jsonld";
+import { getPaymentPlan, type PaymentPlan } from "@server/services/calculator";
+
+import { CalculatorPage } from "~/features/calculator/calculator-page";
+import LoanCalculator from "~/islands/loan-calculator";
+import { pageCache, PageCacheId } from "~/lib/cache-keys";
+import { calculatorSearch } from "~/lib/calculator-query";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+/**
+ * A tool, and a page.
+ *
+ * The first render is the server's: the plan is in the HTML, so the page works
+ * with no JavaScript, is shareable at a given set of inputs, and is cached like
+ * any other page. The island then refines it in place without a round trip
+ * through the document.
+ */
+export default defineRoute<PaymentPlan>({
+  path: "/calculator",
+  cache: pageCache(PageCacheId.calculator),
+  loader: async (ctx) => ({ data: await getPaymentPlan(calculatorSearch(ctx.url), ctx.request) }),
+  generateMetadata: (data, ctx) => ({
+    title: "Kredi hesaplama",
+    description: \`\${data.term} ay vadeli kredi için örnek ödeme planı.\`,
+    canonical: publicAbsoluteUrl(ctx, "/calculator"),
+    structuredData: compactJsonLd([
+      breadcrumbJsonLd(
+        [
+          { name: "Ana sayfa", url: publicAbsoluteUrl(ctx, "/") },
+          { name: "Kredi hesaplama", url: publicAbsoluteUrl(ctx, "/calculator") },
+        ],
+        ctx.siteUrl ?? ctx.url.origin,
+      ),
+    ]),
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "calculator"),
+  Component: ({ data }) => (
+    <CalculatorPage>
+      {/* \`hydrate\` means the server renders this and the client wakes it up, so
+          the children must be the island itself. Hand-writing a second copy of
+          the markup here is how a hydration mismatch starts. */}
+      <Island name="loan-calculator" mode="hydrate" props={{ initial: data }}>
+        <LoanCalculator initial={data} />
+      </Island>
+    </CalculatorPage>
+  ),
+});
+`;
+
+const calculatorPage = () => `import type { ReactNode } from "react";
+
+export function CalculatorPage({ children }: { children: ReactNode }) {
+  return (
+    <div className="space-y-6">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Kredi hesaplama</h1>
+        <p className="max-w-2xl text-slate-600">
+          İlk sonuç sunucuda üretilir: sayfa JavaScript kapalıyken de çalışır, verdiğiniz
+          değerlerle paylaşılabilir ve cache&apos;lenir. Island aynı ucu çağırarak yerinde günceller
+          — aritmetiği tarayıcıda tekrar etmez.
+        </p>
+      </header>
+      {children}
+    </div>
+  );
+}
+`;
+
+const calculatorIsland = () => `import { useState } from "react";
+
+import {
+  CALCULATOR_TERMS,
+  calculatorNormalizers,
+  DEFAULT_CALCULATOR,
+} from "~/lib/calculator-query";
+import { formatMoney } from "~/lib/quote-query";
+
+type PaymentRow = { month: number; payment: number; interest: number; principal: number };
+type PaymentPlan = {
+  amount: number;
+  term: number;
+  interestRate: number;
+  monthlyPayment: number;
+  totalPayment: number;
+  rows: PaymentRow[];
+};
+
+/**
+ * The server already rendered a plan; this refines it.
+ *
+ * \`initial\` is that plan, so there is no loading state on first paint and no
+ * layout shift when the island takes over. Everything it does afterwards goes
+ * through the same endpoint the page used — no arithmetic here.
+ */
+export default function LoanCalculator({ initial }: { initial: PaymentPlan }) {
+  const [plan, setPlan] = useState(initial);
+  const [amount, setAmount] = useState(String(initial.amount));
+  const [term, setTerm] = useState(String(initial.term));
+  const [rate, setRate] = useState(String(initial.interestRate));
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function recalculate(event: React.FormEvent) {
+    event.preventDefault();
+    setPending(true);
+    setFailed(false);
+    // Normalized with the shared contract before it is sent, so the island and
+    // the route cannot ask the same question in two different ways.
+    const search = new URLSearchParams({
+      amount: calculatorNormalizers.amount!(amount),
+      term: calculatorNormalizers.term!(term),
+      rate: calculatorNormalizers.rate!(rate),
+    });
+    try {
+      const response = await fetch(\`/api/calculator?\${search}\`, {
+        headers: { accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      setPlan((await response.json()) as PaymentPlan);
+      // The URL follows the state, so the result stays shareable and the back
+      // button returns to the previous plan instead of leaving the page.
+      window.history.replaceState(null, "", \`/calculator?\${search}\`);
+    } catch {
+      setFailed(true);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className="space-y-5" onSubmit={recalculate} method="get" action="/calculator">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <label className="space-y-1 text-sm">
+          <span className="text-slate-600">Tutar</span>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            inputMode="numeric"
+            name="amount"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-slate-600">Vade (ay)</span>
+          <select
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            name="term"
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+          >
+            {CALCULATOR_TERMS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-slate-600">Faiz oranı (%)</span>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            inputMode="decimal"
+            name="rate"
+            value={rate}
+            onChange={(event) => setRate(event.target.value)}
+          />
+        </label>
+      </div>
+
+      {/* Also a real submit button: with no JavaScript this form is a GET to
+          /calculator, which the route renders server-side. */}
+      <button
+        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+        disabled={pending}
+        type="submit"
+      >
+        {pending ? "Hesaplanıyor…" : "Hesapla"}
+      </button>
+
+      {failed ? (
+        <p role="alert" className="text-sm text-red-700">
+          Hesaplama şu an yapılamadı. Değerleri değiştirip tekrar deneyin.
+        </p>
+      ) : null}
+
+      <dl aria-live="polite" className="grid gap-3 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-3">
+        <div>
+          <dt className="text-sm text-slate-500">Aylık taksit</dt>
+          <dd className="text-lg font-semibold text-slate-900">
+            {formatMoney(plan.monthlyPayment)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sm text-slate-500">Toplam geri ödeme</dt>
+          <dd className="text-lg font-semibold text-slate-900">{formatMoney(plan.totalPayment)}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-slate-500">Vade</dt>
+          <dd className="text-lg font-semibold text-slate-900">{plan.term} ay</dd>
+        </div>
+      </dl>
+
+      <details>
+        <summary className="cursor-pointer text-sm text-slate-600">Ödeme planı</summary>
+        <table className="mt-3 w-full text-left text-sm">
+          <thead className="text-slate-500">
+            <tr>
+              <th scope="col" className="py-1">Ay</th>
+              <th scope="col" className="py-1">Taksit</th>
+              <th scope="col" className="py-1">Faiz</th>
+              <th scope="col" className="py-1">Anapara</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plan.rows.slice(0, 12).map((row) => (
+              <tr key={row.month} className="border-t border-slate-100">
+                <td className="py-1">{row.month}</td>
+                <td className="py-1">{formatMoney(row.payment)}</td>
+                <td className="py-1">{formatMoney(row.interest)}</td>
+                <td className="py-1">{formatMoney(row.principal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+
+      <p className="text-xs text-slate-500">
+        Hesaplama sunucuda yapılır ({DEFAULT_CALCULATOR.rate}% varsayılan oran). Tarayıcıda faiz
+        formülü tekrar edilmez — iki kopya, insanların karar verdiği bir sayıda iki farklı cevap
+        demektir.
+      </p>
+    </form>
+  );
+}
+`;
+
+const calculatorTest = () => `import { routes } from "@server/routes";
+import { describe, expect, it } from "vitest";
+
+import { PageCacheId, pageCacheRegistry } from "~/lib/cache-keys";
+import { calculatorNormalizers, calculatorSearch } from "~/lib/calculator-query";
+
+function url(query: string): URL {
+  return new URL(\`http://app.local/calculator\${query}\`);
+}
+
+describe("the calculator", () => {
+  it("normalizes its inputs to a small, cacheable set", () => {
+    const search = calculatorSearch(url("?amount=123456&term=7&rate=3.14159&utm_source=x"));
+
+    expect(search.get("amount")).toBe("123000");
+    expect(search.get("term")).toBe("36");
+    expect(search.get("rate")).toBe("3.14");
+    // Every extra digit and every stray param would be another cache entry of
+    // the same table.
+    expect([...search.keys()]).toEqual(["amount", "term", "rate"]);
+  });
+
+  it("clamps rather than refuses, so a typed number always produces a plan", () => {
+    expect(calculatorSearch(url("?amount=1")).get("amount")).toBe("10000");
+    expect(calculatorSearch(url("?rate=99")).get("rate")).toBe("10");
+    expect(calculatorSearch(url("?amount=abc")).get("amount")).toBe("100000");
+  });
+
+  it("uses one contract for the page, the cache key and the API", () => {
+    const contentQuery = pageCacheRegistry[PageCacheId.calculator].contentQuery;
+
+    // The island calls /api/calculator with these same normalizers. If they
+    // diverged, the plan on screen would not be the plan the URL renders.
+    expect(contentQuery?.include).toEqual(["amount", "term", "rate"]);
+    expect(contentQuery?.normalize).toBe(calculatorNormalizers);
+  });
+
+  it("renders a plan on the server so the page works without JavaScript", () => {
+    const route = routes.find((entry) => entry.path === "/calculator");
+
+    expect(route).toBeDefined();
+    // A tool whose first result only exists after hydration is a blank box to a
+    // crawler and to anyone whose script did not load.
+    expect(route?.loader).toBeTypeOf("function");
+  });
+});
+`;
+
+const quoteQueryLib = () => `/**
+ * The quote's query contract: how much, and for how long.
+ *
+ * Same rule as the catalogue's — one place, read by the loader and by the cache
+ * key. A quote is a page like any other: \`/items/alpha?amount=250000&term=36\` is
+ * shared by everyone who asks for that amount and that term, and is cached as
+ * such. Nothing about it is personal, which is exactly why it can be.
+ */
+export const QUOTE_QUERY = ["amount", "term"] as const;
+
+export const QUOTE_TERMS = [12, 24, 36, 48, 60] as const;
+export const DEFAULT_AMOUNT = 100_000;
+export const DEFAULT_TERM = 36;
+
+const MIN_AMOUNT = 10_000;
+const MAX_AMOUNT = 5_000_000;
+const AMOUNT_STEP = 1_000;
+
+const TERMS = new Set<number>(QUOTE_TERMS);
+
+/**
+ * Clamped and rounded to a step rather than rejected.
+ *
+ * Two reasons. A visitor typing an amount should get a quote, not a 404. And
+ * every distinct amount would otherwise be its own cache entry — the step is
+ * what keeps a slider from turning one page into ten thousand.
+ */
+export const quoteNormalizers: Record<string, (raw: string | null) => string> = {
+  amount: (raw) => {
+    // \`Number(null)\` is 0, not NaN — so an absent value has to be handled before
+    // the numeric path, or "no amount given" silently becomes "the minimum".
+    if (raw === null || raw.trim() === "") return String(DEFAULT_AMOUNT);
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return String(DEFAULT_AMOUNT);
+    const clamped = Math.min(MAX_AMOUNT, Math.max(MIN_AMOUNT, value));
+    return String(Math.round(clamped / AMOUNT_STEP) * AMOUNT_STEP);
+  },
+  term: (raw) => {
+    if (raw === null || raw.trim() === "") return String(DEFAULT_TERM);
+    const value = Number(raw);
+    return String(TERMS.has(value) ? value : DEFAULT_TERM);
+  },
+};
+
+/** The URL as the gateway should see it: allowlisted, normalized, ordered. */
+export function quoteSearch(url: URL): URLSearchParams {
+  const search = new URLSearchParams();
+  for (const name of QUOTE_QUERY) {
+    search.set(name, quoteNormalizers[name]!(url.searchParams.get(name)));
+  }
+  return search;
+}
+
+/** A quote URL with one value changed, defaults dropped so one page keeps one URL. */
+export function quoteHref(
+  slug: string,
+  current: URLSearchParams,
+  patch: Record<string, string>,
+): string {
+  const next = new URLSearchParams();
+  for (const name of QUOTE_QUERY) {
+    const raw = name in patch ? patch[name]! : current.get(name);
+    const normalized = quoteNormalizers[name]!(raw ?? null);
+    if (normalized !== quoteNormalizers[name]!(null)) next.set(name, normalized);
+  }
+  const query = next.toString();
+  return query ? \`/items/\${slug}?\${query}\` : \`/items/\${slug}\`;
+}
+
+/** One place for money formatting, so the page and the island cannot disagree. */
+export function formatMoney(value: number): string {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+`;
+
+const catalogQueryLib = () => `/**
+ * The catalog's query contract, in one place.
+ *
+ * Two things read it and they must agree: the loader, which turns a URL into an
+ * upstream request, and the cache key, which decides whether two URLs are the
+ * same page. Splitting them is how \`?sortBy=name\` ends up serving the cached
+ * HTML of \`?sortBy=newest\`.
+ */
+
+/** Allowlist. A param not named here reaches neither the gateway nor the key. */
+export const CATALOG_QUERY = ["category", "sortBy", "page"] as const;
+
+export const CATALOG_CATEGORIES = ["all", "konut", "ihtiyac", "tasit"] as const;
+export const CATALOG_SORTS = ["recommended", "rate-asc", "name-asc", "newest"] as const;
+
+export type CatalogCategory = (typeof CATALOG_CATEGORIES)[number];
+export type CatalogSort = (typeof CATALOG_SORTS)[number];
+
+const CATEGORIES = new Set<string>(CATALOG_CATEGORIES);
+const SORTS = new Set<string>(CATALOG_SORTS);
+
+/**
+ * Every normalizer answers the same question: what is the canonical form of this
+ * value? An unknown value is not an error here — it is the default, because a
+ * visitor arriving with \`?category=nonsense\` should see the catalog, not a 404.
+ */
+export const catalogNormalizers: Record<string, (raw: string | null) => string> = {
+  category: (raw) => (raw && CATEGORIES.has(raw) ? raw : "all"),
+  sortBy: (raw) => (raw && SORTS.has(raw) ? raw : "recommended"),
+  page: (raw) => {
+    const page = Number(raw);
+    return Number.isSafeInteger(page) && page > 1 ? String(page) : "1";
+  },
+};
+
+/** The URL as the gateway should see it: allowlisted, normalized, ordered. */
+export function catalogSearch(url: URL, perPage: number): URLSearchParams {
+  const search = new URLSearchParams();
+  for (const name of CATALOG_QUERY) {
+    search.set(name, catalogNormalizers[name]!(url.searchParams.get(name)));
+  }
+  search.set("perPage", String(perPage));
+  return search;
+}
+
+/** The same request built from values rather than a URL, for callers without one. */
+export function itemsQuery(options: { page?: number; perPage?: number } = {}): URLSearchParams {
+  return new URLSearchParams({
+    category: "all",
+    sortBy: "recommended",
+    page: String(options.page ?? 1),
+    perPage: String(options.perPage ?? 20),
+  });
+}
+
+/**
+ * A catalog URL with one filter changed and the rest kept.
+ *
+ * Changing a filter resets the page: page 4 of "all" is rarely page 4 of
+ * "tools", and a visitor who lands on an empty page 4 reads it as no results.
+ * Defaults are dropped so the first page of the unfiltered catalog is \`/catalog\`
+ * and not \`/catalog?category=all&sortBy=recommended&page=1\`.
+ */
+export function catalogHref(current: URLSearchParams, patch: Record<string, string>): string {
+  const resetsPage = ("category" in patch || "sortBy" in patch) && !("page" in patch);
+  const next = new URLSearchParams();
+  for (const name of CATALOG_QUERY) {
+    if (name === "page" && resetsPage) continue;
+    const raw = name in patch ? patch[name]! : current.get(name);
+    const normalized = catalogNormalizers[name]!(raw ?? null);
+    // A default carries no information, and leaving it out keeps one page on one
+    // URL — which is also the one the cache key resolves to.
+    if (normalized !== catalogNormalizers[name]!(null)) next.set(name, normalized);
+  }
+  const query = next.toString();
+  return query ? \`/catalog?\${query}\` : "/catalog";
+}
+`;
+
 const paginationLib =
   () => `/** Reads a 1-based page number from ?page, clamped to a sane minimum. */
 export function pageParam(url: URL): number {
@@ -3234,167 +5974,297 @@ export async function buildShellData(
   ctx: Ctx,
   opts?: { minimalChrome?: boolean | undefined },
 ): Promise<ShellData> {
-  const menu = await getMenu(ctx.request);
-  return { ...buildLayoutClientProps(ctx, opts), menu };
+  const base = buildLayoutClientProps(ctx, opts);
+  // The device is already resolved for the cache fragment, and it is the same
+  // value the gateway is asked with — so the menu and the HTML key agree.
+  const menu = await getMenu(ctx.request, base.deviceType);
+  return { ...base, menu };
 }
 `;
 
 const menuService =
   () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
-import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { config } from "@originloom/core/config";
+import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { memoizeRequestValue } from "@originloom/core/observability";
-import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import {
+  normalizeMetadataImageUrl,
+  normalizeNavigationUrl,
+} from "@originloom/shared/lib/content-url";
+import type { DeviceType } from "@originloom/shared/lib/device";
+import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 import { productConfig } from "@server/product/config";
 
-import type { MenuItem } from "~/lib/menu";
+import { menuCacheKey } from "~/lib/cache-keys";
+import { EMPTY_MENU, type IMenuItems, type MenuItem } from "~/lib/menu";
 
 import { GatewayContracts } from "./gateway-contracts";
 
-const FALLBACK_MENU: MenuItem[] = [
-  { label: "Ana sayfa", href: "/" },
-  { label: "Katalog", href: "/catalog" },
-];
-const MENU_CACHE_KEY = "menu:public:v1";
-const MENU_CACHE_POLICY = {
-  kind: "shared" as const,
-  ttl: productConfig.menuCacheTtl,
-  swr: productConfig.menuCacheSwr,
-  key: [MENU_CACHE_KEY],
-};
-let refreshInFlight: Promise<MenuItem[]> | undefined;
-let parsedSnapshot: { body: string; menu: MenuItem[] } | undefined;
+const MAX_MENU_DEPTH = 3;
+const MAX_MENU_ITEMS = 200;
+const MAX_ITEMS_PER_LEVEL = 50;
+const MAX_LABEL_LENGTH = 120;
+const MAX_DESCRIPTION_LENGTH = 500;
+const INVALID_MENU = "Menu gateway returned an invalid payload";
 
 /**
- * Public chrome data with read-through cache. Fresh entries return immediately;
- * stale entries return immediately and trigger one process-local refresh.
+ * Last known good menu, kept per device so a cache hit does not re-parse JSON it
+ * has already validated. Bounded by the number of device types, not by traffic.
  */
-export function getMenu(request: Request): Promise<MenuItem[]> {
-  return memoizeRequestValue("gateway:menu:public", () => loadMenu(request));
+const parsedSnapshots = new Map<DeviceType, { body: string; menu: IMenuItems }>();
+
+/**
+ * The site's navigation, as the CMS defines it.
+ *
+ * One fetch per device per TTL for the whole fleet: the menu is the same for
+ * every visitor on that device, so it is endpoint-cached rather than fetched per
+ * page. \`memoizeRequestValue\` collapses the several places in one render that
+ * ask for it into a single call.
+ */
+export function getMenu(request: Request, device: DeviceType): Promise<IMenuItems> {
+  return memoizeRequestValue(\`gateway:menu:\${device}\`, () => loadMenu(request, device));
 }
 
-async function loadMenu(request: Request): Promise<MenuItem[]> {
-  try {
-    const key = cache.cacheKey(MENU_CACHE_POLICY);
-    if (!key) throw new Error("Menu cache policy must be shared");
+async function loadMenu(request: Request, device: DeviceType): Promise<IMenuItems> {
+  const policy = {
+    kind: "shared" as const,
+    ttl: productConfig.menuCacheTtl,
+    swr: productConfig.menuCacheSwr,
+    key: [menuCacheKey(device)],
+  };
 
-    const hit = await cache.read(key);
-    if (hit) {
-      if (parsedSnapshot?.body === hit.body) {
-        if (hit.state === "stale") scheduleRefresh();
-        return parsedSnapshot.menu;
-      }
-      const cached = parseCachedMenu(hit.body);
-      if (cached) {
-        const menu = freezeMenu(cached);
-        parsedSnapshot = { body: hit.body, menu };
-        if (hit.state === "stale") scheduleRefresh();
-        return menu;
-      }
-      // Old/corrupt values never poison future reads. A failed delete is harmless:
-      // the successful write below replaces the same key.
-      try {
+  try {
+    const key = cache.cacheKey(policy);
+
+    if (key) {
+      const hit = await cache.read(key);
+      if (hit) {
+        const snapshot = parsedSnapshots.get(device);
+        if (snapshot?.body === hit.body) return snapshot.menu;
+        try {
+          const cached: unknown = JSON.parse(hit.body);
+          const menu = parseMenuPayload(cached);
+          if (menu) {
+            const immutable = freezeMenu(menu);
+            parsedSnapshots.set(device, { body: hit.body, menu: immutable });
+            return immutable;
+          }
+        } catch {
+          // Corrupt or older entries are a miss, not a failure.
+        }
         await cache.deleteKey(key);
-      } catch (error) {
-        logger.warn("invalid menu cache entry could not be deleted", { error: errorMessage(error) });
       }
     }
 
-    return await waitForRequest(refreshMenu(key), request.signal);
+    const data = freezeMenu(await fetchMenuFromGateway(request, device));
+    if (key) {
+      const body = JSON.stringify(data);
+      await cache.write(key, body, policy);
+      parsedSnapshots.set(device, { body, menu: data });
+    }
+    return data;
   } catch (error) {
     if (isRequestDeadlineError(error) || request.signal.aborted) throw error;
-    logger.warn("menu degraded to local fallback", { error: errorMessage(error) });
-    return FALLBACK_MENU;
+    // A missing menu costs navigation; a thrown one costs the page. The site
+    // renders without a menu and the failure is loud in the logs.
+    logger.warn("menu degraded to empty", {
+      device,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return EMPTY_MENU;
   }
 }
 
-/** Single-flight refresh bounds cold-miss and stale-refresh pressure on the gateway. */
-function refreshMenu(key = cache.cacheKey(MENU_CACHE_POLICY)): Promise<MenuItem[]> {
-  if (refreshInFlight) return refreshInFlight;
-  if (!key) return Promise.reject(new Error("Menu cache policy must be shared"));
-
-  const pending = fetchMenuFromGateway()
-    .then(async (menu) => {
-      const immutable = freezeMenu(menu);
-      const body = JSON.stringify(immutable);
-      await cache.write(key, body, MENU_CACHE_POLICY);
-      parsedSnapshot = { body, menu: immutable };
-      return immutable;
-    })
-    .finally(() => {
-      if (refreshInFlight === pending) refreshInFlight = undefined;
-    });
-  refreshInFlight = pending;
-  return pending;
-}
-
-function scheduleRefresh(): void {
-  void refreshMenu().catch((error: unknown) => {
-    // The stale value remains usable until staleUntil; the next stale request may retry.
-    logger.warn("stale menu refresh failed", { error: errorMessage(error) });
+async function fetchMenuFromGateway(request: Request, device: DeviceType): Promise<IMenuItems> {
+  // No identity either. This answer is shared by every visitor on that device
+  // and cached under one key per device, so a tracking id or a client IP would
+  // name something the response cannot depend on. \`device\` is the one dimension
+  // that does matter, and it is sent explicitly.
+  const response = await gatewayFetch("/pages/menuitem/list", {
+    headers: { "content-type": "application/json", device },
+    signal: request.signal,
   });
-}
-
-async function fetchMenuFromGateway(): Promise<MenuItem[]> {
-  // Menu is public/cacheable, so never forward a caller's Authorization header.
-  const response = await gatewayFetch("/menu");
   await requireGatewayOk(response, "Menu gateway returned");
-  const payload = await readGatewayJson(response, GatewayContracts.menu, "Invalid menu payload");
-  return requireGatewayPayload(GatewayContracts.menu, payload, isMenu, "Invalid menu payload");
+
+  const data = await readGatewayJson(response, GatewayContracts.menu, INVALID_MENU);
+  return parseGatewayPayload(GatewayContracts.menu, data, parseMenuPayload, INVALID_MENU);
 }
 
-function parseCachedMenu(body: string): MenuItem[] | null {
-  try {
-    const value: unknown = JSON.parse(body);
-    return isMenu(value) ? value : null;
-  } catch {
+/**
+ * Parses rather than merely checks: URLs are normalized against this site, and
+ * an item the upstream got wrong fails the whole menu instead of rendering a
+ * link that goes somewhere unintended.
+ */
+function parseMenuPayload(data: unknown): IMenuItems | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const value = data as Record<string, unknown>;
+  const state = { count: 0 };
+  const header = parseMenuList(value.headerItems, 1, state);
+  const hamburger = parseMenuList(value.hamburgerItems, 1, state);
+  const footer = parseMenuList(value.footerItems, 1, state);
+  if (header === null || hamburger === null || footer === null) return null;
+
+  const headerItems = header ?? hamburger ?? [];
+  return {
+    headerItems,
+    // A gateway that only ships one list means the drawer shows the same items.
+    hamburgerItems: hamburger ?? headerItems,
+    footerItems: footer ?? [],
+  };
+}
+
+function parseMenuList(
+  value: unknown,
+  depth: number,
+  state: { count: number },
+): MenuItem[] | undefined | null {
+  if (value === undefined) return undefined;
+  // Depth and count are bounded because this data becomes a render: an upstream
+  // loop would otherwise become an unbounded one here.
+  if (!Array.isArray(value) || depth > MAX_MENU_DEPTH || value.length > MAX_ITEMS_PER_LEVEL) {
     return null;
   }
+
+  const items: MenuItem[] = [];
+  for (const candidate of value) {
+    state.count++;
+    if (state.count > MAX_MENU_ITEMS) return null;
+    const item = parseMenuItem(candidate, depth, state);
+    if (!item) return null;
+    items.push(item);
+  }
+  return items;
 }
 
-/** Bounded process snapshot: cache hits reuse validated objects instead of JSON parsing again. */
-function freezeMenu(menu: MenuItem[]): MenuItem[] {
-  for (const item of menu) Object.freeze(item);
-  return Object.freeze(menu) as MenuItem[];
+function parseMenuItem(value: unknown, depth: number, state: { count: number }): MenuItem | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  if (!hasValidMenuFields(item)) return null;
+
+  const external = item.external === true;
+  if (typeof item.url !== "string") return null;
+  // An internal link that is not a path, or an external one that is not an
+  // allowed scheme, is dropped here rather than rendered and hoped about.
+  const url = normalizeNavigationUrl(item.url, { siteUrl: config.siteUrl, external });
+  if (!url) return null;
+
+  // undefined means "absent"; null means "present and unusable", which fails the item.
+  const imagePath = parseOptionalImageUrl(item.imagePath);
+  const activeImagePath = parseOptionalImageUrl(item.activeImagePath);
+  if (imagePath === null || activeImagePath === null) return null;
+
+  const children = parseMenuList(item.subMenuItemList, depth + 1, state);
+  if (children === null) return null;
+
+  return {
+    id: item.id as number,
+    name: item.name as string,
+    url,
+    displayOrder: item.displayOrder as number,
+    mobileDisplayOrder: item.mobileDisplayOrder as number,
+    // Absent stays absent: an explicit \`undefined\` key is not the same shape as
+    // no key at all under exactOptionalPropertyTypes. parentId survives as null.
+    ...stripUndefined({
+      parentId: item.parentId as number | null | undefined,
+      hamburgerName: item.hamburgerName as string | undefined,
+      description: item.description as string | undefined,
+      imagePath,
+      activeImagePath,
+      external: item.external === undefined ? undefined : external,
+      menuType: item.menuType as number | undefined,
+      itemType: item.itemType as number | undefined,
+      menuDisplayDeviceType: item.menuDisplayDeviceType as number | undefined,
+      menuDisplayType: item.menuDisplayType as number | undefined,
+      subMenuItemList: children?.length ? children : undefined,
+    }),
+  };
 }
 
-function waitForRequest<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Request aborted"));
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason ?? new Error("Request aborted"));
-    const settle = <TValue>(fn: (value: TValue) => void, value: TValue) => {
-      signal.removeEventListener("abort", abort);
-      fn(value);
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    void work.then(
-      (value) => settle(resolve, value),
-      (error: unknown) => settle(reject, error),
-    );
-  });
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function isMenu(value: unknown): value is MenuItem[] {
-  return isBoundedArray(
-    value,
-    20,
-    (item): item is MenuItem =>
-      isRecord(item) &&
-      isBoundedString(item.label, 80) &&
-      isBoundedString(item.href, 256) &&
-      item.href.startsWith("/") &&
-      !item.href.startsWith("//"),
+/** Everything the upstream must get right before the item is worth shaping. */
+function hasValidMenuFields(item: Record<string, unknown>): boolean {
+  return (
+    isInteger(item.id) &&
+    isBoundedString(item.name, MAX_LABEL_LENGTH) &&
+    isInteger(item.displayOrder) &&
+    isInteger(item.mobileDisplayOrder) &&
+    isOptionalInteger(item.parentId, true) &&
+    isOptionalInteger(item.menuType) &&
+    isOptionalInteger(item.itemType) &&
+    isOptionalInteger(item.menuDisplayDeviceType) &&
+    isOptionalInteger(item.menuDisplayType) &&
+    isOptionalString(item.hamburgerName, MAX_LABEL_LENGTH) &&
+    isOptionalString(item.description, MAX_DESCRIPTION_LENGTH) &&
+    (item.external === undefined || typeof item.external === "boolean")
   );
 }
+
+function parseOptionalImageUrl(value: unknown): string | undefined | null {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") return null;
+  return normalizeMetadataImageUrl(value, config.siteUrl);
+}
+
+/** Frozen so a cached menu cannot be mutated by whatever renders it. */
+function freezeMenu(menu: IMenuItems): IMenuItems {
+  const freezeItems = (items: MenuItem[]): MenuItem[] => {
+    for (const item of items) {
+      if (item.subMenuItemList) freezeItems(item.subMenuItemList);
+      Object.freeze(item);
+    }
+    return Object.freeze(items) as MenuItem[];
+  };
+  freezeItems(menu.headerItems);
+  freezeItems(menu.hamburgerItems);
+  freezeItems(menu.footerItems);
+  return Object.freeze(menu);
+}
+
+function isInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function isOptionalInteger(value: unknown, nullable = false): boolean {
+  return value === undefined || (nullable && value === null) || isInteger(value);
+}
+
+function isBoundedString(value: unknown, max: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= max;
+}
+
+function isOptionalString(value: unknown, max: number): boolean {
+  return value === undefined || isBoundedString(value, max);
+}
+
 `;
 
-const menuLib = () => `export type MenuItem = { label: string; href: string };
+const menuLib =
+  () => `import type { IMenuItems, MenuItem } from "@originloom/shared/lib/menu/types";
+import { MenuItemType } from "@originloom/shared/lib/menu/types";
+
+export type { IMenuItems, MenuItem };
+export { MenuItemType };
+
+/** Nothing to show is a valid menu — the shell renders without one. */
+export const EMPTY_MENU: IMenuItems = { headerItems: [], hamburgerItems: [], footerItems: [] };
+
+/**
+ * Desktop and mobile order the same items differently, and the gateway says how.
+ * Sorting here rather than in the component keeps the two shells from drifting.
+ */
+export function orderedFor(items: readonly MenuItem[], shell: "desktop" | "mobile"): MenuItem[] {
+  const order = (item: MenuItem) =>
+    shell === "mobile" ? item.mobileDisplayOrder : item.displayOrder;
+  return [...items].sort((a, b) => order(a) - order(b));
+}
+
+/** The label to use in the drawer, when the upstream gives a shorter one for it. */
+export function drawerLabel(item: MenuItem): string {
+  return item.hamburgerName ?? item.name;
+}
+
 `;
 
 const botAnalyticsService =
@@ -3606,45 +6476,118 @@ htmlLang: "tr",
 `;
 
 const productAnalytics = () => `import { config } from "@originloom/core/config";
+import { logger } from "@originloom/core/logger";
 import type { CspSources } from "@originloom/core/middleware/security";
 import { sequencedScript } from "@originloom/shared/head-scripts";
+import {
+  eventQueueScript,
+  gtmContainerUrl,
+  gtmStartScript,
+  trackingIdPushScript,
+} from "@originloom/shared/lib/analytics/bootstrap";
+import { configureAnalyticsFields } from "@originloom/shared/lib/analytics/config";
 
 /**
- * Third-party scripts that have to run in a fixed order.
- *
- * Plain scripts written in head order already run in that order — this exists
- * for the two cases where that is not enough: a step whose readiness comes
- * later than its execution (a consent tool fetching its own configuration),
- * and not wanting to block the parser on every vendor round trip.
- *
- * In development the vendor is the mock gateway, so the sequence really runs.
- * Point ANALYTICS_VENDOR_URL at the real one and the shape does not change.
+ * The names this app's container reads. Set once, here, because they are a
+ * contract with the tag manager and a rename must not be a search-and-replace.
  */
-const vendorUrl =
-  process.env.ANALYTICS_VENDOR_URL?.trim() || \`\${config.gatewayUrl}/vendor/consent.js\`;
+configureAnalyticsFields({
+  trackingIdKey: process.env.ANALYTICS_TRACKING_ID_KEY?.trim() || "userTrackingId",
+  fieldPrefix: process.env.ANALYTICS_FIELD_PREFIX ?? "",
+  pageViewEvent: "GAVirtual",
+});
 
+/**
+ * Efilli, and the one thing this file needs from it: its URL.
+ *
+ * One variable, because there is one script. Efilli pushes its own events —
+ * \`efilli.consent\`, then \`efilli_essential_granted\` — and this file neither
+ * names them nor waits for them.
+ *
+ * The URL comes from the environment the way the container id does. In
+ * development the mock gateway stands in, so the chain really runs.
+ */
+const efilliUrl =
+  process.env.EFILLI_SCRIPT_URL?.trim() ||
+  (config.isProduction ? undefined : \`\${config.gatewayUrl}/vendor/consent.js\`);
+
+const gtmContainerId = process.env.GTM_CONTAINER_ID?.trim();
+
+/**
+ * A missing consent tool is loud, not silent.
+ *
+ * The container is not gated on it: deciding which tags may fire is the consent
+ * platform's job, not this file's. Refusing to load GTM because an environment
+ * variable is unset would turn one misconfiguration into zero measurement —
+ * which reads as "no traffic" rather than "someone forgot a variable", and is
+ * found weeks later.
+ */
+if (config.isProduction && !efilliUrl) {
+  logger.error("EFILLI_SCRIPT_URL is not set — the site is measuring without a consent tool");
+}
+
+/**
+ * The head chain: four scripts, in this order, every time.
+ *
+ * Written as plain tags this would be four elements and no guarantee — one
+ * \`async\` anywhere reorders the lot. The sequencer loads each step in order,
+ * without blocking the parser, and starts the next one when the previous has
+ * executed.
+ *
+ *   1. dataLayer exists   — before anything can push to it
+ *   2. Efilli             — pushes its own events, whenever it decides to
+ *   3. tracking id        — read from the cookie in the browser, never rendered
+ *                           into the shared-cached HTML
+ *   4. event queue        — installed before the container so it can hold
+ *                           gtm.dom / gtm.load
+ *   5. gtm.js             — the container
+ *
+ * **Nothing here waits for a consent event, and that is deliberate.** An earlier
+ * version did, and the order stopped being an order: a returning visitor whose
+ * decision Efilli already knows gets the event during execution, while a first
+ * visit gets it when the banner is answered — ten seconds later, or never. The
+ * chain then either continued at once or stalled until its timeout, so the same
+ * site produced a different sequence in a normal window and an incognito one.
+ *
+ * Script order is a guarantee the browser gives for free. An event is a promise
+ * about a person.
+ */
 export const analyticsSequence = sequencedScript(
   [
-    // 1. The consent tool. It executes immediately and is only usable once it
-    //    has decided, so the chain waits for the event rather than the load.
-    { src: vendorUrl, awaitEvent: "consent:ready" },
-    // 2. Now the decision exists, so the dataLayer can be built from it.
+    // 1. So no step has to guard for its absence.
+    { code: \`window.dataLayer=window.dataLayer||[];\` },
+    // 2. Executes here; announces itself on its own schedule.
+    ...(efilliUrl ? [{ src: efilliUrl }] : []),
+    // 3. The visitor's own id, from their own cookie.
     {
-      code: \`window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"app.ready",consent:window.__consent===true});\`,
+      code: trackingIdPushScript({
+        trackingIdKey: process.env.ANALYTICS_TRACKING_ID_KEY?.trim() || "userTrackingId",
+        // Campaign values live in cookies the session step wrote, so they travel
+        // with the visitor rather than only with the URL they arrived on.
+        extraCookies: { gclid: "gclid", utmSource: "utm_source", utmCampaign: "utm_campaign" },
+      }),
     },
-    // 3. Your tag manager belongs here, after the dataLayer it will read.
-    //    { src: "https://www.googletagmanager.com/gtm.js?id=GTM-XXXX" },
-    // 4. Your own measurement, last, so it can report what the steps decided.
-    { code: \`navigator.sendBeacon("/api/collect", JSON.stringify(window.dataLayer))\` },
+    // 4. Before the container: it wraps \`dataLayer.push\`, and it can only hold
+    //    events that are pushed after it is installed.
+    { code: eventQueueScript({ failOpenMs: 5_000 }) },
+    // 5. The container. Without an id the chain simply ends here, which is the
+    //    correct behaviour in a development checkout with no GTM property.
+    ...(gtmContainerId
+      ? [{ code: gtmStartScript() }, { src: gtmContainerUrl(gtmContainerId) }]
+      : []),
   ],
-  // A vendor that never answers must not strand the steps behind it.
+  // A vendor that never loads must not strand the steps behind it.
   { timeoutMs: 4_000 },
 );
 
 /** The origins the sequence reaches. Without these the browser refuses to load them. */
 export const analyticsCsp: CspSources = {
-  scriptSrc: [new URL(vendorUrl).origin],
+  scriptSrc: [
+    ...(efilliUrl ? [new URL(efilliUrl).origin] : []),
+    ...(gtmContainerId ? ["https://www.googletagmanager.com"] : []),
+  ],
 };
+
 `;
 
 const productRenderer =
@@ -3761,6 +6704,27 @@ export const mount = createIslandMounter({
 });
 `;
 
+const pageAnalyticsIsland =
+  () => `import { pushPageView } from "@originloom/shared/lib/analytics/page-view";
+import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
+import { useLayoutEffect } from "react";
+
+/**
+ * The page view, pushed once per rendered page.
+ *
+ * \`useLayoutEffect\` rather than \`useEffect\`: the head bootstrap is holding
+ * \`gtm.dom\` and \`gtm.load\` until this lands, and every frame it waits is a frame
+ * the tags are held back. Nothing is rendered — this island exists to push.
+ */
+export default function PageAnalytics(props: PageAnalyticsMeta) {
+  useLayoutEffect(() => {
+    pushPageView(props);
+  }, [props]);
+
+  return null;
+}
+`;
+
 const counterIsland = () => `import { useState } from "react";
 
 /** Example island — proves hydration works. Delete once you have real ones. */
@@ -3806,6 +6770,7 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
         Bu sayfa sunucuda render edildi. Aşağıdaki buton bağımsız bir island olarak hydrate olur —
         sayfanın geri kalanı statik HTML kalır.
       </p>
+
       <Island name="counter" props={{ start: 0 }}>
         <button
           type="button"
@@ -3826,7 +6791,7 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
             — sayfalı liste (query param cache key'de)
           </li>
           <li>
-            <Link className="hover:underline" href="/items/alpha">
+            <Link className="hover:underline" href="/items/konut-avantaj">
               /items/:slug
             </Link>{" "}
             — dinamik route, <code>validateParams</code> + <code>notFound()</code> + SEO
@@ -3838,7 +6803,7 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
             — static <code>308</code> redirect; query korunur
           </li>
           <li>
-            <Link className="hover:underline" href="/products/alpha?source=home">
+            <Link className="hover:underline" href="/products/konut-avantaj?source=home">
               /products/:slug
             </Link>{" "}
             — URL değişmeden <code>/items/:slug</code> route'una rewrite
@@ -3854,6 +6819,12 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
               /account
             </Link>{" "}
             — kişisel sayfa: <code>neverCache</code> + defer island
+          </li>
+          <li>
+            <Link className="hover:underline" href="/no-cache">
+              /no-cache
+            </Link>{" "}
+            — hiç cache yok: her istek gateway'e gider (karşılaştırma tabanı)
           </li>
           <li>
             <Link className="hover:underline" href="/data-cache">
@@ -3886,10 +6857,12 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
 }
 `;
 
-const rootLayout = (title) => `import { Link } from "@originloom/react/lib/link";
+const rootLayout = (title) => `import { Island } from "@originloom/react/lib/island";
+import { Link } from "@originloom/react/lib/link";
 import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
+import { drawerLabel, type MenuItem, orderedFor } from "~/lib/menu";
 import type { ShellData } from "~/lib/shell-data";
 
 export type RootLayoutProps = {
@@ -3902,7 +6875,11 @@ export type RootLayoutProps = {
 const SITE_NAME = "${title}";
 
 /** Application shell. Header/footer that need their own cache lifetime belong in fragments. */
-export function RootLayout({ shell, children }: RootLayoutProps) {
+export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
+  const header = orderedFor(shell.menu.headerItems, shell.deviceShell);
+  const drawer = orderedFor(shell.menu.hamburgerItems, shell.deviceShell);
+  const footer = orderedFor(shell.menu.footerItems, shell.deviceShell);
+
   return (
     <div className="flex min-h-screen flex-col">
       {shell.minimalChrome ? null : (
@@ -3911,19 +6888,63 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
             <Link href="/" className="text-lg font-semibold text-slate-900">
               {SITE_NAME}
             </Link>
-            <div className="flex items-center gap-6">
-              <nav aria-label="Ana menü">
-                <ul className="flex gap-4 text-sm text-slate-600">
-                  {shell.menu.map((item) => (
-                    <li key={item.href}>
-                      <Link className="hover:text-slate-950 hover:underline" href={item.href}>
-                        {item.label}
+
+            <nav aria-label="Ana menü" className="hidden md:block">
+              <ul className="flex gap-4 text-sm text-slate-600">
+                {header.map((item) => (
+                  <li key={item.id} className="group relative">
+                    <TopLink item={item} shell={shell.deviceShell} />
+                    {item.subMenuItemList?.length ? (
+                      // Hover *and* focus-within: a submenu that only opens on
+                      // hover cannot be reached with a keyboard at all.
+                      <ul className="invisible absolute left-0 top-full z-10 min-w-52 rounded-lg border border-slate-200 bg-white p-2 opacity-0 shadow-lg transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+                        {orderedFor(item.subMenuItemList, shell.deviceShell).map((child) => (
+                          <li key={child.id}>
+                            <Link
+                              className="block rounded px-2 py-1 hover:bg-slate-50 hover:text-slate-950"
+                              href={child.url}
+                              {...(child.external ? { target: "_blank" } : {})}
+                            >
+                              {child.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            {/* No JavaScript: <details> is the drawer. It works before hydration
+                and keeps working if hydration never happens. */}
+            <details className="md:hidden">
+              <summary className="cursor-pointer list-none rounded border border-slate-200 px-3 py-1 text-sm text-slate-700">
+                Menü
+              </summary>
+              <nav aria-label="Mobil menü" className="absolute left-0 right-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+                <ul className="space-y-2 text-sm text-slate-700">
+                  {drawer.map((item) => (
+                    <li key={item.id}>
+                      <Link className="font-medium hover:underline" href={item.url}>
+                        {drawerLabel(item)}
                       </Link>
+                      {item.subMenuItemList?.length ? (
+                        <ul className="mt-1 space-y-1 pl-4 text-slate-600">
+                          {orderedFor(item.subMenuItemList, shell.deviceShell).map((child) => (
+                            <li key={child.id}>
+                              <Link className="hover:underline" href={child.url}>
+                                {drawerLabel(child)}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
               </nav>
-            </div>
+            </details>
           </div>
         </header>
       )}
@@ -3932,16 +6953,49 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
         <div className="mx-auto max-w-5xl px-4">{children}</div>
       </main>
 
+      {/* Renders nothing; it exists to push the page view. \`eager\` because the
+          head bootstrap is holding gtm.dom and gtm.load until it does, and every
+          frame it waits is a frame the tags are held back. */}
+      <Island name="page-analytics" mode="defer" eager props={pageMeta} />
+
       {shell.minimalChrome ? null : (
         <footer className="border-t border-slate-200 py-6">
-          <div className="mx-auto max-w-5xl px-4 text-sm text-slate-500">
-            {SITE_NAME} — OriginLoom
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-4 px-4 text-sm text-slate-500">
+            <span>{SITE_NAME} — OriginLoom</span>
+            <nav aria-label="Alt menü">
+              <ul className="flex flex-wrap gap-4">
+                {footer.map((item) => (
+                  <li key={item.id}>
+                    <Link
+                      className="hover:text-slate-800 hover:underline"
+                      href={item.url}
+                      {...(item.external ? { target: "_blank" } : {})}
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
         </footer>
       )}
     </div>
   );
 }
+
+function TopLink({ item, shell }: { item: MenuItem; shell: "desktop" | "mobile" }) {
+  return (
+    <Link
+      className="inline-block py-1 hover:text-slate-950 hover:underline"
+      href={item.url}
+      {...(item.external ? { target: "_blank" } : {})}
+    >
+      {shell === "mobile" ? drawerLabel(item) : item.name}
+    </Link>
+  );
+}
+
 `;
 
 const libShellData = () => `import type { Ctx } from "@originloom/react/lib/types";
@@ -3951,7 +7005,7 @@ import type { DeviceType } from "@originloom/shared/lib/device";
 import { deviceCacheFragment, getDeviceShell } from "@originloom/shared/lib/device";
 import { cookie } from "@originloom/shared/lib/request";
 
-import type { MenuItem } from "~/lib/menu";
+import { EMPTY_MENU, type IMenuItems } from "~/lib/menu";
 
 /** Cache-safe props for the shell — no trackingId, no auth tokens. */
 export type ShellData = {
@@ -3961,7 +7015,7 @@ export type ShellData = {
   minimalChrome?: boolean;
   deviceType: DeviceType;
   deviceShell: "desktop" | "mobile";
-  menu: MenuItem[];
+  menu: IMenuItems;
 };
 
 export function buildLayoutClientProps(
@@ -3977,7 +7031,7 @@ export function buildLayoutClientProps(
     ...(opts?.minimalChrome !== undefined ? { minimalChrome: opts.minimalChrome } : {}),
     deviceType,
     deviceShell: getDeviceShell(deviceType),
-    menu: [],
+    menu: EMPTY_MENU,
   };
 }
 
@@ -4009,9 +7063,15 @@ import {
   contentQueryCacheFragment,
   type ContentQueryConfig,
 } from "@originloom/shared/lib/cache-query-params";
-import { locale } from "@originloom/shared/lib/request";
+import type { DeviceType } from "@originloom/shared/lib/device";
 
-import { normalizePageParam } from "~/lib/pagination";
+import {
+  CALCULATOR_QUERY,
+  calculatorNormalizers,
+  DEFAULT_CALCULATOR,
+} from "~/lib/calculator-query";
+import { CATALOG_QUERY, catalogNormalizers } from "~/lib/catalog-query";
+import { DEFAULT_AMOUNT, DEFAULT_TERM, QUOTE_QUERY, quoteNormalizers } from "~/lib/quote-query";
 import { layoutCacheFragment } from "~/lib/shell-data";
 
 export {
@@ -4033,6 +7093,9 @@ export const PageCacheId = {
   itemDetail: "item-detail",
   account: "account",
   contact: "contact",
+  calculator: "calculator",
+  guides: "guides",
+  guideDetail: "guide-detail",
   media: "media",
   showcase: "showcase",
 } as const;
@@ -4052,6 +7115,29 @@ export type PageCacheDefinition = {
   buildKey: (ctx: Ctx) => string[];
 };
 
+/**
+ * What every cached page varies on, declared once.
+ *
+ * A dimension multiplies the entries for every page that uses it, so each one
+ * has to earn its place: it belongs here only if the HTML actually differs along
+ * it. Adding one is a line, and so is removing one.
+ */
+function sharedDimensions(ctx: Ctx): string[] {
+  return [
+    // The shell differs between desktop and mobile, so the HTML does.
+    layoutCacheFragment(ctx),
+
+    // Multi-language site? Add \`locale(ctx.request)\` and every key splits per
+    // language. It is not here by default because a single-language app would
+    // then store the same bytes twice — once under \`tr\` and once under \`en\` —
+    // for pages that render identically.
+
+    // Per-tenant, per-country, per-currency: same shape. Return the value here
+    // and every page inherits it. Never return something with one value per
+    // visitor: an entry per person is not a cache.
+  ];
+}
+
 const DEFAULT_TTL = 300;
 const DEFAULT_SWR = 3_600;
 
@@ -4063,38 +7149,89 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     ttl: 3600,
     // Only normalized values that actually change the HTML belong in the key.
-    buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["home", ...sharedDimensions(ctx)],
   },
   [PageCacheId.catalog]: {
     id: PageCacheId.catalog,
     description: "Katalog (sayfalı)",
     path: "/catalog",
     strategy: "shared",
+    // The registry and the loader read the same contract, so a URL the loader
+    // treats as the unfiltered catalog cannot land on a different key.
     contentQuery: {
-      include: ["page"],
-      defaults: { page: "1" },
-      normalize: { page: normalizePageParam },
+      include: [...CATALOG_QUERY],
+      defaults: { category: "all", sortBy: "recommended", page: "1" },
+      normalize: catalogNormalizers,
     },
     // Only allowlisted, normalized content params enter the key. Tracking and
     // unknown params cannot fragment the shared HTML cache.
     buildKey: (ctx) => [
       "catalog",
       contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.catalog].contentQuery!),
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      ...sharedDimensions(ctx),
+    ],
+  },
+  [PageCacheId.guides]: {
+    id: PageCacheId.guides,
+    description: "Rehber listesi",
+    path: "/guides",
+    strategy: "shared",
+    ttl: 1800,
+    buildKey: (ctx) => ["guides", ...sharedDimensions(ctx)],
+  },
+  [PageCacheId.guideDetail]: {
+    id: PageCacheId.guideDetail,
+    description: "Rehber detayı",
+    path: "/guides/:slug",
+    strategy: "shared",
+    ttl: 1800,
+    buildKey: (ctx) => [
+      "guide-detail",
+      ctx.params.slug ?? "",
+      ...sharedDimensions(ctx),
+    ],
+  },
+  [PageCacheId.calculator]: {
+    id: PageCacheId.calculator,
+    description: "Kredi hesaplama aracı",
+    path: "/calculator",
+    strategy: "shared",
+    // The inputs are the page. Normalized to a small set first, so a slider
+    // cannot turn one tool into a million cache entries.
+    contentQuery: {
+      include: [...CALCULATOR_QUERY],
+      defaults: {
+        amount: String(DEFAULT_CALCULATOR.amount),
+        term: String(DEFAULT_CALCULATOR.term),
+        rate: String(DEFAULT_CALCULATOR.rate),
+      },
+      normalize: calculatorNormalizers,
+    },
+    buildKey: (ctx) => [
+      "calculator",
+      contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.calculator].contentQuery!),
+      ...sharedDimensions(ctx),
     ],
   },
   [PageCacheId.itemDetail]: {
     id: PageCacheId.itemDetail,
-    description: "Ürün detayı",
+    description: "Ürün detayı (teklif sorgulu)",
     path: "/items/:slug",
     strategy: "shared",
+    // The quote is part of what identifies this page: the same product at a
+    // different amount is different HTML. Normalized first, so a slider cannot
+    // turn one page into ten thousand cache entries.
+    contentQuery: {
+      include: [...QUOTE_QUERY],
+      defaults: { amount: String(DEFAULT_AMOUNT), term: String(DEFAULT_TERM) },
+      normalize: quoteNormalizers,
+    },
     // The slug fragments the cache — each item gets its own entry.
     buildKey: (ctx) => [
       "item-detail",
       ctx.params.slug ?? "",
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.itemDetail].contentQuery!),
+      ...sharedDimensions(ctx),
     ],
   },
   [PageCacheId.account]: {
@@ -4120,7 +7257,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/media",
     strategy: "shared",
     ttl: 3600,
-    buildKey: (ctx) => ["media", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["media", ...sharedDimensions(ctx)],
   },
   [PageCacheId.showcase]: {
     id: PageCacheId.showcase,
@@ -4129,7 +7266,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     // Page cached for an hour; the fragment it embeds has its own 15s TTL.
     ttl: 3600,
-    buildKey: (ctx) => ["showcase", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["showcase", ...sharedDimensions(ctx)],
   },
 };
 
@@ -4144,22 +7281,39 @@ export function pageCachePolicy(id: PageCacheId, ctx: Ctx): CachePolicy {
   });
 }
 
-/** Route resolver plus build-readable metadata; runtime policy remains authoritative. */
-export function pageCache(id: PageCacheId): RouteCacheResolver {
+/**
+ * Route resolver plus build-readable metadata; runtime policy remains authoritative.
+ *
+ * The resolver is overridable because some routes decide per request: a URL that
+ * is about to 404 or redirect should not be cached under the key of the page it
+ * is not. See server/routes/catalog.tsx.
+ */
+export function pageCache(
+  id: PageCacheId,
+  resolver: (ctx: Ctx) => CachePolicy = (ctx) => pageCachePolicy(id, ctx),
+): RouteCacheResolver {
   const entry = pageCacheRegistry[id];
   if (entry.strategy === "never") {
-    return describeRouteCache(() => neverCache(), {
+    return describeRouteCache(resolver, {
       mode: "none",
       label: entry.description,
     });
   }
-  return describeRouteCache((ctx) => pageCachePolicy(id, ctx), {
+  return describeRouteCache(resolver, {
     mode: "conditional",
     ttl: entry.ttl ?? DEFAULT_TTL,
     swr: entry.swr ?? DEFAULT_SWR,
     ...(entry.contentQuery?.include.length ? { vary: entry.contentQuery.include } : {}),
     label: entry.description,
   });
+}
+
+/**
+ * The menu is endpoint data, not a page, so it has its own key rather than an
+ * entry in the page registry. Device is part of it because the answer is.
+ */
+export function menuCacheKey(device: DeviceType): string {
+  return \`menu:\${device}\`;
 }
 
 export function listPageCachePrefixes(): PageCacheDefinition[] {
@@ -4379,7 +7533,10 @@ pnpm e2e:install
 # Commit/PR açmadan önce tüm kalite kapısını doğrulayın.
 pnpm ci
 
-# SSR, Vite ve mock gateway'i birlikte başlatır.
+# Uygulama + Vite + paketli mock gateway. İlk çalıştırma için bu.
+pnpm dev:mock
+
+# Kendi gateway'iniz varsa (GATEWAY_URL) yalnız uygulama + Vite:
 pnpm dev
 \`\`\`
 
@@ -4401,8 +7558,8 @@ pnpm --filter ${name} dev
 | ------------------- | --------------------------------- | ---------------------------------------- |
 | SSR uygulaması      | \`http://127.0.0.1:${port}\`       | Browser'ın açacağı adres                 |
 | Vite dev server     | \`http://127.0.0.1:${vitePort}\`   | Client modülleri; doğrudan açmayın       |
-| Mock gateway        | \`.env.development:GATEWAY_URL\`   | \`pnpm dev\` otomatik başlatır          |
-| Metrics/operations  | \`:${port + 6000}\`                | Public ingress'e açılmamalıdır           |
+| Mock gateway        | \`.env.development:GATEWAY_URL\`   | Yalnız \`pnpm dev:mock\` başlatır       |
+| Metrics/operations  | \`:${port + 6000}\`                | Development'ta kapalı (METRICS_ENABLED)  |
 
 Gerçek entegrasyonda \`.env.development\` içindeki \`GATEWAY_URL\` değerini değiştirin ve
 \`mock-gateway/server.mjs\` payload'larını gerçek kontratlarla karşılaştırın. Production secret'larını
@@ -4410,16 +7567,27 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 
 ## Çalışan örnekler
 
-- \`/catalog\`: normalize query paramı cache key'e giren sayfalı liste
-- \`/items/alpha\`: param validation, \`notFound()\`, CMS SEO ve JSON-LD içeren dinamik route
+- \`/catalog\`: facet, sıralama ve sayfalama; allowlist'li normalize query cache key'e girer,
+  \`?page=1\` 308, \`?page=abc\` ve aralık dışı 404, SEO metni gateway'den
+- \`/catalog/tools\`: geçerli değerleri gateway'in sahiplendiği param — \`validateParams\` + 301
+- \`/items/konut-avantaj?amount=250000&term=36\`: param validation, \`notFound()\`, tutar/vadeye göre
+  sunucuda hesaplanan teklif (normalize query cache key'e girer), ikinci gateway çağrısı
+  (değerlendirmeler), breadcrumb + FinancialProduct + AggregateRating JSON-LD, sağlayıcıya
+  yönlendirme formu
+- \`/calculator\`: SSR ile üretilen ilk sonuç + aynı public API'yi çağıran island; JS kapalıyken
+  form GET olarak çalışır
+- \`/guides\` ve \`/guides/:slug\`: editoryal içerik, \`Article\` + \`FAQPage\` yapısal verisi
 - \`/data-cache\`: cache'siz HTML içinde TTL/SWR ile cache'lenen doğrulanmış gateway verisi
+- \`/no-cache\`: hiçbir yerde cache yok — karşılaştırma için taban çizgisi
 - \`/account\`: never-cache document, BFF session ve defer island
-- Dynamic menu: fresh/stale endpoint cache, single-flight refresh ve safe fallback
+- Dinamik menü: platformun \`IMenuItems\` kontratı (header/hamburger/footer, iç içe, cihaza göre
+  sıralı, external link), cihaz başına endpoint cache ve menüsüz de çalışan fallback
+- \`/api/referrals\`: PRG + HttpOnly anonim oturum + allowlist'li dış yönlendirme (303)
 - \`/live\`: progressive SSR, bounded SSE ve graceful shutdown
 - \`/showcase\`: bağımsız TTL ile fragment stitching
 - \`/media\`: responsive media ve unoptimized asset teslimi
 - \`/old-catalog\`: query-string'i koruyan static \`308\` redirect
-- \`/products/alpha\`: browser URL'sini koruyan internal rewrite
+- \`/products/konut-avantaj\`: browser URL'sini koruyan internal rewrite
 - \`/gateway/menu\`: yalnız açıkça izin verilen gateway endpoint'ine external proxy
 - \`/legacy-catalog\` ve \`/removed-page\`: mock CMS redirect ve \`410 Gone\`
 
@@ -4427,7 +7595,9 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 
 | Komut                 | Açıklama                                                     |
 | --------------------- | ------------------------------------------------------------ |
-| \`pnpm dev\`            | SSR, Vite ve mock gateway'i birlikte çalıştırır              |
+| \`pnpm dev\`            | Yalnız SSR + Vite; gateway sizin (GATEWAY_URL)               |
+| \`pnpm dev:mock\`       | SSR + Vite + paketli mock gateway                            |
+| \`pnpm mock-gw\`        | Yalnız mock gateway (ayrı terminalde)                        |
 | \`pnpm origin:doctor\`  | Platform/template uyumluluğunu read-only denetler             |
 | \`pnpm origin:migrate\` | Upgrade planını dry-run gösterir; \`--apply\` ile uygular       |
 | \`pnpm sbom\`           | CycloneDX 1.6 full dependency envanteri üretir                  |
@@ -4469,7 +7639,7 @@ ${
 | \`server/product/\`         | Runtime, document shell, fragments, CSP ve boundary kontratları           |
 | \`server/services/\`        | Gateway çağrıları, payload guard'ları ve background worker'lar            |
 | \`server/metrics/\`         | Bounded product metric kaynakları                                        |
-| \`mock-gateway/\`           | Local fixture; \`pnpm dev\` ve \`pnpm smoke\` otomatik başlatır          |
+| \`mock-gateway/\`           | Local fixture; \`pnpm dev:mock\` ve \`pnpm smoke\` başlatır              |
 | \`src/features/\`           | Server-rendered sayfa bileşenleri                                        |
 | \`src/islands/\`            | Client etkileşim noktaları; dosya adı island adıdır                       |
 | \`src/lib/cache-keys.ts\`   | Cache registry, vary parçaları ve purge transport codec'i                 |
@@ -4501,6 +7671,13 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 
 - [Auth ve BFF](docs/auth.md)
 - [Cache ve fragment stitching](docs/caching.md)
+- [Cache purge](docs/cache-purge.md)
+- [Liste sayfaları: filtre, sıralama, sayfalama](docs/lists.md)
+- [Route param doğrulama](docs/route-params.md)
+- [Sağlayıcıya yönlendirme](docs/referrals.md)
+- [Araç sayfaları (hesaplayıcı)](docs/tools.md)
+- [Webhook alıcısı](docs/webhooks.md)
+- [Analytics: dataLayer ve sıra](docs/analytics.md)
 - [Kademeli kapasite testi ve raporlama](docs/capacity.md)
 - [Performans kabul politikası, payload bütçeleri ve profiling](docs/performance-acceptance.md)
 - [Configuration](docs/configuration.md)
@@ -4691,8 +7868,9 @@ jobs:
 
 const mockGateway = (includeRoutingExamples = false) => `#!/usr/bin/env node
 /**
- * Local stand-in for the upstream gateway, so \`pnpm dev\` works before a real one
- * exists. \`origin-dev --gateway\` and \`origin-smoke --gateway\` start it for you.
+ * Local stand-in for the upstream gateway, so the app runs before a real one
+ * exists. \`pnpm dev:mock\` and \`pnpm smoke\` start it for you; \`pnpm dev\` does not,
+ * because by then the gateway is usually someone else's process.
  *
  * Keep it dumb: fixed data in the shapes the real gateway returns. It is a
  * development fixture, not a second implementation of your backend.
@@ -4701,6 +7879,7 @@ import { createServer } from "node:http";
 
 const PORT = Number(process.env.MOCK_GATEWAY_PORT ?? 4002);
 const DELAY_MS = Math.max(0, Number(process.env.MOCK_GATEWAY_DELAY_MS ?? 0) || 0);
+const REVIEW_DELAY_MS = Math.max(0, Number(process.env.MOCK_REVIEW_DELAY_MS ?? 900) || 0);
 ${
   includeRoutingExamples
     ? "const LIVE_MESSAGE_DELAY_MS = Math.max(0, Number(process.env.MOCK_LIVE_MESSAGE_DELAY_MS ?? 600) || 0);"
@@ -4708,21 +7887,171 @@ ${
 }
 const stats = { startedAt: new Date().toISOString(), total: 0, byPath: Object.create(null) };
 
+// A small catalogue of credit products. \`addedAt\` and \`category\` exist so sorting
+// and faceting have something real to do; the list is ordered by nothing in
+// particular on purpose, because "recommended" is the upstream's own order and a
+// client that assumes it is alphabetical breaks the moment a real gateway disagrees.
 const ITEMS = [
-  { slug: "alpha", name: "Alpha", blurb: "İlk örnek kayıt.", seo: { title: "Alpha", description: "Alpha detay sayfası." } },
-  { slug: "beta", name: "Beta", blurb: "İkinci örnek kayıt.", seo: { title: "Beta", description: "Beta detay sayfası." } },
-  { slug: "gamma", name: "Gamma", blurb: "Üçüncü örnek kayıt.", seo: { title: "Gamma", description: "Gamma detay sayfası." } },
-  { slug: "delta", name: "Delta", blurb: "Dördüncü örnek kayıt.", seo: { title: "Delta", description: "Delta detay sayfası." } },
-  { slug: "epsilon", name: "Epsilon", blurb: "Beşinci örnek kayıt.", seo: { title: "Epsilon", description: "Epsilon detay sayfası." } },
-  { slug: "zeta", name: "Zeta", blurb: "Altıncı örnek kayıt.", seo: { title: "Zeta", description: "Zeta detay sayfası." } },
-  { slug: "eta", name: "Eta", blurb: "Yedinci örnek kayıt.", seo: { title: "Eta", description: "Eta detay sayfası." } },
+  { slug: "konut-avantaj", name: "Konut Avantaj", blurb: "Uzun vadeli konut finansmanı.", category: "konut", provider: "Örnek Bank", interestRate: 2.79, minAmount: 50000, maxAmount: 5000000, terms: [12, 24, 36, 48, 60], addedAt: "2026-01-04", seo: { title: "Konut Avantaj", description: "Konut Avantaj kredisi detayları." } },
+  { slug: "konut-esnek", name: "Konut Esnek", blurb: "Ara ödeme yapılabilen konut kredisi.", category: "konut", provider: "Deniz Finans", interestRate: 2.94, minAmount: 50000, maxAmount: 4000000, terms: [24, 36, 48, 60], addedAt: "2026-02-11", seo: { title: "Konut Esnek", description: "Konut Esnek kredisi detayları." } },
+  { slug: "ihtiyac-hizli", name: "İhtiyaç Hızlı", blurb: "Aynı gün sonuçlanan ihtiyaç kredisi.", category: "ihtiyac", provider: "Örnek Bank", interestRate: 3.49, minAmount: 10000, maxAmount: 300000, terms: [12, 24, 36], addedAt: "2026-03-02", seo: { title: "İhtiyaç Hızlı", description: "İhtiyaç Hızlı kredisi detayları." } },
+  { slug: "ihtiyac-uzun", name: "İhtiyaç Uzun", blurb: "48 aya varan vade seçeneği.", category: "ihtiyac", provider: "Anadolu Kredi", interestRate: 3.19, minAmount: 10000, maxAmount: 500000, terms: [24, 36, 48], addedAt: "2026-03-21", seo: { title: "İhtiyaç Uzun", description: "İhtiyaç Uzun kredisi detayları." } },
+  { slug: "tasit-sifir", name: "Taşıt Sıfır", blurb: "Sıfır araç için taşıt kredisi.", category: "tasit", provider: "Deniz Finans", interestRate: 2.99, minAmount: 50000, maxAmount: 2000000, terms: [12, 24, 36, 48], addedAt: "2026-04-08", seo: { title: "Taşıt Sıfır", description: "Taşıt Sıfır kredisi detayları." } },
+  { slug: "tasit-ikinci-el", name: "Taşıt İkinci El", blurb: "İkinci el araçlar için taşıt kredisi.", category: "tasit", provider: "Anadolu Kredi", interestRate: 3.35, minAmount: 25000, maxAmount: 1500000, terms: [12, 24, 36], addedAt: "2026-05-19", seo: { title: "Taşıt İkinci El", description: "Taşıt İkinci El kredisi detayları." } },
+  { slug: "ihtiyac-ogrenci", name: "İhtiyaç Öğrenci", blurb: "Öğrencilere özel düşük limitli kredi.", category: "ihtiyac", provider: "Örnek Bank", interestRate: 2.49, minAmount: 10000, maxAmount: 100000, terms: [12, 24], addedAt: "2026-06-27", seo: { title: "İhtiyaç Öğrenci", description: "İhtiyaç Öğrenci kredisi detayları." } },
 ];
-const MENU = [
-  { label: "Ana sayfa", href: "/" },
-  { label: "Katalog", href: "/catalog" },
-  { label: "API cache", href: "/data-cache" },
-  { label: "Canlı veri", href: "/live" },
+
+const GUIDES = [
+  {
+    slug: "konut-kredisi-rehberi",
+    title: "Konut kredisi rehberi",
+    excerpt: "Başvurudan önce bilmeniz gereken temel kavramlar.",
+    category: "konut",
+    author: "Ada Lovelace",
+    tags: ["konut", "kredi", "faiz"],
+    publishedAt: "2026-01-10T00:00:00.000Z",
+    updatedAt: "2026-02-01T00:00:00.000Z",
+    sections: [
+      { heading: "Faiz nasıl hesaplanır?", body: "Taksitler anüite yöntemiyle hesaplanır: her taksitin bir kısmı faiz, kalanı anaparadır." },
+      { heading: "Vade neyi değiştirir?", body: "Vade uzadıkça aylık taksit düşer, toplam geri ödeme artar." },
+    ],
+    faq: [
+      { question: "Peşinat şart mı?", body: "", answer: "Konut kredilerinde genellikle konut değerinin %20'si kadar peşinat istenir." },
+      { question: "Erken kapatma cezası var mı?", answer: "Kalan anaparaya göre sınırlı bir erken kapama ücreti uygulanabilir." },
+    ],
+  },
+  {
+    slug: "ihtiyac-kredisi-rehberi",
+    title: "İhtiyaç kredisi rehberi",
+    excerpt: "Limit, vade ve maliyet arasındaki dengeyi kurmak.",
+    category: "ihtiyac",
+    author: "Grace Hopper",
+    tags: ["ihtiyac", "kredi"],
+    publishedAt: "2026-03-05T00:00:00.000Z",
+    updatedAt: "2026-03-20T00:00:00.000Z",
+    sections: [
+      { heading: "Yıllık maliyet oranı nedir?", body: "Faize ek olarak tüm masrafları içeren orandır; ürünleri karşılaştırırken bakılması gereken sayıdır." },
+    ],
+    faq: [
+      { question: "Kaç ay vade seçebilirim?", answer: "Ürüne göre 12 ile 48 ay arasında değişir." },
+    ],
+  },
 ];
+
+const REVIEWS = {
+  "konut-avantaj": [
+    { author: "Deniz", rating: 5, comment: "Süreç beklediğimden hızlı ilerledi." },
+    { author: "Ece", rating: 4, comment: "Faiz oranı rakiplerine göre iyi." },
+  ],
+  "ihtiyac-hizli": [{ author: "Kerem", rating: 3, comment: "Onay hızlı ama limit düşük geldi." }],
+};
+
+/**
+ * Annuity payment. Deliberately upstream: an interest formula duplicated in the
+ * frontend is a second source of truth for a number people make decisions with.
+ */
+function quoteFor(item, amount, term) {
+  const monthlyRate = item.interestRate / 100;
+  const factor = Math.pow(1 + monthlyRate, term);
+  const monthlyPayment = (amount * monthlyRate * factor) / (factor - 1);
+  const totalPayment = monthlyPayment * term;
+  return {
+    amount,
+    term,
+    monthlyPayment: Math.round(monthlyPayment),
+    totalPayment: Math.round(totalPayment),
+    annualCostRate: Number((monthlyRate * 12 * 100).toFixed(2)),
+  };
+}
+
+/** Clamped to the product's own limits, so a quote is never one it cannot honour. */
+function requestedQuote(item, params) {
+  const rawAmount = Number(params.get("amount"));
+  const amount = Number.isFinite(rawAmount)
+    ? Math.min(item.maxAmount, Math.max(item.minAmount, Math.round(rawAmount / 1000) * 1000))
+    : Math.min(item.maxAmount, Math.max(item.minAmount, 100000));
+  const rawTerm = Number(params.get("term"));
+  const term = item.terms.includes(rawTerm) ? rawTerm : (item.terms[item.terms.length - 1] ?? 36);
+  return quoteFor(item, amount, term);
+}
+
+const CATEGORIES = ["konut", "ihtiyac", "tasit"];
+const SORTS = {
+  recommended: () => 0,
+  "name-asc": (a, b) => a.name.localeCompare(b.name, "tr"),
+  newest: (a, b) => b.addedAt.localeCompare(a.addedAt),
+  // The reason anyone sorts a credit list.
+  "rate-asc": (a, b) => a.interestRate - b.interestRate,
+};
+
+/** What a CMS would return for the list page, including its indexing decision. */
+function catalogSeoInfo(category, page) {
+  const label = category === "all" ? "Krediler" : \`Krediler — \${category}\`;
+  return {
+    title: label,
+    metaDescription: \`\${label} sayfası.\`,
+    headingTitle: label,
+    friendlyUrl: "/catalog",
+    // A filtered, deep page is thin: the gateway decides that, not the route.
+    noindex: category !== "all" && page > 1,
+    nofollow: false,
+    openGraphType: "website",
+  };
+}
+
+const headerItems = [
+  menuCategory(3, "Krediler", "/catalog", [
+    menuItem(31, 3, "Tüm krediler", "/catalog", 1),
+    menuItem(32, 3, "Konut kredisi", "/catalog?category=konut", 2),
+    menuItem(33, 3, "İhtiyaç kredisi", "/catalog?category=ihtiyac", 3),
+    menuItem(34, 3, "Taşıt kredisi", "/catalog?category=tasit", 4),
+  ]),
+  menuCategory(4, "Araçlar", "/calculator", [
+    menuItem(41, 4, "Kredi hesaplama", "/calculator", 1),
+    menuItem(42, 4, "API data cache", "/data-cache", 2),
+    menuItem(43, 4, "Cache'siz sayfa", "/no-cache", 3),
+  ]),
+  menuItem(5, null, "Canlı veri", "/live", 5),
+];
+
+const MENU = {
+  headerItems,
+  hamburgerItems: headerItems,
+  footerItems: [
+    footerItem(100, "İletişim", "/contact", 1),
+    footerItem(101, "Medya", "/media", 2),
+    footerItem(102, "OriginLoom", "https://example.com/originloom", 3, true),
+  ],
+};
+
+function menuCategory(id, name, url, subMenuItemList) {
+  return { id, name, url, displayOrder: id, mobileDisplayOrder: id, itemType: 4, subMenuItemList };
+}
+
+function menuItem(id, parentId, name, url, order, hamburgerName) {
+  return {
+    id,
+    ...(parentId === null ? {} : { parentId }),
+    name,
+    ...(hamburgerName ? { hamburgerName } : {}),
+    url,
+    displayOrder: order,
+    mobileDisplayOrder: order,
+    itemType: 4,
+  };
+}
+
+function footerItem(id, name, url, order, external) {
+  return {
+    id,
+    name,
+    url,
+    displayOrder: order,
+    mobileDisplayOrder: order,
+    itemType: 16,
+    ...(external ? { external: true } : {}),
+  };
+}
 ${
   includeRoutingExamples
     ? `const CMS_ROUTES = new Map([
@@ -4756,16 +8085,150 @@ const server = createServer(async (req, res) => {
 
   stats.total++;
   stats.byPath[url.pathname] = (stats.byPath[url.pathname] ?? 0) + 1;
+  logRequest(req, url);
   if (DELAY_MS) await new Promise((resolveDelay) => setTimeout(resolveDelay, DELAY_MS));
 
   if (url.pathname === "/items") {
+    const category = CATEGORIES.includes(url.searchParams.get("category") ?? "")
+      ? url.searchParams.get("category")
+      : "all";
+    const sortBy = url.searchParams.get("sortBy") in SORTS ? url.searchParams.get("sortBy") : "recommended";
     const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
     const perPage = Math.min(50, Math.max(1, Number(url.searchParams.get("perPage") ?? 3) || 3));
+
+    const matching = ITEMS.filter((item) => category === "all" || item.category === category);
+    const sorted = [...matching].sort(SORTS[sortBy]);
     const start = (page - 1) * perPage;
-    return json(res, 200, { items: ITEMS.slice(start, start + perPage), total: ITEMS.length });
+
+    return json(res, 200, {
+      items: sorted.slice(start, start + perPage),
+      total: matching.length,
+      page,
+      totalPages: Math.max(1, Math.ceil(matching.length / perPage)),
+      // Counts come from the whole set, not the filtered one: a facet that only
+      // ever shows the current selection cannot be used to leave it.
+      facets: {
+        categories: [
+          { value: "all", count: ITEMS.length },
+          ...CATEGORIES.map((value) => ({
+            value,
+            count: ITEMS.filter((item) => item.category === value).length,
+          })),
+        ],
+      },
+      // Echoed back so the page renders what the gateway understood, not what the
+      // URL asked for. They differ whenever the upstream rejects a value.
+      query: { category, sortBy },
+      seoInfo: catalogSeoInfo(category, page),
+    });
   }
 
-  if (url.pathname === "/menu") return json(res, 200, MENU);
+  // Editorial content: guides with sections and questions.
+  if (url.pathname === "/guides") {
+    return json(res, 200, {
+      items: GUIDES.map((guide) => ({
+        slug: guide.slug,
+        title: guide.title,
+        excerpt: guide.excerpt,
+        category: guide.category,
+      })),
+    });
+  }
+
+  const guideSlug = /^\\/guides\\/([^/]+)$/.exec(url.pathname);
+  if (guideSlug) {
+    const guide = GUIDES.find((entry) => entry.slug === decodeURIComponent(guideSlug[1]));
+    if (!guide) return json(res, 404, { error: "not_found" });
+    return json(res, 200, {
+      guide,
+      seoInfo: {
+        title: guide.title,
+        metaDescription: guide.excerpt,
+        headingTitle: guide.title,
+        image: "/assets/images/og-cover.svg",
+        imageAlt: guide.title,
+        friendlyUrl: "/guides/" + guide.slug,
+        noindex: false,
+        nofollow: false,
+        openGraphType: "article",
+        publishedTime: guide.publishedAt,
+        modifiedTime: guide.updatedAt,
+        author: guide.author,
+        section: guide.category,
+        tags: guide.tags,
+      },
+    });
+  }
+
+  // The payment plan, computed here so page and island share one implementation.
+  if (url.pathname === "/calculators/loan") {
+    const amount = Math.min(5000000, Math.max(10000, Number(url.searchParams.get("amount")) || 100000));
+    const term = Math.min(480, Math.max(1, Number(url.searchParams.get("term")) || 36));
+    const interestRate = Math.min(10, Math.max(0.1, Number(url.searchParams.get("rate")) || 3.1));
+
+    const monthlyRate = interestRate / 100;
+    const factor = Math.pow(1 + monthlyRate, term);
+    const monthlyPayment = (amount * monthlyRate * factor) / (factor - 1);
+
+    let remaining = amount;
+    const rows = [];
+    for (let month = 1; month <= term; month++) {
+      const interest = remaining * monthlyRate;
+      const principal = monthlyPayment - interest;
+      remaining -= principal;
+      rows.push({
+        month,
+        payment: Math.round(monthlyPayment),
+        interest: Math.round(interest),
+        principal: Math.round(principal),
+      });
+    }
+
+    return json(res, 200, {
+      amount,
+      term,
+      interestRate,
+      monthlyPayment: Math.round(monthlyPayment),
+      totalPayment: Math.round(monthlyPayment * term),
+      rows,
+    });
+  }
+
+  // The hand-off to the provider. A real gateway records it and mints a
+  // one-time destination; this one just proves the shape.
+  if (url.pathname === "/referrals" && req.method === "POST") {
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch {
+      return json(res, 400, { error: "invalid_json" });
+    }
+    const item = ITEMS.find((entry) => entry.slug === body?.slug);
+    if (!item) return json(res, 404, { error: "not_found" });
+    const referralId = "ref-" + Date.now().toString(36);
+    return json(res, 201, {
+      referralId,
+      redirectUrl:
+        "https://provider.example/basvuru/" +
+        encodeURIComponent(item.slug) +
+        "?ref=" +
+        encodeURIComponent(referralId),
+    });
+  }
+
+  // The slow half of the detail page. The delay is here rather than in the route
+  // so the streaming example exercises the real app → gateway boundary.
+  const reviews = /^\\/items\\/([^/]+)\\/reviews$/.exec(url.pathname);
+  if (reviews) {
+    if (REVIEW_DELAY_MS) await new Promise((resolveDelay) => setTimeout(resolveDelay, REVIEW_DELAY_MS));
+    return json(res, 200, { reviews: REVIEWS[decodeURIComponent(reviews[1])] ?? [] });
+  }
+
+  // The CMS navigation: three lists, nested, ordered per device. The device
+  // header is what makes the answer device-specific — see server/services/menu.ts.
+  if (url.pathname === "/pages/menuitem/list") {
+    return json(res, 200, MENU);
+  }
 
   // Where the contact form's endpoint sends what it accepted.
   if (url.pathname === "/enquiries" && req.method === "POST") {
@@ -4796,6 +8259,26 @@ ${
     : ""
 }
 
+  // Which route param values exist. Owned here rather than in the app because
+  // they change when the catalogue does, not when the code does — see
+  // server/services/route-domains.ts.
+  // Which URLs exist. The app does not enumerate its own site: a sitemap
+  // derived from one page of a catalogue silently omits the rest of it.
+  if (url.pathname === "/seo/sitemap") {
+    return json(res, 200, {
+      entries: [
+        { path: "/" },
+        { path: "/catalog" },
+        ...CATEGORIES.map((category) => ({ path: \`/catalog/\${category}\` })),
+        ...ITEMS.map((item) => ({ path: \`/items/\${item.slug}\`, lastModified: item.addedAt })),
+      ],
+    });
+  }
+
+  if (url.pathname === "/routing/domains") {
+    return json(res, 200, { categories: CATEGORIES });
+  }
+
   // The product's own routing rules. It always answers: "next" is a decision,
   // not a missing one, so the middleware never has to read 404 as consent.
   if (url.pathname === "/routing/decide") {
@@ -4822,16 +8305,42 @@ ${
   const detail = /^\\/items\\/([^/]+)$/.exec(url.pathname);
   if (detail) {
     const item = ITEMS.find((entry) => entry.slug === decodeURIComponent(detail[1]));
-    return item ? json(res, 200, item) : json(res, 404, { error: "not_found" });
+    if (!item) return json(res, 404, { error: "not_found" });
+    const quote = requestedQuote(item, url.searchParams);
+    // The page's SEO copy travels with the page. A real CMS is where a title is
+    // rewritten or a page is pulled from the index, and neither should be a deploy.
+    return json(res, 200, {
+      item,
+      quote,
+      seoInfo: {
+        title: item.seo.title,
+        metaDescription: item.seo.description,
+        headingTitle: item.name,
+        image: "/assets/images/og-cover.svg",
+        imageAlt: \`\${item.name} kapak görseli\`,
+        imageWidth: 1200,
+        imageHeight: 630,
+        friendlyUrl: \`/items/\${item.slug}\`,
+        noindex: false,
+        nofollow: false,
+        openGraphType: "product",
+        modifiedTime: \`\${item.addedAt}T00:00:00.000Z\`,
+      },
+    });
   }
 
-  // Stands in for a consent tool: it executes at once and decides a moment
-  // later, which is the case document order cannot express. See
-  // server/product/analytics.ts.
+  // Stands in for Efilli: it executes at once and decides a moment later, which
+  // is the case document order cannot express. See server/product/analytics.ts.
   if (url.pathname === "/vendor/consent.js") {
     res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+    // Announces itself the way a real consent tool does for a visitor whose
+    // decision it already has: two dataLayer pushes, synchronously, while it
+    // executes. A first-time visitor's would arrive whenever the banner is
+    // answered — which is exactly why nothing in the chain waits for it.
     return res.end(
-      'setTimeout(function(){window.__consent=true;dispatchEvent(new Event("consent:ready"));},150);',
+      'window.dataLayer=window.dataLayer||[];window.__consent=true;' +
+        'window.dataLayer.push({event:"efilli.consent",categories:{essential:true}});' +
+        'window.dataLayer.push({event:"efilli_essential_granted"});',
     );
   }
 
@@ -4904,7 +8413,33 @@ ${
     ? `function empty(res, status = 204) {
   res.writeHead(status, { "cache-control": "no-store" });
   res.end();
-}`
+}
+
+/**
+ * What the app actually sent, printed where you can read it.
+ *
+ * The identity headers are on every line because they are the ones you check
+ * when something upstream looks wrong: is the tracking id there on a first
+ * visit, is the client IP the visitor's or the proxy's, is the device what the
+ * page cached under. \`MOCK_GW_HEADERS=1\` prints the whole set when that is not
+ * enough; \`MOCK_GW_QUIET=1\` turns the log off for load tests.
+ */
+function logRequest(req, url) {
+  if (process.env.MOCK_GW_QUIET) return;
+  const h = req.headers;
+  console.log(
+    \`[mock-gw] \${req.method} \${url.pathname}\${url.search} · tracking=\${h["x-user-tracking-id"] ?? "-"} ip=\${h["x-client-ip"] ?? "-"} device=\${h["device"] ?? h["x-device-type"] ?? "-"} auth=\${h.authorization ? "yes" : "no"}\`,
+  );
+  if (!process.env.MOCK_GW_HEADERS) return;
+  for (const [name, value] of Object.entries(h)) {
+    // Never print the value of a credential: a terminal scrollback and a
+    // screenshot are both places a token should not end up.
+    const shown = REDACTED_HEADERS.has(name) ? "<redacted>" : value;
+    console.log(\`[mock-gw]     \${name}: \${shown}\`);
+  }
+}
+
+const REDACTED_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);`
     : ""
 }
 
@@ -4928,7 +8463,12 @@ export const GatewayContracts = {
 ${includeStreaming ? '  liveMessage: defineGatewayContract("live_message", 4_096),\n' : ""}  menu: defineGatewayContract("menu", 32_768),
   enquiries: defineGatewayContract("enquiries", 4_096),
   profile: defineGatewayContract("profile", 16_384),
+  calculator: defineGatewayContract("calculator", 131_072),
+  guides: defineGatewayContract("guides", 262_144),
+  referral: defineGatewayContract("referral", 4_096),
   routing: defineGatewayContract("routing", 4_096),
+  routeDomains: defineGatewayContract("route_domains", 16_384),
+  sitemap: defineGatewayContract("sitemap", 4_194_304),
 } as const;
 `;
 
@@ -4954,8 +8494,22 @@ const gatewayOpenApi = () =>
           get: {
             responses: {
               200: {
-                description: "Item detail",
-                content: { "application/json": { schema: { $ref: "#/components/schemas/Item" } } },
+                description: "Item detail page",
+                content: {
+                  "application/json": { schema: { $ref: "#/components/schemas/ItemDetail" } },
+                },
+              },
+            },
+          },
+        },
+        "/items/{slug}/reviews": {
+          get: {
+            responses: {
+              200: {
+                description: "Item reviews",
+                content: {
+                  "application/json": { schema: { $ref: "#/components/schemas/ItemReviews" } },
+                },
               },
             },
           },
@@ -4972,11 +8526,11 @@ const gatewayOpenApi = () =>
             },
           },
         },
-        "/menu": {
+        "/pages/menuitem/list": {
           get: {
             responses: {
               200: {
-                description: "Menu",
+                description: "CMS navigation",
                 content: { "application/json": { schema: { $ref: "#/components/schemas/Menu" } } },
               },
             },
@@ -4996,21 +8550,133 @@ const gatewayOpenApi = () =>
           },
           Item: {
             type: "object",
-            required: ["slug", "name", "blurb", "seo"],
+            required: [
+              "slug",
+              "name",
+              "blurb",
+              "category",
+              "provider",
+              "interestRate",
+              "minAmount",
+              "maxAmount",
+              "terms",
+              "seo",
+            ],
             properties: {
               slug: { type: "string", maxLength: 100 },
               name: { type: "string", maxLength: 200 },
               blurb: { type: "string", maxLength: 1000 },
+              category: { type: "string", maxLength: 60 },
+              provider: { type: "string", maxLength: 120 },
+              interestRate: { type: "number", minimum: 0, maximum: 100 },
+              minAmount: { type: "number", minimum: 0 },
+              maxAmount: { type: "number", minimum: 0 },
+              terms: { type: "array", maxItems: 20, items: { type: "integer", minimum: 1 } },
               seo: { $ref: "#/components/schemas/ItemSeo" },
+            },
+            additionalProperties: true,
+          },
+          ItemQuote: {
+            type: "object",
+            required: ["amount", "term", "monthlyPayment", "totalPayment", "annualCostRate"],
+            properties: {
+              amount: { type: "number", minimum: 0 },
+              term: { type: "integer", minimum: 1 },
+              monthlyPayment: { type: "number", minimum: 0 },
+              totalPayment: { type: "number", minimum: 0 },
+              annualCostRate: { type: "number", minimum: 0, maximum: 100 },
+            },
+            additionalProperties: true,
+          },
+          ItemDetail: {
+            type: "object",
+            required: ["item", "quote", "seoInfo"],
+            properties: {
+              item: { $ref: "#/components/schemas/Item" },
+              quote: { $ref: "#/components/schemas/ItemQuote" },
+              seoInfo: { $ref: "#/components/schemas/SeoInfo" },
+            },
+            additionalProperties: true,
+          },
+          SeoInfo: {
+            type: "object",
+            properties: {
+              title: { type: "string", maxLength: 200 },
+              metaDescription: { type: "string", maxLength: 1000 },
+              headingTitle: { type: "string", maxLength: 200 },
+              image: { type: "string", maxLength: 500 },
+              imageAlt: { type: "string", maxLength: 300 },
+              imageWidth: { type: "integer", minimum: 1, maximum: 10000 },
+              imageHeight: { type: "integer", minimum: 1, maximum: 10000 },
+              friendlyUrl: { type: "string", maxLength: 2048 },
+              noindex: { type: "boolean" },
+              nofollow: { type: "boolean" },
+              openGraphType: { type: "string", enum: ["website", "article", "product"] },
+              publishedTime: { type: "string" },
+              modifiedTime: { type: "string" },
+            },
+            additionalProperties: true,
+          },
+          ItemFacet: {
+            type: "object",
+            required: ["value", "count"],
+            properties: {
+              value: { type: "string", maxLength: 60 },
+              count: { type: "integer", minimum: 0 },
             },
             additionalProperties: true,
           },
           ItemPage: {
             type: "object",
-            required: ["items", "total"],
+            required: ["items", "total", "page", "totalPages", "facets", "query", "seoInfo"],
             properties: {
               items: { type: "array", maxItems: 100, items: { $ref: "#/components/schemas/Item" } },
-              total: { type: "number", minimum: 0 },
+              total: { type: "integer", minimum: 0 },
+              page: { type: "integer", minimum: 0 },
+              totalPages: { type: "integer", minimum: 0 },
+              facets: {
+                type: "object",
+                required: ["categories"],
+                properties: {
+                  categories: {
+                    type: "array",
+                    maxItems: 50,
+                    items: { $ref: "#/components/schemas/ItemFacet" },
+                  },
+                },
+                additionalProperties: true,
+              },
+              query: {
+                type: "object",
+                required: ["category", "sortBy"],
+                properties: {
+                  category: { type: "string", maxLength: 60 },
+                  sortBy: { type: "string", maxLength: 60 },
+                },
+                additionalProperties: true,
+              },
+              seoInfo: { $ref: "#/components/schemas/SeoInfo" },
+            },
+            additionalProperties: true,
+          },
+          ItemReviews: {
+            type: "object",
+            required: ["reviews"],
+            properties: {
+              reviews: {
+                type: "array",
+                maxItems: 50,
+                items: {
+                  type: "object",
+                  required: ["author", "rating", "comment"],
+                  properties: {
+                    author: { type: "string", maxLength: 120 },
+                    rating: { type: "number", minimum: 1, maximum: 5 },
+                    comment: { type: "string", maxLength: 2000 },
+                  },
+                  additionalProperties: true,
+                },
+              },
             },
             additionalProperties: true,
           },
@@ -5020,18 +8686,78 @@ const gatewayOpenApi = () =>
             properties: { message: { type: "string", maxLength: 200 } },
             additionalProperties: true,
           },
-          Menu: {
-            type: "array",
-            maxItems: 100,
-            items: {
-              type: "object",
-              required: ["label", "href"],
-              properties: {
-                label: { type: "string", maxLength: 100 },
-                href: { type: "string", maxLength: 500 },
-              },
-              additionalProperties: true,
+          // Two levels, named separately: a self-referencing $ref is a cycle the
+          // contract dereferencer cannot resolve, and the renderer bounds depth anyway.
+          MenuLeaf: {
+            type: "object",
+            required: ["id", "name", "url", "displayOrder", "mobileDisplayOrder"],
+            properties: {
+              id: { type: "integer" },
+              parentId: { type: ["integer", "null"] },
+              name: { type: "string", maxLength: 120 },
+              hamburgerName: { type: "string", maxLength: 120 },
+              description: { type: "string", maxLength: 500 },
+              url: { type: "string", maxLength: 2048 },
+              external: { type: "boolean" },
+              imagePath: { type: "string", maxLength: 500 },
+              activeImagePath: { type: "string", maxLength: 500 },
+              displayOrder: { type: "integer" },
+              mobileDisplayOrder: { type: "integer" },
+              menuType: { type: "integer" },
+              itemType: { type: "integer" },
+              menuDisplayDeviceType: { type: "integer" },
+              menuDisplayType: { type: "integer" },
             },
+            additionalProperties: true,
+          },
+          MenuItem: {
+            type: "object",
+            required: ["id", "name", "url", "displayOrder", "mobileDisplayOrder"],
+            properties: {
+              id: { type: "integer" },
+              parentId: { type: ["integer", "null"] },
+              name: { type: "string", maxLength: 120 },
+              hamburgerName: { type: "string", maxLength: 120 },
+              description: { type: "string", maxLength: 500 },
+              url: { type: "string", maxLength: 2048 },
+              external: { type: "boolean" },
+              imagePath: { type: "string", maxLength: 500 },
+              activeImagePath: { type: "string", maxLength: 500 },
+              displayOrder: { type: "integer" },
+              mobileDisplayOrder: { type: "integer" },
+              menuType: { type: "integer" },
+              itemType: { type: "integer" },
+              menuDisplayDeviceType: { type: "integer" },
+              menuDisplayType: { type: "integer" },
+              subMenuItemList: {
+                type: "array",
+                maxItems: 50,
+                items: { $ref: "#/components/schemas/MenuLeaf" },
+              },
+            },
+            additionalProperties: true,
+          },
+          Menu: {
+            type: "object",
+            required: ["headerItems"],
+            properties: {
+              headerItems: {
+                type: "array",
+                maxItems: 50,
+                items: { $ref: "#/components/schemas/MenuItem" },
+              },
+              hamburgerItems: {
+                type: "array",
+                maxItems: 50,
+                items: { $ref: "#/components/schemas/MenuItem" },
+              },
+              footerItems: {
+                type: "array",
+                maxItems: 50,
+                items: { $ref: "#/components/schemas/MenuItem" },
+              },
+            },
+            additionalProperties: true,
           },
         },
       },
@@ -5050,7 +8776,10 @@ const gatewayContractConfig = () =>
         {
           id: "items-page",
           operationId: "catalog.list",
-          request: { method: "GET", path: "/items?page=1&perPage=3" },
+          request: {
+            method: "GET",
+            path: "/items?category=all&sortBy=recommended&page=1&perPage=3",
+          },
           response: {
             status: 200,
             contentType: "application/json",
@@ -5061,12 +8790,23 @@ const gatewayContractConfig = () =>
         {
           id: "item-detail",
           operationId: "catalog.detail",
-          request: { method: "GET", path: "/items/alpha" },
+          request: { method: "GET", path: "/items/konut-avantaj" },
           response: {
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/item.json",
-            schema: "#/components/schemas/Item",
+            schema: "#/components/schemas/ItemDetail",
+          },
+        },
+        {
+          id: "item-reviews",
+          operationId: "catalog.reviews",
+          request: { method: "GET", path: "/items/konut-avantaj/reviews" },
+          response: {
+            status: 200,
+            contentType: "application/json",
+            fixture: "fixtures/item-reviews.json",
+            schema: "#/components/schemas/ItemReviews",
           },
         },
         {
@@ -5083,7 +8823,7 @@ const gatewayContractConfig = () =>
         {
           id: "menu",
           operationId: "shell.menu",
-          request: { method: "GET", path: "/menu" },
+          request: { method: "GET", path: "/pages/menuitem/list" },
           response: {
             status: 200,
             contentType: "application/json",
@@ -5098,24 +8838,117 @@ const gatewayContractConfig = () =>
   ) + "\n";
 
 const fixtureItem = {
-  slug: "alpha",
-  name: "Alpha",
-  blurb: "İlk örnek kayıt.",
-  seo: { title: "Alpha", description: "Alpha detay sayfası." },
+  slug: "konut-avantaj",
+  name: "Konut Avantaj",
+  blurb: "Uzun vadeli konut finansmanı.",
+  category: "konut",
+  provider: "Örnek Bank",
+  interestRate: 2.79,
+  minAmount: 50_000,
+  maxAmount: 5_000_000,
+  terms: [12, 24, 36, 48, 60],
+  seo: { title: "Konut Avantaj", description: "Konut Avantaj kredisi detayları." },
 };
 const gatewayItemsPageFixture = () =>
-  JSON.stringify({ items: [fixtureItem], total: 7 }, null, 2) + "\n";
-const gatewayItemFixture = () => JSON.stringify(fixtureItem, null, 2) + "\n";
+  JSON.stringify(
+    {
+      items: [fixtureItem],
+      total: 7,
+      page: 1,
+      totalPages: 3,
+      facets: {
+        categories: [
+          { value: "all", count: 7 },
+          { value: "tools", count: 3 },
+          { value: "materials", count: 2 },
+          { value: "services", count: 2 },
+        ],
+      },
+      query: { category: "all", sortBy: "recommended" },
+      seoInfo: {
+        title: "Katalog",
+        metaDescription: "Katalog sayfası.",
+        headingTitle: "Katalog",
+        friendlyUrl: "/catalog",
+        noindex: false,
+        nofollow: false,
+        openGraphType: "website",
+      },
+    },
+    null,
+    2,
+  ) + "\n";
+const gatewayReviewsFixture = () =>
+  JSON.stringify(
+    { reviews: [{ author: "Deniz", rating: 5, comment: "Süreç beklediğimden hızlı ilerledi." }] },
+    null,
+    2,
+  ) + "\n";
+const gatewayItemFixture = () =>
+  JSON.stringify(
+    {
+      item: fixtureItem,
+      quote: {
+        amount: 100_000,
+        term: 36,
+        monthlyPayment: 4_649,
+        totalPayment: 167_364,
+        annualCostRate: 33.48,
+      },
+      seoInfo: {
+        title: "Konut Avantaj",
+        metaDescription: "Konut Avantaj kredisi detayları.",
+        headingTitle: "Konut Avantaj",
+        image: "/assets/images/og-cover.svg",
+        imageAlt: "Konut Avantaj kapak görseli",
+        imageWidth: 1200,
+        imageHeight: 630,
+        friendlyUrl: "/items/konut-avantaj",
+        noindex: false,
+        nofollow: false,
+        openGraphType: "product",
+      },
+    },
+    null,
+    2,
+  ) + "\n";
 const gatewayLiveMessageFixture = () =>
   JSON.stringify({ message: "2026-01-01T00:00:00.000Z" }, null, 2) + "\n";
 const gatewayMenuFixture = () =>
   JSON.stringify(
-    [
-      { label: "Ana sayfa", href: "/" },
-      { label: "Katalog", href: "/catalog" },
-      { label: "API cache", href: "/data-cache" },
-      { label: "Canlı veri", href: "/live" },
-    ],
+    {
+      headerItems: [
+        {
+          id: 3,
+          name: "Ürünler",
+          url: "/catalog",
+          displayOrder: 3,
+          mobileDisplayOrder: 3,
+          itemType: 4,
+          subMenuItemList: [
+            {
+              id: 31,
+              parentId: 3,
+              name: "Tüm katalog",
+              url: "/catalog",
+              displayOrder: 1,
+              mobileDisplayOrder: 1,
+              itemType: 4,
+            },
+          ],
+        },
+      ],
+      footerItems: [
+        {
+          id: 100,
+          name: "İletişim",
+          url: "/contact",
+          displayOrder: 1,
+          mobileDisplayOrder: 1,
+          itemType: 16,
+        },
+      ],
+    },
     null,
     2,
   ) + "\n";
@@ -5390,7 +9223,7 @@ function sessionUnavailable(cookies: Parameters<typeof withBffAuthCookies>[1]): 
 const seoRoutes = () => `import { config } from "@originloom/core/config";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { mountSeoRoutes as mountPlatformSeoRoutes } from "@originloom/core/seo";
-import { listItems } from "@server/services/items";
+import { fetchSitemapEntries } from "@server/services/sitemap";
 import type { Hono } from "hono";
 
 /**
@@ -5401,15 +9234,13 @@ import type { Hono } from "hono";
 export function mountSeo(app: Hono<{ Variables: AppVariables }>): void {
   mountPlatformSeoRoutes(app, {
     siteUrl: config.siteUrl,
-    entries: async (signal) => {
-      const { items } = await listItems(1, 100, signal);
-      const paths = ["/", "/catalog", ...items.map((item) => \`/items/\${item.slug}\`)];
-      return paths.map((path) => ({ path }));
-    },
-    // Served when the gateway is down: a stale sitemap beats no sitemap.
+    entries: (request) => fetchSitemapEntries(request),
+    // Served when the gateway is down: a stale sitemap beats no sitemap, and an
+    // empty one tells a crawler this site has nothing on it.
     fallbackEntries: [{ path: "/" }, { path: "/catalog" }],
   });
 }
+
 `;
 
 const productMetrics = () => `import {
@@ -5571,12 +9402,665 @@ ${
 }
 `;
 
+const cachePurgeApiTest =
+  () => `import { mountCachePurgeApi } from "@originloom/core/api/cache-purge";
+import { initCache } from "@originloom/core/cache";
+import { createMetricsApp } from "@originloom/core/metrics-server";
+import { installProductRuntime } from "@server/product/runtime";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+const SECRET = "correct-horse-battery-staple";
+
+function operations() {
+  // The same wiring as server/index.ts: purge lives on the operations listener,
+  // never on the public site.
+  return createMetricsApp({ mounts: (app) => mountCachePurgeApi(app, { secret: SECRET }) });
+}
+
+function purge(body: unknown, headers: Record<string, string> = {}) {
+  return new Request("http://ops.local/api/internal/cache/purge", {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("the cache purge endpoints", () => {
+  beforeEach(async () => {
+    // The page-id allowlist lives in this app's cache registry, which the
+    // platform reads through the runtime.
+    installProductRuntime();
+    await initCache();
+  });
+  afterEach(() => {
+    delete process.env.NODE_ENV;
+  });
+
+  it("is not reachable from the public site", async () => {
+    const { routes } = await import("@server/routes");
+    const { mountApi } = await import("@server/api");
+    const { createApp } = await import("@originloom/core/app");
+
+    const app = createApp({
+      assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+      routes,
+      readinessCheck: async () => true,
+      mounts: { api: mountApi },
+    });
+    const response = await app.request("http://app.local/api/internal/cache/purge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+
+    // Emptying the cache points the whole fleet at the gateway. That button does
+    // not belong on a port the internet can reach.
+    expect(response.status).toBe(404);
+  });
+
+  it("rejects a wrong token", async () => {
+    const response = await operations().request(
+      purge({ pageIds: ["catalog"] }, { authorization: "Bearer wrong" }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("accepts the token from either header", async () => {
+    const bearer = await operations().request(
+      purge({ pageIds: ["catalog"] }, { authorization: \`Bearer \${SECRET}\` }),
+    );
+    const custom = await operations().request(
+      purge({ pageIds: ["catalog"] }, { "x-cache-purge-token": SECRET }),
+    );
+
+    expect(bearer.status).toBe(200);
+    expect(custom.status).toBe(200);
+  });
+
+  it("refuses a page id this app does not have", async () => {
+    const response = await operations().request(
+      purge({ pageIds: ["not-a-page"] }, { "x-cache-purge-token": SECRET }),
+    );
+
+    // The registry in src/lib/cache-keys.ts is the allowlist: purging by page id
+    // can only name a page this app actually caches.
+    expect(response.status).toBe(400);
+  });
+});
+
+`;
+
+const webhookApi = () => `import { createHmac, timingSafeEqual } from "node:crypto";
+
+import { config } from "@originloom/core/config";
+import { logger } from "@originloom/core/logger";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { isRecord } from "@originloom/shared/lib/runtime-schema";
+import type { Hono } from "hono";
+
+/**
+ * An endpoint the internet can reach, which acts on what it is told.
+ *
+ * Everything here is about the gap between "a request arrived" and "the provider
+ * sent it". Four separate things have to hold, and each one is a real incident
+ * when it does not:
+ *
+ * 1. **Signature** over the *raw* body. Verifying a re-serialized object checks
+ *    your own JSON encoder, not the sender.
+ * 2. **Timestamp window.** A valid signature stays valid forever; without a
+ *    window, a captured request can be replayed a year later.
+ * 3. **Idempotency.** Providers retry, and a retry that is processed twice is a
+ *    duplicate payment, a duplicate application, a duplicate email.
+ * 4. **A bounded read.** An unbounded body on an unauthenticated endpoint is a
+ *    memory-exhaustion button.
+ *
+ * The signature scheme is the provider's, not this app's — check theirs before
+ * copying this one.
+ */
+const MAX_BODY_BYTES = 64 * 1024;
+const REPLAY_WINDOW_MS = 5 * 60 * 1000;
+const SEEN_MAX_ENTRIES = 5_000;
+
+/** Ids already processed, with the time they may be forgotten. Bounded on purpose. */
+const seen = new Map<string, number>();
+
+export async function handleProviderWebhook(request: Request): Promise<Response> {
+  const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) {
+    // Failing closed: without a secret nothing here can tell the provider from
+    // anyone else, and an open webhook is a way to write to your system.
+    logger.error("webhook secret is not configured — refusing to accept deliveries");
+    return refuse(503, "not_configured");
+  }
+
+  const signature = request.headers.get("x-signature");
+  const timestamp = Number(request.headers.get("x-timestamp"));
+  if (!signature || !Number.isFinite(timestamp)) return refuse(400, "missing_signature");
+
+  // The window is checked before the HMAC so a flood of stale replays costs a
+  // comparison rather than a hash over 64 KB.
+  const age = Math.abs(Date.now() - timestamp);
+  if (age > REPLAY_WINDOW_MS) return refuse(400, "stale_timestamp");
+
+  const raw = await readBounded(request);
+  if (raw === null) return refuse(413, "body_too_large");
+
+  // The signature covers timestamp *and* body: signing the body alone would let
+  // a captured delivery be re-sent with a fresh timestamp.
+  const expected = createHmac("sha256", secret).update(\`\${timestamp}.\${raw}\`).digest("hex");
+  if (!constantTimeEquals(signature, expected)) return refuse(401, "bad_signature");
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return refuse(400, "invalid_json");
+  }
+  if (!isRecord(payload) || typeof payload.id !== "string" || payload.id.length > 200) {
+    return refuse(400, "invalid_payload");
+  }
+
+  // A retry is the provider doing its job. Answering 200 without acting again is
+  // the only correct response to one.
+  if (rememberOnce(payload.id) === "already-seen") {
+    return accept({ status: "duplicate" });
+  }
+
+  logger.info("webhook accepted", { id: payload.id, event: String(payload.event ?? "unknown") });
+  // Nothing slow here: the provider is holding a connection open and will retry
+  // on a timeout. Hand the work to a queue and answer.
+  return accept({ status: "accepted" });
+}
+
+export function mountWebhookApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.post("/api/webhooks/provider", (c) => {
+    c.set("requestRoute", "<api webhook>");
+    return handleProviderWebhook(contextRequest(c));
+  });
+}
+
+/** Reads at most \`MAX_BODY_BYTES\`; returns null when the sender exceeds it. */
+async function readBounded(request: Request): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return null;
+  if (!request.body) return "";
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    // Content-Length is the sender's claim; this is the check.
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(concat(chunks, size));
+}
+
+function concat(chunks: readonly Uint8Array[], size: number): Uint8Array {
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
+/**
+ * Constant-time, and length-safe.
+ *
+ * \`timingSafeEqual\` throws on a length mismatch, and returning early on one
+ * leaks the expected length — so both sides are hashed to a fixed width first.
+ */
+function constantTimeEquals(candidate: string, expected: string): boolean {
+  const digest = (value: string) => createHmac("sha256", "compare").update(value).digest();
+  return timingSafeEqual(digest(candidate), digest(expected));
+}
+
+/** @returns \`"already-seen"\` when this delivery was processed before. */
+function rememberOnce(id: string): "new" | "already-seen" {
+  const now = Date.now();
+  const until = seen.get(id);
+  if (until !== undefined && until > now) return "already-seen";
+
+  // Bounded: an unbounded set of ids on a public endpoint is a slow memory leak
+  // with a sender who controls its rate.
+  if (seen.size >= SEEN_MAX_ENTRIES) {
+    for (const [key, expiry] of seen) {
+      if (expiry <= now) seen.delete(key);
+    }
+    if (seen.size >= SEEN_MAX_ENTRIES) {
+      const oldest = seen.keys().next().value;
+      if (oldest !== undefined) seen.delete(oldest);
+    }
+  }
+  seen.set(id, now + REPLAY_WINDOW_MS * 2);
+  return "new";
+}
+
+function refuse(status: 400 | 401 | 413 | 503, reason: string): Response {
+  // The reason is for your logs, not for whoever is probing: it says what was
+  // wrong with the request, never what the expected value was.
+  logger.warn("webhook refused", { reason, status });
+  return json({ error: reason }, status);
+}
+
+function accept(body: Record<string, string>): Response {
+  return json(body, 202);
+}
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "private, no-store",
+    },
+  });
+}
+
+/** Exported for tests only: the seen-id table is process state. */
+export function resetWebhookState(): void {
+  if (!config.isProduction) seen.clear();
+}
+`;
+
+const webhookApiTest = () => `import { createHmac } from "node:crypto";
+
+import { handleProviderWebhook, resetWebhookState } from "@server/api/webhooks";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@originloom/core/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+const SECRET = "correct-horse-battery-staple";
+
+function delivery(
+  body: unknown,
+  options: { timestamp?: number; signature?: string; secret?: string } = {},
+): Request {
+  const raw = JSON.stringify(body);
+  const timestamp = options.timestamp ?? Date.now();
+  const signature =
+    options.signature ??
+    createHmac("sha256", options.secret ?? SECRET).update(\`\${timestamp}.\${raw}\`).digest("hex");
+  return new Request("http://app.local/api/webhooks/provider", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-signature": signature,
+      "x-timestamp": String(timestamp),
+    },
+    body: raw,
+  });
+}
+
+describe("the provider webhook", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.WEBHOOK_SECRET = SECRET;
+    resetWebhookState();
+  });
+  afterEach(() => {
+    delete process.env.WEBHOOK_SECRET;
+  });
+
+  it("accepts a correctly signed delivery", async () => {
+    const response = await handleProviderWebhook(delivery({ id: "evt-1", event: "approved" }));
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ status: "accepted" });
+  });
+
+  it("refuses a body signed with the wrong secret", async () => {
+    const response = await handleProviderWebhook(
+      delivery({ id: "evt-2" }, { secret: "not-the-secret" }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("refuses a body that changed after it was signed", async () => {
+    const timestamp = Date.now();
+    const signature = createHmac("sha256", SECRET)
+      .update(\`\${timestamp}.\${JSON.stringify({ id: "evt-3", amount: 10 })}\`)
+      .digest("hex");
+
+    // The signature covers the raw bytes. Verifying a re-serialized object would
+    // check this app's JSON encoder rather than the sender.
+    const response = await handleProviderWebhook(
+      delivery({ id: "evt-3", amount: 1_000_000 }, { timestamp, signature }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("refuses a delivery older than the replay window", async () => {
+    // A valid signature stays valid forever; the window is what stops a captured
+    // request from being replayed next year.
+    const response = await handleProviderWebhook(
+      delivery({ id: "evt-4" }, { timestamp: Date.now() - 10 * 60 * 1000 }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "stale_timestamp" });
+  });
+
+  it("answers a retry without acting on it twice", async () => {
+    const first = await handleProviderWebhook(delivery({ id: "evt-5", event: "approved" }));
+    const retry = await handleProviderWebhook(delivery({ id: "evt-5", event: "approved" }));
+
+    // Providers retry. A retry processed twice is a duplicate payment, a
+    // duplicate application, a duplicate email.
+    expect(first.status).toBe(202);
+    await expect(first.json()).resolves.toEqual({ status: "accepted" });
+    await expect(retry.json()).resolves.toEqual({ status: "duplicate" });
+  });
+
+  it("refuses a body larger than the limit", async () => {
+    const huge = { id: "evt-6", note: "x".repeat(100 * 1024) };
+
+    // An unbounded read on an endpoint the internet can reach is a
+    // memory-exhaustion button.
+    expect((await handleProviderWebhook(delivery(huge))).status).toBe(413);
+  });
+
+  it("refuses everything when no secret is configured", async () => {
+    delete process.env.WEBHOOK_SECRET;
+
+    // Failing closed: without a secret this endpoint cannot tell the provider
+    // from anyone else, and an open webhook is a way to write to your system.
+    expect((await handleProviderWebhook(delivery({ id: "evt-7" }))).status).toBe(503);
+  });
+
+  it("never says what the expected signature was", async () => {
+    const response = await handleProviderWebhook(delivery({ id: "evt-8" }, { signature: "nope" }));
+
+    const body = await response.text();
+    expect(body).not.toMatch(/[0-9a-f]{64}/);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
+`;
+
+const referralService = () => `import {
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+
+import { GatewayContracts } from "./gateway-contracts";
+
+const INVALID = "Referral gateway returned an invalid payload";
+
+/**
+ * What the provider gives back when a visitor is sent to them: where to go, and
+ * the id that ties the visit to this site when they convert.
+ */
+export type Referral = { redirectUrl: string; referralId: string };
+
+/**
+ * Records the hand-off and asks for the destination.
+ *
+ * The destination is not built here and not stored in this app: it belongs to
+ * the provider, may carry a one-time token, and changes without a deploy. The
+ * anonymous session id is what makes a returning visitor the same visitor
+ * without knowing anything about them.
+ */
+export async function createReferral(
+  slug: string,
+  anonymousSessionId: string,
+  request: Request,
+): Promise<Referral | null> {
+  const response = await gatewayFetchWithIdentity(request, "/referrals", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ slug, anonymousSessionId }),
+  });
+  // An unknown product is data, not a failure — the endpoint turns it into a 404.
+  if (response.status === 400 || response.status === 404) {
+    await releaseGatewayResponse(response);
+    return null;
+  }
+  await requireGatewayOk(response, "Referral gateway returned");
+
+  const payload = await readGatewayJson(response, GatewayContracts.referral, INVALID);
+  return requireGatewayPayload(GatewayContracts.referral, payload, isReferral, INVALID);
+}
+
+function isReferral(value: unknown): value is Referral {
+  return (
+    isRecord(value) && isBoundedString(value.redirectUrl, 2_048) && isBoundedString(value.referralId, 120)
+  );
+}
+`;
+
+const referralApi = () => `import { config } from "@originloom/core/config";
+import { applyCookies, CookieJar } from "@originloom/core/middleware/cookie-jar";
+import { contextRequest } from "@originloom/core/middleware/request-deadline";
+import type { AppVariables } from "@originloom/core/middleware/request-id";
+import { sanitizeUuid } from "@originloom/core/middleware/sanitize";
+import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
+import { normalizeNavigationUrl } from "@originloom/shared/lib/content-url";
+import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
+import { Cookie } from "@originloom/shared/lib/cookies";
+import { cookie } from "@originloom/shared/lib/request";
+import { createReferral } from "@server/services/referrals";
+import type { Hono } from "hono";
+
+const REFERRAL_SESSION_MAX_AGE = 86_400 * 30;
+
+/**
+ * Sending a visitor to the provider is a write.
+ *
+ * It records something, it sets a cookie, and it must not happen because a
+ * crawler followed a link or a page was prefetched — so it is a POST from a
+ * form, same-origin checked and rate limited, and the answer is a 303 that the
+ * browser will not repeat on refresh.
+ */
+const REFERRAL_POLICY: PublicApiPolicy = {
+  name: "referral",
+  windowMs: 60_000,
+  globalLimit: 1_000,
+  ipLimit: 30,
+  requireSameOriginMutation: true,
+};
+
+export async function handleReferral(request: Request, clientIp = "unresolved"): Promise<Response> {
+  const denied = await guardPublicApi(request, clientIp, REFERRAL_POLICY);
+  if (denied) return denied;
+
+  const form = await readForm(request);
+  const slug = form?.get("slug");
+  if (typeof slug !== "string" || !isBoundedRouteSlug(slug)) {
+    return refuse("Geçersiz başvuru isteği", 400);
+  }
+
+  // The same visitor across visits, without knowing who they are: a random id in
+  // an HttpOnly cookie. It never reaches the page, so it cannot leak into cached
+  // HTML, and it is not a login.
+  const currentSession = sanitizeUuid(cookie(request, Cookie.referralSession));
+  const anonymousSessionId = currentSession ?? crypto.randomUUID();
+
+  const referral = await createReferral(slug, anonymousSessionId, request);
+  if (!referral) return refuse("Ürün bulunamadı", 404);
+
+  // The provider's URL is still untrusted input. \`external: true\` allows a
+  // cross-origin destination but still rejects javascript:, data: and anything
+  // that is not an absolute https URL — an open redirect is what this prevents.
+  const destination = normalizeNavigationUrl(referral.redirectUrl, {
+    siteUrl: config.siteUrl,
+    external: true,
+  });
+  if (!destination) return refuse("Güvenli yönlendirme oluşturulamadı", 502);
+
+  const response = new Response(null, {
+    status: 303,
+    headers: { location: destination, "cache-control": "private, no-store" },
+  });
+  if (currentSession) return response;
+
+  const cookies = new CookieJar();
+  cookies.set(Cookie.referralSession, anonymousSessionId, {
+    httpOnly: true,
+    secure: config.isProduction,
+    // Lax, not Strict: the visitor comes back from the provider through a
+    // cross-site navigation, and the session has to survive that.
+    sameSite: "lax",
+    maxAge: REFERRAL_SESSION_MAX_AGE,
+  });
+  return applyCookies(response, cookies);
+}
+
+export function mountReferralApi(app: Hono<{ Variables: AppVariables }>): void {
+  app.post("/api/referrals", (c) => {
+    c.set("requestRoute", "<api referral>");
+    return handleReferral(contextRequest(c), c.get("clientIp") ?? "unresolved");
+  });
+}
+
+async function readForm(request: Request): Promise<FormData | null> {
+  try {
+    return await request.formData();
+  } catch {
+    return null;
+  }
+}
+
+function refuse(message: string, status: 400 | 404 | 502): Response {
+  return new Response(message, { status, headers: { "cache-control": "private, no-store" } });
+}
+`;
+
+const referralApiTest = () => `import { handleReferral } from "@server/api/referrals";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const ORIGIN = "http://localhost:3000";
+
+function submit(fields: Record<string, string>, headers: Record<string, string> = {}): Request {
+  return new Request(\`\${ORIGIN}/api/referrals\`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      // Fetch Metadata is what the guard reads first; an Origin header only
+      // matters for the browsers that do not send it.
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-mode": "navigate",
+      ...headers,
+    },
+    body: new URLSearchParams(fields),
+  });
+}
+
+function upstream(body: unknown, status = 200) {
+  mocks.gatewayFetchWithIdentity.mockImplementation(
+    async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }),
+  );
+}
+
+describe("leaving for the provider", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    upstream({ redirectUrl: "https://provider.example/apply?ref=abc", referralId: "ref-1" });
+  });
+
+  it("redirects with a 303 so a refresh does not record a second hand-off", async () => {
+    const response = await handleReferral(submit({ slug: "konut-avantaj" }), "203.0.113.9");
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://provider.example/apply?ref=abc");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("mints an anonymous session the visitor keeps, and never shows it to the page", async () => {
+    const response = await handleReferral(submit({ slug: "konut-avantaj" }), "203.0.113.9");
+
+    const setCookie = response.headers.get("set-cookie") ?? "";
+    expect(setCookie).toMatch(/^referral_session=/);
+    // HttpOnly: the id identifies a returning visitor to the server and to
+    // nothing else. Script-readable, it would be one more thing to leak.
+    expect(setCookie).toMatch(/HttpOnly/i);
+    expect(setCookie).toMatch(/SameSite=Lax/i);
+  });
+
+  it("reuses the session the visitor already has", async () => {
+    const existing = "9f1f2f7e-0f0e-4d3c-8b6a-2c1d0e5f4a3b";
+    const response = await handleReferral(
+      submit({ slug: "konut-avantaj" }, { cookie: \`referral_session=\${existing}\` }),
+      "203.0.113.9",
+    );
+
+    expect(response.headers.get("set-cookie")).toBeNull();
+    const sent = JSON.parse(
+      (mocks.gatewayFetchWithIdentity.mock.calls[0]?.[2] as { body: string }).body,
+    ) as { anonymousSessionId: string };
+    // Repeat clicks are counted; the visitor behind them stays one visitor.
+    expect(sent.anonymousSessionId).toBe(existing);
+  });
+
+  it("refuses a destination that is not a safe absolute URL", async () => {
+    upstream({ redirectUrl: "javascript:alert(1)", referralId: "ref-1" });
+
+    // The provider's URL is untrusted input. Following it blindly is an open
+    // redirect with this site's name on it.
+    const response = await handleReferral(submit({ slug: "konut-avantaj" }), "203.0.113.9");
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("refuses a cross-site submission", async () => {
+    const response = await handleReferral(
+      submit({ slug: "konut-avantaj" }, { "sec-fetch-site": "cross-site" }),
+      "203.0.113.9",
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.gatewayFetchWithIdentity).not.toHaveBeenCalled();
+  });
+
+  it("refuses a slug that was never a slug", async () => {
+    const response = await handleReferral(submit({ slug: "../../etc/passwd" }), "203.0.113.9");
+
+    expect(response.status).toBe(400);
+    expect(mocks.gatewayFetchWithIdentity).not.toHaveBeenCalled();
+  });
+
+  it("reports an unknown product as a 404 rather than a broken redirect", async () => {
+    upstream({ error: "not_found" }, 404);
+
+    const response = await handleReferral(submit({ slug: "yok-boyle-bir-urun" }), "203.0.113.9");
+
+    expect(response.status).toBe(404);
+  });
+});
+`;
+
 const publicItemsApi =
   () => `import { contextRequest } from "@originloom/core/middleware/request-deadline";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
 import { listItems } from "@server/services/items";
 import type { Hono } from "hono";
+
+import { itemsQuery } from "~/lib/catalog-query";
 
 /**
  * Budget for a publicly reachable endpoint. Both limits are per window: the
@@ -5599,7 +10083,7 @@ export function mountPublicItemsApi(app: Hono<{ Variables: AppVariables }>): voi
     const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", ITEMS_POLICY);
     if (denied) return denied;
 
-    const { items, total } = await listItems(1, 20, request.signal);
+    const { items, total } = await listItems(itemsQuery({ perPage: 20 }), request);
     return c.json(
       { items, total },
       200,
@@ -5656,7 +10140,7 @@ export function mountEnquiryApi(app: Hono<{ Variables: AppVariables }>): void {
     if (!enquiry) return seeOther(returnTo, "invalid");
 
     try {
-      await submitEnquiry(enquiry, request.signal);
+      await submitEnquiry(enquiry, request);
     } catch (error) {
       logError(error, { msg: "enquiry submission failed" });
       return seeOther(returnTo, "failed");
@@ -5717,8 +10201,10 @@ function seeOther(path: string, status: "sent" | "invalid" | "failed"): Response
 }
 `;
 
-const enquiryService =
-  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+const enquiryService = () => `import {
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
@@ -5730,12 +10216,14 @@ export type EnquiryReceipt = { id: string };
 const INVALID = "Enquiry gateway returned an invalid payload";
 
 /** The endpoint owns validation; this owns the upstream call and its contract. */
-export async function submitEnquiry(enquiry: Enquiry, signal: AbortSignal): Promise<EnquiryReceipt> {
-  const response = await gatewayFetch("/enquiries", {
+export async function submitEnquiry(
+  enquiry: Enquiry,
+  request: Request,
+): Promise<EnquiryReceipt> {
+  const response = await gatewayFetchWithIdentity(request, "/enquiries", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(enquiry),
-    signal,
   });
   // requireGatewayOk drains the body before it throws, so a failed call never
   // leaves a socket held open.
@@ -5923,7 +10411,7 @@ describe("enquiry endpoint", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/contact?status=sent");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(mocks.submitEnquiry).toHaveBeenCalledWith(valid, expect.anything());
+    expect(mocks.submitEnquiry).toHaveBeenCalledWith(valid, expect.any(Request));
   });
 
   it("returns the visitor to the page they submitted from", async () => {
@@ -5981,6 +10469,506 @@ describe("enquiry endpoint", () => {
     const limited = await instance.request("/api/enquiries", submission(valid));
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("60");
+  });
+});
+`;
+
+const noCacheRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+import { neverCache } from "@originloom/shared/lib/cache-policy";
+import { listItems } from "@server/services/items";
+
+import { NoCachePage } from "~/features/no-cache/no-cache-page";
+import { itemsQuery } from "~/lib/catalog-query";
+import { defaultPageMeta } from "~/lib/shell-data";
+
+type Data = {
+  items: { slug: string; name: string }[];
+  renderedAt: string;
+  gatewayMs: number;
+};
+
+/**
+ * The baseline: nothing is cached anywhere.
+ *
+ * The document is rendered per request (\`neverCache\`) and the loader calls the
+ * gateway directly rather than through a cached snapshot, so every visitor costs
+ * one upstream round trip. It exists to be measured against — the same list is
+ * served by /catalog through the HTML cache and by /data-cache through a cached
+ * upstream snapshot, and the difference between the three is the whole argument
+ * for the cache layer.
+ *
+ * A real page rarely wants this. Two that do: anything whose value is that it is
+ * never stale (a live balance, a stock count read at the moment of the visit),
+ * and anything whose HTML is different for every visitor and cannot be moved
+ * into an island.
+ */
+export default defineRoute<Data>({
+  path: "/no-cache",
+  cache: neverCache,
+  loader: async (ctx) => {
+    const startedAt = performance.now();
+    const { items } = await listItems(itemsQuery({ perPage: 5 }), ctx.request);
+    return {
+      data: {
+        items: items.map((item) => ({ slug: item.slug, name: item.name })),
+        renderedAt: new Date().toISOString(),
+        gatewayMs: Math.round(performance.now() - startedAt),
+      },
+    };
+  },
+  generateMetadata: () => ({
+    title: "Cache'siz sayfa",
+    description: "Ne doküman ne de veri cache'lenir; her istek gateway'e gider.",
+    // Nothing here is worth indexing, and a page that costs an upstream call per
+    // request is a page a crawler should not be walking.
+    robots: { index: false, follow: false },
+  }),
+  pageMeta: (_data, ctx) => defaultPageMeta(ctx, "no-cache"),
+  Component: NoCachePage,
+});
+`;
+
+const noCachePage = () => `import { Link } from "@originloom/react/lib/link";
+
+type Props = {
+  data: { items: { slug: string; name: string }[]; renderedAt: string; gatewayMs: number };
+};
+
+/**
+ * Every value on this page is per request. Reload it and the timestamp changes;
+ * reload /catalog and it does not until its TTL expires.
+ */
+export function NoCachePage({ data }: Props) {
+  return (
+    <div className="space-y-6">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Cache'siz sayfa</h1>
+        <p className="max-w-2xl text-slate-600">
+          Bu sayfada doküman cache'i de upstream veri cache'i de kapalı. Her istek bir gateway
+          çağrısı demek — karşılaştırmak için <Link href="/catalog">/catalog</Link> (HTML cache) ve{" "}
+          <Link href="/data-cache">/data-cache</Link> (veri cache'i) sayfalarını da yenileyin.
+        </p>
+      </header>
+
+      <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-3">
+        <div>
+          <dt className="text-sm text-slate-500">Render zamanı</dt>
+          <dd className="font-mono text-sm text-slate-900">{data.renderedAt}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-slate-500">Gateway süresi</dt>
+          <dd className="font-mono text-sm text-slate-900">{data.gatewayMs} ms</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-slate-500">Cache</dt>
+          <dd className="font-mono text-sm text-slate-900">yok (x-cache: BYPASS)</dd>
+        </div>
+      </dl>
+
+      <ul className="divide-y divide-slate-100">
+        {data.items.map((item) => (
+          <li key={item.slug} className="py-3">
+            <Link className="font-medium text-slate-800 hover:underline" href={"/items/" + item.slug}>
+              {item.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+`;
+
+const detailSeoTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const item = {
+  slug: "alpha",
+  name: "Alpha",
+  blurb: "İlk örnek kayıt.",
+  category: "ihtiyac",
+  provider: "Örnek Bank",
+  interestRate: 3.1,
+  minAmount: 10_000,
+  maxAmount: 500_000,
+  terms: [12, 24, 36],
+  seo: { title: "Alpha", description: "Alpha detay sayfası." },
+};
+const quote = {
+  amount: 100_000,
+  term: 36,
+  monthlyPayment: 4_200,
+  totalPayment: 151_200,
+  annualCostRate: 37.2,
+};
+const seoInfo = {
+  title: "Alpha — CMS başlığı",
+  metaDescription: "CMS açıklaması.",
+  headingTitle: "Alpha",
+  image: "/assets/images/og-cover.svg",
+  imageAlt: "Alpha kapak görseli",
+  friendlyUrl: "/items/alpha",
+  noindex: false,
+  nofollow: false,
+  openGraphType: "product",
+};
+
+function respond(path: string) {
+  if (path.endsWith("/reviews")) {
+    return Response.json({ reviews: [{ author: "Deniz", rating: 5, comment: "iyi" }] });
+  }
+  return Response.json({ item, quote, seoInfo });
+}
+
+async function render(path: string): Promise<string> {
+  const app = createApp({
+    assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+    routes,
+    readinessCheck: async () => true,
+  });
+  return (await app.request(\`http://app.local\${path}\`)).text();
+}
+
+function structuredData(html: string): Record<string, unknown>[] {
+  const block = /<script type="application\\/ld\\+json"[^>]*>(.*?)<\\/script>/s.exec(html);
+  if (!block) return [];
+  const parsed = JSON.parse(block[1] ?? "{}") as { "@graph"?: Record<string, unknown>[] };
+  return parsed["@graph"] ?? [];
+}
+
+describe("the detail page's SEO output", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.gatewayFetchWithIdentity.mockImplementation(async (_r: Request, p: string) => respond(p));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("actually emits the structured data the route builds", async () => {
+    const nodes = structuredData(await render("/items/alpha"));
+
+    // The field is \`structuredData\`. A route that returns \`jsonLd\` type-checks,
+    // renders, and silently ships a page with no breadcrumb on it — which is why
+    // this test reads the HTML rather than the route's return value.
+    expect(nodes.map((node) => node["@type"])).toContain("BreadcrumbList");
+    expect(nodes.map((node) => node["@type"])).toContain("FinancialProduct");
+  });
+
+  it("takes its title, description and social image from the CMS", async () => {
+    const html = await render("/items/alpha");
+
+    expect(html).toContain("Alpha — CMS başlığı");
+    expect(html).toContain("CMS açıklaması.");
+    // og:image and its alt text are the fields a hand-written metadata block
+    // always forgets, and the ones that decide what a shared link looks like.
+    expect(html).toMatch(/property="og:image"/);
+    expect(html).toContain("Alpha kapak görseli");
+  });
+
+  it("keeps the route's own address as the canonical one", async () => {
+    const html = await render("/items/alpha");
+
+    expect(html).toMatch(/<link rel="canonical" href="[^"]*\\/items\\/alpha"/);
+  });
+
+  it("obeys a noindex the CMS set", async () => {
+    mocks.gatewayFetchWithIdentity.mockImplementation(async (_r: Request, p: string) =>
+      p.endsWith("/reviews")
+        ? Response.json({ reviews: [] })
+        : Response.json({ item, quote, seoInfo: { ...seoInfo, noindex: true } }),
+    );
+
+    const html = await render("/items/alpha");
+
+    // Whether a page belongs in the index is an editorial decision, so it is
+    // made where the copy is made.
+    expect(html).toMatch(/name="robots"[^>]*noindex/);
+  });
+});
+`;
+
+const quoteQueryTest = () => `import { routes } from "@server/routes";
+import { describe, expect, it } from "vitest";
+
+import { PageCacheId, pageCacheRegistry } from "~/lib/cache-keys";
+import { DEFAULT_AMOUNT, quoteHref, quoteNormalizers, quoteSearch } from "~/lib/quote-query";
+
+function url(query: string): URL {
+  return new URL(\`http://app.local/items/konut-avantaj\${query}\`);
+}
+
+describe("the quote query contract", () => {
+  it("clamps and rounds an amount instead of rejecting it", () => {
+    // A visitor typing a number should get a quote, not a 404 — and rounding to a
+    // step is what stops a slider from turning one page into ten thousand cache
+    // entries.
+    expect(quoteSearch(url("?amount=123456")).get("amount")).toBe("123000");
+    expect(quoteSearch(url("?amount=1")).get("amount")).toBe("10000");
+    expect(quoteSearch(url("?amount=99999999")).get("amount")).toBe("5000000");
+    expect(quoteSearch(url("?amount=abc")).get("amount")).toBe(String(DEFAULT_AMOUNT));
+  });
+
+  it("falls back to a term the product actually offers", () => {
+    expect(quoteSearch(url("?term=36")).get("term")).toBe("36");
+    expect(quoteSearch(url("?term=7")).get("term")).toBe("36");
+  });
+
+  it("keeps everything else out of the gateway request", () => {
+    const search = quoteSearch(url("?amount=50000&term=24&utm_source=x&gclid=y"));
+
+    expect([...search.keys()]).toEqual(["amount", "term"]);
+  });
+
+  it("uses the same normalizers for the cache key as for the request", () => {
+    const contentQuery = pageCacheRegistry[PageCacheId.itemDetail].contentQuery;
+
+    expect(contentQuery?.include).toEqual(["amount", "term"]);
+    expect(contentQuery?.normalize).toBe(quoteNormalizers);
+  });
+
+  it("drops defaults so the product keeps one address", () => {
+    expect(quoteHref("konut-avantaj", new URLSearchParams("amount=100000&term=36"), {})).toBe(
+      "/items/konut-avantaj",
+    );
+    expect(quoteHref("konut-avantaj", new URLSearchParams(), { amount: "250000" })).toBe(
+      "/items/konut-avantaj?amount=250000",
+    );
+  });
+
+  it("keeps the product's canonical free of the quote", () => {
+    const route = routes.find((entry) => entry.path === "/items/:slug");
+    const metadata = route?.generateMetadata?.(
+      {
+        item: { slug: "konut-avantaj", name: "Konut Avantaj", blurb: "b", category: "konut", provider: "Örnek Bank", interestRate: 2.79, minAmount: 50_000, maxAmount: 5_000_000, terms: [36], seo: { title: "t", description: "d" } },
+        quote: { amount: 250_000, term: 36, monthlyPayment: 1, totalPayment: 2, annualCostRate: 3 },
+        seoInfo: { friendlyUrl: "/items/konut-avantaj" },
+        reviews: [],
+      } as never,
+      { url: url("?amount=250000"), publicPath: "/items/konut-avantaj", siteUrl: "https://app.local" } as never,
+    );
+
+    // The amount is a view of one page, not a page of its own. Letting it into
+    // the canonical would publish a separate URL for every slider position.
+    expect(metadata?.canonical).toBe("https://app.local/items/konut-avantaj");
+  });
+});
+`;
+
+const catalogQueryTest = () => `import { routes } from "@server/routes";
+import { describe, expect, it } from "vitest";
+
+import { PageCacheId, pageCacheRegistry } from "~/lib/cache-keys";
+import {
+  CATALOG_QUERY,
+  catalogHref,
+  catalogNormalizers,
+  catalogSearch,
+} from "~/lib/catalog-query";
+
+const catalogRoute = routes.find((route) => route.path === "/catalog");
+
+function url(query: string): URL {
+  return new URL(\`http://app.local/catalog\${query}\`);
+}
+
+describe("the catalog query contract", () => {
+  it("sends the gateway only allowlisted, normalized values", () => {
+    const search = catalogSearch(url("?category=konut&sortBy=newest&utm_source=x&page=3"), 12);
+
+    expect(search.get("category")).toBe("konut");
+    expect(search.get("sortBy")).toBe("newest");
+    expect(search.get("page")).toBe("3");
+    expect(search.get("perPage")).toBe("12");
+    // A tracking param reaches neither the gateway nor the cache key. If it did,
+    // every campaign link would be its own cache entry of identical HTML.
+    expect(search.has("utm_source")).toBe(false);
+  });
+
+  it("treats an unknown filter value as the default rather than an error", () => {
+    const search = catalogSearch(url("?category=nonsense&sortBy=nonsense"), 12);
+
+    expect(search.get("category")).toBe("all");
+    expect(search.get("sortBy")).toBe("recommended");
+  });
+
+  it("uses the same normalizers for the cache key as for the request", () => {
+    const contentQuery = pageCacheRegistry[PageCacheId.catalog].contentQuery;
+
+    // Two copies of this rule is how ?sortBy=newest ends up serving the cached
+    // HTML of ?sortBy=recommended.
+    expect(contentQuery?.include).toEqual([...CATALOG_QUERY]);
+    expect(contentQuery?.normalize).toBe(catalogNormalizers);
+  });
+
+  it("drops defaults from filter links so one page keeps one URL", () => {
+    expect(catalogHref(new URLSearchParams("category=konut"), { category: "all" })).toBe("/catalog");
+    expect(catalogHref(new URLSearchParams(), { category: "konut" })).toBe(
+      "/catalog?category=konut",
+    );
+  });
+
+  it("returns to the first page when the filter changes", () => {
+    // Page 4 of "all" is rarely page 4 of "tools", and an empty page 4 reads as
+    // "no results" rather than "you went too far".
+    const href = catalogHref(new URLSearchParams("category=all&page=4"), { category: "konut" });
+
+    expect(href).toBe("/catalog?category=konut");
+  });
+
+  it("keeps the filters when only the page changes", () => {
+    const href = catalogHref(new URLSearchParams("category=konut&sortBy=newest"), { page: "2" });
+
+    expect(href).toBe("/catalog?category=konut&sortBy=newest&page=2");
+  });
+});
+
+describe("the catalog route", () => {
+  it("does not cache a URL that is about to 404 or redirect", () => {
+    // Caching those would let one bad link fill the cache with copies of an
+    // error, each under a key no valid request will ever ask for.
+    const invalid = catalogRoute?.cache?.({ url: url("?page=abc") } as never);
+    const canonical = catalogRoute?.cache?.({ url: url("?page=1") } as never);
+
+    expect(invalid).toEqual({ kind: "none" });
+    expect(canonical).toEqual({ kind: "none" });
+  });
+});
+`;
+
+const itemDetailReviewsTest = () => `import { routes } from "@server/routes";
+import { getItemReviews } from "@server/services/items";
+import { describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const request = new Request("http://app.local/items/alpha");
+
+describe("the detail page's second gateway call", () => {
+  it("is part of the cached document rather than streamed after it", () => {
+    const route = routes.find((entry) => entry.path === "/items/:slug");
+
+    // These two cannot both be true. A cache entry is the finished document, so
+    // a route that is shared-cached has nothing to stream: the first visitor
+    // pays for both halves and everyone else is served the whole thing at once.
+    // The opposite trade is on /live, which is neverCache and streams.
+    expect(route?.streaming).toBeFalsy();
+    const policy = route?.cache?.({
+      url: new URL("http://app.local/items/alpha"),
+      params: { slug: "alpha" },
+      request: new Request("http://app.local/items/alpha"),
+    } as never);
+    expect(policy).toMatchObject({ kind: "shared" });
+  });
+
+  it("costs the section, not the page, when the gateway cannot answer", async () => {
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(new Response("", { status: 503 }));
+
+    // Reviews are an addition to the page. Throwing here would turn a degraded
+    // section into a 500 for a product that is perfectly renderable without it.
+    await expect(getItemReviews("alpha", request)).resolves.toEqual([]);
+  });
+
+  it("rejects a review list the gateway got wrong", async () => {
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(
+      Response.json({ reviews: [{ author: "Deniz", rating: 11, comment: "" }] }),
+    );
+
+    // A rating of 11 is not a rating. Rendering it would put a broken star row
+    // on the page and an impossible aggregateRating in the structured data.
+    await expect(getItemReviews("alpha", request)).rejects.toThrow(/invalid payload/i);
+  });
+});
+
+`;
+
+const gatewayIdentityCoverageTest =
+  () => `import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+const SERVER_ROOT = new URL("../server", import.meta.url).pathname;
+
+/**
+ * Calls that legitimately have no request behind them, with the reason.
+ *
+ * Every upstream call tells the gateway who asked, from where and on what:
+ * \`gatewayFetchWithIdentity\` for shared reads, \`gatewayFetchForRequest\` when the
+ * caller's credentials belong with it. Plain \`gatewayFetch\` is the only way to
+ * reach the gateway without any of that, so this list is the whole set of calls
+ * that go out anonymous — and each one has to say why.
+ */
+const IDENTITY_LESS_BY_DESIGN: Record<string, string> = {
+  "services/bot-analytics.ts":
+    "a background queue flushed after the request is gone; each event carries its own tracking id",
+  "services/menu.ts":
+    "one answer per device, shared by everyone on it — an id would name something the response cannot depend on",
+  "middleware/redirect-rules.ts":
+    "a property of the URL, not of the visitor; and it runs before-auth, where no identity exists yet",
+  "services/route-domains.ts":
+    "falls back to a bare call only when the snapshot is refreshed outside a request",
+  "services/sitemap.ts": "falls back to a bare call only when built outside a request",
+};
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry): string[] => {
+    const full = join(directory, entry);
+    if (statSync(full).isDirectory()) return sourceFiles(full);
+    return /\\.tsx?$/.test(entry) ? [full] : [];
+  });
+}
+
+describe("gateway identity coverage", () => {
+  it("keeps every upstream call identity-carrying unless it is on the list", () => {
+    const offenders = sourceFiles(SERVER_ROOT)
+      .filter((file) => /\\bgatewayFetch\\(/.test(readFileSync(file, "utf8")))
+      .map((file) => file.slice(SERVER_ROOT.length + 1))
+      .filter((relative) => !(relative in IDENTITY_LESS_BY_DESIGN));
+
+    // A new service that reaches for plain \`gatewayFetch\` either belongs on the
+    // list above with a reason, or should be taking the Request and using
+    // \`gatewayFetchWithIdentity\`.
+    expect(offenders).toEqual([]);
+  });
+});
+`;
+
+const noCacheTest = () => `import { routes } from "@server/routes";
+import { describe, expect, it } from "vitest";
+
+import { pageCacheRegistry } from "~/lib/cache-keys";
+
+describe("the zero-cache page", () => {
+  it("is registered and rendered per request", () => {
+    const route = routes.find((entry) => entry.path === "/no-cache");
+    expect(route, "/no-cache must be in the route table").toBeDefined();
+
+    // neverCache() takes no context, so the policy is the same for every request.
+    expect(route?.cache?.({} as never)).toEqual({ kind: "none" });
+  });
+
+  it("stays out of the page cache registry", () => {
+    // The registry is the list of pages that have a cache identity. A page with
+    // no cache has nothing to identify, and adding one would give the purge API
+    // a key that can never hold anything.
+    expect(Object.keys(pageCacheRegistry)).not.toContain("no-cache");
   });
 });
 `;

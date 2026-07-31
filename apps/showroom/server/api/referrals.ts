@@ -46,12 +46,7 @@ export async function handleReferralApi(
 
     const currentSession = sanitizeUuid(cookie(request, Cookie.referralSession));
     const anonymousSessionId = currentSession ?? crypto.randomUUID();
-    const created = await createReferral(
-      definition.gatewayType,
-      slug,
-      anonymousSessionId,
-      request.signal,
-    );
+    const created = await createReferral(definition.gatewayType, slug, anonymousSessionId, request);
     if (!created) {
       observeReferralRedirect(productType, "unknown_product", performance.now() - started);
       return new Response("Ürün bulunamadı", { status: 404 });

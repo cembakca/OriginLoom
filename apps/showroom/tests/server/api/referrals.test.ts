@@ -80,7 +80,9 @@ describe("referral BFF", () => {
   });
 
   it("counts repeat clicks while keeping unique users in the HttpOnly server session", async () => {
-    const before = await getReferralStats(AbortSignal.timeout(2_000));
+    const before = await getReferralStats(
+      new Request("http://localhost/api/internal/referral-stats"),
+    );
     const form = new URLSearchParams({
       productType: "konut-kredisi",
       slug: "denizbank-konut-kredisi",
@@ -92,7 +94,9 @@ describe("referral BFF", () => {
     const second = await handleReferralApi(
       request(form, { cookie: sessionCookie ?? "", origin: "http://localhost:3005" }),
     );
-    const after = await getReferralStats(AbortSignal.timeout(2_000));
+    const after = await getReferralStats(
+      new Request("http://localhost/api/internal/referral-stats"),
+    );
     const previous = before.products.find((item) => item.slug === "denizbank-konut-kredisi");
     const current = after.products.find((item) => item.slug === "denizbank-konut-kredisi");
 

@@ -21,7 +21,7 @@ export async function handleLoanCalculatorApi(
   if (denied) return denied;
   const search = parseLoanCalculatorSearch(new URL(request.url).searchParams);
   if (!search) return json({ error: "Geçersiz hesaplama parametreleri" }, 400);
-  const data = await getLoanCalculation(search, request.signal);
+  const data = await getLoanCalculation(search, request);
   return json(data, 200);
 }
 

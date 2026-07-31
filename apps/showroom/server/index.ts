@@ -57,16 +57,21 @@ async function main() {
       port: info.port,
       cacheTopology: cacheTopology(),
       tracingEnabled,
-      metricsPort: config.metricsPort,
+      metricsPort: config.metricsEnabled ? config.metricsPort : null,
     });
   });
-  const metricsApp = createMetricsApp({
-    mounts: (app) => {
-      mountCachePurgeRoutes(app);
-      mountReferralStatsApi(app);
-    },
-  });
-  metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
+  // Off in development: a laptop rarely needs /metrics, and a dev command that
+  // binds two ports collides with the next project twice as often. Turn it on
+  // with METRICS_ENABLED=true when you actually want to look.
+  if (config.metricsEnabled) {
+    const metricsApp = createMetricsApp({
+      mounts: (app) => {
+        mountCachePurgeRoutes(app);
+        mountReferralStatsApi(app);
+      },
+    });
+    metricsServer = serve({ fetch: metricsApp.fetch, port: config.metricsPort });
+  }
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;

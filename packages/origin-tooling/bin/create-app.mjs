@@ -121,7 +121,9 @@ function report(o) {
   if (o.workspace) {
     console.log("Next steps:\n");
     console.log("  pnpm install");
-    console.log(`  pnpm --filter ${o.name} dev\n`);
+    console.log(`  pnpm --filter ${o.name} dev:mock\n`);
+    console.log("`dev:mock` runs the app, Vite and the bundled mock gateway.");
+    console.log("Use `dev` once GATEWAY_URL points at a gateway of your own.\n");
     console.log(`The app will serve on http://127.0.0.1:${o.port}.\n`);
     return;
   }
@@ -129,9 +131,10 @@ function report(o) {
   console.log(`  cd ${o.appDir}`);
   console.log("  git init");
   console.log("  pnpm install        # needs access to the @originloom/* registry");
-  console.log("  pnpm dev\n");
+  console.log("  pnpm dev:mock       # app + Vite + the bundled mock gateway\n");
   console.log(`The app will serve on http://127.0.0.1:${o.port}.`);
-  console.log("Set GATEWAY_URL in .env.development to point at your gateway.\n");
+  console.log("Once GATEWAY_URL points at a gateway of your own, use `pnpm dev`:");
+  console.log("it runs the app and Vite and nothing else.\n");
   if (o.withOps) {
     console.log("Deployment assets are in k8s/, docker-compose*.yml and load-test/.");
     console.log("Read OPERATIONS.md first — image, hosts and secrets are placeholders.\n");

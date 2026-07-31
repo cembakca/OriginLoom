@@ -22,7 +22,7 @@ export default defineRoute<BankDetail>({
   validateParams: (ctx) => isBoundedRouteSlug(ctx.params.slug),
   cache: pageCache(PageCacheId.bankDetail),
   loader: async (ctx) => {
-    const data = await getBank(ctx.params.slug ?? "", ctx.request.signal);
+    const data = await getBank(ctx.params.slug ?? "", ctx.request);
     return data ? { data } : notFound();
   },
   generateMetadata: (data, ctx) => {

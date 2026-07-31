@@ -7,7 +7,7 @@ pnpm capacity
 ```
 
 Komut production build'i alır, boş portlar seçer, uygulamayı ve template mock gateway'ini kendisi
-başlatır. Mevcut `pnpm dev`, `pnpm start` veya 4002 portundaki başka bir mock gateway'e dokunmaz.
+başlatır. Mevcut `pnpm dev`/`pnpm dev:mock`, `pnpm start` veya 4002 portundaki başka bir mock gateway'e dokunmaz.
 Tamamlandığında geçici process'leri kapatır.
 
 React standalone template, güncel Autocannon 8'in eski `hyperid@3 → uuid@8` zincirini çekmemesi için

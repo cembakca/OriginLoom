@@ -92,3 +92,26 @@ export function HousingLoansPage({ data }: { data: { items: LoanSummary[] } }) {
   );
 }
 ```
+
+## 5. Pick the right neighbour to copy
+
+The generator ships a worked example for each shape a page tends to take. Copy
+the one that matches rather than starting from a blank route:
+
+| Shape                                   | Copy                                 | Skill / doc              |
+| --------------------------------------- | ------------------------------------ | ------------------------ |
+| Filtered, sorted, paginated list        | `server/routes/catalog.tsx`          | **lists**                |
+| Detail page keyed by a slug             | `server/routes/item-detail.tsx`      | this skill + **caching** |
+| Param whose valid values live upstream  | `server/routes/catalog-category.tsx` | `docs/route-params.md`   |
+| Personal page (never shared-cached)     | `server/routes/account.tsx`          | **auth**, **islands**    |
+| Form that writes something              | `server/routes/contact.tsx`          | **mutations**            |
+| Slow upstream, shell first              | `server/routes/live.tsx`             | `docs/streaming.md`      |
+| Nothing cached anywhere, for comparison | `server/routes/no-cache.tsx`         | **caching**              |
+
+Two rules those examples encode and a new page usually forgets:
+
+- **A URL heading for a 404 or a redirect must not be cached.** `pageCache` takes
+  a resolver for exactly this; see `catalog.tsx`.
+- **Streaming and shared caching are mutually exclusive.** A cache entry is the
+  finished document, so a shared-cached route has nothing to stream. Decide which
+  one the page needs before writing it.

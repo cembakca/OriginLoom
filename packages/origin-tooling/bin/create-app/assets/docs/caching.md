@@ -44,15 +44,79 @@ Makine tarafından okunabilir karşılık `dist/originloom-manifest.json` dosyas
 Key'e yalnız üretilen HTML'i gerçekten değiştiren, normalize edilmiş ve bounded değerler girebilir:
 
 - Page id ilk parça olmalıdır.
-- Header/footer kullanan sayfalarda `locale(ctx.request)` ve `layoutCacheFragment(ctx)` bulunmalıdır.
 - Dinamik sayfada slug/id gibi path parametresi bulunmalıdır.
 - Query parametreleri `contentQueryCacheFragment` allowlist'iyle alınmalıdır.
 - Default değerler tek biçime indirgenmelidir; `?page=`, `?page=1` ve geçersiz page aynı key'i
   üretmelidir.
+- Her sayfada ortak olanlar tek yerde: `sharedDimensions(ctx)`.
 
 `utm_*`, `gclid`, bilinmeyen query parametreleri, kullanıcı id'si, cookie, session ve token key'e
 giremez. Tracking parametreleri cardinality patlaması yaratır; kişisel değerlerse kullanıcı verisini
 başka bir ziyaretçiye servis etme riski doğurur.
+
+## Cache key boyutları: ekleme, çıkarma, bedeli
+
+Bir **boyut**, key'i bölen bir değerdir. Bedeli çarpımdır: iki değerli bir boyut, o boyutu kullanan
+her sayfanın girdi sayısını **ikiye katlar**. Üç boyut sekize.
+
+Ortak boyutlar `src/lib/cache-keys.ts` içinde tek bir yerde durur:
+
+```ts
+function sharedDimensions(ctx: Ctx): string[] {
+  return [
+    layoutCacheFragment(ctx), // masaüstü / mobil — shell gerçekten farklı
+  ];
+}
+```
+
+Her `buildKey` bunu `...sharedDimensions(ctx)` ile açar. Yani **eklemek de çıkarmak da bir satır**,
+ve bütün sayfalara aynı anda uygulanır.
+
+### Varsayılanda ne var, ne yok
+
+| Boyut                       | Durum   | Neden                                                          |
+| --------------------------- | ------- | -------------------------------------------------------------- |
+| **device** (masaüstü/mobil) | **var** | Shell gerçekten farklı render ediliyor                         |
+| **locale** (dil)            | **yok** | Tek dilli bir uygulamada aynı baytları iki kez saklamak olurdu |
+| **deney kovası** (A/B)      | **yok** | Deney kapalı gelir; açan, bedelini bilerek açar                |
+
+Dil için: `sharedDimensions`'a `locale(ctx.request)` ekleyin, her key dile göre bölünür. Ama önce şunu
+kontrol edin — HTML gerçekten dile göre değişiyor mu? Değişmiyorsa boyut, cache'i yarıya böler ve
+karşılığında hiçbir şey vermez.
+
+Deney için: `server/middleware/index.ts` içindeki `experimentsMiddleware` satırını açın. Kovaya göre
+render eden her sayfanın girdi sayısı ikiye katlanır — bu bilinçli bir takas, `cacheVary` onu görünür
+kılar (bkz. [middleware.md](./middleware.md)).
+
+### Yeni boyut eklerken
+
+Üç yol var, hangisinin uygun olduğu değerin nereden geldiğine bağlı:
+
+| Değer nereden geliyor                                | Nereye eklenir                                          |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| İstekten türetilebilen bir şey (cihaz, ülke, tenant) | `sharedDimensions(ctx)`                                 |
+| Query parametresi                                    | Registry'de `contentQuery.include` + `normalize`        |
+| Middleware'in ürettiği bir değer                     | Middleware'in `values`'ı; varsayılan olarak key'i böler |
+
+İki kural:
+
+1. **Sonlu olmalı.** Cihaz 2, ülke belki 5, deney 2. Kullanıcı id'si, arama terimi, tam URL — bunlar
+   ziyaretçi başına bir girdi demektir, yani cache'in olmaması demektir.
+2. **HTML'i gerçekten değiştirmeli.** Değiştirmiyorsa boyut değil, israftır. Ölçmenin yolu basit:
+   iki değerle iki istek atın, çıktıları karşılaştırın. Aynıysa o boyut key'e girmemeli.
+
+```bash
+curl -s -H "accept-language: tr" $APP/catalog > /tmp/a.html
+curl -s -H "accept-language: en" $APP/catalog > /tmp/b.html
+cmp -s /tmp/a.html /tmp/b.html && echo "aynı → boyut olmamalı"
+```
+
+Hangi anahtarların gerçekte oluştuğunu operations portundan görebilirsiniz:
+
+```bash
+curl -s -H "x-cache-purge-token: $CACHE_PURGE_SECRET" \
+  "http://127.0.0.1:9010/api/internal/cache/keys?prefix=catalog"
+```
 
 ## Strateji seçimi
 
@@ -304,10 +368,121 @@ publish akışında kullanılmamalıdır.
 
 - [ ] Çıktı public ve deterministik; kişisel veri/token/cookie içermiyor.
 - [ ] HTML route'u `src/lib/cache-keys.ts` registry'sine eklendi.
-- [ ] Locale, device, path ve allowlist edilmiş query varyantları eksiksiz fakat bounded.
+- [ ] Boyutlar (`sharedDimensions`), path ve allowlist edilmiş query varyantları eksiksiz fakat
+      bounded; her boyut HTML'i gerçekten değiştiriyor.
 - [ ] TTL/SWR içerik tazeliği hedefinden türetildi.
 - [ ] Invalid payload, terminal sonuç ve fallback cache'e yazılmıyor.
 - [ ] İçerik değişikliği için exact key/page id/prefix purge yolu belirlendi.
 - [ ] İlk request `MISS`, ikincisi `HIT`; kişisel route `BYPASS` testi var.
 - [ ] Multi-pod davranışı Redis kesintisi dahil doğrulandı.
 - [ ] Dashboard ve alarmlar fill, revalidation, L2 health ve cardinality sinyallerini kapsıyor.
+
+## Cache'lenen şey nedir: yalnız gövde
+
+Paylaşımlı HTML cache'i hakkında sorulması gereken soru şu: bir ziyaretçinin kimliği başka bir
+ziyaretçinin tarayıcısına ulaşabilir mi?
+
+**Ulaşamaz** — ve bu, birbirinden bağımsız üç sebeple böyle:
+
+1. **Cache entry'si yalnız gövdeyi saklar.** `CacheEntry` bir string ve iki zaman damgasıdır; header
+   yoktur. Dolayısıyla bir entry'den `Set-Cookie` **tekrar oynatılamaz**, çünkü orada hiç yoktur.
+2. **Tracking id HTML'e girmez.** Gateway'e istek header'ı olarak gider (`gatewayFetchWithIdentity`).
+   Shell verisi (`buildLayoutClientProps`) bilerek cache-güvenlidir: trackingId yok, token yok.
+3. **Cookie yazan yanıt saklanmaz.** `applyCookies`, `Set-Cookie` eklediği her yanıta
+   `cache-control: private, no-store` koyar. Ne tarayıcı ne CDN o yanıtı tutar.
+
+Sıra da önemlidir: **session step cache aramasından sonra, istek başına çalışır.** Yani cache HIT
+olsa bile cookie'si olmayan yeni bir ziyaretçi paylaşımlı HTML'i alır ve **kendi** tracking id'sini
+üretip alır. Paylaşılan tek şey gövdedir; kimlik her istekte yeniden hesaplanır.
+
+Ölçülmüş hali (`tests/tracking-id-leak.test.ts`):
+
+| İstek                       | x-cache | Set-Cookie           | Cache-Control                  |
+| --------------------------- | ------- | -------------------- | ------------------------------ |
+| A (cookie'si var)           | MISS    | yok                  | `private, no-cache, max-age=0` |
+| C (başka cookie, aynı kova) | **HIT** | yok                  | `private, no-cache, max-age=0` |
+| Yeni ziyaretçi (cookie'siz) | **HIT** | **kendi yeni id'si** | `private, no-store`            |
+
+C'nin HTML'inde A'nın id'si **yoktur** — test bunu doğrudan doğrular.
+
+### Bunu bozabilecek tek şey: siz
+
+Platform, bir loader'ın `ctx.trackingId`'yi route verisine koymasını engelleyemez. "Tekrar hoş
+geldiniz" satırı, bir debug alanı, analitik için gövdeye gömülen bir id — hepsi o değeri
+cache'lenmiş gövdeye sokar ve o gövde bir sonraki ziyaretçiye gider.
+
+Kural tek cümle: **kişiye özel hiçbir değer paylaşımlı cache'lenen HTML'e girmez.** Kişisel içerik
+için sıra: önce `defer` island + `/api/internal/*`, o mümkün değilse route'u `strategy: "never"`
+yapın. `tests/tracking-id-leak.test.ts` bu kuralın kırıldığını yakalar.
+
+## Üç gateway çağrısı, üç farklı anlam
+
+`@originloom/core/adapters/gateway` üç fonksiyon verir; fark, isteğin kimliğini ne kadar taşıdığıdır:
+
+| Fonksiyon                                 | Kimlik | `Authorization` | Nerede                              |
+| ----------------------------------------- | ------ | --------------- | ----------------------------------- |
+| `gatewayFetchWithIdentity(request, path)` | ✓      | ✗               | **Varsayılan** — servislerin çoğu   |
+| `gatewayFetchForRequest(request, path)`   | ✓      | ✓               | BFF uçları, `neverCache` route'lar  |
+| `gatewayFetch(path)`                      | ✗      | ✗               | İsteği olmayan işler (kuyruk, cron) |
+
+**Kimlik** her istekte gateway'e giden üç değerdir: ziyaretçinin tracking id'si, çözülmüş client IP
+ve cihaz tipi. Üçü de **istekten okunur** — tracking id session step'in çözdüğü değerden, IP
+platformun trusted-proxy zincirinden, cihaz User-Agent'tan. Yani bir servis bunları geçirmeyi
+unutamaz ve bir çağıran header set ederek başkasıymış gibi konuşamaz.
+
+Header adları gateway'inizle sizin aranızdaki kontrattır; varsayılanlar `x-user-tracking-id`,
+`x-client-ip`, `x-device-type`. Farklıysa başlangıçta bir kez değiştirin:
+
+```ts
+import { configureGatewayIdentityHeaders } from "@originloom/core/adapters/gateway-identity";
+
+configureGatewayIdentityHeaders({ userTrackingId: "X-Visitor-Id" });
+```
+
+`tests/gateway-identity.test.ts` bu kuralı korur: `server/` altında ham `gatewayFetch` kullanan her
+dosyayı bulur ve gerekçesiyle listelenmemişse build'i düşürür.
+
+### Bunun cache ile ilişkisi
+
+Kimlik **telemetri ve güvenlik bağlamıdır, içerik boyutu değildir.** Cache key bu değerleri içermez
+ve içermemelidir — tracking id ziyaretçi başına bir entry demektir. Gateway cevabını bu üç değere
+göre değiştiriyorsa, o cevap paylaşımlı cache'lenen bir HTML'e giremez.
+
+Aynı kural `Authorization` için daha da katıdır: **`gatewayFetchForRequest` sonucu paylaşımlı
+cache'lenen bir HTML'e girmemelidir.** Girerse bir ziyaretçinin kişisel verisi diğerlerine servis
+edilir; platform bunu sizin için engellemez, çünkü hangi alanın kişisel olduğunu yalnız siz
+bilirsiniz.
+
+Kişisel içerik için doğru sıra: önce `defer` island + `/api/internal/*` (doküman paylaşımlı kalır),
+o mümkün değilse route'u `strategy: "never"` yapın.
+
+### Servisler `signal` değil `Request` alır
+
+Kimliğin gateway'e ulaşmasının yolu budur:
+
+```ts
+export async function listItems(search: URLSearchParams, request: Request) {
+  const response = await gatewayFetchWithIdentity(request, `/items?${search}`);
+}
+```
+
+`Request` hem iptal sinyalini hem kimliği taşır; `signal` yalnız yarısını. İsteği olmayan bir iş (bot
+analytics kuyruğu) `gatewayFetch` kullanır ve kimliği payload'ında taşır.
+
+## Üç seviyeyi yan yana görmek
+
+Aynı listeyi üç farklı cache kurgusuyla servis eden üç sayfa var; sırayla yenileyip aradaki farkı
+doğrudan görebilirsiniz:
+
+| Sayfa         | Doküman cache'i | Upstream veri cache'i | Her istekte gateway? |
+| ------------- | --------------- | --------------------- | -------------------- |
+| `/catalog`    | shared + SWR    | —                     | Hayır (cache hit)    |
+| `/data-cache` | yok             | shared snapshot       | Hayır                |
+| `/no-cache`   | yok             | yok                   | **Evet**             |
+
+`/no-cache` bir örnek değil, bir **taban çizgisi**: cache katmanı olmasaydı her sayfanın maliyeti
+budur. Kapasite testinde ölçmek istediğinizde karşılaştırma noktası olarak kullanın.
+
+Gerçek bir sayfanın bu kurguyu istediği iki durum vardır: değeri "hiç bayat olmaması" olan veriler
+(anlık bakiye, o anki stok) ve HTML'i her ziyaretçi için farklı olup island'a taşınamayan sayfalar.
+İkincisinde önce island'a taşımayı deneyin — `/account` bunun örneğidir.

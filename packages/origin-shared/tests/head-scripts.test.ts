@@ -1,4 +1,4 @@
-import { createContext, runInContext } from "node:vm";
+import { createContext, runInContext, runInNewContext } from "node:vm";
 
 import { describe, expect, it } from "vitest";
 
@@ -210,5 +210,67 @@ describe("sequencedScript", () => {
 
     expect(code).not.toContain("</script>");
     expect(code).toContain("\\u003c");
+  });
+});
+
+describe("a consent tool in the chain", () => {
+  /** A head that runs inline scripts on append and remembers external ones. */
+  function fakeHead() {
+    const layer: Record<string, unknown>[] = [];
+    const external: { src: string; fire: (name: string) => void }[] = [];
+    const window = { dataLayer: layer } as Record<string, unknown>;
+    const document = {
+      currentScript: { nonce: "" },
+      head: {
+        appendChild(el: Record<string, unknown>) {
+          if (typeof el.text === "string") {
+            runInNewContext(el.text, { window, document });
+            return;
+          }
+          const listeners = el.listeners as Record<string, () => void>;
+          external.push({ src: el.src as string, fire: (name) => listeners[name]?.() });
+        },
+      },
+      createElement() {
+        const listeners: Record<string, () => void> = {};
+        return {
+          listeners,
+          addEventListener(name: string, fn: () => void) {
+            listeners[name] = fn;
+          },
+        } as Record<string, unknown>;
+      },
+    };
+    return { layer, external, window, document };
+  }
+
+  it("does not wait for the visitor to answer a banner", () => {
+    const { layer, external, window, document } = fakeHead();
+
+    runInNewContext(
+      sequencedScript([
+        { src: "https://efilli.example/e.js" },
+        { code: 'window.dataLayer.push({ hkUserTrackingId: "abc" });' },
+        { code: 'window.dataLayer.push({ event: "gtm.js" });' },
+      ]),
+      { window, document, setTimeout, clearTimeout, addEventListener: () => {} },
+    );
+
+    // The script has executed; the tool has not decided anything yet, because
+    // nobody has clicked the banner.
+    external[0]?.fire("load");
+
+    // The rest of the chain has still run. Waiting here is what made the same
+    // site produce one order in a normal window and another in an incognito one:
+    // a returning visitor's decision is already known, a first visit's is not.
+    expect(layer.map((entry) => entry.event ?? Object.keys(entry)[0])).toEqual([
+      "hkUserTrackingId",
+      "gtm.js",
+    ]);
+
+    // And the tool's own events land whenever it gets to them, without moving
+    // anything that came before.
+    (window.dataLayer as Record<string, unknown>[]).push({ event: "efilli.consent" });
+    expect(layer.at(-1)?.event).toBe("efilli.consent");
   });
 });

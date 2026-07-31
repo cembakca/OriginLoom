@@ -10,7 +10,7 @@ Bu template üç ayrı hata sınıfını üç ayrı katmanda yakalar:
 
 `pnpm ci` sırasıyla doctor, typecheck, cycle guard, lint, format, Vitest, Playwright E2E ve smoke
 çalıştırır. Playwright'ın `webServer` ayarı production build'i, uygulama process'ini ve mock gateway'i
-kendisi yönetir; önceden `pnpm dev` açmayın.
+kendisi yönetir; önceden `pnpm dev` ya da `pnpm dev:mock` açmayın.
 
 ## İlk kurulum
 

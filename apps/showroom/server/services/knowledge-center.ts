@@ -1,5 +1,5 @@
 import {
-  gatewayFetch,
+  gatewayFetchWithIdentity,
   releaseGatewayResponse,
   requireGatewayOk,
 } from "@originloom/core/adapters/gateway";
@@ -26,13 +26,16 @@ import type {
 
 const INVALID_CONTENT = "Knowledge center gateway returned an invalid payload";
 
-export async function getKnowledgeArticles(search: URLSearchParams, signal: AbortSignal) {
-  const response = await gatewayFetch(`/content/articles?${search}`, { signal });
+export async function getKnowledgeArticles(search: URLSearchParams, request: Request) {
+  const response = await gatewayFetchWithIdentity(request, `/content/articles?${search}`);
   return parseResponse(response, isArticleList);
 }
 
-export async function getKnowledgeArticle(slug: string, signal: AbortSignal) {
-  const response = await gatewayFetch(`/content/articles/${encodeURIComponent(slug)}`, { signal });
+export async function getKnowledgeArticle(slug: string, request: Request) {
+  const response = await gatewayFetchWithIdentity(
+    request,
+    `/content/articles/${encodeURIComponent(slug)}`,
+  );
   if (response.status === 404) {
     await releaseGatewayResponse(response);
     return null;
@@ -40,8 +43,8 @@ export async function getKnowledgeArticle(slug: string, signal: AbortSignal) {
   return parseResponse(response, isArticleDetail);
 }
 
-export async function getPopularKnowledgeArticles(signal: AbortSignal) {
-  const response = await gatewayFetch("/content/articles/popular", { signal });
+export async function getPopularKnowledgeArticles(request: Request) {
+  const response = await gatewayFetchWithIdentity(request, "/content/articles/popular");
   return parseResponse(response, isPopularArticleList);
 }
 

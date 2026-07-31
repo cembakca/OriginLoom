@@ -469,7 +469,7 @@ describe("renderTemplates — browser E2E", () => {
     expect(critical).toContain("/api/internal/client-errors");
     expect(critical).toContain("/api/internal/refresh");
     expect(critical).toContain("/old-catalog?source=e2e");
-    expect(critical).toContain("/products/alpha?source=e2e");
+    expect(critical).toContain("/products/konut-avantaj?source=e2e");
     expect(critical).toContain("app_live_stream_active_connections");
     expect(critical).toContain('page.getByTestId("api-fetched-at")');
     expect(critical).toContain('headers()["x-cache"]).toBe("BYPASS")');
@@ -548,10 +548,10 @@ describe("renderTemplates — browser E2E", () => {
     const files = standalone();
     const route = files["server/routes/live.tsx"];
     expect(route).toContain("streaming: true");
-    expect(route).toContain("getLiveMessage(ctx.request.signal)");
+    expect(route).toContain("getLiveMessage(ctx.request)");
     expect(route).not.toContain("setTimeout");
     expect(files["server/services/live-message.ts"]).toContain(
-      'gatewayFetch("/live/message", { signal })',
+      'gatewayFetchWithIdentity(request, "/live/message")',
     );
     expect(files["server/services/live-message.ts"]).toContain("GatewayContracts.liveMessage");
     expect(files["mock-gateway/server.mjs"]).toContain('url.pathname === "/live/message"');
@@ -622,13 +622,137 @@ describe("renderTemplates — gateway wiring", () => {
     expect(gateway).not.toContain("process.env.PORT ?? 4002");
     expect(files[".env.development"]).toContain("MOCK_GATEWAY_PORT=4002");
     const scripts = JSON.parse(files["package.json"]).scripts;
-    expect(scripts.dev).toContain("--gateway mock-gateway/server.mjs");
+    // `dev` runs the app and Vite and nothing else: a gateway is usually someone
+    // else's process by the time anyone is developing against it. The bundled
+    // mock is one command away, and the first-run instructions name that one.
+    expect(scripts.dev).toBe("origin-dev");
+    expect(scripts["dev:mock"]).toContain("--gateway mock-gateway/server.mjs");
+    expect(scripts["mock-gw"]).toContain("mock-gateway/server.mjs");
     expect(scripts.smoke).toContain("--gateway mock-gateway/server.mjs");
   });
 
-  it.each(modes)("%s: passes the request signal into the loader's gateway call", (_name, files) => {
-    // A cancelled request must not keep the upstream call alive.
-    expect(files["server/routes/catalog.tsx"]).toContain("ctx.request.signal");
+  it.each(modes)(
+    "%s: shows a middleware value that varies the cache and one that must not",
+    (_name, files) => {
+      const middleware = files["server/middleware/experiments.ts"];
+      // The platform's subtlest mechanism, and the one whose failure is silent:
+      // forget cacheVary and the first visitor to miss the cache decides what
+      // everybody sees for the whole TTL.
+      expect(middleware).toContain("values");
+      expect(middleware).toContain("cacheVary");
+      // The bucket is read where it renders, which is what makes the vary required.
+      expect(files["server/routes/catalog.tsx"]).toContain("ctx.values?.variant");
+      // And a test that puts two buckets through the app rather than trusting the
+      // middleware's return value.
+      expect(files["tests/experiment-cache.test.ts"]).toContain("serves each bucket its own page");
+      expect(files["docs/middleware.md"]).toContain("Unutmanın bedeli neden sessiz");
+      // Off by default: a dimension nobody uses still doubles every entry of
+      // every page that reads it.
+      expect(files["server/middleware/index.ts"]).not.toMatch(/^\s*experimentsMiddleware,$/m);
+    },
+  );
+
+  it.each(modes)(
+    "%s: wires the dataLayer chain instead of computing pageMeta and dropping it",
+    (_name, files) => {
+      const analytics = files["server/product/analytics.ts"];
+      // Only the sequence itself: the import block is sorted alphabetically and
+      // says nothing about the order the steps run in.
+      const chain = analytics.slice(analytics.indexOf("sequencedScript("));
+      // Consent first, then the visitor's own id, then the queue — which has to be
+      // installed before the container because it wraps `dataLayer.push`.
+      expect(chain.indexOf("trackingIdPushScript")).toBeGreaterThan(
+        chain.indexOf("src: consentUrl"),
+      );
+      expect(chain.indexOf("eventQueueScript")).toBeGreaterThan(
+        chain.indexOf("trackingIdPushScript"),
+      );
+      expect(chain.indexOf("gtmContainerUrl")).toBeGreaterThan(chain.indexOf("eventQueueScript"));
+      // The chain was dead before: every route computed pageMeta and RootLayout
+      // took the prop and ignored it.
+      expect(files["src/components/layout/root-layout.tsx"]).toContain('name="page-analytics"');
+      expect(files["server/index.ts"]).toContain('eagerIslands: ["page-analytics"]');
+      expect(files["tests/analytics-chain.test.ts"]).toContain(
+        "reads the tracking id in the browser rather than rendering it",
+      );
+      expect(files["docs/analytics.md"]).toContain("gtm.load");
+      // Nothing waits for a consent event. A returning visitor's decision is
+      // already known and a first visit's is not, so waiting made the same site
+      // produce one order in a normal window and another in an incognito one.
+      expect(files["server/product/analytics.ts"]).not.toContain("awaitDataLayerEvent");
+      expect(files["docs/analytics.md"]).toContain("Neden hiçbir consent olayı beklenmiyor");
+      // And the only test that can actually answer "is the order right": a real
+      // browser, reading window.dataLayer, with a fresh context and a returning
+      // one asserted to produce the same sequence.
+      expect(files["e2e/analytics.spec.ts"]).toContain(
+        "builds in one order, whatever the visitor arrived with",
+      );
+      expect(files["playwright.config.ts"]).toContain("EFILLI_SCRIPT_URL");
+    },
+  );
+
+  it.each(modes)("%s: declares its cache dimensions in one place, device only", (_name, files) => {
+    const keys = files["src/lib/cache-keys.ts"];
+    // A dimension multiplies the entries of every page that uses it, so adding
+    // or removing one has to be a single edit rather than eight.
+    expect(keys).toContain("function sharedDimensions(ctx: Ctx): string[]");
+    expect(keys).toContain("...sharedDimensions(ctx)");
+    // Locale is out: i18n was removed, and splitting on Accept-Language stored
+    // byte-identical HTML twice.
+    expect(keys).not.toContain("locale(ctx.request),");
+    expect(files["docs/caching.md"]).toContain("Cache key boyutları");
+  });
+
+  it.each(modes)("%s: proves one visitor's identity cannot reach another", (_name, files) => {
+    const test = files["tests/tracking-id-leak.test.ts"];
+    // Three independent reasons, asserted separately because any one of them
+    // could be undone by an ordinary-looking change.
+    expect(test).toContain("never puts the tracking id in the HTML");
+    expect(test).toContain("does not hand the first visitor's id to the second");
+    expect(test).toContain("still mints a new visitor their own cookie on a cache hit");
+    expect(files["docs/caching.md"]).toContain("Cache'lenen şey nedir: yalnız gövde");
+  });
+
+  it.each(modes)("%s: ships a webhook that verifies, bounds and de-duplicates", (_name, files) => {
+    const api = files["server/api/webhooks.ts"];
+    // The signature covers the raw body: verifying a re-serialized object checks
+    // this app's JSON encoder rather than the sender.
+    expect(api).toContain("createHmac");
+    expect(api).toContain("timingSafeEqual");
+    expect(api).toContain("REPLAY_WINDOW_MS");
+    expect(api).toContain("MAX_BODY_BYTES");
+    // A retry processed twice is a duplicate payment.
+    expect(api).toContain("already-seen");
+    // No secret, no deliveries.
+    expect(api).toContain('refuse(503, "not_configured")');
+    expect(files["docs/webhooks.md"]).toContain("ham gövde");
+  });
+
+  it.each(modes)("%s: shows what the app sent, without showing its credentials", (_name, files) => {
+    const gateway = files["mock-gateway/server.mjs"];
+    // Reading the identity off a real request is how you check it yourself.
+    expect(gateway).toContain("logRequest(req, url)");
+    expect(gateway).toContain("MOCK_GW_HEADERS");
+    // A terminal scrollback and a screenshot are both places a token must not be.
+    expect(gateway).toContain('REDACTED_HEADERS = new Set(["authorization", "cookie"');
+    expect(files["docs/configuration.md"]).toContain("MOCK_GW_HEADERS=1");
+  });
+
+  it.each(modes)("%s: keeps the operations listener out of development", (_name, files) => {
+    // Two ports for one dev command is one more chance to collide with the next
+    // project — and a laptop rarely needs /metrics.
+    expect(files["server/index.ts"]).toContain("if (config.metricsEnabled) {");
+    expect(files["docs/configuration.md"]).toContain("METRICS_ENABLED");
+  });
+
+  it.each(modes)("%s: hands the loader's gateway call the whole request", (_name, files) => {
+    // The request carries both halves of what an upstream call needs: the abort
+    // signal, so a cancelled request does not keep it alive, and the identity
+    // the gateway is given on every call.
+    expect(files["server/routes/catalog.tsx"]).toContain(
+      "listItems(catalogSearch(ctx.url, productConfig.catalogPageSize), ctx.request)",
+    );
+    expect(files["server/services/items.ts"]).toContain("gatewayFetchWithIdentity");
   });
 
   it("react: configures and drains the bounded gateway transport", () => {
@@ -656,13 +780,17 @@ describe("renderTemplates — gateway wiring", () => {
 describe("renderTemplates — SEO, cache purge and product metrics", () => {
   const modes = [["react", renderTemplates({ ...base, mode: "workspace", version: "^0.1.0" })]];
 
-  it.each(modes)("%s: serves robots.txt and a sitemap built from its own data", (_name, files) => {
+  it.each(modes)("%s: serves robots.txt and a sitemap the gateway defines", (_name, files) => {
     expect(files["server/index.ts"]).toContain("seo: mountSeo");
     const seo = files["server/seo.ts"];
     expect(seo).toContain("mountSeoRoutes");
-    // The sitemap lists what this app actually has, not a hardcoded guess.
-    expect(seo).toContain("listItems");
+    // Asked, not derived: a sitemap built from one page of a catalogue silently
+    // omits the rest of the site once the catalogue outgrows that page.
+    expect(seo).toContain("fetchSitemapEntries");
     expect(seo).toContain("fallbackEntries");
+    // And what comes back is a public path on this site or it is refused.
+    expect(files["server/services/sitemap.ts"]).toContain('!value.startsWith("//")');
+    expect(files["mock-gateway/server.mjs"]).toContain('url.pathname === "/seo/sitemap"');
   });
 
   it.each(modes)("%s: keeps cache purge off the public listener", (_name, files) => {
@@ -729,7 +857,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(contracts.schemaVersion).toBe(2);
     expect(contracts.contracts[0]).toMatchObject({
       operationId: "catalog.list",
-      request: { method: "GET", path: "/items?page=1&perPage=3" },
+      request: { method: "GET", path: "/items?category=all&sortBy=recommended&page=1&perPage=3" },
       response: {
         status: 200,
         contentType: "application/json",
@@ -864,8 +992,43 @@ describe("renderTemplates — production reference coverage", () => {
   it("normalizes content query params before they enter a cache key", () => {
     const files = standalone();
     expect(files["src/lib/cache-keys.ts"]).toContain("contentQueryCacheFragment");
-    expect(files["src/lib/cache-keys.ts"]).toContain('include: ["page"]');
-    expect(files["tests/pagination.test.ts"]).toContain("normalizePageParam");
+    // The registry and the loader must read one contract, not two copies of it:
+    // otherwise ?sortBy=newest can be served the cached HTML of ?sortBy=recommended.
+    expect(files["src/lib/cache-keys.ts"]).toContain("include: [...CATALOG_QUERY]");
+    expect(files["src/lib/cache-keys.ts"]).toContain("normalize: catalogNormalizers");
+    expect(files["tests/catalog-query.test.ts"]).toContain("expect(contentQuery?.normalize).toBe(");
+  });
+
+  it("ships a list page that separates a bad URL from a defaulted one", () => {
+    const route = standalone()["server/routes/catalog.tsx"];
+    // Clamping ?page=abc to page 1 is the tempting shortcut, and it serves the
+    // catalogue under infinitely many addresses.
+    expect(route).toContain("resolvePageParam");
+    expect(route).toContain("return notFound()");
+    expect(route).toContain("308");
+    // A URL heading for a 404 or a redirect must not take a cache entry with it.
+    expect(route).toContain("pageCache(PageCacheId.catalog, (ctx) =>");
+  });
+
+  it("validates a route param against values the gateway owns", () => {
+    const files = standalone();
+    expect(files["server/routes/catalog-category.tsx"]).toContain("validateParams");
+    expect(files["server/routes/catalog-category.tsx"]).toContain("isKnownCategory");
+    // The snapshot is shared-cached because validateParams runs before the page
+    // cache — on hits as well as misses.
+    expect(files["server/services/route-domains.ts"]).toContain("cache.read(key)");
+    expect(files["mock-gateway/server.mjs"]).toContain('url.pathname === "/routing/domains"');
+  });
+
+  it("keeps the cache purge endpoints off the public site", () => {
+    const files = standalone();
+    // Emptying the cache points the whole fleet at the gateway; that button does
+    // not belong on a port the internet can reach.
+    expect(files["server/index.ts"]).toContain(
+      "createMetricsApp({ mounts: (app) => mountCachePurgeApi(app) })",
+    );
+    expect(files["server/api/index.ts"]).not.toContain("mountCachePurgeApi");
+    expect(files["tests/cache-purge.test.ts"]).toContain("is not reachable from the public site");
   });
 
   it("ships bounded live-stream lifecycle, metrics and tests", () => {
@@ -878,16 +1041,26 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files[".env.production"]).toContain("LIVE_STREAM_MAX_CONNECTIONS=1000");
   });
 
-  it("ships a validated read-through menu cache with bounded fallback chrome", () => {
+  it("builds the menu on the platform's own contract, cached per device", () => {
     const files = standalone();
-    expect(files["server/services/menu.ts"]).toContain("requireGatewayPayload");
-    expect(files["server/services/menu.ts"]).toContain("FALLBACK_MENU");
-    expect(files["server/services/menu.ts"]).toContain('MENU_CACHE_KEY = "menu:public:v1"');
-    expect(files["server/services/menu.ts"]).toContain("refreshInFlight");
-    expect(files["server/services/menu.ts"]).toContain('hit.state === "stale"');
-    expect(files["server/services/shell-data.ts"]).toContain("getMenu");
-    expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.map");
-    expect(files["tests/menu-cache.test.ts"]).toContain("does not cache the local fallback");
+    const service = files["server/services/menu.ts"];
+    // The platform ships a menu contract — header/hamburger/footer, nested,
+    // ordered per device. A flat {label,href} of one's own throws all of it away.
+    expect(files["src/lib/menu.ts"]).toContain('from "@originloom/shared/lib/menu/types"');
+    expect(service).toContain("parseGatewayPayload");
+    expect(service).toContain("normalizeNavigationUrl");
+    // Device is part of the key because it is part of the answer.
+    expect(service).toContain("menuCacheKey(device)");
+    expect(service).toContain('headers: { "content-type": "application/json", device }');
+    expect(service).toContain("EMPTY_MENU");
+    expect(files["server/services/shell-data.ts"]).toContain(
+      "getMenu(ctx.request, base.deviceType)",
+    );
+    expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.headerItems");
+    expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.footerItems");
+    // A submenu that only opens on hover cannot be reached with a keyboard.
+    expect(files["src/components/layout/root-layout.tsx"]).toContain("group-focus-within");
+    expect(files["tests/menu-cache.test.ts"]).toContain("one entry per device");
     expect(files[".env.production"]).toContain("MENU_CACHE_TTL=14400");
     expect(files[".env.production"]).toContain("FEATURED_ITEMS_CACHE_TTL=10");
   });
@@ -923,9 +1096,75 @@ describe("renderTemplates — production reference coverage", () => {
 
   it("validates CMS SEO and emits paginated structured metadata", () => {
     const files = standalone();
-    expect(files["server/services/items.ts"]).toContain("isBoundedString(value.seo.title");
+    expect(files["server/services/items.ts"]).toContain("parseSeoInfo(value.seoInfo");
     expect(files["server/routes/catalog.tsx"]).toContain("itemListJsonLd");
-    expect(files["server/routes/item-detail.tsx"]).toContain("data.item.seo.title");
+    // Both pages take their copy from the CMS contract rather than assembling a
+    // title by hand — that is what gets og:image and noindex set at all.
+    expect(files["server/routes/catalog.tsx"]).toContain("generatePaginatedMetadata");
+    expect(files["server/routes/item-detail.tsx"]).toContain("generateMetaDataForPageWithSeoInfo");
+  });
+
+  it("ships a quote whose inputs are part of the page, not of the visitor", () => {
+    const files = standalone();
+    // The amount and the term identify the page, so they belong in the key —
+    // normalized first, or a slider becomes ten thousand cache entries.
+    expect(files["src/lib/cache-keys.ts"]).toContain("include: [...QUOTE_QUERY]");
+    expect(files["src/lib/cache-keys.ts"]).toContain("normalize: quoteNormalizers");
+    // And the canonical stays the product's address: a quote is a view of one
+    // page, not a page of its own.
+    expect(files["server/routes/item-detail.tsx"]).toContain("canonical: url");
+    expect(files["mock-gateway/server.mjs"]).toContain("requestedQuote");
+  });
+
+  it("ships a tool page whose first result comes from the server", () => {
+    const files = standalone();
+    // A calculator that only produces a number after hydration is a blank box to
+    // a crawler and to anyone whose script did not load.
+    expect(files["server/routes/calculator.tsx"]).toContain("getPaymentPlan");
+    expect(files["src/islands/loan-calculator.tsx"]).toContain("initial");
+    // `hydrate` means the server renders the island and the client wakes it up,
+    // so the children must be the island itself. A hand-written second copy of
+    // the markup is how a hydration mismatch starts (React #418).
+    expect(files["server/routes/calculator.tsx"]).toContain("<LoanCalculator initial={data} />");
+    // One implementation of the arithmetic: the island calls the same endpoint.
+    expect(files["src/islands/loan-calculator.tsx"]).toContain("/api/calculator?");
+    expect(files["server/api/calculator.ts"]).toContain("guardPublicApi");
+  });
+
+  it("ships an outbound hand-off that is a write, not a link", () => {
+    const files = standalone();
+    const api = files["server/api/referrals.ts"];
+    // A GET would let a crawler or a prefetch record a hand-off nobody made.
+    expect(api).toContain('app.post("/api/referrals"');
+    expect(api).toContain("requireSameOriginMutation: true");
+    // The provider's URL is untrusted input; following it blindly is an open
+    // redirect with this site's name on it.
+    expect(api).toContain("normalizeNavigationUrl");
+    expect(api).toContain("httpOnly: true");
+    expect(files["src/features/items/item-detail-page.tsx"]).toContain('method="post"');
+  });
+
+  it("ships an editorial page with the structured data only it may claim", () => {
+    const files = standalone();
+    expect(files["src/lib/metadata/jsonld-article.ts"]).toContain('"@type": "Article"');
+    expect(files["src/lib/metadata/jsonld-article.ts"]).toContain('"@type": "FAQPage"');
+    // An empty FAQPage claims the page answers questions it does not.
+    expect(files["src/lib/metadata/jsonld-article.ts"]).toContain(
+      "if (items.length === 0) return null",
+    );
+    expect(files["tests/guides.test.ts"]).toContain("makes no FAQ claim");
+  });
+
+  it("puts structured data under the field the platform actually reads", () => {
+    const files = standalone();
+    // `PageMetadata` has `structuredData` and no `jsonLd`. A route returning the
+    // latter type-checks, renders, and ships a page with no breadcrumb on it.
+    for (const route of ["server/routes/catalog.tsx", "server/routes/item-detail.tsx"]) {
+      expect(files[route]).toContain("structuredData: compactJsonLd(");
+      expect(files[route]).not.toContain("jsonLd: compactJsonLd(");
+    }
+    // And a test that reads the rendered HTML, so this cannot regress silently.
+    expect(files["tests/detail-seo.test.ts"]).toContain("BreadcrumbList");
   });
 
   it("ships integration-level boundary tests for session, SSE and purge key transport", () => {

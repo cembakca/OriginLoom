@@ -8,6 +8,7 @@ import {
   SpanStatusCode,
   withSpan,
 } from "../observability.js";
+import { applyGatewayIdentity, readGatewayIdentity } from "./gateway-identity.js";
 
 export function gatewayUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -106,7 +107,19 @@ function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-/** Loader/service çağrıları için request-scoped kimlik ve correlation header'larını taşır. */
+/**
+ * The upstream call a request makes on its own behalf.
+ *
+ * It carries four things the gateway is entitled to see on every call: the
+ * caller's `Authorization` when there is one, the correlation id, and the
+ * request identity — tracking id, client IP, device. The identity is read from
+ * the request rather than passed in, so no service can forget it and no caller
+ * can forge it by setting a header.
+ *
+ * A cacheable read should use `gatewayFetch` instead. The identity here is
+ * telemetry and security context, not a content dimension: if the gateway
+ * varies its answer by any of it, that answer cannot go into shared HTML.
+ */
 export function gatewayFetchForRequest(
   request: Request,
   path: string,
@@ -117,5 +130,25 @@ export function gatewayFetchForRequest(
   const requestId = request.headers.get("x-request-id") ?? activeRequestId();
   if (authorization) headers.set("authorization", authorization);
   if (requestId && !headers.has("correlationid")) headers.set("correlationid", requestId);
+  applyGatewayIdentity(headers, readGatewayIdentity(request));
+  return gatewayFetch(path, { ...init, headers, signal: init.signal ?? request.signal });
+}
+
+/**
+ * The identity without the caller's credentials.
+ *
+ * For a call whose result is shared — a public list, a menu — where the gateway
+ * still wants to know which visitor and which device asked. Never carries
+ * `Authorization`, so nothing personal can come back and land in cached HTML.
+ */
+export function gatewayFetchWithIdentity(
+  request: Request,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const requestId = request.headers.get("x-request-id") ?? activeRequestId();
+  if (requestId && !headers.has("correlationid")) headers.set("correlationid", requestId);
+  applyGatewayIdentity(headers, readGatewayIdentity(request));
   return gatewayFetch(path, { ...init, headers, signal: init.signal ?? request.signal });
 }
