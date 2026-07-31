@@ -646,6 +646,9 @@ describe("renderTemplates — gateway wiring", () => {
       // middleware's return value.
       expect(files["tests/experiment-cache.test.ts"]).toContain("serves each bucket its own page");
       expect(files["docs/middleware.md"]).toContain("Unutmanın bedeli neden sessiz");
+      // Off by default: a dimension nobody uses still doubles every entry of
+      // every page that reads it.
+      expect(files["server/middleware/index.ts"]).not.toMatch(/^\s*experimentsMiddleware,$/m);
     },
   );
 
@@ -687,6 +690,18 @@ describe("renderTemplates — gateway wiring", () => {
       expect(files["playwright.config.ts"]).toContain("EFILLI_SCRIPT_URL");
     },
   );
+
+  it.each(modes)("%s: declares its cache dimensions in one place, device only", (_name, files) => {
+    const keys = files["src/lib/cache-keys.ts"];
+    // A dimension multiplies the entries of every page that uses it, so adding
+    // or removing one has to be a single edit rather than eight.
+    expect(keys).toContain("function sharedDimensions(ctx: Ctx): string[]");
+    expect(keys).toContain("...sharedDimensions(ctx)");
+    // Locale is out: i18n was removed, and splitting on Accept-Language stored
+    // byte-identical HTML twice.
+    expect(keys).not.toContain("locale(ctx.request),");
+    expect(files["docs/caching.md"]).toContain("Cache key boyutları");
+  });
 
   it.each(modes)("%s: proves one visitor's identity cannot reach another", (_name, files) => {
     const test = files["tests/tracking-id-leak.test.ts"];

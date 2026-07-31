@@ -44,15 +44,79 @@ Makine tarafından okunabilir karşılık `dist/originloom-manifest.json` dosyas
 Key'e yalnız üretilen HTML'i gerçekten değiştiren, normalize edilmiş ve bounded değerler girebilir:
 
 - Page id ilk parça olmalıdır.
-- Header/footer kullanan sayfalarda `locale(ctx.request)` ve `layoutCacheFragment(ctx)` bulunmalıdır.
 - Dinamik sayfada slug/id gibi path parametresi bulunmalıdır.
 - Query parametreleri `contentQueryCacheFragment` allowlist'iyle alınmalıdır.
 - Default değerler tek biçime indirgenmelidir; `?page=`, `?page=1` ve geçersiz page aynı key'i
   üretmelidir.
+- Her sayfada ortak olanlar tek yerde: `sharedDimensions(ctx)`.
 
 `utm_*`, `gclid`, bilinmeyen query parametreleri, kullanıcı id'si, cookie, session ve token key'e
 giremez. Tracking parametreleri cardinality patlaması yaratır; kişisel değerlerse kullanıcı verisini
 başka bir ziyaretçiye servis etme riski doğurur.
+
+## Cache key boyutları: ekleme, çıkarma, bedeli
+
+Bir **boyut**, key'i bölen bir değerdir. Bedeli çarpımdır: iki değerli bir boyut, o boyutu kullanan
+her sayfanın girdi sayısını **ikiye katlar**. Üç boyut sekize.
+
+Ortak boyutlar `src/lib/cache-keys.ts` içinde tek bir yerde durur:
+
+```ts
+function sharedDimensions(ctx: Ctx): string[] {
+  return [
+    layoutCacheFragment(ctx), // masaüstü / mobil — shell gerçekten farklı
+  ];
+}
+```
+
+Her `buildKey` bunu `...sharedDimensions(ctx)` ile açar. Yani **eklemek de çıkarmak da bir satır**,
+ve bütün sayfalara aynı anda uygulanır.
+
+### Varsayılanda ne var, ne yok
+
+| Boyut                       | Durum   | Neden                                                          |
+| --------------------------- | ------- | -------------------------------------------------------------- |
+| **device** (masaüstü/mobil) | **var** | Shell gerçekten farklı render ediliyor                         |
+| **locale** (dil)            | **yok** | Tek dilli bir uygulamada aynı baytları iki kez saklamak olurdu |
+| **deney kovası** (A/B)      | **yok** | Deney kapalı gelir; açan, bedelini bilerek açar                |
+
+Dil için: `sharedDimensions`'a `locale(ctx.request)` ekleyin, her key dile göre bölünür. Ama önce şunu
+kontrol edin — HTML gerçekten dile göre değişiyor mu? Değişmiyorsa boyut, cache'i yarıya böler ve
+karşılığında hiçbir şey vermez.
+
+Deney için: `server/middleware/index.ts` içindeki `experimentsMiddleware` satırını açın. Kovaya göre
+render eden her sayfanın girdi sayısı ikiye katlanır — bu bilinçli bir takas, `cacheVary` onu görünür
+kılar (bkz. [middleware.md](./middleware.md)).
+
+### Yeni boyut eklerken
+
+Üç yol var, hangisinin uygun olduğu değerin nereden geldiğine bağlı:
+
+| Değer nereden geliyor                                | Nereye eklenir                                          |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| İstekten türetilebilen bir şey (cihaz, ülke, tenant) | `sharedDimensions(ctx)`                                 |
+| Query parametresi                                    | Registry'de `contentQuery.include` + `normalize`        |
+| Middleware'in ürettiği bir değer                     | Middleware'in `values`'ı; varsayılan olarak key'i böler |
+
+İki kural:
+
+1. **Sonlu olmalı.** Cihaz 2, ülke belki 5, deney 2. Kullanıcı id'si, arama terimi, tam URL — bunlar
+   ziyaretçi başına bir girdi demektir, yani cache'in olmaması demektir.
+2. **HTML'i gerçekten değiştirmeli.** Değiştirmiyorsa boyut değil, israftır. Ölçmenin yolu basit:
+   iki değerle iki istek atın, çıktıları karşılaştırın. Aynıysa o boyut key'e girmemeli.
+
+```bash
+curl -s -H "accept-language: tr" $APP/catalog > /tmp/a.html
+curl -s -H "accept-language: en" $APP/catalog > /tmp/b.html
+cmp -s /tmp/a.html /tmp/b.html && echo "aynı → boyut olmamalı"
+```
+
+Hangi anahtarların gerçekte oluştuğunu operations portundan görebilirsiniz:
+
+```bash
+curl -s -H "x-cache-purge-token: $CACHE_PURGE_SECRET" \
+  "http://127.0.0.1:9010/api/internal/cache/keys?prefix=catalog"
+```
 
 ## Strateji seçimi
 
@@ -304,7 +368,8 @@ publish akışında kullanılmamalıdır.
 
 - [ ] Çıktı public ve deterministik; kişisel veri/token/cookie içermiyor.
 - [ ] HTML route'u `src/lib/cache-keys.ts` registry'sine eklendi.
-- [ ] Locale, device, path ve allowlist edilmiş query varyantları eksiksiz fakat bounded.
+- [ ] Boyutlar (`sharedDimensions`), path ve allowlist edilmiş query varyantları eksiksiz fakat
+      bounded; her boyut HTML'i gerçekten değiştiriyor.
 - [ ] TTL/SWR içerik tazeliği hedefinden türetildi.
 - [ ] Invalid payload, terminal sonuç ve fallback cache'e yazılmıyor.
 - [ ] İçerik değişikliği için exact key/page id/prefix purge yolu belirlendi.

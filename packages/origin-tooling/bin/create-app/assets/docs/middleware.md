@@ -83,6 +83,10 @@ middleware'in orada boşa çalışmaması için `exclude` şart.
 Bu bölüm platformun en ince mekanizması ve yanlış yapmanın **sessiz** olduğu tek yer. Çalışan örnek:
 `server/middleware/experiments.ts`.
 
+> Şablondaki deney **kapalı gelir.** `server/middleware/index.ts` içindeki `experimentsMiddleware`
+> satırını açarak etkinleştirirsiniz — ve o an katalog sayfasının cache girdisi sayısı ikiye katlanır.
+> Boyut maliyeti için bkz. [caching.md](./caching.md) → "Cache key boyutları".
+
 `values`'daki her değer **varsayılan olarak paylaşımlı HTML cache key'ini böler**. Sebebi tek
 cümleyle: bir middleware sayfanın render'ını değiştiriyorsa, bir ziyaretçinin HTML'i diğerine
 servis edilemez.

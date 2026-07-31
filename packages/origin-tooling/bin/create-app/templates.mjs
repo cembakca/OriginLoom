@@ -1389,7 +1389,7 @@ main().catch(async (err) => {
 `;
 
 const redirectRulesMiddlewareFile =
-  () => `import { gatewayFetchWithIdentity, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
+  () => `import { gatewayFetch, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
 import { readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
@@ -1446,9 +1446,14 @@ async function decide(url: URL, request: Request): Promise<MiddlewareRedirect | 
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
   try {
-    const response = await gatewayFetchWithIdentity(
-      request,
+    // No identity, deliberately. The answer is a property of the URL — the same
+    // for every visitor, cached by path here and almost certainly upstream too.
+    // This step also runs \`before-auth\`, so there is no tracking id and no
+    // resolved client IP yet: sending the header set would carry one device type
+    // and two empty values, which reads like a per-visitor call and is not one.
+    const response = await gatewayFetch(
       \`/routing/decide?url=\${encodeURIComponent(url.toString())}\`,
+      { signal: request.signal },
     );
     if (!response.ok) {
       await releaseGatewayResponse(response);
@@ -1505,7 +1510,6 @@ function remember(key: string, value: MiddlewareRedirect | null): MiddlewareRedi
 
 const middlewareIndex = () => `import type { OriginMiddleware } from "@originloom/core/middleware";
 
-import { experimentsMiddleware } from "./experiments";
 import { maintenanceMiddleware } from "./maintenance";
 import { redirectRulesMiddleware } from "./redirect-rules";
 import { searchIndexingMiddleware } from "./search-indexing";
@@ -1523,8 +1527,16 @@ import { searchIndexingMiddleware } from "./search-indexing";
 export const productMiddleware: readonly OriginMiddleware[] = [
   maintenanceMiddleware,
   redirectRulesMiddleware,
-  experimentsMiddleware,
   searchIndexingMiddleware,
+  // An A/B experiment, off by default. Turning it on is this line plus its
+  // import — and it doubles the cache entries of every page that reads the
+  // bucket, which is the trade it exists to make visible:
+  //
+  //   import { experimentsMiddleware } from "./experiments";
+  //   …
+  //   experimentsMiddleware,
+  //
+  // See server/middleware/experiments.ts and docs/middleware.md.
 ];
 `;
 
@@ -1840,6 +1852,7 @@ describe("a visitor's tracking id and the shared cache", () => {
 const experimentCacheTest = () => `import { createApp } from "@originloom/core/app";
 import { closeCache, initCache } from "@originloom/core/cache";
 import { productMiddleware } from "@server/middleware";
+import { experimentsMiddleware } from "@server/middleware/experiments";
 import { installProductRuntime } from "@server/product/runtime";
 import { routes } from "@server/routes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1898,7 +1911,9 @@ function app() {
   return createApp({
     assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
     routes,
-    middleware: productMiddleware,
+    // Registered here rather than in the app's list: the experiment ships off,
+    // because a dimension nobody uses still doubles every entry.
+    middleware: [...productMiddleware, experimentsMiddleware],
     readinessCheck: async () => true,
   });
 }
@@ -2120,12 +2135,12 @@ import { searchIndexingMiddleware } from "@server/middleware/search-indexing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  gatewayFetchWithIdentity: vi.fn(),
+  gatewayFetch: vi.fn(),
   releaseGatewayResponse: vi.fn(),
 }));
 
 vi.mock("@originloom/core/adapters/gateway", () => ({
-  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+  gatewayFetch: mocks.gatewayFetch,
   releaseGatewayResponse: mocks.releaseGatewayResponse,
 }));
 vi.mock("@originloom/core/logger", () => ({
@@ -2192,27 +2207,30 @@ describe("redirect rules middleware", () => {
 
   // Each case uses its own path: the middleware caches a decision per pathname.
   it("obeys a destination the service names", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(
+    mocks.gatewayFetch.mockResolvedValue(
       Response.json({ action: "redirect", location: "/catalog", status: 301 }),
     );
 
     const result = await run(redirectRulesMiddleware, context("http://app.local/moved"));
 
     expect(result?.redirect).toEqual({ location: "/catalog", status: 301 });
-    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalledWith(
-      expect.any(Request),
+    // No identity: the answer is a property of the URL, not of the visitor, and
+    // this step runs before-auth where no identity exists yet. The cancellation
+    // signal still travels, so an abandoned request does not keep the call alive.
+    expect(mocks.gatewayFetch).toHaveBeenCalledWith(
       "/routing/decide?url=" + encodeURIComponent("http://app.local/moved"),
+      expect.objectContaining({ signal: expect.anything() }),
     );
   });
 
   it("carries on when the service says next", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ action: "next" }));
+    mocks.gatewayFetch.mockResolvedValue(Response.json({ action: "next" }));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/stays"))).toBeUndefined();
   });
 
   it("refuses a destination that would send visitors off-site", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(
+    mocks.gatewayFetch.mockResolvedValue(
       Response.json({ action: "redirect", location: "https://evil.example/x" }),
     );
 
@@ -2220,7 +2238,7 @@ describe("redirect rules middleware", () => {
   });
 
   it("renders the page when the routing service is down", async () => {
-    mocks.gatewayFetchWithIdentity.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    mocks.gatewayFetch.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/down"))).toBeUndefined();
   });
@@ -2581,7 +2599,7 @@ const menuCacheTest = () => `import { getMenu } from "@server/services/menu";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  gatewayFetchWithIdentity: vi.fn(),
+  gatewayFetch: vi.fn(),
   read: vi.fn(),
   write: vi.fn(),
   deleteKey: vi.fn(),
@@ -2589,7 +2607,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@originloom/core/adapters/gateway", () => ({
-  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+  gatewayFetch: mocks.gatewayFetch,
   requireGatewayOk: async (response: Response, message: string) => {
     if (!response.ok) throw new Error(\`\${message} \${response.status}\`);
   },
@@ -2626,7 +2644,7 @@ describe("menu data cache", () => {
     mocks.read.mockResolvedValue(null);
     mocks.write.mockResolvedValue(true);
     mocks.deleteKey.mockResolvedValue(true);
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(payload));
+    mocks.gatewayFetch.mockImplementation(async () => Response.json(payload));
   });
 
   it("serves a fresh cache hit without calling the gateway", async () => {
@@ -2636,7 +2654,7 @@ describe("menu data cache", () => {
     mocks.read.mockResolvedValue({ body: JSON.stringify(menu), state: "fresh" });
 
     await expect(getMenu(request("/again"), "Desktop")).resolves.toEqual(menu);
-    expect(mocks.gatewayFetchWithIdentity).not.toHaveBeenCalled();
+    expect(mocks.gatewayFetch).not.toHaveBeenCalled();
   });
 
   it("keeps one entry per device, and tells the gateway which one it wants", async () => {
@@ -2647,8 +2665,10 @@ describe("menu data cache", () => {
     // Desktop and mobile order the same items differently, so one cached copy
     // cannot serve both.
     expect(keys).toEqual(["menu:Desktop", "menu:Mobile"]);
-    const devices = mocks.gatewayFetchWithIdentity.mock.calls.map(
-      (call) => (call[2] as { headers: Record<string, string> }).headers.device,
+    // No identity headers here on purpose — this answer is shared by every
+    // visitor on that device. \`device\` is the one dimension that matters.
+    const devices = mocks.gatewayFetch.mock.calls.map(
+      (call) => (call[1] as { headers: Record<string, string> }).headers.device,
     );
     expect(devices).toEqual(["Desktop", "Mobile"]);
   });
@@ -2662,7 +2682,7 @@ describe("menu data cache", () => {
   });
 
   it("drops the whole menu when one item's URL cannot be trusted", async () => {
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
+    mocks.gatewayFetch.mockImplementation(async () =>
       Response.json({ headerItems: [item({ url: "javascript:alert(1)" })] }),
     );
 
@@ -2678,7 +2698,7 @@ describe("menu data cache", () => {
 
   it("refuses a menu nested deeper than it will render", async () => {
     const deep = item({ subMenuItemList: [item({ subMenuItemList: [item({ subMenuItemList: [item()] })] })] });
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
+    mocks.gatewayFetch.mockImplementation(async () =>
       Response.json({ headerItems: [deep] }),
     );
 
@@ -2692,7 +2712,7 @@ describe("menu data cache", () => {
   });
 
   it("renders without a menu rather than failing the page", async () => {
-    mocks.gatewayFetchWithIdentity.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    mocks.gatewayFetch.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
     // A missing menu costs navigation; a thrown one costs the page.
     await expect(getMenu(request(), "Desktop")).resolves.toEqual({
@@ -2709,7 +2729,7 @@ describe("menu data cache", () => {
     await getMenu(request(), "Desktop");
 
     expect(mocks.deleteKey).toHaveBeenCalledWith("menu:Desktop");
-    expect(mocks.gatewayFetchWithIdentity).toHaveBeenCalled();
+    expect(mocks.gatewayFetch).toHaveBeenCalled();
   });
 });
 
@@ -4200,7 +4220,7 @@ import { pageCache, PageCacheId, pageCachePolicy } from "~/lib/cache-keys";
 import { catalogSearch } from "~/lib/catalog-query";
 import { defaultPageMeta } from "~/lib/shell-data";
 
-type Data = ItemPage & { variant: string };
+type Data = ItemPage & { variant?: string };
 
 export default defineRoute<Data>({
   path: "/catalog",
@@ -4235,7 +4255,12 @@ export default defineRoute<Data>({
     // request. Reading it here is what makes the bucket real — and what makes
     // \`cacheVary\` in that middleware mandatory rather than tidy: this page now
     // renders differently per bucket, so its cached HTML must too.
-    return { data: { ...data, variant: ctx.values?.variant ?? "a" } };
+    // Absent — not \`undefined\` — when the experiment middleware is not
+    // registered, so the page renders without an arm rather than pretending to
+    // have one.
+    return {
+      data: { ...data, ...(ctx.values?.variant ? { variant: ctx.values.variant } : {}) },
+    };
   },
   generateMetadata: (data, ctx) => {
     const base = ctx.siteUrl ?? ctx.url.origin;
@@ -4271,7 +4296,7 @@ export default defineRoute<Data>({
   pageMeta: (data, ctx) =>
     defaultPageMeta(ctx, "catalog", {
       category: data.query.category,
-      experiment: data.variant,
+      ...(data.variant ? { experiment: data.variant } : {}),
       ...(ctx.values?.campaign ? { campaign: ctx.values.campaign } : {}),
     }),
   Component: CatalogPage,
@@ -4285,7 +4310,7 @@ import type { ItemPage } from "@server/services/items";
 
 import { CATALOG_SORTS, catalogHref } from "~/lib/catalog-query";
 
-type Props = { data: ItemPage & { variant: string } };
+type Props = { data: ItemPage & { variant?: string } };
 
 /** The two arms server/middleware/experiments.ts buckets visitors into. */
 const PROMO = {
@@ -4325,11 +4350,13 @@ export function CatalogPage({ data }: Props) {
 
       {/* The experiment arm, rendered on the server inside cached HTML — which
           is exactly why the middleware that chose it varies the cache key.
-          See docs/middleware.md. */}
-      <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        {PROMO[data.variant === "b" ? "b" : "a"]}{" "}
-        <span className="text-xs text-slate-500">(deney kovası: {data.variant})</span>
-      </p>
+          Absent until that middleware is registered. See docs/middleware.md. */}
+      {data.variant ? (
+        <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {PROMO[data.variant === "b" ? "b" : "a"]}{" "}
+          <span className="text-xs text-slate-500">(deney kovası: {data.variant})</span>
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-6">
         <nav aria-label="Kategori" className="flex flex-wrap items-center gap-2">
@@ -5956,7 +5983,7 @@ export async function buildShellData(
 `;
 
 const menuService =
-  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import * as cache from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
 import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-payload";
@@ -6052,11 +6079,13 @@ async function loadMenu(request: Request, device: DeviceType): Promise<IMenuItem
 }
 
 async function fetchMenuFromGateway(request: Request, device: DeviceType): Promise<IMenuItems> {
-  // Public and cacheable, so no Authorization — but the gateway still sees which
-  // visitor and which device asked, like every other call this app makes. The
-  // device header is what makes the answer device-specific in the first place.
-  const response = await gatewayFetchWithIdentity(request, "/pages/menuitem/list", {
+  // No identity either. This answer is shared by every visitor on that device
+  // and cached under one key per device, so a tracking id or a client IP would
+  // name something the response cannot depend on. \`device\` is the one dimension
+  // that does matter, and it is sent explicitly.
+  const response = await gatewayFetch("/pages/menuitem/list", {
     headers: { "content-type": "application/json", device },
+    signal: request.signal,
   });
   await requireGatewayOk(response, "Menu gateway returned");
 
@@ -7035,7 +7064,6 @@ import {
   type ContentQueryConfig,
 } from "@originloom/shared/lib/cache-query-params";
 import type { DeviceType } from "@originloom/shared/lib/device";
-import { locale } from "@originloom/shared/lib/request";
 
 import {
   CALCULATOR_QUERY,
@@ -7087,6 +7115,29 @@ export type PageCacheDefinition = {
   buildKey: (ctx: Ctx) => string[];
 };
 
+/**
+ * What every cached page varies on, declared once.
+ *
+ * A dimension multiplies the entries for every page that uses it, so each one
+ * has to earn its place: it belongs here only if the HTML actually differs along
+ * it. Adding one is a line, and so is removing one.
+ */
+function sharedDimensions(ctx: Ctx): string[] {
+  return [
+    // The shell differs between desktop and mobile, so the HTML does.
+    layoutCacheFragment(ctx),
+
+    // Multi-language site? Add \`locale(ctx.request)\` and every key splits per
+    // language. It is not here by default because a single-language app would
+    // then store the same bytes twice — once under \`tr\` and once under \`en\` —
+    // for pages that render identically.
+
+    // Per-tenant, per-country, per-currency: same shape. Return the value here
+    // and every page inherits it. Never return something with one value per
+    // visitor: an entry per person is not a cache.
+  ];
+}
+
 const DEFAULT_TTL = 300;
 const DEFAULT_SWR = 3_600;
 
@@ -7098,7 +7149,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     ttl: 3600,
     // Only normalized values that actually change the HTML belong in the key.
-    buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["home", ...sharedDimensions(ctx)],
   },
   [PageCacheId.catalog]: {
     id: PageCacheId.catalog,
@@ -7117,8 +7168,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     buildKey: (ctx) => [
       "catalog",
       contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.catalog].contentQuery!),
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      ...sharedDimensions(ctx),
     ],
   },
   [PageCacheId.guides]: {
@@ -7127,7 +7177,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/guides",
     strategy: "shared",
     ttl: 1800,
-    buildKey: (ctx) => ["guides", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["guides", ...sharedDimensions(ctx)],
   },
   [PageCacheId.guideDetail]: {
     id: PageCacheId.guideDetail,
@@ -7138,8 +7188,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     buildKey: (ctx) => [
       "guide-detail",
       ctx.params.slug ?? "",
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      ...sharedDimensions(ctx),
     ],
   },
   [PageCacheId.calculator]: {
@@ -7161,8 +7210,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     buildKey: (ctx) => [
       "calculator",
       contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.calculator].contentQuery!),
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      ...sharedDimensions(ctx),
     ],
   },
   [PageCacheId.itemDetail]: {
@@ -7183,8 +7231,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
       "item-detail",
       ctx.params.slug ?? "",
       contentQueryCacheFragment(ctx, pageCacheRegistry[PageCacheId.itemDetail].contentQuery!),
-      locale(ctx.request),
-      layoutCacheFragment(ctx),
+      ...sharedDimensions(ctx),
     ],
   },
   [PageCacheId.account]: {
@@ -7210,7 +7257,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/media",
     strategy: "shared",
     ttl: 3600,
-    buildKey: (ctx) => ["media", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["media", ...sharedDimensions(ctx)],
   },
   [PageCacheId.showcase]: {
     id: PageCacheId.showcase,
@@ -7219,7 +7266,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     // Page cached for an hour; the fragment it embeds has its own 15s TTL.
     ttl: 3600,
-    buildKey: (ctx) => ["showcase", locale(ctx.request), layoutCacheFragment(ctx)],
+    buildKey: (ctx) => ["showcase", ...sharedDimensions(ctx)],
   },
 };
 
@@ -10871,6 +10918,10 @@ const SERVER_ROOT = new URL("../server", import.meta.url).pathname;
 const IDENTITY_LESS_BY_DESIGN: Record<string, string> = {
   "services/bot-analytics.ts":
     "a background queue flushed after the request is gone; each event carries its own tracking id",
+  "services/menu.ts":
+    "one answer per device, shared by everyone on it — an id would name something the response cannot depend on",
+  "middleware/redirect-rules.ts":
+    "a property of the URL, not of the visitor; and it runs before-auth, where no identity exists yet",
   "services/route-domains.ts":
     "falls back to a bare call only when the snapshot is refreshed outside a request",
   "services/sitemap.ts": "falls back to a bare call only when built outside a request",
