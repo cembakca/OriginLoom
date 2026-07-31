@@ -19,6 +19,13 @@
  * the next one. Every step has a fail-open budget: a vendor that never loads
  * must not strand the steps behind it — the measurement is worth less than the
  * page, and analytics that blocks a site is a bug in the analytics.
+ *
+ * Waiting is for readiness, not for a person. A consent banner is answered when
+ * the visitor gets around to it — immediately for someone who already decided,
+ * ten seconds later on a first visit, never if they ignore it. A chain that
+ * waits on that stops having an order: the same site produces one sequence in a
+ * normal window and another in an incognito one. Load a consent tool in order
+ * and let it announce itself whenever it does.
  */
 export type HeadScript = {
   /** External script URL. The step finishes when it has loaded and executed. */
@@ -31,17 +38,6 @@ export type HeadScript = {
    * this step starts, or the step falls through on its timeout.
    */
   awaitEvent?: string;
-  /**
-   * Continue once this event is pushed to `dataLayer` — the shape a consent
-   * tool or tag actually announces itself in.
-   *
-   * A `dataLayer.push({ event })` is an array push, not a DOM event, so
-   * `awaitEvent` never sees it: the step would wait out its whole timeout and
-   * delay everything behind it on every page. Entries already in the layer count
-   * too, because a script that pushes while it executes does so before its own
-   * `load` fires.
-   */
-  awaitDataLayerEvent?: string;
   /** Fail-open budget for this step. Defaults to the sequence's own. */
   timeoutMs?: number;
 };
@@ -86,7 +82,6 @@ function next(){
     next();
   }
   function executed(){
-    if(step.awaitDataLayerEvent)return awaitPush(step.awaitDataLayerEvent,done);
     if(!step.awaitEvent)return done();
     addEventListener(step.awaitEvent,done,{once:true});
   }
@@ -103,26 +98,6 @@ function next(){
     document.head.appendChild(el);
     executed();
   }
-}
-function awaitPush(name,ready){
-  window.dataLayer=window.dataLayer||[];
-  for(var j=0;j<window.dataLayer.length;j++){
-    var seen=window.dataLayer[j];
-    if(seen&&seen.event===name)return ready();
-  }
-  var prev=window.dataLayer.push.bind(window.dataLayer);
-  window.dataLayer.push=function(){
-    var out=prev.apply(null,arguments);
-    for(var k=0;k<arguments.length;k++){
-      var p=arguments[k];
-      // Deferred, not immediate: a consent tool pushes several entries in one
-      // synchronous block, and continuing inside this call would run the next
-      // step between them — the tracking id would land before the tool has
-      // finished announcing itself.
-      if(p&&p.event===name){window.dataLayer.push=prev;setTimeout(ready,0);break;}
-    }
-    return out;
-  };
 }
 next();
 })();`;

@@ -673,9 +673,18 @@ describe("renderTemplates — gateway wiring", () => {
         "reads the tracking id in the browser rather than rendering it",
       );
       expect(files["docs/analytics.md"]).toContain("gtm.load");
-      // A consent tool pushes several entries in one synchronous block; the
-      // sequencer must let it finish rather than stepping between them.
-      expect(files["server/product/analytics.ts"]).toContain("awaitDataLayerEvent");
+      // Nothing waits for a consent event. A returning visitor's decision is
+      // already known and a first visit's is not, so waiting made the same site
+      // produce one order in a normal window and another in an incognito one.
+      expect(files["server/product/analytics.ts"]).not.toContain("awaitDataLayerEvent");
+      expect(files["docs/analytics.md"]).toContain("Neden hiçbir consent olayı beklenmiyor");
+      // And the only test that can actually answer "is the order right": a real
+      // browser, reading window.dataLayer, with a fresh context and a returning
+      // one asserted to produce the same sequence.
+      expect(files["e2e/analytics.spec.ts"]).toContain(
+        "builds in one order, whatever the visitor arrived with",
+      );
+      expect(files["playwright.config.ts"]).toContain("EFILLI_SCRIPT_URL");
     },
   );
 

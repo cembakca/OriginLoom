@@ -1,6 +1,6 @@
 import { createContext, runInContext, runInNewContext } from "node:vm";
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   type HeadScript,
@@ -213,32 +213,7 @@ describe("sequencedScript", () => {
   });
 });
 
-describe("waiting for a dataLayer event", () => {
-  it("continues on a dataLayer push, which is not a DOM event", () => {
-    const code = sequencedScript([
-      { src: "https://consent.example/efilli.js", awaitDataLayerEvent: "efilli.consent" },
-      { code: "window.__afterConsent = true;" },
-    ]);
-
-    // A consent tool announces itself with `dataLayer.push({event})`. Waiting for
-    // a window event of the same name would never fire, and the step behind it
-    // would be delayed by the whole timeout — on every page.
-    expect(code).toContain("awaitDataLayerEvent");
-    expect(code).toContain("awaitPush");
-  });
-
-  it("counts an event that was already pushed", () => {
-    const code = sequencedScript([
-      { src: "https://consent.example/efilli.js", awaitDataLayerEvent: "efilli.consent" },
-    ]);
-
-    // A script that pushes while it executes does so before its own `load`
-    // fires, so the watcher would attach too late to ever see it.
-    expect(code).toContain("for(var j=0;j<window.dataLayer.length;j++)");
-  });
-});
-
-describe("a consent tool that pushes more than one entry", () => {
+describe("a consent tool in the chain", () => {
   /** A head that runs inline scripts on append and remembers external ones. */
   function fakeHead() {
     const layer: Record<string, unknown>[] = [];
@@ -252,7 +227,7 @@ describe("a consent tool that pushes more than one entry", () => {
             runInNewContext(el.text, { window, document });
             return;
           }
-          const listeners: Record<string, () => void> = el.listeners as Record<string, () => void>;
+          const listeners = el.listeners as Record<string, () => void>;
           external.push({ src: el.src as string, fire: (name) => listeners[name]?.() });
         },
       },
@@ -269,35 +244,33 @@ describe("a consent tool that pushes more than one entry", () => {
     return { layer, external, window, document };
   }
 
-  it("lets the tool finish before the next step runs", async () => {
-    vi.useFakeTimers();
+  it("does not wait for the visitor to answer a banner", () => {
     const { layer, external, window, document } = fakeHead();
 
     runInNewContext(
       sequencedScript([
-        { src: "https://efilli.example/e.js", awaitDataLayerEvent: "efilli.consent" },
+        { src: "https://efilli.example/e.js" },
         { code: 'window.dataLayer.push({ hkUserTrackingId: "abc" });' },
         { code: 'window.dataLayer.push({ event: "gtm.js" });' },
       ]),
       { window, document, setTimeout, clearTimeout, addEventListener: () => {} },
     );
 
+    // The script has executed; the tool has not decided anything yet, because
+    // nobody has clicked the banner.
     external[0]?.fire("load");
-    // Efilli announces itself with two entries, in one synchronous block — the
-    // shape a real consent tool has.
-    (window.dataLayer as Record<string, unknown>[]).push({ event: "efilli.consent" });
-    (window.dataLayer as Record<string, unknown>[]).push({ event: "efilli_essential_granted" });
 
-    await vi.advanceTimersByTimeAsync(1);
-
-    // Continuing inside the first push would have put the tracking id between
-    // the tool's own two entries.
+    // The rest of the chain has still run. Waiting here is what made the same
+    // site produce one order in a normal window and another in an incognito one:
+    // a returning visitor's decision is already known, a first visit's is not.
     expect(layer.map((entry) => entry.event ?? Object.keys(entry)[0])).toEqual([
-      "efilli.consent",
-      "efilli_essential_granted",
       "hkUserTrackingId",
       "gtm.js",
     ]);
-    vi.useRealTimers();
+
+    // And the tool's own events land whenever it gets to them, without moving
+    // anything that came before.
+    (window.dataLayer as Record<string, unknown>[]).push({ event: "efilli.consent" });
+    expect(layer.at(-1)?.event).toBe("efilli.consent");
   });
 });

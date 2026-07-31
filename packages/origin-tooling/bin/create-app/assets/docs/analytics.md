@@ -6,16 +6,16 @@ Bu yüzden sıra varsayılmaz, test edilir (`packages/origin-shared` → `analyt
 
 ## Sıra
 
-| #   | Ne                                        | Nerede                                          |
-| --- | ----------------------------------------- | ----------------------------------------------- |
-| 1   | Consent (`efilli.consent`, `..._granted`) | head, `analyticsSequence` 1. adım               |
-| 2   | `{ userTrackingId }` — **event yok**      | head, 2. adım (cookie'den, tarayıcıda)          |
-| 3   | `gtm.js`                                  | head, 4. adım                                   |
-| 4   | `originalLocation`                        | React, `pushPageView`                           |
-| 5   | `GAVirtual` (sayfa görüntüleme)           | React, `pushPageView`                           |
-| 6   | Ürün olayları (promo impression vb.)      | React, `trackEvent`                             |
-| 7   | `gtm.dom`                                 | GTM — **kuyrukta tutulur**, 5'ten sonra salınır |
-| 8   | `gtm.load`                                | GTM — aynı şekilde                              |
+| #   | Ne                                                    | Nerede                                          |
+| --- | ----------------------------------------------------- | ----------------------------------------------- |
+| 1   | Efilli (`efilli.consent`, `efilli_essential_granted`) | head; **Efilli kendi atar**, zincir beklemez    |
+| 2   | `{ userTrackingId }` — **event yok**                  | head, 2. adım (cookie'den, tarayıcıda)          |
+| 3   | `gtm.js`                                              | head, 4. adım                                   |
+| 4   | `originalLocation`                                    | React, `pushPageView`                           |
+| 5   | `GAVirtual` (sayfa görüntüleme)                       | React, `pushPageView`                           |
+| 6   | Ürün olayları (promo impression vb.)                  | React, `trackEvent`                             |
+| 7   | `gtm.dom`                                             | GTM — **kuyrukta tutulur**, 5'ten sonra salınır |
+| 8   | `gtm.load`                                            | GTM — aynı şekilde                              |
 
 Gerçek bir çıktı böyle görünür:
 
@@ -78,13 +78,38 @@ iç içe bir nesne, her boyut için container arayüzünde ayrı bir değişken 
 
 ## Yapılandırma
 
-| Değişken                    | Ne                                                                           |
-| --------------------------- | ---------------------------------------------------------------------------- |
-| `GTM_CONTAINER_ID`          | Yoksa zincir consent + tracking id ile biter (development'ta doğru davranış) |
-| `CONSENT_SCRIPT_URL`        | Consent aracının adresi; development'ta mock gateway                         |
-| `CONSENT_READY_EVENT`       | Aracın hazır olduğunu bildirdiği event (ör. `efilli.consent`)                |
-| `ANALYTICS_TRACKING_ID_KEY` | dataLayer'daki anahtar (ör. `hkUserTrackingId`)                              |
-| `ANALYTICS_FIELD_PREFIX`    | Boyut öneki (ör. `HK_`)                                                      |
+| Değişken                    | Ne                                                                 |
+| --------------------------- | ------------------------------------------------------------------ |
+| `EFILLI_SCRIPT_URL`         | Consent aracının adresi. Development'ta mock gateway devreye girer |
+| `GTM_CONTAINER_ID`          | Container. Yoksa zincir consent + tracking id ile biter            |
+| `ANALYTICS_TRACKING_ID_KEY` | dataLayer'daki anahtar (ör. `hkUserTrackingId`)                    |
+| `ANALYTICS_FIELD_PREFIX`    | Boyut öneki (ör. `HK_`)                                            |
+
+Efilli için **tek** değişken vardır: URL. Olay adları Efilli'nindir, bu dosya onları ne adlandırır ne
+bekler.
+
+### Neden hiçbir consent olayı beklenmiyor
+
+Bir sürüm boyunca zincir `efilli.consent` push'unu bekledi. Yanlıştı ve şöyle kırılıyordu:
+
+- **Daha önce onay vermiş ziyaretçi:** Efilli kararı zaten biliyor, olayı çalışırken hemen push
+  ediyor → zincir anında devam ediyor.
+- **Gizli sekme / ilk ziyaret:** Efilli banner gösteriyor. Olay, ziyaretçi cevaplayınca geliyor — on
+  saniye sonra, ya da hiç. Zincir takılıyor ve fail-open bütçesi dolana kadar bekliyor.
+
+Sonuç: aynı site normal pencerede bir sıra, gizli sekmede bambaşka bir sıra üretiyordu.
+
+**Script sırası tarayıcının bedavaya verdiği bir garantidir; bir olay ise bir insan hakkında bir
+vaattir.** Consent aracı sırayla yüklenir, kendi olaylarını ne zaman atarsa atar, zincirin geri kalanı
+onu beklemez. Next.js'teki `beforeInteractive` script sırasıyla aynı model.
+
+### Consent eksikse sessiz kalınmaz
+
+Container, Efilli'nin varlığına **bağlanmaz**. Hangi tag'in çalışacağına karar vermek consent
+platformunun işidir. Bir env değişkeni eksik diye GTM'i yüklememek, tek bir yapılandırma hatasını
+sıfır ölçüme çevirirdi — bu "trafik yok" gibi okunur ve haftalar sonra fark edilir.
+
+Onun yerine production'da `EFILLI_SCRIPT_URL` yoksa başlangıçta bir kez hata log'lanır.
 
 ## Sayfa boyutları nereden gelir
 

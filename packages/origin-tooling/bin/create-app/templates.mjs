@@ -270,6 +270,7 @@ export function renderTemplates({
     "tests/sitemap.test.ts": sitemapServiceTest(),
     "tests/item-detail-reviews.test.ts": itemDetailReviewsTest(),
     "e2e/critical-paths.spec.ts": criticalPathsE2e(port, metricsPort),
+    "e2e/analytics.spec.ts": analyticsE2e(),
     "e2e/accessibility.spec.ts": accessibilityE2e(),
     "e2e/ssr.no-js.spec.ts": noJavaScriptE2e(),
 
@@ -681,6 +682,10 @@ export default defineConfig({
               SITE_URL: baseURL,
               GATEWAY_URL: mockGatewayURL,
               ALLOW_INSECURE_GATEWAY: "true",
+              // The consent tool, so the analytics chain is the real one. The
+              // container is deliberately left unset: loading GTM would reach
+              // the internet, and these tests run offline.
+              EFILLI_SCRIPT_URL: mockGatewayURL + "/vendor/consent.js",
               RELEASE_ID: "e2e",
               AUTH_REFRESH_COORDINATION_SECRET: "0123456789abcdef0123456789abcdef",
               CACHE_BACKEND: "memory",
@@ -889,6 +894,104 @@ test.describe("SSR and island critical paths", () => {
 });
 `;
 
+const analyticsE2e = () => `import { expect, test } from "@playwright/test";
+
+/**
+ * The dataLayer as a browser actually builds it.
+ *
+ * Every other test here asserts the *script* order in the head, or the builders
+ * in isolation. This one loads the page, lets the scripts run, and reads
+ * \`window.dataLayer\` — the only thing that answers "is the order right", and the
+ * only thing that catches an ordering bug caused by *when* a script runs rather
+ * than where it is written.
+ */
+type Entry = Record<string, unknown>;
+
+async function dataLayer(page: import("@playwright/test").Page): Promise<Entry[]> {
+  return page.evaluate(() => (window as unknown as { dataLayer?: Entry[] }).dataLayer ?? []);
+}
+
+function events(entries: Entry[]): string[] {
+  return entries.map((entry) => String(entry.event ?? Object.keys(entry)[0] ?? "?"));
+}
+
+test.describe("dataLayer", () => {
+  test("builds in one order, whatever the visitor arrived with", async ({ browser }) => {
+    // A visitor with no cookies — what an incognito window is.
+    const fresh = await browser.newContext();
+    const firstVisit = await fresh.newPage();
+    await firstVisit.goto("/");
+    await expect.poll(async () => events(await dataLayer(firstVisit))).toContain("GAVirtual");
+    const firstOrder = events(await dataLayer(firstVisit));
+    await fresh.close();
+
+    // The same browser again, now carrying the cookies a first visit set.
+    const returning = await browser.newContext();
+    const warmup = await returning.newPage();
+    await warmup.goto("/");
+    await warmup.close();
+    const secondVisit = await returning.newPage();
+    await secondVisit.goto("/");
+    await expect.poll(async () => events(await dataLayer(secondVisit))).toContain("GAVirtual");
+    const secondOrder = events(await dataLayer(secondVisit));
+    await returning.close();
+
+    // The bug this replaces: the chain waited for the consent tool's event, and
+    // a returning visitor's decision is already known while a first visit's is
+    // not — so the two produced different sequences. Nothing waits now, and the
+    // order is a property of the document rather than of the visitor.
+    expect(firstOrder).toEqual(secondOrder);
+  });
+
+  test("puts the page view after the tracking id, in head order", async ({ page }) => {
+    await page.goto("/");
+    await expect.poll(async () => events(await dataLayer(page))).toContain("GAVirtual");
+
+    const order = events(await dataLayer(page));
+    const at = (name: string) => order.indexOf(name);
+
+    // Efilli announces itself first because it is the first script in the head.
+    expect(at("efilli.consent")).toBe(0);
+    expect(at("efilli_essential_granted")).toBe(1);
+    // Then the visitor's own id — a value, not an event.
+    expect(at("userTrackingId")).toBeGreaterThan(at("efilli_essential_granted"));
+    // Then React: where the visit started, then the view itself.
+    expect(at("originalLocation")).toBeGreaterThan(at("userTrackingId"));
+    expect(at("GAVirtual")).toBeGreaterThan(at("originalLocation"));
+  });
+
+  test("carries the visitor's own id, and never another's", async ({ page }) => {
+    await page.goto("/");
+    await expect.poll(async () => events(await dataLayer(page))).toContain("userTrackingId");
+
+    const entries = await dataLayer(page);
+    const pushed = entries.find((entry) => "userTrackingId" in entry)?.userTrackingId;
+    const cookie = (await page.context().cookies()).find(
+      (entry) => entry.name === "user_tracking_id",
+    )?.value;
+
+    // Read from this browser's cookie, not rendered into the shared-cached HTML.
+    expect(pushed).toBe(cookie);
+    expect(await page.content()).not.toContain(String(pushed));
+  });
+
+  test("lets gtm.dom through once the page view has landed", async ({ page }) => {
+    await page.goto("/");
+    await expect.poll(async () => events(await dataLayer(page))).toContain("GAVirtual");
+
+    // The container is not configured here, so GTM never fires this itself.
+    await page.evaluate(() => {
+      (window as unknown as { dataLayer: Record<string, unknown>[] }).dataLayer.push({
+        event: "gtm.dom",
+      });
+    });
+
+    const order = events(await dataLayer(page));
+    expect(order.indexOf("gtm.dom")).toBeGreaterThan(order.indexOf("GAVirtual"));
+  });
+});
+`;
+
 const accessibilityE2e = () => `import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
@@ -1026,7 +1129,6 @@ ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
 # tool, no tag manager. In development the mock gateway stands in for Efilli.
 # GTM_CONTAINER_ID=GTM-XXXXXXX
 # EFILLI_SCRIPT_URL=https://cdn.efilli.com/…
-# EFILLI_READY_EVENT=efilli.consent
 # ANALYTICS_TRACKING_ID_KEY=userTrackingId
 # ANALYTICS_FIELD_PREFIX=
 # SUPPORT_EMAIL is optional here and required in production.
@@ -1537,12 +1639,21 @@ describe("the analytics chain", () => {
     const trackingId = analyticsSequence.indexOf("user_tracking_id");
     const queue = analyticsSequence.indexOf("gtm.dom");
 
-    // Consent first because nothing may be measured before the visitor decides;
-    // the queue before the container because it wraps \`dataLayer.push\` and can
-    // only hold what is pushed after it is installed.
+    // Script order, which the browser guarantees. The queue comes before the
+    // container because it wraps \`dataLayer.push\` and can only hold what is
+    // pushed after it is installed.
     expect(consent).toBeGreaterThan(-1);
     expect(trackingId).toBeGreaterThan(consent);
     expect(queue).toBeGreaterThan(trackingId);
+  });
+
+  it("waits for no consent event, so the order is the same for every visitor", () => {
+    // An earlier version waited for \`efilli.consent\`. A returning visitor gets
+    // that during execution and a first visit gets it when the banner is
+    // answered — ten seconds later, or never — so the same site produced one
+    // sequence in a normal window and another in an incognito one.
+    expect(analyticsSequence).not.toContain("awaitDataLayerEvent");
+    expect(analyticsSequence).not.toContain("efilli.consent");
   });
 
   it("reports a missing consent tool rather than quietly changing behaviour", async () => {
@@ -6358,68 +6469,67 @@ configureAnalyticsFields({
 });
 
 /**
- * Efilli, the consent tool, and the rule it enforces.
+ * Efilli, and the one thing this file needs from it: its URL.
  *
- * Its URL comes from the environment the way the container id does: a
- * deployment points at its own property, and a checkout without one is not
- * silently measuring people. In development the mock gateway stands in, so the
- * sequence really runs and the wait is a real wait.
+ * One variable, because there is one script. Efilli pushes its own events —
+ * \`efilli.consent\`, then \`efilli_essential_granted\` — and this file neither
+ * names them nor waits for them.
+ *
+ * The URL comes from the environment the way the container id does. In
+ * development the mock gateway stands in, so the chain really runs.
  */
 const efilliUrl =
   process.env.EFILLI_SCRIPT_URL?.trim() ||
   (config.isProduction ? undefined : \`\${config.gatewayUrl}/vendor/consent.js\`);
 
-/**
- * What Efilli pushes when the visitor has decided.
- *
- * A \`dataLayer.push({ event })\`, not a DOM event — which is why the step uses
- * \`awaitDataLayerEvent\`. Waiting for a window event of the same name would never
- * fire and would delay the container by the whole timeout on every page.
- */
-const efilliReadyEvent = process.env.EFILLI_READY_EVENT?.trim() || "efilli.consent";
 const gtmContainerId = process.env.GTM_CONTAINER_ID?.trim();
 
 /**
  * A missing consent tool is loud, not silent.
  *
- * The container is not gated on it: Efilli is a consent platform, and deciding
- * which tags may fire is its job, not this file's. Refusing to load GTM because
- * an environment variable is unset would turn one misconfiguration into zero
- * measurement — which reads as "no traffic" rather than "someone forgot a
- * variable", and is found weeks later.
- *
- * So it is reported instead, once, at startup.
+ * The container is not gated on it: deciding which tags may fire is the consent
+ * platform's job, not this file's. Refusing to load GTM because an environment
+ * variable is unset would turn one misconfiguration into zero measurement —
+ * which reads as "no traffic" rather than "someone forgot a variable", and is
+ * found weeks later.
  */
 if (config.isProduction && !efilliUrl) {
   logger.error("EFILLI_SCRIPT_URL is not set — the site is measuring without a consent tool");
 }
 
 /**
- * The head chain, and the reason it is a chain.
+ * The head chain: four scripts, in this order, every time.
  *
- * Written as plain script tags this would be four elements and no guarantees:
- * one \`async\` anywhere reorders the lot, and "loaded" is not "ready" for a
- * consent tool that fetches its own configuration after it executes. The
- * sequencer loads each step in order without blocking the parser, and can wait
- * for a step to announce itself.
+ * Written as plain tags this would be four elements and no guarantee — one
+ * \`async\` anywhere reorders the lot. The sequencer loads each step in order,
+ * without blocking the parser, and starts the next one when the previous has
+ * executed.
  *
- * The order is the contract:
+ *   1. dataLayer exists   — before anything can push to it
+ *   2. Efilli             — pushes its own events, whenever it decides to
+ *   3. tracking id        — read from the cookie in the browser, never rendered
+ *                           into the shared-cached HTML
+ *   4. event queue        — installed before the container so it can hold
+ *                           gtm.dom / gtm.load
+ *   5. gtm.js             — the container
  *
- *   1. consent          — nothing may be measured before the visitor decides
- *   2. tracking id      — read from the cookie in the browser, never rendered
- *                         into the shared-cached HTML
- *   3. event queue      — installed before GTM so it can hold gtm.dom/gtm.load
- *   4. gtm.js           — the container, which then fires on its own schedule
+ * **Nothing here waits for a consent event, and that is deliberate.** An earlier
+ * version did, and the order stopped being an order: a returning visitor whose
+ * decision Efilli already knows gets the event during execution, while a first
+ * visit gets it when the banner is answered — ten seconds later, or never. The
+ * chain then either continued at once or stalled until its timeout, so the same
+ * site produced a different sequence in a normal window and an incognito one.
  *
- * React then pushes \`originalLocation\` and the page view, and releases the two
- * held events. See docs/analytics.md.
+ * Script order is a guarantee the browser gives for free. An event is a promise
+ * about a person.
  */
 export const analyticsSequence = sequencedScript(
   [
-    // 1. Executes immediately and is usable only once the visitor has decided,
-    //    so the chain waits for what it pushes rather than for its load.
-    ...(efilliUrl ? [{ src: efilliUrl, awaitDataLayerEvent: efilliReadyEvent }] : []),
-    // 2. The visitor's own id, from their own cookie.
+    // 1. So no step has to guard for its absence.
+    { code: \`window.dataLayer=window.dataLayer||[];\` },
+    // 2. Executes here; announces itself on its own schedule.
+    ...(efilliUrl ? [{ src: efilliUrl }] : []),
+    // 3. The visitor's own id, from their own cookie.
     {
       code: trackingIdPushScript({
         trackingIdKey: process.env.ANALYTICS_TRACKING_ID_KEY?.trim() || "userTrackingId",
@@ -6428,16 +6538,16 @@ export const analyticsSequence = sequencedScript(
         extraCookies: { gclid: "gclid", utmSource: "utm_source", utmCampaign: "utm_campaign" },
       }),
     },
-    // 3. Before the container: it wraps \`dataLayer.push\`, and it can only hold
+    // 4. Before the container: it wraps \`dataLayer.push\`, and it can only hold
     //    events that are pushed after it is installed.
     { code: eventQueueScript({ failOpenMs: 5_000 }) },
-    // 4. The container. Without an id the chain simply ends here, which is the
+    // 5. The container. Without an id the chain simply ends here, which is the
     //    correct behaviour in a development checkout with no GTM property.
     ...(gtmContainerId
       ? [{ code: gtmStartScript() }, { src: gtmContainerUrl(gtmContainerId) }]
       : []),
   ],
-  // A vendor that never answers must not strand the steps behind it.
+  // A vendor that never loads must not strand the steps behind it.
   { timeoutMs: 4_000 },
 );
 
@@ -8176,13 +8286,14 @@ ${
   // is the case document order cannot express. See server/product/analytics.ts.
   if (url.pathname === "/vendor/consent.js") {
     res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
-    // Announces itself the way a real consent tool does: a dataLayer push, not a
-    // DOM event — and a moment after it executes, which is the case document
-    // order cannot express.
+    // Announces itself the way a real consent tool does for a visitor whose
+    // decision it already has: two dataLayer pushes, synchronously, while it
+    // executes. A first-time visitor's would arrive whenever the banner is
+    // answered — which is exactly why nothing in the chain waits for it.
     return res.end(
-      'window.dataLayer=window.dataLayer||[];setTimeout(function(){window.__consent=true;' +
+      'window.dataLayer=window.dataLayer||[];window.__consent=true;' +
         'window.dataLayer.push({event:"efilli.consent",categories:{essential:true}});' +
-        'window.dataLayer.push({event:"efilli_essential_granted"});},150);',
+        'window.dataLayer.push({event:"efilli_essential_granted"});',
     );
   }
 
