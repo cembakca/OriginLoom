@@ -649,6 +649,33 @@ describe("renderTemplates — gateway wiring", () => {
     },
   );
 
+  it.each(modes)(
+    "%s: wires the dataLayer chain instead of computing pageMeta and dropping it",
+    (_name, files) => {
+      const analytics = files["server/product/analytics.ts"];
+      // Only the sequence itself: the import block is sorted alphabetically and
+      // says nothing about the order the steps run in.
+      const chain = analytics.slice(analytics.indexOf("sequencedScript("));
+      // Consent first, then the visitor's own id, then the queue — which has to be
+      // installed before the container because it wraps `dataLayer.push`.
+      expect(chain.indexOf("trackingIdPushScript")).toBeGreaterThan(
+        chain.indexOf("src: consentUrl"),
+      );
+      expect(chain.indexOf("eventQueueScript")).toBeGreaterThan(
+        chain.indexOf("trackingIdPushScript"),
+      );
+      expect(chain.indexOf("gtmContainerUrl")).toBeGreaterThan(chain.indexOf("eventQueueScript"));
+      // The chain was dead before: every route computed pageMeta and RootLayout
+      // took the prop and ignored it.
+      expect(files["src/components/layout/root-layout.tsx"]).toContain('name="page-analytics"');
+      expect(files["server/index.ts"]).toContain('eagerIslands: ["page-analytics"]');
+      expect(files["tests/analytics-chain.test.ts"]).toContain(
+        "reads the tracking id in the browser rather than rendering it",
+      );
+      expect(files["docs/analytics.md"]).toContain("gtm.load");
+    },
+  );
+
   it.each(modes)("%s: proves one visitor's identity cannot reach another", (_name, files) => {
     const test = files["tests/tracking-id-leak.test.ts"];
     // Three independent reasons, asserted separately because any one of them

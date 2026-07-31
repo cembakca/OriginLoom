@@ -101,6 +101,7 @@ export function renderTemplates({
     "docs/streaming.md": asset("docs/streaming.md"),
     "docs/testing.md": asset("docs/testing.md"),
     "docs/tools.md": asset("docs/tools.md"),
+    "docs/analytics.md": asset("docs/analytics.md"),
     "docs/webhooks.md": asset("docs/webhooks.md"),
     "docs/contracts.md": asset("docs/contracts.md"),
     "docs/performance.md": asset("docs/performance.md"),
@@ -206,6 +207,7 @@ export function renderTemplates({
     "src/entry.client.tsx": entryClient(),
     "src/hydrate.client.tsx": hydrateClient(),
     "src/islands/counter.tsx": counterIsland(),
+    "src/islands/page-analytics.tsx": pageAnalyticsIsland(),
     "src/islands/loan-calculator.tsx": calculatorIsland(),
     "src/islands/account-panel.tsx": accountPanelIsland(),
     "src/islands/live-ticks.tsx": liveTicksIsland(),
@@ -241,6 +243,7 @@ export function renderTemplates({
     "tests/experiments.test.ts": experimentsMiddlewareTest(),
     "tests/experiment-cache.test.ts": experimentCacheTest(),
     "tests/tracking-id-leak.test.ts": trackingLeakTest(),
+    "tests/analytics-chain.test.ts": analyticsChainTest(),
     "tests/auth-client.test.ts": authClientTest(),
     "tests/live-stream-admission.test.ts": liveStreamAdmissionTest(),
     "tests/live-stream-api.test.ts": liveStreamApiTest(),
@@ -1017,6 +1020,12 @@ ALLOW_INSECURE_GATEWAY=true
 # This app's own settings — see server/product/config.ts, validated at startup.
 CATALOG_PAGE_SIZE=3
 ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
+# Analytics. Without GTM_CONTAINER_ID the head chain ends after consent and the
+# tracking id push — the right behaviour in a checkout with no GTM property.
+# GTM_CONTAINER_ID=GTM-XXXXXXX
+# CONSENT_READY_EVENT=consent:ready
+# ANALYTICS_TRACKING_ID_KEY=userTrackingId
+# ANALYTICS_FIELD_PREFIX=
 # SUPPORT_EMAIL is optional here and required in production.
 # SUPPORT_EMAIL=destek@example.com
 
@@ -1179,7 +1188,9 @@ async function main() {
 
   // The entry path is the app's, not the platform's — in dev it is fetched from
   // the Vite server, so it has to match the file this app actually ships.
-  const assets = readAssets({ clientEntry: "${clientEntry}", eagerIslands: [] });
+  // Preloaded rather than discovered: the page-analytics chunk is what releases
+  // the gtm.dom/gtm.load the head bootstrap is holding.
+  const assets = readAssets({ clientEntry: "${clientEntry}", eagerIslands: ["page-analytics"] });
   const app = createApp({
     assets,
     routes,
@@ -1479,6 +1490,97 @@ function sanitizeCampaign(raw: string | null): string | undefined {
   if (!raw || raw.length > 60) return undefined;
   return /^[a-z0-9_-]+$/i.test(raw) ? raw.toLowerCase() : undefined;
 }
+`;
+
+const analyticsChainTest = () => `import { createApp } from "@originloom/core/app";
+import { closeCache, initCache } from "@originloom/core/cache";
+import { analyticsSequence } from "@server/product/analytics";
+import { installProductRuntime } from "@server/product/runtime";
+import { routes } from "@server/routes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
+  gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
+}));
+
+const page = {
+  items: [],
+  total: 0,
+  page: 1,
+  totalPages: 1,
+  facets: { categories: [] },
+  query: { category: "all", sortBy: "recommended" },
+  seoInfo: { title: "Krediler", friendlyUrl: "/catalog" },
+};
+
+const VISITOR = "d1195a49-29da-457b-bb56-bfa9ce641601";
+
+describe("the analytics chain", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    installProductRuntime();
+    await closeCache();
+    await initCache();
+  });
+  afterEach(async () => {
+    await closeCache();
+  });
+
+  it("orders the head steps: consent, tracking id, queue, container", () => {
+    const consent = analyticsSequence.indexOf("consent.js");
+    const trackingId = analyticsSequence.indexOf("user_tracking_id");
+    const queue = analyticsSequence.indexOf("gtm.dom");
+
+    // Consent first because nothing may be measured before the visitor decides;
+    // the queue before the container because it wraps \`dataLayer.push\` and can
+    // only hold what is pushed after it is installed.
+    expect(consent).toBeGreaterThan(-1);
+    expect(trackingId).toBeGreaterThan(consent);
+    expect(queue).toBeGreaterThan(trackingId);
+  });
+
+  it("reads the tracking id in the browser rather than rendering it", async () => {
+    const app = createApp({
+      assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+      routes,
+      readinessCheck: async () => true,
+    });
+
+    const html = await (
+      await app.request("http://app.local/catalog", {
+        headers: {
+          cookie: \`user_tracking_id=\${VISITOR}\`,
+          "user-agent": "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+        },
+      })
+    ).text();
+
+    // The document is shared-cached: an id rendered into it would belong to
+    // whoever filled the cache and would then be served to everybody else.
+    expect(html).not.toContain(VISITOR);
+    // What is in the HTML is the code that reads the cookie, which is the same
+    // for every visitor and therefore cacheable.
+    expect(html).toContain("user_tracking_id");
+  });
+
+  it("mounts the island that pushes the page view", async () => {
+    const app = createApp({
+      assets: { js: "/assets/entry.client.js", css: [], fonts: [] },
+      routes,
+      readinessCheck: async () => true,
+    });
+
+    const html = await (await app.request("http://app.local/catalog")).text();
+
+    // Without this the route's pageMeta is computed on every request and thrown
+    // away — the chain looks wired and measures nothing.
+    expect(html).toContain('data-island="page-analytics"');
+    expect(html).toContain("data-eager");
+  });
+});
 `;
 
 const trackingLeakTest = () => `import { createApp } from "@originloom/core/app";
@@ -6208,34 +6310,71 @@ htmlLang: "tr",
 const productAnalytics = () => `import { config } from "@originloom/core/config";
 import type { CspSources } from "@originloom/core/middleware/security";
 import { sequencedScript } from "@originloom/shared/head-scripts";
+import {
+  eventQueueScript,
+  gtmContainerUrl,
+  gtmStartScript,
+  trackingIdPushScript,
+} from "@originloom/shared/lib/analytics/bootstrap";
+import { configureAnalyticsFields } from "@originloom/shared/lib/analytics/config";
 
 /**
- * Third-party scripts that have to run in a fixed order.
- *
- * Plain scripts written in head order already run in that order — this exists
- * for the two cases where that is not enough: a step whose readiness comes
- * later than its execution (a consent tool fetching its own configuration),
- * and not wanting to block the parser on every vendor round trip.
- *
- * In development the vendor is the mock gateway, so the sequence really runs.
- * Point ANALYTICS_VENDOR_URL at the real one and the shape does not change.
+ * The names this app's container reads. Set once, here, because they are a
+ * contract with the tag manager and a rename must not be a search-and-replace.
  */
-const vendorUrl =
-  process.env.ANALYTICS_VENDOR_URL?.trim() || \`\${config.gatewayUrl}/vendor/consent.js\`;
+configureAnalyticsFields({
+  trackingIdKey: process.env.ANALYTICS_TRACKING_ID_KEY?.trim() || "userTrackingId",
+  fieldPrefix: process.env.ANALYTICS_FIELD_PREFIX ?? "",
+  pageViewEvent: "GAVirtual",
+});
 
+const consentUrl =
+  process.env.CONSENT_SCRIPT_URL?.trim() || \`\${config.gatewayUrl}/vendor/consent.js\`;
+const consentReadyEvent = process.env.CONSENT_READY_EVENT?.trim() || "consent:ready";
+const gtmContainerId = process.env.GTM_CONTAINER_ID?.trim();
+
+/**
+ * The head chain, and the reason it is a chain.
+ *
+ * Written as plain script tags this would be four elements and no guarantees:
+ * one \`async\` anywhere reorders the lot, and "loaded" is not "ready" for a
+ * consent tool that fetches its own configuration after it executes. The
+ * sequencer loads each step in order without blocking the parser, and can wait
+ * for a step to announce itself.
+ *
+ * The order is the contract:
+ *
+ *   1. consent          — nothing may be measured before the visitor decides
+ *   2. tracking id      — read from the cookie in the browser, never rendered
+ *                         into the shared-cached HTML
+ *   3. event queue      — installed before GTM so it can hold gtm.dom/gtm.load
+ *   4. gtm.js           — the container, which then fires on its own schedule
+ *
+ * React then pushes \`originalLocation\` and the page view, and releases the two
+ * held events. See docs/analytics.md.
+ */
 export const analyticsSequence = sequencedScript(
   [
-    // 1. The consent tool. It executes immediately and is only usable once it
-    //    has decided, so the chain waits for the event rather than the load.
-    { src: vendorUrl, awaitEvent: "consent:ready" },
-    // 2. Now the decision exists, so the dataLayer can be built from it.
+    // 1. Executes immediately and is usable only once it has decided, so the
+    //    chain waits for the event rather than for the load.
+    { src: consentUrl, awaitEvent: consentReadyEvent },
+    // 2. The visitor's own id, from their own cookie.
     {
-      code: \`window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"app.ready",consent:window.__consent===true});\`,
+      code: trackingIdPushScript({
+        trackingIdKey: process.env.ANALYTICS_TRACKING_ID_KEY?.trim() || "userTrackingId",
+        // Campaign values live in cookies the session step wrote, so they travel
+        // with the visitor rather than only with the URL they arrived on.
+        extraCookies: { gclid: "gclid", utmSource: "utm_source", utmCampaign: "utm_campaign" },
+      }),
     },
-    // 3. Your tag manager belongs here, after the dataLayer it will read.
-    //    { src: "https://www.googletagmanager.com/gtm.js?id=GTM-XXXX" },
-    // 4. Your own measurement, last, so it can report what the steps decided.
-    { code: \`navigator.sendBeacon("/api/collect", JSON.stringify(window.dataLayer))\` },
+    // 3. Before the container: it wraps \`dataLayer.push\`, and it can only hold
+    //    events that are pushed after it is installed.
+    { code: eventQueueScript({ failOpenMs: 5_000 }) },
+    // 4. The container. Without an id the chain simply ends here, which is the
+    //    correct behaviour in a development checkout with no GTM property.
+    ...(gtmContainerId
+      ? [{ code: gtmStartScript() }, { src: gtmContainerUrl(gtmContainerId) }]
+      : []),
   ],
   // A vendor that never answers must not strand the steps behind it.
   { timeoutMs: 4_000 },
@@ -6243,8 +6382,12 @@ export const analyticsSequence = sequencedScript(
 
 /** The origins the sequence reaches. Without these the browser refuses to load them. */
 export const analyticsCsp: CspSources = {
-  scriptSrc: [new URL(vendorUrl).origin],
+  scriptSrc: [
+    new URL(consentUrl).origin,
+    ...(gtmContainerId ? ["https://www.googletagmanager.com"] : []),
+  ],
 };
+
 `;
 
 const productRenderer =
@@ -6359,6 +6502,27 @@ const hydrateClient =
 export const mount = createIslandMounter({
   modules: import.meta.glob<IslandModule>("./islands/*.tsx"),
 });
+`;
+
+const pageAnalyticsIsland =
+  () => `import { pushPageView } from "@originloom/shared/lib/analytics/page-view";
+import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
+import { useLayoutEffect } from "react";
+
+/**
+ * The page view, pushed once per rendered page.
+ *
+ * \`useLayoutEffect\` rather than \`useEffect\`: the head bootstrap is holding
+ * \`gtm.dom\` and \`gtm.load\` until this lands, and every frame it waits is a frame
+ * the tags are held back. Nothing is rendered — this island exists to push.
+ */
+export default function PageAnalytics(props: PageAnalyticsMeta) {
+  useLayoutEffect(() => {
+    pushPageView(props);
+  }, [props]);
+
+  return null;
+}
 `;
 
 const counterIsland = () => `import { useState } from "react";
@@ -6493,7 +6657,8 @@ export function HomePage({ data }: { data: { greeting: string; hero: ResponsiveI
 }
 `;
 
-const rootLayout = (title) => `import { Link } from "@originloom/react/lib/link";
+const rootLayout = (title) => `import { Island } from "@originloom/react/lib/island";
+import { Link } from "@originloom/react/lib/link";
 import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
@@ -6510,7 +6675,7 @@ export type RootLayoutProps = {
 const SITE_NAME = "${title}";
 
 /** Application shell. Header/footer that need their own cache lifetime belong in fragments. */
-export function RootLayout({ shell, children }: RootLayoutProps) {
+export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
   const header = orderedFor(shell.menu.headerItems, shell.deviceShell);
   const drawer = orderedFor(shell.menu.hamburgerItems, shell.deviceShell);
   const footer = orderedFor(shell.menu.footerItems, shell.deviceShell);
@@ -6587,6 +6752,11 @@ export function RootLayout({ shell, children }: RootLayoutProps) {
       <main id="page-main" className="flex-1 py-10">
         <div className="mx-auto max-w-5xl px-4">{children}</div>
       </main>
+
+      {/* Renders nothing; it exists to push the page view. \`eager\` because the
+          head bootstrap is holding gtm.dom and gtm.load until it does, and every
+          frame it waits is a frame the tags are held back. */}
+      <Island name="page-analytics" mode="defer" eager props={pageMeta} />
 
       {shell.minimalChrome ? null : (
         <footer className="border-t border-slate-200 py-6">
@@ -7289,6 +7459,7 @@ Başlangıç noktası [docs/features.md](docs/features.md) dosyasıdır:
 - [Sağlayıcıya yönlendirme](docs/referrals.md)
 - [Araç sayfaları (hesaplayıcı)](docs/tools.md)
 - [Webhook alıcısı](docs/webhooks.md)
+- [Analytics: dataLayer ve sıra](docs/analytics.md)
 - [Kademeli kapasite testi ve raporlama](docs/capacity.md)
 - [Performans kabul politikası, payload bütçeleri ve profiling](docs/performance-acceptance.md)
 - [Configuration](docs/configuration.md)
