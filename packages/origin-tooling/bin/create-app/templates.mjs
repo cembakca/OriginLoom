@@ -1020,10 +1020,13 @@ ALLOW_INSECURE_GATEWAY=true
 # This app's own settings — see server/product/config.ts, validated at startup.
 CATALOG_PAGE_SIZE=3
 ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
-# Analytics. Without GTM_CONTAINER_ID the head chain ends after consent and the
-# tracking id push — the right behaviour in a checkout with no GTM property.
+# Analytics. Both come from the environment: a deployment points at its own
+# properties, and a checkout without them is not silently measuring people.
+# Without EFILLI_SCRIPT_URL the container is not loaded either — no consent
+# tool, no tag manager. In development the mock gateway stands in for Efilli.
 # GTM_CONTAINER_ID=GTM-XXXXXXX
-# CONSENT_READY_EVENT=consent:ready
+# EFILLI_SCRIPT_URL=https://cdn.efilli.com/…
+# EFILLI_READY_EVENT=efilli.consent
 # ANALYTICS_TRACKING_ID_KEY=userTrackingId
 # ANALYTICS_FIELD_PREFIX=
 # SUPPORT_EMAIL is optional here and required in production.
@@ -1540,6 +1543,29 @@ describe("the analytics chain", () => {
     expect(consent).toBeGreaterThan(-1);
     expect(trackingId).toBeGreaterThan(consent);
     expect(queue).toBeGreaterThan(trackingId);
+  });
+
+  it("loads no tag manager when the consent tool is not configured", async () => {
+    vi.resetModules();
+    const previous = { env: process.env.NODE_ENV, gtm: process.env.GTM_CONTAINER_ID };
+    process.env.NODE_ENV = "production";
+    process.env.GTM_CONTAINER_ID = "GTM-TEST123";
+    delete process.env.EFILLI_SCRIPT_URL;
+
+    const { analyticsSequence: withoutConsent } = await import("@server/product/analytics");
+
+    // Failing closed. With no consent tool there is nothing to wait for, and
+    // loading the container anyway would fire tags on visitors who were never
+    // asked. A missing measurement is a reporting gap; measuring without consent
+    // is not.
+    expect(withoutConsent).not.toContain("googletagmanager.com");
+    // The visitor's own id is still pushed: it is this site's cookie, not a tag.
+    expect(withoutConsent).toContain("user_tracking_id");
+
+    process.env.NODE_ENV = previous.env;
+    if (previous.gtm === undefined) delete process.env.GTM_CONTAINER_ID;
+    else process.env.GTM_CONTAINER_ID = previous.gtm;
+    vi.resetModules();
   });
 
   it("reads the tracking id in the browser rather than rendering it", async () => {
@@ -6328,10 +6354,36 @@ configureAnalyticsFields({
   pageViewEvent: "GAVirtual",
 });
 
-const consentUrl =
-  process.env.CONSENT_SCRIPT_URL?.trim() || \`\${config.gatewayUrl}/vendor/consent.js\`;
-const consentReadyEvent = process.env.CONSENT_READY_EVENT?.trim() || "consent:ready";
+/**
+ * Efilli, the consent tool, and the rule it enforces.
+ *
+ * Its URL comes from the environment the way the container id does: a
+ * deployment points at its own property, and a checkout without one is not
+ * silently measuring people. In development the mock gateway stands in, so the
+ * sequence really runs and the wait is a real wait.
+ */
+const efilliUrl =
+  process.env.EFILLI_SCRIPT_URL?.trim() ||
+  (config.isProduction ? undefined : \`\${config.gatewayUrl}/vendor/consent.js\`);
+
+/**
+ * What Efilli pushes when the visitor has decided.
+ *
+ * A \`dataLayer.push({ event })\`, not a DOM event — which is why the step uses
+ * \`awaitDataLayerEvent\`. Waiting for a window event of the same name would never
+ * fire and would delay the container by the whole timeout on every page.
+ */
+const efilliReadyEvent = process.env.EFILLI_READY_EVENT?.trim() || "efilli.consent";
 const gtmContainerId = process.env.GTM_CONTAINER_ID?.trim();
+
+/**
+ * No consent tool, no tag manager.
+ *
+ * Failing closed: if Efilli is not configured there is nothing to wait for, and
+ * loading the container anyway would fire tags on visitors who were never asked.
+ * A missing measurement is a reporting gap; measuring without consent is not.
+ */
+const measurementAllowed = Boolean(efilliUrl);
 
 /**
  * The head chain, and the reason it is a chain.
@@ -6355,9 +6407,9 @@ const gtmContainerId = process.env.GTM_CONTAINER_ID?.trim();
  */
 export const analyticsSequence = sequencedScript(
   [
-    // 1. Executes immediately and is usable only once it has decided, so the
-    //    chain waits for the event rather than for the load.
-    { src: consentUrl, awaitEvent: consentReadyEvent },
+    // 1. Executes immediately and is usable only once the visitor has decided,
+    //    so the chain waits for what it pushes rather than for its load.
+    ...(efilliUrl ? [{ src: efilliUrl, awaitDataLayerEvent: efilliReadyEvent }] : []),
     // 2. The visitor's own id, from their own cookie.
     {
       code: trackingIdPushScript({
@@ -6372,7 +6424,7 @@ export const analyticsSequence = sequencedScript(
     { code: eventQueueScript({ failOpenMs: 5_000 }) },
     // 4. The container. Without an id the chain simply ends here, which is the
     //    correct behaviour in a development checkout with no GTM property.
-    ...(gtmContainerId
+    ...(gtmContainerId && measurementAllowed
       ? [{ code: gtmStartScript() }, { src: gtmContainerUrl(gtmContainerId) }]
       : []),
   ],
@@ -6383,8 +6435,8 @@ export const analyticsSequence = sequencedScript(
 /** The origins the sequence reaches. Without these the browser refuses to load them. */
 export const analyticsCsp: CspSources = {
   scriptSrc: [
-    new URL(consentUrl).origin,
-    ...(gtmContainerId ? ["https://www.googletagmanager.com"] : []),
+    ...(efilliUrl ? [new URL(efilliUrl).origin] : []),
+    ...(gtmContainerId && measurementAllowed ? ["https://www.googletagmanager.com"] : []),
   ],
 };
 
@@ -8111,13 +8163,17 @@ ${
     });
   }
 
-  // Stands in for a consent tool: it executes at once and decides a moment
-  // later, which is the case document order cannot express. See
-  // server/product/analytics.ts.
+  // Stands in for Efilli: it executes at once and decides a moment later, which
+  // is the case document order cannot express. See server/product/analytics.ts.
   if (url.pathname === "/vendor/consent.js") {
     res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+    // Announces itself the way a real consent tool does: a dataLayer push, not a
+    // DOM event — and a moment after it executes, which is the case document
+    // order cannot express.
     return res.end(
-      'setTimeout(function(){window.__consent=true;dispatchEvent(new Event("consent:ready"));},150);',
+      'window.dataLayer=window.dataLayer||[];setTimeout(function(){window.__consent=true;' +
+        'window.dataLayer.push({event:"efilli.consent",categories:{essential:true}});' +
+        'window.dataLayer.push({event:"efilli_essential_granted"});},150);',
     );
   }
 

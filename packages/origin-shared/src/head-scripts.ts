@@ -31,6 +31,17 @@ export type HeadScript = {
    * this step starts, or the step falls through on its timeout.
    */
   awaitEvent?: string;
+  /**
+   * Continue once this event is pushed to `dataLayer` — the shape a consent
+   * tool or tag actually announces itself in.
+   *
+   * A `dataLayer.push({ event })` is an array push, not a DOM event, so
+   * `awaitEvent` never sees it: the step would wait out its whole timeout and
+   * delay everything behind it on every page. Entries already in the layer count
+   * too, because a script that pushes while it executes does so before its own
+   * `load` fires.
+   */
+  awaitDataLayerEvent?: string;
   /** Fail-open budget for this step. Defaults to the sequence's own. */
   timeoutMs?: number;
 };
@@ -75,6 +86,7 @@ function next(){
     next();
   }
   function executed(){
+    if(step.awaitDataLayerEvent)return awaitPush(step.awaitDataLayerEvent,done);
     if(!step.awaitEvent)return done();
     addEventListener(step.awaitEvent,done,{once:true});
   }
@@ -91,6 +103,22 @@ function next(){
     document.head.appendChild(el);
     executed();
   }
+}
+function awaitPush(name,ready){
+  window.dataLayer=window.dataLayer||[];
+  for(var j=0;j<window.dataLayer.length;j++){
+    var seen=window.dataLayer[j];
+    if(seen&&seen.event===name)return ready();
+  }
+  var prev=window.dataLayer.push.bind(window.dataLayer);
+  window.dataLayer.push=function(){
+    var out=prev.apply(null,arguments);
+    for(var k=0;k<arguments.length;k++){
+      var p=arguments[k];
+      if(p&&p.event===name){window.dataLayer.push=prev;ready();break;}
+    }
+    return out;
+  };
 }
 next();
 })();`;

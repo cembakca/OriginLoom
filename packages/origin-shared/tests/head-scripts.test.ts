@@ -212,3 +212,28 @@ describe("sequencedScript", () => {
     expect(code).toContain("\\u003c");
   });
 });
+
+describe("waiting for a dataLayer event", () => {
+  it("continues on a dataLayer push, which is not a DOM event", () => {
+    const code = sequencedScript([
+      { src: "https://consent.example/efilli.js", awaitDataLayerEvent: "efilli.consent" },
+      { code: "window.__afterConsent = true;" },
+    ]);
+
+    // A consent tool announces itself with `dataLayer.push({event})`. Waiting for
+    // a window event of the same name would never fire, and the step behind it
+    // would be delayed by the whole timeout — on every page.
+    expect(code).toContain("awaitDataLayerEvent");
+    expect(code).toContain("awaitPush");
+  });
+
+  it("counts an event that was already pushed", () => {
+    const code = sequencedScript([
+      { src: "https://consent.example/efilli.js", awaitDataLayerEvent: "efilli.consent" },
+    ]);
+
+    // A script that pushes while it executes does so before its own `load`
+    // fires, so the watcher would attach too late to ever see it.
+    expect(code).toContain("for(var j=0;j<window.dataLayer.length;j++)");
+  });
+});
