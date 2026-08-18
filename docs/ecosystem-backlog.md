@@ -8,18 +8,23 @@ bir tartışma zeminidir.
 ## 0. Önce mekanizma: eklenti nedir?
 
 i18n bunun ilk örneği: `--i18n` ile üretilir, üretilmezse uygulamada tek satırı bulunmaz, `docs/i18n.md`
-kaldırma adımlarını yazar. Aynı kalıp tekrarlanabilir olduğunda ekosistem mümkün olur. Şu an eksik olan:
+kaldırma adımlarını yazar. Aynı kalıp tekrarlanabilir olduğunda ekosistem mümkün olur.
 
-- **Eklenti kaydı.** Bugün `templates.mjs` içinde koşullar var. On eklentide bu dosya okunamaz hale
-  gelir. `plugins/<ad>/{files.mjs,patches.mjs,doc.md,skill.md}` gibi bir klasör sözleşmesi gerekir.
-- **Patch sözleşmesi.** Bir eklenti paylaşılan bir dosyaya (route tablosu, middleware listesi, cache
-  registry) satır eklemek zorunda. Bugün bu, template içinde string birleştirme. Sözleşmeli hale
-  gelmeli: "şu bloğa şu satırı ekle", çakışırsa üretim hata versin.
-- **Eklenti testi.** Her eklenti için: kapalıyken iz bırakmadığı, açıkken `pnpm ci`'dan geçtiği.
-  `create-app-templates.test.mjs` içindeki i18n testi bunun şablonu.
-- **Upgrade etkisi.** Üretilen dosyalar uygulamaya aittir; eklenti güncellemesi otomatik gelmez.
-  Ya eklentiler paket haline gelir (kod platformda, üretilen dosya ince bir wiring olur) ya da
-  migration'lar eklenti-farkında olur. **Bu karar diğer her şeyden önce gelir.**
+> **Durum (0.7.11):** Eklenti mekanizması uygulandı ve **donduruldu** —
+> [plugin-mechanism.md](./plugin-mechanism.md). Kayıtlı eklenti: `--with-ops` (`with-ops`).
+> i18n, arama, OIDC vb. aktif roadmap değil; somut talep gelince değerlendirilir.
+
+Tamamlanan parçalar:
+
+- **Eklenti kaydı.** `plugins/<id>/manifest.mjs` + `registry.mjs`; `--with-ops` referans implementasyonu.
+- **Patch sözleşmesi.** `apply.mjs` — anchor tabanlı insert/replace; `package.json` merge.
+- **Eklenti testi.** `create-app-plugins.test.mjs` — kapalıyken iz yok, açıkken envanter.
+- **Upgrade etkisi.** Karar: üretilen kod app-owned; metadata `plugins[]` (schema v2).
+
+Gelecekte (talep yokken yapılmaz):
+
+- Eklenti-farkında migration'lar (`plugins[]` okuyarak)
+- İsteğe bağlı ikinci eklenti (ör. yeniden tasarlanmış i18n, ürün-özel entegrasyon)
 
 Sonraki tüm maddeler bu üç şeyden birine düşer: **paket** (kod platformda), **eklenti** (kod üretilen
 uygulamada), **rehber** (yalnız doküman + skill).
@@ -130,15 +135,16 @@ CronJob + ayrı bir entrypoint bugün mümkün ama kontratı yok.
 Platformda gereken: `defineJob({ name, schedule, run })` ve `origin-run-job` bin'i; metrics ve
 graceful shutdown ile aynı disipline bağlı olmalı.
 
-## 9. Veri katmanı — _karar_
+## 9. Veri katmanı — _karar (ertelendi)_
 
 Bugün her şey HTTP gateway varsayıyor. Doğrudan Postgres'e giden bir ürün için desen yok. İki yol:
 
 - **Kapsam dışı ilan et.** "OriginLoom gateway önünde bir SSR katmanıdır." Net, savunulabilir.
+  **Şu anki platform taahhüdü budur** — bkz. [plugin-mechanism.md](./plugin-mechanism.md).
 - **`DataSource` kontratı ekle.** Deadline, contract bütçesi, cache ve metrics disiplini DB
   çağrılarına da uygulanır. Daha büyük iş, daha geniş ürün yelpazesi.
 
-**Bu karar verilmeden 15 ürüne yayılmak riskli.**
+**Bu karar verilmeden 15 ürüne yayılmak riskli.** DataSource backlog'ta; Faz 6 kapsam dışı.
 
 ## 10. Design system entegrasyonu — _rehber_
 
@@ -161,12 +167,13 @@ bare-metal systemd. Her biri `--with-ops` gibi opt-in bir dosya kümesi.
 
 ## Sıralama önerisi
 
-1. **Eklenti mekanizmasını sözleşmeye bağla** (§0) — bunsuz her ekleme `templates.mjs`'i büyütür.
-2. **Veri katmanı kararını ver** (§9) — kapsamı belirler.
-3. **Arama** (§3) — platformda değişiklik gerektirmeyen, en temiz ikinci eklenti örneği.
-4. **CMS preview** (§2) — `values`/`cacheVary` kontratının en değerli kullanımı ve gerçek bir talep.
-5. **Webhook guard'ı** (§4) — ödeme olmadan da gereken, güvenlik değeri yüksek bir platform parçası.
-6. Gerisi talebe göre.
+1. ~~**Eklenti mekanizmasını sözleşmeye bağla** (§0)~~ — **0.7.11'de uygulandı, donduruldu**
+   ([plugin-mechanism.md](./plugin-mechanism.md); yalnızca `with-ops`)
+2. **Veri katmanı kararını ver** (§9) — kapsamı belirler; ertelendi (gateway-only)
+3. ~~**Arama eklentisi** (§3)~~ — backlog; create-app eklentisi olarak planlanmıyor
+4. ~~**CMS preview** (§2)~~ — backlog; talep gelince primitive veya rehber
+5. ~~**Webhook guard** (§4)~~ — backlog; platform primitive adayı, eklenti değil
+6. Gerisi talebe göre (çoğu rehber veya `@originloom/core`, yeni `--with-*` değil)
 
 ## Ölçüt
 

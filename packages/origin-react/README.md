@@ -77,3 +77,5 @@ app-level providers such as TanStack Query. Omit it when the app does not need a
 | `@originloom/react/lib/metadata/metadata-head` | `<MetadataHead>` — metadata → head tags          |
 | `@originloom/react/lib/query/provider`         | TanStack Query provider for islands              |
 | `@originloom/react/vite`                       | Client and SSR Vite configs, dev-reload plugin   |
+
+Tier 1 supported imports for generated apps: [docs/export-surface.md](../../docs/export-surface.md).

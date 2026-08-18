@@ -8,14 +8,35 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { renderSkills } from "./skills.mjs";
-import { renderOpsTemplates } from "./templates-ops.mjs";
+import {
+  dependencyTrackWorkflow,
+  githubWorkflow,
+  packageManagerFieldValue,
+  readmeCommandTable,
+  readmeInstallBlock,
+  packageManagerRequirements,
+  standaloneDockerfile,
+  dockerfileRunner,
+  yarnrcYaml,
+} from "./package-manager-templates.mjs";
+import {
+  assertKnownPackageManager,
+  ciScript,
+  dependencyOverrideField,
+  e2eServerScript,
+  nativeBuildPolicy,
+  trustedNativeBuildPackages,
+  pnpmAllowBuildYamlKey,
+} from "../lib/package-manager.mjs";
+import { applyPluginsToTemplates, resolvePluginIds } from "./plugins/apply.mjs";
+import { pluginsById } from "./plugins/registry.mjs";
 import {
   compareVersions,
   PROJECT_SCHEMA_VERSION,
   TOOLING_VERSION,
 } from "../upgrade/compatibility.mjs";
 import { migrations } from "../upgrade/migrations.mjs";
+import { renderSkills } from "./skills.mjs";
 
 /** Dev-server port for the client bundle, derived from the app port (3010 → 5010). */
 export const VITE_PORT_OFFSET = 2000;
@@ -38,6 +59,9 @@ const asset = (name) =>
  *   templateVersion?: string;
  *   vitePort?: number;
  *   registry?: string;
+ *   plugins?: string[];
+ *   withOps?: boolean;
+ *   packageManager?: "pnpm" | "npm" | "yarn";
  * }} vars
  */
 export function renderTemplates({
@@ -50,14 +74,32 @@ export function renderTemplates({
   templateVersion = TOOLING_VERSION,
   vitePort = port + VITE_PORT_OFFSET,
   registry,
+  plugins: requestedPlugins,
   withOps = false,
+  packageManager = "pnpm",
 }) {
+  assertKnownPackageManager(packageManager);
+  const pluginIds = resolvePluginIds({ plugins: requestedPlugins, withOps });
+  const hasWithOps = pluginIds.includes("with-ops");
   // Standalone apps live in their own repo and depend on the published
   // @originloom/* packages; workspace apps sit in apps/<name> and link them
   // via workspace:*. The two modes differ only in how they reach the packages
   // and how they build — the app source they generate is identical.
   const standalone = mode === "standalone";
-  return {
+  const pluginContext = {
+    name,
+    title,
+    port,
+    metricsPort,
+    vitePort,
+    mode,
+    version,
+    templateVersion,
+    registry,
+    plugins: pluginIds,
+    packageManager,
+  };
+  const baseFiles = {
     // npm config is not inherited from parent directories, so an app that
     // installs @originloom/* from somewhere other than npmjs carries its own.
     ...(registry ? { ".npmrc": npmrc(registry) } : {}),
@@ -65,9 +107,14 @@ export function renderTemplates({
       templateVersion,
       platformRange: mode === "workspace" ? "workspace:*" : version,
       mode,
+      plugins: pluginIds,
+      packageManager,
     }),
-    "package.json": packageJson(name, { standalone, version, withOps }),
-    ...(standalone ? { "pnpm-workspace.yaml": standalonePnpmWorkspace() } : {}),
+    "package.json": packageJson(name, { standalone, version, packageManager }),
+    ...(standalone && packageManager === "pnpm"
+      ? { "pnpm-workspace.yaml": standalonePnpmWorkspace() }
+      : {}),
+    ...(standalone && packageManager === "yarn" ? { ".yarnrc.yml": yarnrcYaml() } : {}),
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
     ".prettierrc.json": asset("prettierrc.json"),
@@ -78,7 +125,7 @@ export function renderTemplates({
     "playwright.config.ts": playwrightConfig(name, port, metricsPort),
     ".env.development": envDevelopment(name, port, metricsPort, vitePort, true),
     ".env.production": envProduction(port, metricsPort, true),
-    "README.md": readme(name, title, port, vitePort, standalone, withOps),
+    "README.md": readme(name, title, port, vitePort, standalone, hasWithOps, packageManager),
     "docs/auth.md": asset("docs/auth.md"),
     "docs/background-workers.md": asset("docs/background-workers.md"),
     "docs/caching.md": asset("docs/caching.md"),
@@ -108,15 +155,13 @@ export function renderTemplates({
     "docs/performance-acceptance.md": asset("docs/performance-acceptance.md"),
     "docs/runtime-performance.md": asset("docs/runtime-performance.md"),
     "docs/upgrading.md": asset("docs/upgrading.md"),
-    Dockerfile: dockerfile(name, port, standalone),
+    Dockerfile: dockerfile(name, port, standalone, packageManager),
     ".dockerignore": asset("dockerignore"),
     ".gitignore": asset("gitignore"),
     ".nvmrc": asset("nvmrc"),
     ".editorconfig": asset("editorconfig"),
-    ".github/workflows/ci.yml": githubWorkflow(name),
-    ".github/workflows/dependency-track.yml": dependencyTrackWorkflow(),
-    // Opt-in deployment assets: compose, k8s manifests, a load generator.
-    ...(withOps ? renderOpsTemplates({ name, port, metricsPort, includeCapacity: true }) : {}),
+    ".github/workflows/ci.yml": githubWorkflow(name, packageManager),
+    ".github/workflows/dependency-track.yml": dependencyTrackWorkflow(packageManager),
     "load-test/capacity.mjs": asset("load-test/capacity.mjs"),
     "load-test/capacity-metrics.mjs": asset("load-test/capacity-metrics.mjs"),
     "load-test/capacity-report.mjs": asset("load-test/capacity-report.mjs"),
@@ -281,6 +326,14 @@ export function renderTemplates({
     ".claude/settings.json": claudeSettings(),
     ...renderSkills(),
   };
+  const merged = applyPluginsToTemplates(baseFiles, pluginIds, pluginContext, pluginsById);
+  if (merged["README.md"]?.includes("readme-ops-table")) {
+    merged["README.md"] = merged["README.md"].replace(
+      /\n?<!-- @originloom:hook readme-ops-table -->\n?/,
+      "\n",
+    );
+  }
+  return merged;
 }
 
 // Pre-approve the safe, everyday commands this app actually ships, so Claude Code
@@ -316,8 +369,8 @@ const claudeSettings = () =>
     2,
   )}\n`;
 
-/** @param {{ standalone: boolean; version: string }} opts */
-const packageJson = (name, { standalone, version, withOps = false }) => {
+/** @param {{ standalone: boolean; version: string; packageManager?: "pnpm" | "npm" | "yarn" }} opts */
+const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => {
   // workspace apps link the packages by workspace:*; standalone apps pin the
   // published version range passed via --version.
   const originloom = standalone ? version : "workspace:*";
@@ -331,13 +384,16 @@ const packageJson = (name, { standalone, version, withOps = false }) => {
       version: "0.1.0",
       private: true,
       type: "module",
-      packageManager: "pnpm@11.18.0",
+      packageManager: packageManagerFieldValue(packageManager),
       engines: { node: ">=22.19.0" },
+      ...dependencyOverrideField(packageManager),
+      ...nativeBuildPolicy(packageManager),
       scripts: {
         "origin:doctor": "origin-doctor",
         "origin:migrate": "origin-migrate",
         sbom: "origin-sbom",
         "sbom:prod": "origin-sbom --prod",
+        "audit:prod": "origin-audit",
         "dependency-track:publish": "origin-dependency-track publish",
         "dependency-track:gate": "origin-dependency-track gate",
         dev: "origin-dev",
@@ -370,26 +426,13 @@ const packageJson = (name, { standalone, version, withOps = false }) => {
         // Keep Playwright specs out of Vitest; e2e has its own runner below.
         test: "vitest run tests",
         e2e: "playwright test",
-        "e2e:server": "pnpm run build && pnpm run start",
+        "e2e:server": e2eServerScript(packageManager),
         "e2e:ui": "playwright test --ui",
         "e2e:report": "playwright show-report",
-        "e2e:install": "playwright install chromium",
-        // Deployment helpers, generated only with --with-ops.
-        ...(withOps
-          ? {
-              "compose:up": "origin-compose-up",
-              "compose:redis": "origin-compose-up --redis",
-              "compose:clean": "origin-docker-clean",
-              "dev:redis": "origin-dev-local",
-              "start:local:redis": "origin-run-local production --redis",
-              loadtest: "node load-test/run.mjs",
-              stress: "node load-test/stress.mjs",
-              "loadtest:compare": "node load-test/compare.mjs",
-              "pentest:readiness": "node scripts/pentest-readiness.mjs",
-            }
-          : {}),
+        "e2e:install": "playwright install --with-deps chromium",
+        // @originloom:hook package-json-scripts
         // What CI runs, in one command, so it can be run locally too.
-        ci: "pnpm run origin:doctor --strict && pnpm run typecheck && pnpm run check:cycles && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run contracts:fixtures && pnpm run build && pnpm run budget:bundle && pnpm run e2e && pnpm run lighthouse && pnpm run smoke",
+        ci: ciScript(packageManager),
       },
       dependencies: {
         "@hono/node-server": "^2.0.12",
@@ -442,11 +485,7 @@ const standalonePnpmWorkspace = () => `packages: []
 # pnpm 11 denies unreviewed dependency lifecycle scripts. Keep this list small
 # and review every addition instead of enabling all builds globally.
 allowBuilds:
-  "@tailwindcss/oxide": true
-  esbuild: true
-  protobufjs: true
-  sharp: true
-  unrs-resolver: true
+${trustedNativeBuildPackages.map((name) => `  ${pnpmAllowBuildYamlKey(name)}: true`).join("\n")}
 
 # Autocannon 8 still declares hyperid 3, which pulls the unsupported uuid 8.
 # Hyperid 4 preserves the API and uses randomUUID instead.
@@ -454,7 +493,13 @@ overrides:
   autocannon>hyperid: ^4.0.0
 `;
 
-const projectMetadata = ({ templateVersion, platformRange, mode }) =>
+const projectMetadata = ({
+  templateVersion,
+  platformRange,
+  mode,
+  plugins = [],
+  packageManager = "pnpm",
+}) =>
   JSON.stringify(
     {
       schemaVersion: PROJECT_SCHEMA_VERSION,
@@ -462,7 +507,9 @@ const projectMetadata = ({ templateVersion, platformRange, mode }) =>
       platformRange,
       renderer: "react",
       mode,
+      packageManager,
       generatedBy: "@originloom/tooling",
+      plugins: [...plugins].sort(),
       appliedMigrations: migrations
         .filter(({ introducedIn }) => compareVersions(introducedIn, templateVersion) <= 0)
         .map(({ id }) => id),
@@ -1537,6 +1584,7 @@ export const productMiddleware: readonly OriginMiddleware[] = [
   //   experimentsMiddleware,
   //
   // See server/middleware/experiments.ts and docs/middleware.md.
+  // @originloom:hook middleware-exports
 ];
 `;
 
@@ -7438,8 +7486,10 @@ body {
 }
 `;
 
-const dockerfile = (name, port, standalone) =>
-  standalone ? standaloneDockerfile(name, port) : workspaceDockerfile(name, port);
+const dockerfile = (name, port, standalone, packageManager = "pnpm") =>
+  standalone
+    ? standaloneDockerfile(name, port, packageManager)
+    : workspaceDockerfile(name, port);
 
 const workspaceDockerfile = (name, port) => `# Build context is the repository root:
 #   docker build -f apps/${name}/Dockerfile -t ${name} .
@@ -7460,52 +7510,9 @@ ${dockerfileRunner(name, port, "/repo/apps/" + name + "/dist")}`;
 
 // Standalone build context is the app itself; installing pulls @originloom/*
 // from the registry, so the build host needs registry access.
-const standaloneDockerfile = (name, port) => `# Build context is this app's root:
-#   docker build -t ${name} .
-FROM node:22-alpine AS builder
+// PM-specific standalone Dockerfiles live in package-manager-templates.mjs.
 
-RUN corepack enable
-
-WORKDIR /app
-
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
-
-COPY . .
-RUN pnpm typecheck && pnpm build
-
-${dockerfileRunner(name, port, "/app/dist")}`;
-
-const dockerfileRunner = (name, port, distPath) => `FROM node:22-alpine AS runner
-
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV PORT=${port}
-
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
-
-# The bundled package managers are the image's entire JavaScript dependency
-# surface — this container only ever runs \`node\` against a self-contained
-# bundle, so they are removed rather than carried along with their CVEs.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \\
-  /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
-
-# The server bundle is self-contained (ssr.noExternal: true) — no node_modules needed.
-COPY --from=builder --chown=nodejs:nodejs ${distPath} ./dist
-RUN printf '{"type":"module"}\\n' > package.json
-
-USER nodejs
-
-EXPOSE ${port}
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||${port})+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-
-CMD ["node", "--enable-source-maps", "dist/server/index.js"]
-`;
-
-const readme = (name, title, port, vitePort, standalone, withOps) => `# ${title}
+const readme = (name, title, port, vitePort, standalone, withOps, packageManager = "pnpm") => `# ${title}
 
 OriginLoom ürün uygulaması. Platform runtime'ı \`@originloom/core\` ve \`@originloom/react\`
 paketlerinden gelir; bu repo route tablosunu, ürün kontratlarını, cache kimliğini ve kendi UI'ını
@@ -7514,45 +7521,12 @@ sahiplenir.
 ## Gereksinimler
 
 - Node.js 22.19 veya üzeri
-- Corepack üzerinden pnpm
+${packageManagerRequirements(packageManager)}
 ${standalone ? "- `@originloom/*` paketlerinin bulunduğu registry'ye erişim" : "- OriginLoom monorepo kökünde çalışmak"}
 
 ## Kurulum ve ilk çalıştırma
 
-${
-  standalone
-    ? `Bu uygulama ayrı bir repository olarak üretildi. \`--registry\` kullanıldıysa kökteki
-\`.npmrc\` yalnız \`@originloom/*\` paketlerini ilgili registry'ye yönlendirir; authentication
-bilgilerini repository'ye yazmayın.
-
-\`\`\`bash
-corepack enable
-pnpm install
-pnpm e2e:install
-
-# Commit/PR açmadan önce tüm kalite kapısını doğrulayın.
-pnpm ci
-
-# Uygulama + Vite + paketli mock gateway. İlk çalıştırma için bu.
-pnpm dev:mock
-
-# Kendi gateway'iniz varsa (GATEWAY_URL) yalnız uygulama + Vite:
-pnpm dev
-\`\`\`
-
-İlk kurulumdan sonra \`pnpm-lock.yaml\` dosyasını repository'ye ekleyin. Gerçek gateway'e geçmeden
-önce mock verilerle çalışan route'ları kontrol edin.`
-    : `Bu uygulama OriginLoom monorepo içindeki \`apps/${name}\` workspace'idir. Komutları repository
-kökünden çalıştırın:
-
-\`\`\`bash
-corepack enable
-pnpm install
-pnpm --filter ${name} e2e:install
-pnpm --filter ${name} ci
-pnpm --filter ${name} dev
-\`\`\``
-}
+${readmeInstallBlock(packageManager, standalone, name)}
 
 | Servis              | Adres/port                        | Not                                      |
 | ------------------- | --------------------------------- | ---------------------------------------- |
@@ -7593,41 +7567,8 @@ dosyaya yazmak yerine secret manager/CI üzerinden verin.
 
 ## Sık kullanılan komutlar
 
-| Komut                 | Açıklama                                                     |
-| --------------------- | ------------------------------------------------------------ |
-| \`pnpm dev\`            | Yalnız SSR + Vite; gateway sizin (GATEWAY_URL)               |
-| \`pnpm dev:mock\`       | SSR + Vite + paketli mock gateway                            |
-| \`pnpm mock-gw\`        | Yalnız mock gateway (ayrı terminalde)                        |
-| \`pnpm origin:doctor\`  | Platform/template uyumluluğunu read-only denetler             |
-| \`pnpm origin:migrate\` | Upgrade planını dry-run gösterir; \`--apply\` ile uygular       |
-| \`pnpm sbom\`           | CycloneDX 1.6 full dependency envanteri üretir                  |
-| \`pnpm sbom:prod\`      | Yalnız production dependency envanterini üretir                 |
-| \`pnpm dependency-track:publish\` | SBOM'u yükler, analizi bekler ve güvenlik kapısını çalıştırır |
-| \`pnpm typecheck\`      | TypeScript kontrolü                                          |
-| \`pnpm check:cycles\`   | Import cycle ve katman sınırlarını kontrol eder              |
-| \`pnpm test\`           | Unit/integration testlerini çalıştırır                       |
-| \`pnpm build\`          | Bundle, gerçek route/cache özeti ve \`dist/originloom-manifest.json\` üretir |
-| \`pnpm contracts:fixtures\` | Fixture'ları OpenAPI consumer contract'ına karşı doğrular |
-| \`pnpm budget:bundle\`  | Island/client gzip bütçelerini kontrol eder                   |
-| \`pnpm lighthouse\`     | Route performance ve accessibility bütçelerini çalıştırır    |
-| \`pnpm capacity\`       | Tüm route'larda kademeli kapasite testi ve Markdown/JSON raporu üretir |
-| \`pnpm capacity:quick\` | Kapasite runner'ının kısa doğrulama profilini çalıştırır      |
-| \`pnpm capacity:profile\` | Seçilen route için ayrı CPU/heap profiling raporu üretir    |
-| \`pnpm performance:compare\` | Son kapasite raporunu kabul edilmiş baseline ile karşılaştırır |
-| \`pnpm performance:accept\` | İncelenen son full raporu yeni baseline olarak kaydeder       |
-| \`pnpm smoke\`          | Built server'ı mock gateway ile probe eder                   |
-| \`pnpm ci\`             | Typecheck, cycle, lint, format, test, build ve smoke çalıştırır |
-| \`pnpm media\`          | Responsive image/font manifestini üretir                     |
-| \`pnpm icons\`          | SVG kaynaklarından typed React icon'ları üretir              |
-${
-  withOps
-    ? `| \`pnpm compose:up\`     | Generated Compose stack'ini başlatır                         |
-| \`pnpm loadtest\`       | Load profilini çalıştırıp JSON sonuç üretir                   |
-| \`pnpm stress\`         | Stress senaryosunu çalıştırır                                |
-| \`pnpm loadtest:compare\` | İki load sonucunu regression açısından karşılaştırır       |
-| \`pnpm pentest:readiness\` | Uygulamayı pentest öncesi güvenlik kontrollerinden geçirir |`
-    : ""
-}
+${readmeCommandTable(packageManager)}
+<!-- @originloom:hook readme-ops-table -->
 
 ## Yapı
 
@@ -7738,132 +7679,6 @@ Kubernetes, Prometheus, load/stress ve pentest readiness adımlarını gerçek o
     : `Deployment manifestleri, load/stress araçları ve pentest readiness gerekiyorsa projeyi
 \`--with-ops\` seçeneğiyle yeniden üretmek yerine ilgili asset'leri kontrollü biçimde ekleyin.`
 }
-`;
-
-const githubWorkflow = (name) => `name: CI
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-\${{ github.workflow }}-\${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      # @originloom/* comes from a private registry. The local .npmrc points at a
-      # developer's machine, which CI cannot reach — point it at the real one and
-      # give it a token if the registry requires auth.
-      #   NPM_CONFIG_REGISTRY: \${{ vars.NPM_REGISTRY_URL }}
-      #   NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
-      # typecheck, cycles, lint, format, tests, browser E2E, build and a smoke run.
-      # Playwright and smoke each manage the mock gateway process they need.
-      - name: Verify
-        run: pnpm run ci
-
-      - name: Upload Playwright report
-        if: always() && hashFiles('playwright-report/**') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
-
-      - name: Upload Lighthouse reports
-        if: always() && hashFiles('.lighthouseci/reports/**') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: lighthouse-reports
-          path: .lighthouseci/reports/
-          retention-days: 14
-
-      - name: Build container
-        run: docker build --tag ${name}:\${{ github.sha }} .
-`;
-
-const dependencyTrackWorkflow = () => `name: Dependency inventory
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-    tags: ["v*"]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: dependency-track-\${{ github.workflow }}-\${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  sbom:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      DEPENDENCY_TRACK_URL: \${{ vars.DEPENDENCY_TRACK_URL }}
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate CycloneDX SBOM
-        run: pnpm sbom
-
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: cyclonedx-sbom-\${{ github.sha }}
-          path: artifacts/sbom/bom.cdx.json
-          if-no-files-found: error
-          retention-days: 30
-
-      # Pull requests never receive the API key. Push/tag runs publish only after
-      # DEPENDENCY_TRACK_URL is configured as a repository variable.
-      - name: Publish and enforce Dependency-Track gate
-        if: github.event_name != 'pull_request' && env.DEPENDENCY_TRACK_URL != ''
-        env:
-          DEPENDENCY_TRACK_API_KEY: \${{ secrets.DEPENDENCY_TRACK_API_KEY }}
-        run: pnpm dependency-track:publish
 `;
 
 const mockGateway = (includeRoutingExamples = false) => `#!/usr/bin/env node

@@ -1,15 +1,8 @@
 /**
- * Deployment assets for `origin-create-app --with-ops`.
+ * Deployment assets for the `with-ops` create-app plugin.
  *
- * They are opt-in because most apps do not need them on day one, and a
- * scaffold that ships twenty YAML files nobody reads teaches nothing. When an
- * app does go to production, these are the shapes the platform expects: an
- * operations port that is never public, probes on /healthz and /readyz, a
- * shutdown grace period longer than the drain, and alerts on the metrics the
- * platform actually exports.
- *
- * Everything here is a starting point to be reviewed, not a config to apply as
- * is — image digests, hostnames and secrets are placeholders on purpose.
+ * Consumed via `plugins/with-ops/files.mjs`. Opt-in because most apps do not
+ * need deployment scaffolding on day one.
  */
 export function renderOpsTemplates({ name, port, metricsPort, includeCapacity = false }) {
   return {

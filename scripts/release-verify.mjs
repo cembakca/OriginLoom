@@ -95,6 +95,9 @@ try {
   assertNoUnsupportedUuid(appDir);
   run("pnpm", ["audit", "--audit-level", "low"], { cwd: appDir, env: npmEnv });
 
+  step("generate a CycloneDX SBOM from the installed app");
+  run("pnpm", ["run", "sbom"], { cwd: appDir, env: npmEnv });
+
   step("doctor, static checks, tests, build and smoke the installed app");
   run("pnpm", ["exec", "origin-doctor", "--strict"], { cwd: appDir });
   run("pnpm", ["exec", "tsc", "--noEmit"], { cwd: appDir });

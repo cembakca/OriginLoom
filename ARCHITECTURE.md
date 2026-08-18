@@ -19,14 +19,15 @@ Repo bir pnpm workspace'idir. Amaç, aynı SSR altyapısını birden fazla ürü
 | `packages/origin-core` (`@originloom/core`)       | Platform sunucu runtime'ı: `createApp`, handler, SSR pipeline, cache (L1/L2/tiered/cold-fill/SWR/purge/fragment mekanizması), middleware, security, config + validation, metrik primitifleri, document orkestrasyonu, assets/manifest çözümü. **React bağımlılığı yok** |
 | `packages/origin-react` (`@originloom/react`)     | React adaptörü: island runtime (`Island`, mounter, bootstrap), `@originloom/react/server` render adaptörü (`createReactRenderer`), client query katmanı, Vite preset                                                                                                    |
 | `packages/origin-tooling` (`@originloom/tooling`) | build/dev/env/compose/smoke/cycle-check bin'leri (`origin-*`)                                                                                                                                                                                                           |
-| `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s                                                                                                                         |
-| `tools/mock-gw`                                   | Bağımsız mock gateway (dev/test aracı)                                                                                                                                                                                                                                  |
+| `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s; mock gateway `tests/fixtures/gateway/` altında |
 
 Bağımlılık yönü tek yönlüdür — `showroom → {core, renderer} → shared`. `core`, `react` ve
 `react` birbirini **import etmez**: ikisi de `@originloom/shared`'daki kontratlara yaslanır. Ters yöndeki bir import
 `origin-check-cycles` tarafından katman ihlali olarak reddedilir. Aynı bekçi, `core` ve `shared`
 altında herhangi bir `react`/`react-dom`/`@originloom/react` specifier'ını — type-only import dahil —
 framework sınırı ihlali olarak reddeder.
+
+Platform geliştiricileri için katman, export ve PR checklist: [docs/platform-contributor.md](docs/platform-contributor.md).
 
 Paketler kaynak `.ts` export eder; ayrı derleme adımı yoktur. Vite/tsx/Vitest/tsc `exports`
 üzerinden kaynağı doğrudan çözer. Production server bundle'ı `ssr.noExternal: true` ile tamamen
@@ -643,15 +644,24 @@ Auth gerektiren endpoint'ler için `authenticateBffRequest()` helper'ı kullanı
 
 **401 retry pattern:** `packages/origin-shared/src/lib/client/api-fetch.ts` client fetch'leri wrap'ler. 401 alınca `/api/internal/refresh` çağırır ve isteği tekrarlar.
 
-### Bağımsız Mock Gateway — `tools/mock-gw/`
+### Mock gateway (showroom ve üretilen uygulamalar)
 
-Uygulama process'i mock veri veya gateway fallback'i içermez. Local geliştirmede 4002 portunda
-çalışan dependency'siz Node.js `mock-gw` servisine normal HTTP üzerinden bağlanır. Menü, sayfa/SEO,
-redirect, teklifler, bloglar, finansal ürünler, Bilgi Merkezi, piyasa verileri, başvuru yönlendirme,
-profil, hesap özeti, token refresh ve bot analytics sözleşmeleri bu servistedir. Bot analytics
-endpoint'i tek request/tek event yerine üst sınırı doğrulanan batch kabul eder. Test suite de aynı
-server'ı rastgele bir portta başlatır. Gerçek gateway'e geçişte UI bileşenlerine dokunulmaz; endpoint
-servisleri aynı kontratı korur ve yalnızca `GATEWAY_URL` değiştirilir.
+Mock gateway uygulama process'ine gömülmez; ayrı bir Node servisi olarak HTTP üzerinden çağrılır.
+Konum uygulama türüne göre değişir — ayrı bir `tools/mock-gw/` paketi yoktur
+([docs/mock-gateway.md](docs/mock-gateway.md)):
+
+| Bağlam | Konum | Başlatma |
+| ------ | ----- | -------- |
+| Showroom (referans) | `apps/showroom/tests/fixtures/gateway/` | `pnpm mock-gw` (showroom dizininden veya kök `pnpm --filter showroom mock-gw`) |
+| `origin-create-app` çıktısı | `mock-gateway/server.mjs` | `pnpm dev`, `pnpm mock-gw` veya smoke `--gateway mock-gateway/server.mjs` |
+
+Showroom fixture'ı menü, sayfa/SEO, redirect, finansal ürünler, Bilgi Merkezi, piyasa verileri,
+profil, hesap özeti, token refresh ve bot analytics kontratlarını taşır. Üretilen uygulamanın mock
+gateway'i daha ince bir örnek kontrat seti sunar; her iki durumda da gerçek gateway'e geçişte UI
+değişmez — yalnızca `GATEWAY_URL` güncellenir.
+
+Yeni geçici backend cevabı gerekiyorsa uygulama service dosyasına fallback eklemeyin; ilgili mock
+gateway dosyasına endpoint ve fixture ekleyin.
 
 Yeni örnek sayfalar da aynı route kontratını izler: `server/routes` loader/cache/metadata kararlarını,
 `server/services` gateway ve runtime payload sınırını, `src/features` SSR-safe sunumu taşır. Konut

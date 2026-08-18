@@ -109,7 +109,11 @@ bir servis. Uygulama onun dosyalarını import edip veri almıyor; yalnız test 
 factory’sini process içinde başlatmak için import ediyor ve iletişim yine gerçek HTTP üzerinden
 gerçekleşiyor.
 
-Framework’ten çıkmak burada yalnız Hono seçimi değildi. Development bağımlılığını da production
+> **Güncel konum:** Ayrı bir `tools/mock-gw/` paketi yoktur. Showroom
+> `apps/showroom/tests/fixtures/gateway/` altında; üretilen uygulamalar `mock-gateway/server.mjs`
+> taşır — [mock-gateway.md](../mock-gateway.md).
+
+Framework'ten çıkmak burada yalnız Hono seçimi değildi. Development bağımlılığını da production
 sınırına benzetme fırsatıydı.
 
 ## Sistemin local topolojisi

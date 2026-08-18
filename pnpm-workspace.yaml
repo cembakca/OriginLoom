@@ -6,6 +6,7 @@ packages:
 allowBuilds:
   "@tailwindcss/oxide": true
   esbuild: true
+  libxmljs2: true
   protobufjs: true
   sharp: true
   unrs-resolver: true

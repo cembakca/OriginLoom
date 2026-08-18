@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-export const PROJECT_SCHEMA_VERSION = 1;
+export const PROJECT_SCHEMA_VERSION = 2;
 export const PROJECT_FILE = ".originloom/project.json";
 export const FIRST_TRACKED_TEMPLATE_VERSION = "0.5.14";
 export const MIN_AUTOMATIC_MIGRATION_VERSION = "0.5.12";

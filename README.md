@@ -7,13 +7,18 @@ Mimari kararların gerekçesi ve Next.js’ten geçişin teknik hikâyesi için
 [makale serisi indeksine](docs/articles/README.md) bakın. **15+ ürün / Next migration organizasyonu**
 için [çok ürünlü adoption rehberi](docs/multi-product-adoption.md); platform üstüne yeni bir ürün
 uygulaması eklemek için [new-product-app.md](docs/new-product-app.md). Production güvenlik kabulü, secret rotation
-ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur.
+ve incident adımları [production security runbook'unda](docs/production-security.md) tutulur. Platform SBOM/Dependency-Track:
+[supply-chain-platform.md](docs/supply-chain-platform.md).
 Paketlerin sürümlenmesi ve yayın hattı için [releasing.md](docs/releasing.md).
 Çok dillilik (i18n) **kapsam dışı**: bir eklenti olarak denendi ve kaldırıldı — nedeni, neyin
 çalıştığı ve yeniden ele alınırsa doğru başlangıç noktası
 [ekosistem backlog'unda](docs/ecosystem-backlog.md).
-Template/platform uyumluluk penceresi [compatibility.md](docs/compatibility.md), sürüm bazlı
-değişiklikler ise [migration kayıtlarında](docs/migrations/README.md) tutulur. Platformun bundan
+Template/platform uyumluluk penceresi [compatibility.md](docs/compatibility.md), platform
+upgrade akışı [upgrading-platform.md](docs/upgrading-platform.md), sürüm bazlı
+değişiklikler ise [migration kayıtlarında](docs/migrations/README.md) tutulur. **Platform paketlerine**
+katkı için [platform-contributor.md](docs/platform-contributor.md); dondurulmuş export taahhüdü için
+[export-surface.md](docs/export-surface.md). Create-app eklenti altyapısı (`--with-ops`) donduruldu;
+sözleşme [plugin-mechanism.md](docs/plugin-mechanism.md). Platformun bundan
 sonra hangi entegrasyonları kapsayabileceği [ekosistem backlog'unda](docs/ecosystem-backlog.md)
 tartışılır.
 
@@ -60,10 +65,11 @@ apps/
     src/components/   SSR-safe UI bileşenleri
     src/lib/          Ürüne özel tip, kontrat ve yardımcılar (cache-keys dahil)
     tests/            src ve server yapısını izleyen Vitest testleri
-
-tools/
-  mock-gw/        Bağımsız mock gateway (dev/test aracı)
+    tests/fixtures/gateway/  Showroom mock gateway (dev/test; ayrı process)
 ```
+
+Üretilen uygulamalarda mock gateway `mock-gateway/server.mjs` altındadır (`origin-create-app`).
+Ayrı bir `tools/mock-gw/` paketi yoktur — ayrıntı: [docs/mock-gateway.md](docs/mock-gateway.md).
 
 ## Workspace
 
@@ -285,10 +291,10 @@ yazısına bakın.
 pnpm typecheck
 pnpm lint
 pnpm format:check
-ppnpm test
-ppnpm test:coverage
+pnpm test
+pnpm test:coverage
 pnpm build
-ppnpm install
+pnpm ci
 ```
 
 ## Yük testi ve pentest hazırlığı
@@ -449,9 +455,11 @@ Local Docker testinde `localhost:3005` gibi bare loopback image URL'leri otomati
 `GTM_CONTAINER_ID` boş olabilir; doluysa yalnız `GTM-` ile başlayan büyük harf/rakam container formatı
 kabul edilir. Değer inline script üretilmeden önce startup validation'dan geçer.
 
-Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. `tools/mock-gw/` bağımsız bir Node servisi
-olarak 4002 portunda çalışır; Docker Compose uygulamayı bu servise bağlar. Gerçek gateway hazır
-olduğunda yalnızca `GATEWAY_URL` değiştirilir.
+Mock veri ve auth davranışları uygulama runtime'ında bulunmaz. Showroom'da mock gateway
+`apps/showroom/tests/fixtures/gateway/` altında ayrı bir Node process olarak çalışır (`pnpm mock-gw`,
+varsayılan port 4002). `origin-create-app` ile üretilen uygulamalarda karşılığı `mock-gateway/server.mjs`
+dosyasıdır. Gerçek gateway hazır olduğunda yalnızca `GATEWAY_URL` değiştirilir. Ayrıntı:
+[docs/mock-gateway.md](docs/mock-gateway.md).
 
 Detaylı cache ve geliştirme kuralları için [docs/conventions.md](docs/conventions.md) belgesine bakın.
 

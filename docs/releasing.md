@@ -8,6 +8,7 @@ edilmiştir ve **yerel bir registry üzerinden ekiplerin denemesine açıktır**
 registry'ye yayınlanmamaktadır. Hedef: **Nexus** üzerinde private paketler (§5).
 
 İlgili: [ARCHITECTURE.md](../ARCHITECTURE.md#workspace-platform-ve-ürün-ayrımı) (paket sınırları),
+[platform-contributor.md](./platform-contributor.md) (platform geliştirici rehberi),
 [new-product-app.md](./new-product-app.md) (bu paketleri tüketen uygulama üretmek).
 
 ---
@@ -107,8 +108,8 @@ Sırasıyla şunu yapar:
 3. Beş paketi bu registry'ye yayınlar (`--tag rehearsal`).
 4. `origin-create-app` ile **workspace dışında** bir uygulama üretir; kendi `.npmrc`'si ve boş
    `pnpm-workspace.yaml`'ı yazılır ki bu repoyu hiç görmesin.
-5. Registry'den kurar; paketlerin `dist` artefaktını, dependency audit sonucunu ve destek dışı
-   `uuid@10` veya altının lockfile'a girmediğini doğrular.
+5. Registry'den kurar; paketlerin `dist` artefaktını, dependency audit sonucunu, `origin-sbom` smoke
+   çıktısını ve destek dışı `uuid@10` veya altının lockfile'a girmediğini doğrular.
 6. Kurulan uygulamada doctor strict, typecheck, import-cycle, lint, format, unit test, production
    build ve smoke kontrollerini çalıştırır. React provası ayrıca fixture contract ve bundle bütçesi
    kapılarını çalıştırır.
@@ -122,6 +123,9 @@ Sırasıyla şunu yapar:
 çözer. `dist` derlemesi, `publishConfig.exports` haritası, browser runtime ve paketler arası sürüm
 bağları ancak gerçek bir registry'de buluşur. Prova ilk çalıştığında `origin-smoke`'un showroom'a özgü iki
 beklenti taşıdığını ortaya çıkardı — üretilen her uygulama kendi smoke'undan kalıyordu.
+
+Release adayında platform SBOM kayıtları: `pnpm run sbom` ve `pnpm run sbom:packages` — bkz.
+[supply-chain-platform.md](./supply-chain-platform.md).
 
 ---
 
@@ -144,7 +148,8 @@ Yeni bir sürüm yayınlanmadan önce şu üç test birbirinin yerine geçmez:
 2. Release verify: güncel published artefakttan temiz proje.
 3. Upgrade verify: önceki published template/proje ile güncel sürüm arasındaki migration.
 
-Uyumluluk politikası docs/compatibility.md, sürüm bazlı manuel/breaking adımlar
+Uyumluluk politikası [compatibility.md](./compatibility.md), platform upgrade runbook'u
+[upgrading-platform.md](./upgrading-platform.md), sürüm bazlı manuel/breaking adımlar
 docs/migrations/ altında tutulur.
 
 ## 3. Yerel registry ile çalışmak (ekipler için)

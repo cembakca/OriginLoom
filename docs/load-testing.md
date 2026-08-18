@@ -136,7 +136,7 @@ Staging gate öncesi iç kontrol önerisi:
 
 ## Release döngüsü önerisi
 
-1. CI yeşil (`ppnpm install`)
+1. CI yeşil (`pnpm ci`)
 2. `loadtest:memory` + `loadtest:redis` ardışık
 3. Raporları release ticket'a ekle
 4. Staging'de aynı URL seti + gerçek gateway ile tekrar (mutlak sayılar)

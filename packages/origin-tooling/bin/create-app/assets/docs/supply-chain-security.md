@@ -3,23 +3,40 @@
 Bu proje dependency envanterini CycloneDX SBOM olarak üretir, Dependency-Track'e yükler, sunucudaki
 asenkron analizin bitmesini bekler ve bastırılmamış bulgu/politika ihlallerine göre CI kapısı uygular.
 
+Desteklenen package manager'lar: **pnpm**, **npm**, **Yarn Berry (>=3)**. `origin-sbom` lockfile'ı
+otomatik algılar; `--pm pnpm|npm|yarn` ile geçici override yapılabilir. Yarn Classic (v1) desteklenmez.
+
 ## Ne üretiliyor?
 
+| Komut | Çıktı |
+| ----- | ----- |
+| `pnpm run sbom` / `npm run sbom` / `yarn run sbom` | `artifacts/sbom/bom.cdx.json` — full envanter |
+| `... sbom:prod` | `artifacts/sbom/bom.production.cdx.json` — yalnız runtime bağımlılıkları |
+
+Her iki script de `@originloom/tooling` içindeki `origin-sbom` CLI'sini çağırır:
+
+| PM | Üretici |
+| -- | ------- |
+| pnpm | Yerleşik `pnpm sbom` (CycloneDX 1.6) |
+| npm | `@cyclonedx/cyclonedx-npm` (lockfile-only) |
+| yarn | `yarn dlx @cyclonedx/yarn-plugin-cyclonedx` |
+
+Çıktı CycloneDX 1.6 JSON'dur. Dependency-Track 4.14 ve 5.x ile uyumluluk için 1.6 sabitlenmiştir.
+SBOM lockfile'dan üretilir; ilgili lockfile commitlenmeli ve CI kurulumu frozen/immutable modda
+çalışmalıdır (`pnpm install --frozen-lockfile`, `npm ci`, `yarn install --immutable`).
+
+Full SBOM build/test araçlarını da görünür kılar. Production SBOM çalışma zamanı saldırı yüzeyini
+ayırmak için yararlıdır; varsayılan Dependency-Track upload'ı full SBOM'u kullanır. Kurum politikanız
+yalnız runtime bileşenlerini izliyorsa `dependency-track.config.json` içindeki `bomPath` değerini
+production dosyasına çevirin ve CI'da önce `sbom:prod` çalıştırın.
+
+## Production audit
+
 ```bash
-pnpm sbom       # artifacts/sbom/bom.cdx.json; full dependency envanteri
-pnpm sbom:prod  # artifacts/sbom/bom.production.cdx.json; yalnız runtime dependency'leri
+pnpm run audit:prod   # veya npm run audit:prod / yarn run audit:prod
 ```
 
-Üretici ek bir npm paketi değildir; template'in sabitlediği pnpm 11'in yerleşik `pnpm sbom`
-komutudur. Çıktı CycloneDX 1.6 JSON'dur. Dependency-Track hem CycloneDX JSON hem XML kabul ettiği
-için `bom.xml` zorunlu değildir; `bom.cdx.json` aynı kontratın resmi JSON gösterimidir. 1.6 seçimi
-Dependency-Track 4.14 ve 5.x ile ortak uyumluluk sağlar. SBOM lockfile'dan üretilir; bu nedenle
-`pnpm-lock.yaml` commitlenmeli ve CI kurulumu `--frozen-lockfile` kullanmalıdır.
-
-Full SBOM build/test araçlarını da görünür kılar. Production SBOM çalışma zamanındaki saldırı
-yüzeyini ayırmak için yararlıdır; varsayılan Dependency-Track upload'ı full SBOM'u kullanır. Kurum
-politikanız yalnız runtime bileşenlerini izliyorsa `dependency-track.config.json` içindeki `bomPath`
-değerini production dosyasına çevirin ve CI'da önce `pnpm sbom:prod` çalıştırın.
+`origin-audit` komutu package manager'a göre `--prod` / `--omit=dev` eşdeğerini çalıştırır.
 
 ## Dependency-Track ilk kurulum
 
@@ -47,11 +64,11 @@ team/API key oluşturun. `autoCreate: true` ve güvenlik kapısı için team'e �
 API key'i repository'ye veya `.env.*` dosyalarına yazmayın. Lokal ilk prova:
 
 ```bash
-pnpm sbom
+pnpm run sbom   # veya npm/yarn eşdeğeri
 
 export DEPENDENCY_TRACK_URL=http://127.0.0.1:8080/api
 export DEPENDENCY_TRACK_API_KEY='dependency-track-team-api-key'
-pnpm dependency-track:publish
+pnpm run dependency-track:publish
 ```
 
 `publish` şu sırayı tek komutta tamamlar:
@@ -67,7 +84,7 @@ pnpm dependency-track:publish
 Yalnız mevcut sonucu yeniden kontrol etmek için:
 
 ```bash
-pnpm dependency-track:gate
+pnpm run dependency-track:gate
 ```
 
 ## Proje kimliği ve sürümleme
@@ -77,7 +94,7 @@ pnpm dependency-track:gate
 upload o Dependency-Track proje sürümünün envanterini günceller. Geçici bir CI sürümü gerektiğinde:
 
 ```bash
-DEPENDENCY_TRACK_PROJECT_VERSION="$GIT_SHA" pnpm dependency-track:publish
+DEPENDENCY_TRACK_PROJECT_VERSION="$GIT_SHA" pnpm run dependency-track:publish
 ```
 
 Bu değişkeni her main commit'inde kullanmak çok sayıda proje sürümü yaratır. Normal akışta semver
@@ -112,6 +129,9 @@ saklar. Fork/PR bağlamına Dependency-Track key'i verilmez. Main/tag push'unda 
 4. İlk çalıştırmada `Dependency inventory` workflow sonucunu ve Dependency-Track projesini kontrol
    edin.
 
+Workflow, scaffold sırasında seçilen package manager'a göre kurulum ve `run sbom` komutlarını
+üretir. SBOM adımı her zaman `origin-sbom` script'ini çağırır.
+
 URL variable'ı tanımlı değilse workflow SBOM artifact'ini üretir fakat dış sisteme upload etmez. URL
 tanımlı, key eksik/geçersiz veya izinler yetersizse upload adımı açık hata ile kapanır.
 
@@ -122,8 +142,8 @@ tanımlı, key eksik/geçersiz veya izinler yetersizse upload adımı açık hat
 3. Çözüm yoksa Dependency-Track analysis kaydında owner, gerekçe ve gözden geçirme tarihi tutun.
 4. False-positive/accepted-risk kararını yalnız onaylı süreçle suppress edin. Kapı suppressed
    kayıtları dışarıda bırakır; silmek yerine audit izi korunur.
-5. `pnpm sbom && pnpm dependency-track:publish` ile yeni envanteri yükleyin. Dependency-Track aynı
-   component projede kaldığı sürece analysis kararlarını korur.
+5. `sbom` + `dependency-track:publish` ile yeni envanteri yükleyin. Dependency-Track aynı component
+   projede kaldığı sürece analysis kararlarını korur.
 
 SBOM üretimi tek başına vulnerability bulmaz. Feed mirroring/analyzer sağlığı, policy tanımları,
 notification kuralları, triage sahipliği ve Dependency-Track yedekleme/upgrade süreci sunucu
@@ -135,9 +155,11 @@ operasyonunun sorumluluğundadır. CI kapısı bu merkezi kararları uygular; on
   edin.
 - `401/403`: API key'in bağlı olduğu team izinlerini ve project access control'u kontrol edin.
 - `project could not be found`: `autoCreate` kapalıdır veya `PROJECT_CREATION_UPLOAD` eksiktir.
-- `invalid BOM`: `pnpm sbom` komutunu yeniden çalıştırın; lockfile'ın güncel/commitli olduğunu ve
-  config'in `bomPath` değerini kontrol edin.
+- `invalid BOM`: `sbom` komutunu yeniden çalıştırın; lockfile'ın güncel/commitli olduğunu ve config'in
+  `bomPath` değerini kontrol edin.
+- Yarn Classic: `origin-sbom` ve doctor Yarn Berry'ye geçiş önerir; SBOM için Berry veya npm/pnpm
+  kullanın.
 - Timeout: Dependency-Track worker/queue ve vulnerability feed durumunu inceleyin; timeout'u artırmak
   yalnız gerçekten yavaş analizlerde uygulanmalıdır.
-- Kapı beklenmedik kapanıyorsa suppression yerine önce `pnpm dependency-track:gate` özetini ve UI'daki
+- Kapı beklenmedik kapanıyorsa suppression yerine önce `dependency-track:gate` özetini ve UI'daki
   bastırılmamış bulgu/politika ihlallerini karşılaştırın.

@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { renderTemplates } from "../bin/create-app/templates.mjs";
 
+/** Structural YAML checks for template strings — full parse is release-verify's job. */
+function assertTemplateYaml(content, path) {
+  expect(content.trim().length, `${path} is empty`).toBeGreaterThan(0);
+  for (const line of content.split("\n")) {
+    expect(line.startsWith("\t"), `${path}: tab indent`).toBe(false);
+  }
+  const hasStructure =
+    /^apiVersion:/m.test(content) ||
+    /^kind:/m.test(content) ||
+    /^services:/m.test(content) ||
+    /^groups:/m.test(content);
+  expect(hasStructure, `${path}: missing expected YAML structure`).toBe(true);
+}
+
 const base = { name: "investment-web", title: "Yatırım", port: 3010, metricsPort: 9010 };
 
 const standalone = (over = {}) =>
@@ -205,6 +219,59 @@ describe("renderTemplates — shared shape", () => {
     expect(rules).not.toContain("bot_analytics");
   });
 
+  it("ships fourteen valid YAML files with --with-ops", () => {
+    const ops = standalone({ withOps: true, name: "ops-web", port: 3050, metricsPort: 9050 });
+    const yamlPaths = [
+      "docker-compose.yml",
+      "docker-compose.redis.yml",
+      "k8s/deployment.yaml",
+      "k8s/service.yaml",
+      "k8s/operations-service.yaml",
+      "k8s/configmap.yaml",
+      "k8s/configmap.memory.yaml",
+      "k8s/configmap.redis.yaml",
+      "k8s/secret.yaml",
+      "k8s/ingress.yaml",
+      "k8s/hpa.yaml",
+      "k8s/pdb.yaml",
+      "k8s/network-policy.yaml",
+      "k8s/prometheus-rules.yaml",
+    ];
+    for (const path of yamlPaths) {
+      expect(ops, `missing ${path}`).toHaveProperty([path]);
+      assertTemplateYaml(ops[path], path);
+    }
+    const opsYamlOnly = Object.keys(ops).filter(
+      (path) =>
+        path.startsWith("k8s/") ||
+        path === "docker-compose.yml" ||
+        path === "docker-compose.redis.yml",
+    );
+    expect(opsYamlOnly.sort()).toEqual(yamlPaths.sort());
+  });
+
+  it("defines pnpm ci as the generated app quality gate", () => {
+    const ci = JSON.parse(standalone()["package.json"]).scripts.ci;
+    for (const step of [
+      "origin:doctor",
+      "typecheck",
+      "check:cycles",
+      "lint",
+      "format:check",
+      "test",
+      "build",
+      "smoke",
+    ]) {
+      expect(ci, `ci script missing ${step}`).toContain(step);
+    }
+  });
+
+  it("runs pnpm ci from generated GitHub Actions workflow", () => {
+    const workflow = standalone()[".github/workflows/ci.yml"];
+    expect(workflow).toContain("run: pnpm run ci");
+    expect(workflow).toContain("pnpm install --frozen-lockfile");
+  });
+
   it("points the icons at assets the media pipeline actually produces", () => {
     {
       const defaults = standalone()["src/lib/metadata/site-defaults.ts"];
@@ -239,6 +306,7 @@ describe("renderTemplates — standalone mode", () => {
     for (const dependency of [
       "esbuild",
       "sharp",
+      "libxmljs2",
       "@tailwindcss/oxide",
       "protobufjs",
       "unrs-resolver",
@@ -479,8 +547,11 @@ describe("renderTemplates — browser E2E", () => {
   });
 
   it("installs Chromium and retains the HTML report in generated CI", () => {
-    const workflow = standalone()[".github/workflows/ci.yml"];
-    expect(workflow).toContain("playwright install --with-deps chromium");
+    const files = standalone();
+    const workflow = files[".github/workflows/ci.yml"];
+    const pkg = JSON.parse(files["package.json"]);
+    expect(workflow).toContain("pnpm run e2e:install");
+    expect(pkg.scripts["e2e:install"]).toContain("playwright install --with-deps chromium");
     expect(workflow).toContain("actions/upload-artifact@v7");
     expect(workflow).toContain("playwright-report/");
   });
@@ -914,6 +985,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(pkg.version).toBe("0.1.0");
     expect(pkg.packageManager).toBe("pnpm@11.18.0");
     expect(pkg.scripts.sbom).toBe("origin-sbom");
+    expect(pkg.scripts["audit:prod"]).toBe("origin-audit");
     expect(pkg.scripts["dependency-track:publish"]).toContain("origin-dependency-track");
     expect(config).toMatchObject({
       projectName: "payments-web",
@@ -922,8 +994,31 @@ describe("renderTemplates — production reference coverage", () => {
     });
     expect(files).toHaveProperty(["docs/supply-chain-security.md"]);
     expect(files[".github/workflows/dependency-track.yml"]).toContain("DEPENDENCY_TRACK_API_KEY");
-    expect(files[".github/workflows/dependency-track.yml"]).toContain("pnpm sbom");
+    expect(files[".github/workflows/dependency-track.yml"]).toContain("pnpm run sbom");
     expect(files[".gitignore"]).toContain("artifacts/sbom/");
+  });
+
+  it("scaffolds npm standalone without pnpm-workspace.yaml", () => {
+    const files = standalone({ name: "npm-web", packageManager: "npm" });
+    const pkg = JSON.parse(files["package.json"]);
+    expect(files).not.toHaveProperty(["pnpm-workspace.yaml"]);
+    expect(pkg.packageManager).toBe("npm@11.18.0");
+    expect(pkg.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
+    expect(pkg.onlyBuiltDependencies).toContain("sharp");
+    expect(pkg.scripts.ci).toContain("npm run origin:doctor -- --strict");
+    expect(files[".github/workflows/ci.yml"]).toContain("npm ci");
+    expect(files["Dockerfile"]).toContain("package-lock.json");
+  });
+
+  it("scaffolds yarn standalone with berry config", () => {
+    const files = standalone({ name: "yarn-web", packageManager: "yarn" });
+    const pkg = JSON.parse(files["package.json"]);
+    expect(files).not.toHaveProperty(["pnpm-workspace.yaml"]);
+    expect(files[".yarnrc.yml"]).toContain("nodeLinker: node-modules");
+    expect(pkg.packageManager).toBe("yarn@4.9.2");
+    expect(pkg.resolutions).toEqual({ "autocannon/hyperid": "^4.0.0" });
+    expect(files[".github/workflows/ci.yml"]).toContain("yarn install --immutable");
+    expect(files["Dockerfile"]).toContain("yarn.lock");
   });
 
   it("records template provenance and makes upgrade health part of CI", () => {
@@ -932,12 +1027,14 @@ describe("renderTemplates — production reference coverage", () => {
     const pkg = JSON.parse(files["package.json"]);
 
     expect(metadata).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       templateVersion: "9.9.0",
       platformRange: "^9.8.7",
       renderer: "react",
       mode: "standalone",
+      packageManager: "pnpm",
       generatedBy: "@originloom/tooling",
+      plugins: [],
     });
     expect(metadata.appliedMigrations).toContain("0.5.14-upgrade-contract-v1");
     expect(metadata.appliedMigrations).toContain("0.5.17-eslint-10");

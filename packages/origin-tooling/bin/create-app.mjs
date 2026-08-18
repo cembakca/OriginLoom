@@ -21,6 +21,7 @@
  *   origin-create-app landing-web --port 3020      # Vite follows on 5020
  *   origin-create-app landing-web --registry http://localhost:4873
  *   origin-create-app payments-web --with-ops    # + compose, k8s, load test
+ *   origin-create-app payments-web --package-manager npm
  */
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -31,6 +32,13 @@ import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 
 import { renderTemplates, VITE_PORT_OFFSET } from "./create-app/templates.mjs";
+import { knownPluginFlags, resolveFlagToPluginId } from "./create-app/plugins/registry.mjs";
+import {
+  assertKnownPackageManager,
+  installCommand,
+  lockfileFor,
+  runScriptCommand,
+} from "./lib/package-manager.mjs";
 
 const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
@@ -83,7 +91,9 @@ async function main() {
     mode: options.workspace ? "workspace" : "standalone",
     version: options.version ?? DEFAULT_VERSION_RANGE,
     templateVersion: TOOLING_VERSION,
+    plugins: options.plugins,
     withOps: options.withOps,
+    packageManager: options.packageManager,
     ...(options.registry ? { registry: options.registry } : {}),
   });
 
@@ -98,6 +108,10 @@ async function main() {
   }
 
   report({ ...options, name, port, appDir: options.appDir, workspaceRoot });
+}
+
+function installHint(packageManager) {
+  return installCommand(packageManager, { frozen: false });
 }
 
 /**
@@ -116,7 +130,8 @@ async function formatted(relativePath, contents, config) {
 }
 
 function report(o) {
-  console.log(`\n✓ ${o.appDir} created (standalone: ${!o.workspace})\n`);
+  const pm = o.packageManager ?? "pnpm";
+  console.log(`\n✓ ${o.appDir} created (standalone: ${!o.workspace}, packageManager: ${pm})\n`);
   warnIfStandaloneInsideWorkspace(o);
   if (o.workspace) {
     console.log("Next steps:\n");
@@ -130,11 +145,13 @@ function report(o) {
   console.log("Next steps:\n");
   console.log(`  cd ${o.appDir}`);
   console.log("  git init");
-  console.log("  pnpm install        # needs access to the @originloom/* registry");
-  console.log("  pnpm dev:mock       # app + Vite + the bundled mock gateway\n");
+  console.log(`  ${installHint(pm)}        # needs access to the @originloom/* registry`);
+  console.log(`  ${runScriptCommand(pm, "dev:mock")}       # app + Vite + the bundled mock gateway\n`);
   console.log(`The app will serve on http://127.0.0.1:${o.port}.`);
-  console.log("Once GATEWAY_URL points at a gateway of your own, use `pnpm dev`:");
+  console.log(`Once GATEWAY_URL points at a gateway of your own, use \`${runScriptCommand(pm, "dev")}\`:`
+  );
   console.log("it runs the app and Vite and nothing else.\n");
+  console.log(`Commit ${lockfileFor(pm)} after the first install.\n`);
   if (o.withOps) {
     console.log("Deployment assets are in k8s/, docker-compose*.yml and load-test/.");
     console.log("Read OPERATIONS.md first — image, hosts and secrets are placeholders.\n");
@@ -171,17 +188,28 @@ function assertValidRegistry(value) {
 }
 
 function parseArgs(argv) {
-  const options = { workspace: false, withOps: false };
+  const options = { workspace: false, withOps: false, plugins: [], packageManager: "pnpm" };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--workspace") options.workspace = true;
     else if (arg === "--with-ops") options.withOps = true;
+    else if (arg.startsWith("--with-")) {
+      const pluginId = resolveFlagToPluginId(arg);
+      if (!pluginId) {
+        fail(`Unknown option: ${arg}. Known plugin flags: ${knownPluginFlags().join(", ")}`);
+      }
+      if (!options.plugins.includes(pluginId)) options.plugins.push(pluginId);
+    }
     else if (arg === "--port") options.port = Number(argv[++i]);
     else if (arg === "--vite-port") options.vitePort = Number(argv[++i]);
     else if (arg === "--registry") options.registry = assertValidRegistry(argv[++i]);
     else if (arg === "--title") options.title = argv[++i];
     else if (arg === "--target-dir") options.targetDir = argv[++i];
     else if (arg === "--version") options.version = argv[++i];
+    else if (arg === "--package-manager") {
+      options.packageManager = argv[++i];
+      assertKnownPackageManager(options.packageManager);
+    }
     else if (arg.startsWith("--")) fail(`Unknown option: ${arg}`);
     else if (options.name === undefined) options.name = arg;
     else fail(`Unexpected argument: ${arg}`);

@@ -1,0 +1,57 @@
+name: Dependency inventory
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, multiproduct]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-track-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEPENDENCY_TRACK_URL: ${{ vars.DEPENDENCY_TRACK_URL }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate workspace CycloneDX SBOM
+        run: pnpm run sbom
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cyclonedx-sbom-${{ github.sha }}
+          path: artifacts/sbom/bom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish and enforce Dependency-Track gate
+        if: github.event_name != 'pull_request' && env.DEPENDENCY_TRACK_URL != ''
+        env:
+          DEPENDENCY_TRACK_API_KEY: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
+        run: pnpm run dependency-track:publish

@@ -9,8 +9,10 @@ mi" kararını kayda geçirir.
 
 ---
 
-> **Durum:** C1, C2 ve A1-A10 yapıldı; B'den CI workflow'u eklendi — aşağıda ✅ ile işaretli.
-> Kalan: B'nin geri kalanı (docker-compose, k8s, load-test, Redis ile lokal çalışma).
+> **Durum (2026-08):** A1–A11, B (`--with-ops`), C1–C3 tamamlandı — aşağıda ✅ ile işaretli.
+> Bölüm D showroom'a özgü içerikleri bilinçli olarak şablona taşımama listesidir.
+> `--with-ops` compose runtime (`pnpm compose:up`) ilk Docker ortamında ayrıca doğrulanmalıdır
+> ([mock-gateway.md](./mock-gateway.md), [template-changes.md](./template-changes.md)).
 
 ## A. Platform yeteneği var, örneği yok → **eklenmeli**
 

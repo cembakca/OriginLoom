@@ -32,6 +32,17 @@ describe("origin-doctor", () => {
     expect(report.findings).toEqual([expect.objectContaining({ severity: "ok", code: "healthy" })]);
   });
 
+  it("reports package manager lockfile drift", () => {
+    const root = project({ version: TOOLING_VERSION, metadata: true });
+    rmSync(join(root, "pnpm-lock.yaml"));
+    writeFileSync(join(root, "package-lock.json"), "{}\n");
+    const result = run(DOCTOR, ["--cwd", root, "--strict", "--json"]);
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout).findings).toContainEqual(
+      expect.objectContaining({ code: "package-manager-lockfile" }),
+    );
+  });
+
   it("reports fixed-group range drift without modifying the project", () => {
     const root = project({ version: TOOLING_VERSION, metadata: true });
     const manifestPath = join(root, "package.json");
@@ -81,7 +92,10 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.5.18-vitest-scope");
     expect(metadata.appliedMigrations).toContain("0.5.34-react-quality-security");
     expect(metadata.appliedMigrations).toContain("0.5.35-route-build-manifest");
-    expect(metadata.appliedMigrations).toContain("0.6.0-gateway-backed-streaming");
+    expect(metadata.appliedMigrations).toContain("0.7.3-gateway-identity");
+    expect(metadata.appliedMigrations).toContain("0.7.11-plugin-schema-v2");
+    expect(metadata.schemaVersion).toBe(2);
+    expect(metadata.plugins).toEqual([]);
     expect(existsSync(join(root, "docs/upgrading.md"))).toBe(true);
     expect(
       existsSync(join(root, ".originloom/backups", "0.5.12-to-" + TOOLING_VERSION, "package.json")),
@@ -160,12 +174,14 @@ function project({ version, metadata }) {
       join(root, ".originloom/project.json"),
       JSON.stringify(
         {
-          schemaVersion: 1,
+          schemaVersion: version === TOOLING_VERSION ? 2 : 1,
           templateVersion: version,
           platformRange: "^" + version,
           renderer: "react",
           mode: "standalone",
+          packageManager: "pnpm",
           generatedBy: "@originloom/tooling",
+          ...(version === TOOLING_VERSION ? { plugins: [] } : {}),
           appliedMigrations: [
             "0.5.14-upgrade-contract-v1",
             "0.5.17-eslint-10",
@@ -178,6 +194,7 @@ function project({ version, metadata }) {
                   "0.6.0-gateway-backed-streaming",
                   "0.7.0-react-only",
                   "0.7.3-gateway-identity",
+                  "0.7.11-plugin-schema-v2",
                 ]
               : []),
           ],

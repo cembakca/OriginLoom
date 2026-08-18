@@ -1,0 +1,13 @@
+{
+  "projectName": "origin-loom",
+  "bomPath": "artifacts/sbom/bom.cdx.json",
+  "autoCreate": true,
+  "isLatest": false,
+  "tags": ["platform", "monorepo"],
+  "gate": {
+    "failOnSeverity": "critical",
+    "failOnPolicyViolation": "fail",
+    "timeoutSeconds": 300,
+    "pollIntervalSeconds": 2
+  }
+}

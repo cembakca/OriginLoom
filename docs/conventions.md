@@ -23,7 +23,7 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 | `packages/origin-core/src/adapters/`  | Gateway ve dış sistem adapter'ları                                                 |
 | `packages/origin-react/src/`          | React adaptörü — island runtime, `server/` render adaptörü, Vite preset            |
 | `packages/origin-tooling/bin/`        | build/dev/env/compose/smoke bin'leri                                               |
-| `tools/mock-gw/`                      | Bağımsız mock gateway                                                              |
+| `apps/showroom/tests/fixtures/gateway/` | Showroom mock gateway (referans; ayrı process)                                   |
 
 Ürün kodu platform paketlerini `@originloom/core`, `@originloom/react` ve `@originloom/shared`
 üzerinden import eder;
@@ -1129,9 +1129,15 @@ korur. Process içi Promise dedup'a ek olarak Redis lock + AES-GCM şifreli kıs
 same-origin guard ve Redis-backed rate limit'ten geçer. Yeni browser mutation'ı bu guard olmadan
 mount edilmez.
 
-Local fixture'lar uygulama servislerine gömülmez. `tools/mock-gw/` 4002 portunda ayrı process olarak
-çalışır ve gerçek gateway ile aynı HTTP sınırından çağrılır. Yeni geçici backend cevabı gerekiyorsa
-uygulama service dosyasına fallback ekleme; endpoint ve fixture'ı `tools/mock-gw/server.js` içine ekle.
+Local fixture'lar uygulama servislerine gömülmez. Mock gateway ayrı process olarak çalışır ve gerçek
+gateway ile aynı HTTP sınırından çağrılır. Konum uygulama türüne göre değişir — ayrı bir
+`tools/mock-gw/` dizini yoktur ([mock-gateway.md](./mock-gateway.md)):
+
+- **Showroom:** `apps/showroom/tests/fixtures/gateway/` — `pnpm mock-gw` (varsayılan port 4002)
+- **Üretilen app:** `mock-gateway/server.mjs` — `pnpm dev` veya `pnpm mock-gw`
+
+Yeni geçici backend cevabı gerekiyorsa uygulama service dosyasına fallback ekleme; ilgili mock
+gateway dosyasına endpoint ve fixture ekle.
 
 ### Banka yönlendirmesi
 
@@ -1403,5 +1409,5 @@ pnpm lint
 pnpm lint:fix
 pnpm format
 pnpm format:check
-ppnpm install    # typecheck → lint → format:check → test → build → smoke
+pnpm ci    # typecheck → lint → format:check → test → build → smoke
 ```

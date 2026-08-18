@@ -19,6 +19,10 @@ pnpm add @originloom/shared
 | `@originloom/shared/lib/client/*`   | DOM-only client helpers: island bootstrap, telemetry, api-fetch     |
 | `@originloom/shared/lib/*`          | device, media, menu, cache policy, cookies, request, runtime schema |
 
+The **`create-app` template contract** lists the supported subpaths in
+[docs/export-surface.md](../../docs/export-surface.md). Additional modules under `./lib/*` may exist
+but are not Tier 1 unless listed there.
+
 ## The render contract
 
 `OriginRenderer` is why `@originloom/core` has no UI framework in it. The core resolves _what_ to

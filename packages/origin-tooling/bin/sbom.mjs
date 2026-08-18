@@ -4,10 +4,22 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
+import {
+  parsePmFlag,
+  readPackageJson,
+  readProjectMetadata,
+  resolvePackageManager,
+  spawnSpecForSbom,
+  validateCycloneDxDocument,
+} from "./lib/package-manager.mjs";
+
 const cwd = process.cwd();
-const packageJsonPath = resolve(cwd, "package.json");
-const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-const productionOnly = process.argv.includes("--prod");
+const argv = process.argv.slice(2);
+const productionOnly = argv.includes("--prod");
+const override = parsePmFlag(argv);
+const packageJson = readPackageJson(cwd);
+const metadata = readProjectMetadata(cwd);
+const pm = resolvePackageManager(cwd, { override, metadata, packageJson });
 const outputPath = resolve(
   cwd,
   process.env.ORIGINLOOM_SBOM_PATH ??
@@ -20,45 +32,28 @@ if (typeof packageJson.name !== "string" || packageJson.name.length === 0) {
 
 mkdirSync(dirname(outputPath), { recursive: true });
 
-const args = [
-  "sbom",
-  "--filter",
-  packageJson.name,
-  "--sbom-format",
-  "cyclonedx",
-  // Dependency-Track 4.14 and 5.x both accept CycloneDX 1.6. Using 1.7 here
-  // would reject otherwise valid uploads on supported 4.14 installations.
-  "--sbom-spec-version",
-  "1.6",
-  "--sbom-type",
-  "application",
-  "--lockfile-only",
-  "--out",
+const spec = spawnSpecForSbom(pm, {
+  cwd,
+  packageName: packageJson.name,
   outputPath,
-  ...(productionOnly ? ["--prod"] : []),
-];
+  productionOnly,
+});
 
 const npmExecPath = process.env.npm_execpath;
-const result = npmExecPath
-  ? spawnSync(process.execPath, [npmExecPath, ...args], { cwd, stdio: "inherit" })
-  : spawnSync(process.platform === "win32" ? "pnpm.cmd" : "pnpm", args, {
-      cwd,
-      stdio: "inherit",
-    });
+const result =
+  pm === "pnpm" && npmExecPath
+    ? spawnSync(process.execPath, [npmExecPath, ...spec.args], { cwd, stdio: "inherit" })
+    : spawnSync(spec.command, spec.args, {
+        cwd,
+        stdio: "inherit",
+        shell: spec.shell,
+      });
 
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
 
-const bom = JSON.parse(readFileSync(outputPath, "utf8"));
-if (
-  bom.bomFormat !== "CycloneDX" ||
-  bom.specVersion !== "1.6" ||
-  !bom.metadata?.component ||
-  !Array.isArray(bom.components)
-) {
-  throw new Error(`pnpm generated an invalid or unexpected CycloneDX document: ${outputPath}`);
-}
+const bom = validateCycloneDxDocument(JSON.parse(readFileSync(outputPath, "utf8")), outputPath);
 
 console.log(
-  `[sbom] ${bom.components.length} component(s) -> ${outputPath}${productionOnly ? " (production only)" : ""}`,
+  `[sbom:${pm}] ${bom.components.length} component(s) -> ${outputPath}${productionOnly ? " (production only)" : ""}`,
 );

@@ -8,10 +8,11 @@ generator çalıştırıldığında otomatik olarak üzerine yazılmaz.
 
 .originloom/project.json şu sözleşmeyi taşır:
 
-- schemaVersion: metadata formatı
+- schemaVersion: metadata formatı (v2: `plugins[]` alanı)
 - templateVersion: projenin en son geçtiği template/migration sürümü
 - platformRange: generated package aralığı
 - mode: standalone/workspace ayrımı
+- plugins: scaffold sırasında etkin create-app eklentileri (ör. `with-ops`)
 - appliedMigrations: idempotent migration kimlikleri
 
 Bu dosyayı elle yeni sürüme çekmeyin. Değerin değişmesi migration'ın gerçekten uygulandığı anlamına

@@ -115,7 +115,12 @@ CI veya script kullanımında prompt oluşmaması için hem proje adını hem `-
 | `--target-dir <dir>` | Standalone projenin yazılacağı üst klasör                               |
 | `--version <range>`  | Standalone proje için `@originloom/*` semver aralığı                    |
 | `--registry <url>`   | Generated `.npmrc` içindeki `@originloom` registry adresi               |
-| `--with-ops`         | Compose, Kubernetes, Prometheus, load/stress ve pentest readiness ekler |
+| `--with-ops`         | Compose, Kubernetes, Prometheus, load/stress ve pentest readiness (tek kayıtlı eklenti) |
+| `--package-manager`  | `pnpm` (varsayılan), `npm` veya `yarn` — lockfile, CI ve Docker PM'e göre üretilir   |
+
+`--with-ops` create-app eklenti yükleyicisi üzerinden uygulanır. **Yeni `--with-*` eklentisi
+planlanmıyor** — mekanizma gelecekteki opt-in ihtiyaçlar için korunuyor. Ayrıntı:
+[docs/plugin-mechanism.md](../../docs/plugin-mechanism.md).
 
 Örnek:
 
@@ -146,6 +151,10 @@ origin-create-app payments-web \
 `--with-ops` ayrıca Compose/Kubernetes manifestleri, Prometheus kuralları, load/stress karşılaştırma
 araçları ve `pentest:readiness` script'i üretir. Önce generated `OPERATIONS.md` içindeki image, host
 ve secret placeholder'larını değiştirin.
+
+Şablon değişikliği yaparken: [docs/template-changes.md](../../docs/template-changes.md).
+Mock gateway konumları: [docs/mock-gateway.md](../../docs/mock-gateway.md).
+Platform paket geliştirme: [docs/platform-contributor.md](../../docs/platform-contributor.md).
 
 ## İlk geliştirme kontrol listesi
 
@@ -199,3 +208,6 @@ oluşturur, sonra güncel fixed group'a migrate eder ve generated pnpm ci kapıs
 | `origin-docker-clean`   | Generated local Compose kaynaklarını temizler                                        |
 | `origin-doctor`         | Template, fixed-group ve migration sağlığını read-only denetler                      |
 | `origin-migrate`        | Upgrade planını dry-run gösterir ve güvenli biçimde uygular                          |
+| `origin-sbom`           | CycloneDX 1.6 SBOM üretir (pnpm / npm / Yarn Berry lockfile)                         |
+| `origin-audit`          | Production dependency audit'ini package manager'a göre çalıştırır                    |
+| `origin-dependency-track` | SBOM upload, analiz bekleme ve Dependency-Track güvenlik kapısı                    |

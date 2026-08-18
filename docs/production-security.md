@@ -21,8 +21,8 @@ uyguladığı ayrıca doğrulanır.
 
 Production deploy aşağıdakiler tamamlanmadan onaylanmaz:
 
-1. `ppnpm install`, `pnpm audit:prod`, Trivy ve CodeQL başarılı.
-2. Image digest ile deploy edilir; registry imzası/provenance ve SBOM release kaydına bağlanır.
+1. `pnpm ci`, `pnpm audit:prod`, Trivy ve CodeQL başarılı. Platform SBOM: [supply-chain-platform.md](./supply-chain-platform.md).
+2. Image digest ile deploy edilir; registry imzası/provenance ve SBOM release kaydına bağlanır (`pnpm run sbom`, `pnpm run sbom:packages`; ürün uygulamalarında `origin-sbom` — bkz. generated app `docs/supply-chain-security.md`).
 3. Secret manager gerçek `REDIS_URL`, operations token'ları, market token ve auth coordination
    anahtarını enjekte eder; manifestteki placeholder değerlerle startup denenmez.
 4. Public ingress'ten `/metrics`, cache purge ve referral stats istekleri `404`; operations Service

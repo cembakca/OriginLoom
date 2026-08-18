@@ -125,6 +125,7 @@ function buildPlan(current, fromVersion, migrations) {
     renderer: current.renderer,
     mode: current.mode,
     generatedBy: "@originloom/tooling",
+    plugins: inferPlugins(current),
     appliedMigrations: [...appliedMigrations].sort(),
   };
   if (JSON.stringify(current.metadata) !== JSON.stringify(nextMetadata)) {
@@ -181,6 +182,15 @@ function inferTemplateVersion(current) {
     .map(({ range }) => range.replace(/^[~^=]/, ""))
     .filter((version) => /^\d+\.\d+\.\d+/.test(version));
   return versions[0] ?? null;
+}
+
+function inferPlugins(current) {
+  if (Array.isArray(current.metadata?.plugins)) {
+    return [...current.metadata.plugins].sort();
+  }
+  const scripts = current.pkg.scripts ?? {};
+  if (typeof scripts["compose:up"] === "string") return ["with-ops"];
+  return [];
 }
 
 function backupIfPresent(source, target) {

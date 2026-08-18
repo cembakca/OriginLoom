@@ -68,17 +68,44 @@ The platform never imports app code; everything it needs arrives through `instal
 
 ## Main entries
 
-| Entry                         | What it does                                                     |
-| ----------------------------- | ---------------------------------------------------------------- |
-| `@originloom/core/app`        | `createApp` — the Hono application                               |
-| `@originloom/core/middleware` | `defineMiddleware` — product request rules for document requests |
-| `@originloom/core/runtime`    | `installRuntime`, `OriginRuntime`, `DocumentShell`               |
-| `@originloom/core/cache`      | L1 memory + optional L2 Redis, cold-fill coalescing, SWR, purge  |
-| `@originloom/core/handler`    | The SSR request handler                                          |
-| `@originloom/core/assets`     | Vite manifest / dev-server asset resolution                      |
-| `@originloom/core/config`     | Env-driven config and its validation                             |
-| `@originloom/core/document`   | Document render orchestration (the renderer produces the HTML)   |
-| `@originloom/core/metrics`    | Prometheus-style metrics + `/metrics` app                        |
+| Entry | What it does |
+| ----- | ------------ |
+| `@originloom/core/app` | `createApp` — the Hono application |
+| `@originloom/core/handler` | SSR request handler, revalidation drain |
+| `@originloom/core/runtime` | `installRuntime`, `OriginRuntime`, `DocumentShell`, fragments |
+| `@originloom/core/cache` | L1/L2 cache, topology, read/write, purge helpers |
+| `@originloom/core/cache/key-codec` | Cache key registry encoding for purge/metrics |
+| `@originloom/core/middleware` | `defineMiddleware` — product request rules |
+| `@originloom/core/middleware/cookie-jar` | Cookie jar for BFF responses |
+| `@originloom/core/middleware/request-deadline` | API deadlines, `contextRequest` |
+| `@originloom/core/middleware/request-id` | `AppVariables` for typed Hono mounts |
+| `@originloom/core/middleware/sanitize` | UUID sanitization helpers |
+| `@originloom/core/middleware/security` | CSP script hash registration |
+| `@originloom/core/adapters/gateway` | Gateway fetch, identity, response release |
+| `@originloom/core/gateway-payload` | Payload budgets, `readGatewayJson`, contracts |
+| `@originloom/core/gateway-transport` | Shared gateway connection pool |
+| `@originloom/core/auth/bff` | BFF session auth, refresh coordination |
+| `@originloom/core/security/public-api-guard` | Rate-limited public API guard |
+| `@originloom/core/api/client-errors` | Client error ingestion mount |
+| `@originloom/core/api/client-metrics` | Client metrics ingestion mount |
+| `@originloom/core/api/cache-purge` | Cache purge operations mount |
+| `@originloom/core/seo` | `mountSeoRoutes`, robots.txt, sitemap.xml |
+| `@originloom/core/assets` | Vite manifest / dev-server asset resolution |
+| `@originloom/core/media` | Responsive and unoptimized image helpers |
+| `@originloom/core/config` | Env-driven config and validation |
+| `@originloom/core/config-validation` | Shared config assertion helpers |
+| `@originloom/core/instrumentation` | OpenTelemetry register/shutdown |
+| `@originloom/core/observability` | Tracing helpers (`memoizeRequestValue`, …) |
+| `@originloom/core/logger` | Structured logging |
+| `@originloom/core/metrics` | Prometheus render/observe helpers |
+| `@originloom/core/metrics-server` | Operations listener (`/metrics`, mounts) |
+| `@originloom/core/metrics/primitives` | Product counter/gauge line builders |
+| `@originloom/core/document` | Document render orchestration (renderer produces HTML) |
+
+The **`create-app` template contract** (Tier 1 supported surface) is listed in
+[docs/export-surface.md](../../docs/export-surface.md). Showroom and tests may import additional
+wildcard paths; consumer apps should stick to Tier 1.
 
 Pipeline internals (`ssr/*`, `cache/cold-fill`, `middleware/pipeline`, …) are deliberately not
-exported: they are free to change without a breaking release.
+exported: they are free to change without a breaking release. See `public-api.test.ts` and
+`export-surface.manifest.mjs`.

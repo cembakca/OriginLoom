@@ -85,6 +85,27 @@ describe("origin-create-app CLI — standalone", () => {
     expect(metadata.platformRange).toBe("^2.3.4");
   });
 
+  it("passes --package-manager through to generated metadata", () => {
+    const target = scratch();
+    const { status } = run([
+      "npm-web",
+      "--title",
+      "NPM",
+      "--package-manager",
+      "npm",
+      "--target-dir",
+      target,
+    ]);
+    expect(status).toBe(0);
+    const metadata = JSON.parse(
+      readFileSync(join(target, "npm-web/.originloom/project.json"), "utf8"),
+    );
+    expect(metadata.packageManager).toBe("npm");
+    expect(JSON.parse(readFileSync(join(target, "npm-web/package.json"), "utf8")).packageManager).toBe(
+      "npm@11.18.0",
+    );
+  });
+
   it("prompts for name and title over piped stdin when flags are omitted", () => {
     const target = scratch();
     // Non-TTY stdin: the prompter consumes piped lines in order.
@@ -260,5 +281,19 @@ describe("origin-create-app CLI — private registry", () => {
     ]);
     expect(bad.status).not.toBe(0);
     expect(bad.stderr).toContain("Invalid --registry");
+  });
+
+  it("rejects unknown plugin flags", () => {
+    const bad = run([
+      "shop-web",
+      "--title",
+      "Shop",
+      "--with-search",
+      "--target-dir",
+      scratch(),
+    ]);
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toContain("Unknown option: --with-search");
+    expect(bad.stderr).toContain("--with-ops");
   });
 });

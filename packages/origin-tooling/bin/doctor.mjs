@@ -12,6 +12,13 @@ import {
   versionFromRange,
 } from "./upgrade/compatibility.mjs";
 import { pendingMigrations } from "./upgrade/migrations.mjs";
+import { pluginsById } from "./create-app/plugins/registry.mjs";
+import {
+  lockfileFor,
+  PACKAGE_MANAGERS,
+  resolvePackageManager,
+  validateLockfileMatchesManager,
+} from "./lib/package-manager.mjs";
 import {
   declaredOriginloomPackages,
   findProjectRoot,
@@ -126,6 +133,39 @@ export function inspect(project) {
     if (project.metadata.renderer !== project.renderer) {
       add("error", "renderer-drift", "Metadata renderer değeri package.json ile uyuşmuyor.");
     }
+    const plugins = project.metadata.plugins ?? [];
+    if (!Array.isArray(plugins)) {
+      add("error", "plugins-invalid", "Metadata plugins alanı bir dizi olmalı.");
+    } else {
+      for (const pluginId of plugins) {
+        if (!pluginsById.has(pluginId)) {
+          add(
+            "warning",
+            "plugin-unknown",
+            "Bilinmeyen create-app eklentisi kayıtlı: " + pluginId,
+            "docs/plugin-mechanism.md içindeki desteklenen eklenti listesini kontrol edin.",
+          );
+        }
+      }
+      if (
+        plugins.includes("with-ops") &&
+        typeof project.pkg.scripts?.["compose:up"] !== "string"
+      ) {
+        add(
+          "warning",
+          "plugin-drift",
+          "Metadata with-ops eklentisini kaydediyor ama package.json compose:up script'i yok.",
+        );
+      }
+    }
+    const declaredPm = project.metadata.packageManager;
+    if (declaredPm !== undefined && !PACKAGE_MANAGERS.includes(declaredPm)) {
+      add(
+        "error",
+        "package-manager-unknown",
+        "Metadata packageManager değeri desteklenmiyor: " + declaredPm,
+      );
+    }
     if (
       project.metadata.templateVersion &&
       compareVersions(project.metadata.templateVersion, TOOLING_VERSION) > 0
@@ -152,13 +192,20 @@ export function inspect(project) {
       "origin-migrate ile planı inceleyin.",
     );
   }
-  if (project.mode === "standalone" && !existsSync(join(project.root, "pnpm-lock.yaml"))) {
-    add(
-      "warning",
-      "lockfile-missing",
-      "pnpm-lock.yaml bulunamadı.",
-      "pnpm install çalıştırıp lockfile'ı commit'leyin.",
-    );
+  if (project.mode === "standalone") {
+    const pm = resolvePackageManager(project.root, {
+      metadata: project.metadata,
+      packageJson: project.pkg,
+    });
+    const lockfileCheck = validateLockfileMatchesManager(project.root, pm);
+    if (!lockfileCheck.ok) {
+      add(
+        lockfileCheck.severity ?? "warning",
+        lockfileCheck.severity === "error" ? "package-manager-lockfile" : "lockfile-missing",
+        lockfileCheck.message ?? `${lockfileFor(pm)} bulunamadı.`,
+        `${lockfileFor(pm)} dosyasını commit'leyin veya metadata.packageManager değerini güncelleyin.`,
+      );
+    }
   }
   if (!project.pkg.scripts?.["origin:doctor"] || !project.pkg.scripts?.["origin:migrate"]) {
     add(
