@@ -14,6 +14,7 @@ export const GATEWAY_STREAMING_MIGRATION = "0.6.0-gateway-backed-streaming";
 export const REACT_ONLY_MIGRATION = "0.7.0-react-only";
 export const GATEWAY_IDENTITY_MIGRATION = "0.7.3-gateway-identity";
 export const PLUGIN_SCHEMA_MIGRATION = "0.7.11-plugin-schema-v2";
+export const HONO_SSR_SECURITY_MIGRATION = "0.7.12-hono-ssr-security";
 
 export const migrations = [
   {
@@ -118,6 +119,16 @@ export const migrations = [
     introducedIn: "0.7.11",
     description:
       "Project metadata records enabled create-app plugins (plugins: string[]). Existing apps default to an empty list; apps with compose:up infer with-ops (docs/migrations/0.7.11.md).",
+  },
+  {
+    id: HONO_SSR_SECURITY_MIGRATION,
+    introducedIn: "0.7.12",
+    description:
+      "Hono is bumped to >=4.12.34 for CVE-2026-71850 (hono/jsx memo SSR cross-request reuse) and related middleware fixes.",
+    migratePackage(manifest, changes) {
+      if (typeof manifest.dependencies?.hono !== "string") return;
+      setDependency(manifest, changes, "dependencies", "hono", "^4.12.34");
+    },
   },
 ];
 

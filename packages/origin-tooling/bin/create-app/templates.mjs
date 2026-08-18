@@ -25,6 +25,7 @@ import {
   dependencyOverrideField,
   e2eServerScript,
   nativeBuildPolicy,
+  pnpmDependencyOverridesYaml,
   trustedNativeBuildPackages,
   pnpmAllowBuildYamlKey,
 } from "../lib/package-manager.mjs";
@@ -443,7 +444,7 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
         "@tanstack/react-query": "^5.101.4",
         "web-vitals": "^6.0.1",
         clsx: "^2.1.1",
-        hono: "^4.12.32",
+        hono: "^4.12.34",
         react: "^19.2.8",
         "react-dom": "^19.2.8",
         tailwindcss: "^4.3.3",
@@ -489,8 +490,9 @@ ${trustedNativeBuildPackages.map((name) => `  ${pnpmAllowBuildYamlKey(name)}: tr
 
 # Autocannon 8 still declares hyperid 3, which pulls the unsupported uuid 8.
 # Hyperid 4 preserves the API and uses randomUUID instead.
+# Remaining lines pin transitive production audit findings (fast-uri, js-yaml, nanoid).
 overrides:
-  autocannon>hyperid: ^4.0.0
+${pnpmDependencyOverridesYaml()}
 `;
 
 const projectMetadata = ({

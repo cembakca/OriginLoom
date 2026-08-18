@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { renderTemplates } from "../bin/create-app/templates.mjs";
+import {
+  PNPM_DEPENDENCY_OVERRIDES,
+  YARN_RESOLUTIONS,
+} from "../bin/lib/package-manager.mjs";
 
 /** Structural YAML checks for template strings — full parse is release-verify's job. */
 function assertTemplateYaml(content, path) {
@@ -193,7 +197,9 @@ describe("renderTemplates — shared shape", () => {
       expect(ops["OPERATIONS.md"]).toContain("pnpm capacity");
       expect(JSON.parse(ops["package.json"]).scripts.capacity).toBe("node load-test/capacity.mjs");
       expect(JSON.parse(ops["package.json"]).devDependencies.autocannon).toBe("^8.0.0");
-      expect(ops["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
+      for (const [selector, version] of Object.entries(PNPM_DEPENDENCY_OVERRIDES)) {
+        expect(ops["pnpm-workspace.yaml"]).toContain(`${selector}: ${version}`);
+      }
       expect(JSON.parse(ops["package.json"]).scripts["compose:redis"]).toBe(
         "origin-compose-up --redis",
       );
@@ -288,6 +294,7 @@ describe("renderTemplates — standalone mode", () => {
     const pkg = JSON.parse(standalone({ version: "^1.2.0" })["package.json"]);
     expect(pkg.dependencies["@originloom/core"]).toBe("^1.2.0");
     expect(pkg.dependencies["@originloom/react"]).toBe("^1.2.0");
+    expect(pkg.dependencies.hono).toBe("^4.12.34");
     expect(pkg.devDependencies["@originloom/tooling"]).toBe("^1.2.0");
     const specs = [
       pkg.dependencies["@originloom/core"],
@@ -313,7 +320,9 @@ describe("renderTemplates — standalone mode", () => {
     ]) {
       expect(files["pnpm-workspace.yaml"]).toContain(dependency);
     }
-    expect(files["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
+    for (const [selector, version] of Object.entries(PNPM_DEPENDENCY_OVERRIDES)) {
+      expect(files["pnpm-workspace.yaml"]).toContain(`${selector}: ${version}`);
+    }
     expect(pkg.packageManager).toBe("pnpm@11.18.0");
     expect(pkg.devDependencies["@napi-rs/wasm-runtime"]).toBe("1.1.6");
   });
@@ -972,7 +981,9 @@ describe("renderTemplates — production reference coverage", () => {
     expect(pkg.scripts["performance:compare"]).toContain("performance.mjs");
     expect(pkg.scripts["performance:accept"]).toContain("--accept");
     expect(pkg.devDependencies.autocannon).toBe("^8.0.0");
-    expect(files["pnpm-workspace.yaml"]).toContain("autocannon>hyperid: ^4.0.0");
+    for (const [selector, version] of Object.entries(PNPM_DEPENDENCY_OVERRIDES)) {
+      expect(files["pnpm-workspace.yaml"]).toContain(`${selector}: ${version}`);
+    }
     expect(files["docs/capacity.md"]).toContain("10 → 25 → 50 → 100 → 200 → 400");
     expect(files[".gitignore"]).toContain("load-test/reports/");
   });
@@ -1003,7 +1014,7 @@ describe("renderTemplates — production reference coverage", () => {
     const pkg = JSON.parse(files["package.json"]);
     expect(files).not.toHaveProperty(["pnpm-workspace.yaml"]);
     expect(pkg.packageManager).toBe("npm@11.18.0");
-    expect(pkg.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
+    expect(pkg.overrides).toEqual(PNPM_DEPENDENCY_OVERRIDES);
     expect(pkg.onlyBuiltDependencies).toContain("sharp");
     expect(pkg.scripts.ci).toContain("npm run origin:doctor -- --strict");
     expect(files[".github/workflows/ci.yml"]).toContain("npm ci");
@@ -1016,7 +1027,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files).not.toHaveProperty(["pnpm-workspace.yaml"]);
     expect(files[".yarnrc.yml"]).toContain("nodeLinker: node-modules");
     expect(pkg.packageManager).toBe("yarn@4.9.2");
-    expect(pkg.resolutions).toEqual({ "autocannon/hyperid": "^4.0.0" });
+    expect(pkg.resolutions).toEqual(YARN_RESOLUTIONS);
     expect(files[".github/workflows/ci.yml"]).toContain("yarn install --immutable");
     expect(files["Dockerfile"]).toContain("yarn.lock");
   });

@@ -35,6 +35,31 @@ export function pnpmAllowBuildYamlKey(packageName) {
 
 const AUTOCANNON_HYPERID_OVERRIDE = "^4.0.0";
 
+/** Transitive production-audit pins for the platform monorepo and generated apps. */
+export const PNPM_DEPENDENCY_OVERRIDES = {
+  "autocannon>hyperid": AUTOCANNON_HYPERID_OVERRIDE,
+  "fast-uri": "^3.1.5",
+  "xmlbuilder2>js-yaml": "^4.3.1",
+  nanoid: "^3.3.18",
+  postcss: "^8.5.23",
+};
+
+/** @type {Record<string, string>} */
+export const YARN_RESOLUTIONS = {
+  "autocannon/hyperid": AUTOCANNON_HYPERID_OVERRIDE,
+  "fast-uri": "^3.1.5",
+  "xmlbuilder2/js-yaml": "^4.3.1",
+  nanoid: "^3.3.18",
+  postcss: "^8.5.23",
+};
+
+/** YAML body (no `overrides:` header) for pnpm-workspace.yaml. */
+export function pnpmDependencyOverridesYaml() {
+  return Object.entries(PNPM_DEPENDENCY_OVERRIDES)
+    .map(([key, value]) => `  ${key}: ${value}`)
+    .join("\n");
+}
+
 function findInstalledPackageDir(packageName, startDir) {
   let current = resolve(startDir);
   for (;;) {
@@ -213,9 +238,7 @@ export function nativeBuildPolicy(pm) {
       return { onlyBuiltDependencies: [...TRUSTED_NATIVE_BUILDS] };
     case "yarn":
       return {
-        resolutions: {
-          "autocannon/hyperid": AUTOCANNON_HYPERID_OVERRIDE,
-        },
+        resolutions: { ...YARN_RESOLUTIONS },
       };
   }
 }
@@ -226,7 +249,7 @@ export function dependencyOverrideField(pm) {
     case "pnpm":
       return {};
     case "npm":
-      return { overrides: { "autocannon>hyperid": AUTOCANNON_HYPERID_OVERRIDE } };
+      return { overrides: { ...PNPM_DEPENDENCY_OVERRIDES } };
     case "yarn":
       return {};
   }

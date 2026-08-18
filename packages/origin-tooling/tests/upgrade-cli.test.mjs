@@ -94,6 +94,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.5.35-route-build-manifest");
     expect(metadata.appliedMigrations).toContain("0.7.3-gateway-identity");
     expect(metadata.appliedMigrations).toContain("0.7.11-plugin-schema-v2");
+    expect(metadata.appliedMigrations).toContain("0.7.12-hono-ssr-security");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
     expect(existsSync(join(root, "docs/upgrading.md"))).toBe(true);
@@ -131,6 +132,21 @@ describe("origin-migrate", () => {
     expect(migrated.engines.node).toBe(">=22.19.0");
     expect(migrated.devDependencies.lighthouse).toBe("^13.4.1");
     expect(migrated.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
+  });
+
+  it("migrates vulnerable Hono versions to the patched SSR security release", () => {
+    const root = project({ version: "0.7.11", metadata: true });
+    const manifestPath = join(root, "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.dependencies.hono = "^4.12.32";
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+
+    const result = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(result.status).toBe(0);
+    const migrated = JSON.parse(readFileSync(manifestPath, "utf8"));
+    expect(migrated.dependencies.hono).toBe("^4.12.34");
+    const metadata = JSON.parse(readFileSync(join(root, ".originloom/project.json"), "utf8"));
+    expect(metadata.appliedMigrations).toContain("0.7.12-hono-ssr-security");
   });
 });
 
@@ -195,6 +211,7 @@ function project({ version, metadata }) {
                   "0.7.0-react-only",
                   "0.7.3-gateway-identity",
                   "0.7.11-plugin-schema-v2",
+                  "0.7.12-hono-ssr-security",
                 ]
               : []),
           ],

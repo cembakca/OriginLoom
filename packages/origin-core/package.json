@@ -1,6 +1,6 @@
 {
   "name": "@originloom/core",
-  "version": "0.7.12",
+  "version": "0.7.13",
   "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics — with no UI framework of its own.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -55,7 +55,7 @@
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-node": "^0.221.0",
     "@originloom/shared": "workspace:*",
-    "hono": "^4.12.32",
+    "hono": "^4.12.34",
     "ioredis": "^5.4.2",
     "undici": "^8.9.0"
   },
