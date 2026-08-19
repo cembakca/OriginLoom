@@ -36,6 +36,7 @@ yolları bounded olduğundan ham request ile devam eder:
 
 - `/healthz` ve `/readyz`;
 - `/assets/*`;
+- `/public/*` (proje kökündeki `public/` klasörü);
 - uygulamanın `longLivedRoutes` listesine açıkça eklediği SSE/long-poll endpoint'leri.
 
 Loader ve servislerde her zaman `ctx.request.signal` kullanın. Global veya orijinal Node request'ine

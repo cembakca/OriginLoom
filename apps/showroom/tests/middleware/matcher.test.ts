@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("shouldRunPipeline", () => {
   it("skips static assets", () => {
     expect(shouldRunPipeline("/assets/entry.client.js")).toBe(false);
+    expect(shouldRunPipeline("/public/test.img")).toBe(false);
     expect(shouldRunPipeline("/favicon.ico")).toBe(false);
   });
 

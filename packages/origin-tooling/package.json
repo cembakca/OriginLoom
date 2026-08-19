@@ -1,6 +1,6 @@
 {
   "name": "@originloom/tooling",
-  "version": "0.7.13",
+  "version": "0.7.14",
   "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -43,6 +43,7 @@
     "origin-smoke": "./bin/smoke-server.mjs",
     "origin-audit": "./bin/audit.mjs",
     "origin-sbom": "./bin/sbom.mjs",
+    "origin-scaffold-gateway": "./bin/scaffold-gateway.mjs",
     "origin-start-memory": "./bin/start-memory.mjs"
   },
   "exports": {

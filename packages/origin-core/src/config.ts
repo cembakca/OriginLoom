@@ -106,6 +106,11 @@ export const config = {
    * every run mode; tooling that runs from the workspace root sets it explicitly.
    */
   clientDistDir: process.env.CLIENT_DIST_DIR?.replace(/\/$/, "") || "dist/client",
+  /**
+   * Unprocessed static files served under /public/*. Relative to the app root in every
+   * run mode; set PUBLIC_DIR to override.
+   */
+  publicDir: process.env.PUBLIC_DIR?.replace(/\/$/, "") || "public",
   gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),
   cspEnforce: booleanEnv("CSP_ENFORCE", nodeEnv === "production"),
   cspReportUri: process.env.CSP_REPORT_URI?.trim() || undefined,

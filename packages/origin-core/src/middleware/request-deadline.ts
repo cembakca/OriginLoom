@@ -112,7 +112,10 @@ function timeoutFor(requestClass: RequestClass): number {
 }
 
 function skipDeadline(route: string, method: string): boolean {
-  return method === "GET" && (route === "<health>" || route === "/assets/*");
+  return (
+    method === "GET" &&
+    (route === "<health>" || route === "/assets/*" || route === "/public/*")
+  );
 }
 
 function timeoutResponse(requestClass: RequestClass, requestId: string): Response {

@@ -348,6 +348,7 @@ describe("renderTemplates — standalone mode", () => {
     const dockerfile = standalone({ name: "demo-web" })["Dockerfile"];
     expect(dockerfile).toContain("docker build -t demo-web .");
     expect(dockerfile).toContain("COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist");
+    expect(dockerfile).toContain("COPY --from=builder --chown=nodejs:nodejs /app/public ./public");
     expect(dockerfile).toContain("RUN pnpm typecheck && pnpm build");
     expect(dockerfile).not.toContain("pnpm-workspace.yaml");
     expect(dockerfile).not.toContain("--filter");
@@ -930,6 +931,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files).toHaveProperty(["lighthouserc.json"]);
     expect(files).toHaveProperty([".github/workflows/contract-staging.yml"]);
     expect(pkg.scripts["contracts:fixtures"]).toBe("origin-check-contracts");
+    expect(pkg.scripts["contracts:scaffold"]).toBe("origin-scaffold-gateway");
     expect(pkg.scripts["budget:bundle"]).toBe("origin-check-budgets");
     expect(pkg.scripts.lighthouse).toBe("origin-lighthouse");
     expect(pkg.devDependencies.lighthouse).toBe("^13.4.1");
@@ -1322,6 +1324,12 @@ describe("renderTemplates — product config, public API and media", () => {
     expect(media.seoAssets.openGraphSource).toBe("src/assets/images/og-cover.svg");
     expect(files).toHaveProperty(["src/assets/images/og-cover.svg"]);
     expect(JSON.parse(files["package.json"]).scripts.media).toBe("origin-build-media");
+  });
+
+  it.each(modes)("%s: ships a public folder served under /public/*", (_name, files) => {
+    expect(files).toHaveProperty(["public/README.md"]);
+    expect(files).toHaveProperty(["public/test.img"]);
+    expect(files["public/README.md"]).toContain("/public/*");
   });
 
   it("ships icon codegen with the transformer left in the tooling that runs it", () => {

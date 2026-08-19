@@ -95,8 +95,11 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.3-gateway-identity");
     expect(metadata.appliedMigrations).toContain("0.7.11-plugin-schema-v2");
     expect(metadata.appliedMigrations).toContain("0.7.12-hono-ssr-security");
+    expect(metadata.appliedMigrations).toContain("0.7.14-public-static");
+    expect(metadata.appliedMigrations).toContain("0.7.14-scaffold-gateway");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
+    expect(existsSync(join(root, "public/README.md"))).toBe(true);
     expect(existsSync(join(root, "docs/upgrading.md"))).toBe(true);
     expect(
       existsSync(join(root, ".originloom/backups", "0.5.12-to-" + TOOLING_VERSION, "package.json")),
@@ -147,6 +150,73 @@ describe("origin-migrate", () => {
     expect(migrated.dependencies.hono).toBe("^4.12.34");
     const metadata = JSON.parse(readFileSync(join(root, ".originloom/project.json"), "utf8"));
     expect(metadata.appliedMigrations).toContain("0.7.12-hono-ssr-security");
+  });
+
+  it("migrates 0.7.13 projects to public static files and gateway scaffold script", () => {
+    const root = project({ version: "0.7.13", metadata: true });
+    writeFileSync(
+      join(root, ".originloom/project.json"),
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          templateVersion: "0.7.13",
+          platformRange: "^0.7.13",
+          renderer: "react",
+          mode: "standalone",
+          packageManager: "pnpm",
+          generatedBy: "@originloom/tooling",
+          plugins: [],
+          appliedMigrations: [
+            "0.5.14-upgrade-contract-v1",
+            "0.5.17-eslint-10",
+            "0.5.18-vitest-scope",
+            "0.5.34-react-quality-security",
+            "0.5.35-route-build-manifest",
+            "0.5.36-product-middleware",
+            "0.6.0-gateway-backed-streaming",
+            "0.7.0-react-only",
+            "0.7.3-gateway-identity",
+            "0.7.11-plugin-schema-v2",
+            "0.7.12-hono-ssr-security",
+          ],
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    const manifestPath = join(root, "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.scripts["contracts:fixtures"] = "origin-check-contracts";
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+    writeFileSync(
+      join(root, "Dockerfile"),
+      [
+        "FROM node:22-alpine AS builder",
+        "WORKDIR /app",
+        "RUN pnpm build",
+        "FROM node:22-alpine AS runner",
+        "WORKDIR /app",
+        "COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist",
+        'CMD ["node", "dist/server/index.js"]',
+        "",
+      ].join("\n"),
+    );
+
+    const result = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(result.status).toBe(0);
+
+    const migrated = JSON.parse(readFileSync(manifestPath, "utf8"));
+    expect(migrated.dependencies["@originloom/core"]).toBe("^" + TOOLING_VERSION);
+    expect(migrated.scripts["contracts:scaffold"]).toBe("origin-scaffold-gateway");
+    expect(existsSync(join(root, "public/README.md"))).toBe(true);
+    expect(existsSync(join(root, "public/test.img"))).toBe(true);
+    expect(readFileSync(join(root, "Dockerfile"), "utf8")).toContain(
+      "COPY --from=builder --chown=nodejs:nodejs /app/public ./public",
+    );
+
+    const metadata = JSON.parse(readFileSync(join(root, ".originloom/project.json"), "utf8"));
+    expect(metadata.appliedMigrations).toContain("0.7.14-public-static");
+    expect(metadata.appliedMigrations).toContain("0.7.14-scaffold-gateway");
   });
 });
 
@@ -212,6 +282,8 @@ function project({ version, metadata }) {
                   "0.7.3-gateway-identity",
                   "0.7.11-plugin-schema-v2",
                   "0.7.12-hono-ssr-security",
+                  "0.7.14-public-static",
+                  "0.7.14-scaffold-gateway",
                 ]
               : []),
           ],

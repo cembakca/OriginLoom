@@ -1,3 +1,7 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import {
   compareVersions,
   FIRST_TRACKED_TEMPLATE_VERSION,
@@ -15,6 +19,12 @@ export const REACT_ONLY_MIGRATION = "0.7.0-react-only";
 export const GATEWAY_IDENTITY_MIGRATION = "0.7.3-gateway-identity";
 export const PLUGIN_SCHEMA_MIGRATION = "0.7.11-plugin-schema-v2";
 export const HONO_SSR_SECURITY_MIGRATION = "0.7.12-hono-ssr-security";
+export const PUBLIC_STATIC_MIGRATION = "0.7.14-public-static";
+export const SCAFFOLD_GATEWAY_MIGRATION = "0.7.14-scaffold-gateway";
+
+function migrationAsset(name) {
+  return readFileSync(fileURLToPath(new URL(`../create-app/assets/${name}`, import.meta.url)), "utf8");
+}
 
 export const migrations = [
   {
@@ -128,6 +138,54 @@ export const migrations = [
     migratePackage(manifest, changes) {
       if (typeof manifest.dependencies?.hono !== "string") return;
       setDependency(manifest, changes, "dependencies", "hono", "^4.12.34");
+    },
+  },
+  {
+    id: PUBLIC_STATIC_MIGRATION,
+    introducedIn: "0.7.14",
+    description:
+      "Adds public/ static files served at /public/* on the app port and copies the folder in Docker runner images.",
+    migrateProject(root, changes, fileWrites) {
+      for (const relPath of ["public/README.md", "public/test.img"]) {
+        const target = join(root, relPath);
+        if (existsSync(target)) continue;
+        fileWrites[relPath] = migrationAsset(relPath);
+        changes.push({
+          file: relPath,
+          kind: "add",
+          detail: "Public static dosyası eklendi (/public/* altında servis edilir).",
+        });
+      }
+
+      const dockerfilePath = join(root, "Dockerfile");
+      if (!existsSync(dockerfilePath)) return;
+      const dockerfile = readFileSync(dockerfilePath, "utf8");
+      const publicCopy = "COPY --from=builder --chown=nodejs:nodejs /app/public ./public";
+      if (dockerfile.includes(publicCopy)) return;
+      const distCopy = "COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist\n";
+      if (!dockerfile.includes(distCopy)) return;
+      fileWrites.Dockerfile = dockerfile.replace(distCopy, `${distCopy}${publicCopy}\n`);
+      changes.push({
+        file: "Dockerfile",
+        kind: "patch",
+        detail: "Runner aşamasına public/ kopyası eklendi.",
+      });
+    },
+  },
+  {
+    id: SCAFFOLD_GATEWAY_MIGRATION,
+    introducedIn: "0.7.14",
+    description:
+      "Adds contracts:scaffold script (origin-scaffold-gateway) on projects that already use consumer contracts.",
+    migratePackage(manifest, changes) {
+      manifest.scripts ??= {};
+      if (
+        typeof manifest.scripts["contracts:fixtures"] !== "string" ||
+        manifest.scripts["contracts:scaffold"] === "origin-scaffold-gateway"
+      ) {
+        return;
+      }
+      setDependency(manifest, changes, "scripts", "contracts:scaffold", "origin-scaffold-gateway");
     },
   },
 ];

@@ -53,6 +53,11 @@ export type CreateAppOptions = {
   middleware?: readonly OriginMiddleware[];
   /** Static asset root served under /assets/*. Defaults to the local client build. */
   staticRoot?: string;
+  /**
+   * Unprocessed files served under /public/* from the project public directory.
+   * Defaults to config.publicDir. Set false to disable the mount.
+   */
+  publicStaticRoot?: string | false;
   isShuttingDown?: () => boolean;
   readinessCheck?: () => Promise<boolean>;
   cacheRequired?: boolean;
@@ -175,6 +180,19 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
       precompressed: true,
     }),
   );
+
+  const publicStaticRoot =
+    options.publicStaticRoot === false ? undefined : (options.publicStaticRoot ?? config.publicDir);
+  if (publicStaticRoot) {
+    app.use("/public/*", staticAssetCacheHeaders);
+    app.use(
+      "/public/*",
+      serveStatic({
+        root: publicStaticRoot,
+        rewriteRequestPath: (path) => path.replace(/^\/public/, "") || "/",
+      }),
+    );
+  }
 
   app.get("/healthz", (c) => {
     c.set("requestRoute", "<health>");

@@ -237,6 +237,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
 
 # The server bundle is self-contained (ssr.noExternal: true) — no node_modules needed.
 COPY --from=builder --chown=nodejs:nodejs ${distPath} ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/public ./public
 RUN printf '{"type":"module"}\\n' > package.json
 
 USER nodejs
@@ -326,6 +327,7 @@ export function readmeCommandTable(pm) {
 | \`${run("test")}\`           | Unit/integration testlerini çalıştırır                       |
 | \`${run("build")}\`          | Bundle, gerçek route/cache özeti ve \`dist/originloom-manifest.json\` üretir |
 | \`${run("contracts:fixtures")}\` | Fixture'ları OpenAPI consumer contract'ına karşı doğrular |
+| \`${run("contracts:scaffold")}\` | Ham gateway cevabından contract + service iskeleti üretir |
 | \`${run("budget:bundle")}\`  | Island/client gzip bütçelerini kontrol eder                   |
 | \`${run("lighthouse")}\`     | Route performance ve accessibility bütçelerini çalıştırır    |
 | \`${run("capacity")}\`       | Tüm route'larda kademeli kapasite testi ve Markdown/JSON raporu üretir |

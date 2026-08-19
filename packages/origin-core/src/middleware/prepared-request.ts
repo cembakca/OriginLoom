@@ -64,6 +64,7 @@ function preparedRouteLabel(
 
 function infrastructureRoute(pathname: string): string {
   if (pathname.startsWith("/assets/")) return "/assets/*";
+  if (pathname.startsWith("/public/")) return "/public/*";
   if (pathname === "/healthz" || pathname === "/readyz") return "<health>";
   if (pathname === "/metrics") return "<unmatched>";
   if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return pathname;

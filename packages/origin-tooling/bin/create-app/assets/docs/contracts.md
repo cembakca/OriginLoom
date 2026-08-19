@@ -10,6 +10,33 @@ ile paylaşılabilen, CI tarafından çalıştırılabilen karşılığıdır.
 pnpm contracts:fixtures
 ```
 
+## Yeni endpoint scaffold'u
+
+Ham gateway cevabından fixture, OpenAPI şeması, manifest kaydı, TypeScript tipi ve
+`server/services/*` loader iskeleti üretmek için:
+
+```bash
+cat response.json | pnpm contracts:scaffold -- \
+  --id finance-widgets \
+  --path /finance/widgets \
+  --operation-id finance.widgets
+
+# veya dosyadan
+pnpm contracts:scaffold -- \
+  --id finance-widgets \
+  --path /finance/widgets \
+  --fixture samples/finance-widgets.json
+
+# dosyaları yazmak için
+pnpm contracts:scaffold -- ... --apply
+```
+
+Komut önce dry-run çıktısı verir; `--apply` ile `contracts/fixtures/*`,
+`src/lib/contracts/*`, `server/services/*` ve `gateway-contracts.ts` patch'ini yazar.
+Showroom gibi consumer manifest'i olmayan projelerde `--service-only` kullanın.
+Scaffold sonrası guard limitlerini, PII'yi ve mock-gateway route'unu gözden geçirin;
+ardından `pnpm contracts:fixtures` çalıştırın.
+
 `contracts/gateway-contracts.json` manifest v2 kullanır. Her consumer senaryosunun sabit
 `operationId` değerini, request method/path'ini ve beklenen response status/content-type/schema/
 fixture eşleşmesini taşır. Fixture schema'yı geçmezse CI kırılır. Yeni endpoint eklerken OpenAPI

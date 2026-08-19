@@ -65,8 +65,12 @@ console.log("  Sonraki adımlar: pnpm install && pnpm origin:doctor --strict && 
 
 function buildPlan(current, fromVersion, migrations) {
   const changes = [];
+  const fileWrites = {};
   const nextPackage = structuredClone(current.pkg);
-  for (const migration of migrations) migration.migratePackage?.(nextPackage, changes);
+  for (const migration of migrations) {
+    migration.migratePackage?.(nextPackage, changes);
+    migration.migrateProject?.(current.root, changes, fileWrites);
+  }
   nextPackage.scripts ??= {};
   if (nextPackage.scripts["origin:doctor"] !== "origin-doctor") {
     nextPackage.scripts["origin:doctor"] = "origin-doctor";
@@ -150,6 +154,7 @@ function buildPlan(current, fromVersion, migrations) {
     toVersion: TOOLING_VERSION,
     migrations: migrations.map(({ id, description }) => ({ id, description })),
     changes,
+    fileWrites,
     nextPackage,
     nextMetadata,
     backupDirectory: join(
@@ -167,6 +172,13 @@ async function applyPlan(current, plan) {
   backupIfPresent(current.metadataPath, join(plan.backupDirectory, "project.json"));
   await writeJsonAtomic(current.packagePath, plan.nextPackage);
   await writeJsonAtomic(current.metadataPath, plan.nextMetadata);
+
+  for (const [relativePath, contents] of Object.entries(plan.fileWrites ?? {})) {
+    const target = join(current.root, relativePath);
+    backupIfPresent(target, join(plan.backupDirectory, relativePath));
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, contents);
+  }
 
   const targetGuide = join(current.root, "docs/upgrading.md");
   if (!existsSync(targetGuide)) {

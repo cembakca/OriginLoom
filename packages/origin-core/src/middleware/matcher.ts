@@ -4,6 +4,7 @@
  */
 export function shouldRunPipeline(pathname: string): boolean {
   if (pathname.startsWith("/assets/")) return false;
+  if (pathname.startsWith("/public/")) return false;
   if (pathname === "/healthz" || pathname === "/readyz" || pathname === "/favicon.ico")
     return false;
   if (/\.(js|css|map|ico|png|jpe?g|webp|svg|woff2?)$/i.test(pathname)) return false;
