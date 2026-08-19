@@ -342,6 +342,8 @@ describe("renderTemplates — standalone mode", () => {
     const css = standalone()["src/styles/globals.css"];
     expect(css).toContain('@source "../../node_modules/@originloom/react/dist"');
     expect(css).not.toContain("packages/origin-react/src");
+    expect(css).toContain("@view-transition");
+    expect(css).toContain("bg-slate-50");
   });
 
   it("builds self-contained from the app root", () => {

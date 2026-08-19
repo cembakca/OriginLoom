@@ -97,6 +97,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.12-hono-ssr-security");
     expect(metadata.appliedMigrations).toContain("0.7.14-public-static");
     expect(metadata.appliedMigrations).toContain("0.7.14-scaffold-gateway");
+    expect(metadata.appliedMigrations).toContain("0.7.15-navigation-paint");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
     expect(existsSync(join(root, "public/README.md"))).toBe(true);
@@ -218,6 +219,55 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.14-public-static");
     expect(metadata.appliedMigrations).toContain("0.7.14-scaffold-gateway");
   });
+
+  it("migrates 0.7.14 projects to view-transition CSS", () => {
+    const root = project({ version: "0.7.14", metadata: true });
+    writeFileSync(
+      join(root, ".originloom/project.json"),
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          templateVersion: "0.7.14",
+          platformRange: "^0.7.14",
+          renderer: "react",
+          mode: "standalone",
+          packageManager: "pnpm",
+          generatedBy: "@originloom/tooling",
+          plugins: [],
+          appliedMigrations: [
+            "0.5.14-upgrade-contract-v1",
+            "0.5.17-eslint-10",
+            "0.5.18-vitest-scope",
+            "0.5.34-react-quality-security",
+            "0.5.35-route-build-manifest",
+            "0.5.36-product-middleware",
+            "0.6.0-gateway-backed-streaming",
+            "0.7.0-react-only",
+            "0.7.3-gateway-identity",
+            "0.7.11-plugin-schema-v2",
+            "0.7.12-hono-ssr-security",
+            "0.7.14-public-static",
+            "0.7.14-scaffold-gateway",
+          ],
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    mkdirSync(join(root, "src/styles"), { recursive: true });
+    writeFileSync(
+      join(root, "src/styles/globals.css"),
+      '@import "tailwindcss";\n\nbody {\n  font-family: sans-serif;\n}\n',
+    );
+
+    const result = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(result.status).toBe(0);
+    expect(readFileSync(join(root, "src/styles/globals.css"), "utf8")).toContain("@view-transition");
+
+    const metadata = JSON.parse(readFileSync(join(root, ".originloom/project.json"), "utf8"));
+    expect(metadata.appliedMigrations).toContain("0.7.15-navigation-paint");
+    expect(metadata.templateVersion).toBe(TOOLING_VERSION);
+  });
 });
 
 function project({ version, metadata }) {
@@ -284,6 +334,7 @@ function project({ version, metadata }) {
                   "0.7.12-hono-ssr-security",
                   "0.7.14-public-static",
                   "0.7.14-scaffold-gateway",
+                  "0.7.15-navigation-paint",
                 ]
               : []),
           ],

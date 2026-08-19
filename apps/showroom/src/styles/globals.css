@@ -30,3 +30,8 @@
     @apply transition-colors;
   }
 }
+
+/* Same-origin navigations keep the outgoing page visible until the next document is ready. */
+@view-transition {
+  navigation: auto;
+}

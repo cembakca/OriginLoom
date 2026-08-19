@@ -67,6 +67,10 @@ const { publicPath, search, siteUrl } = useRequestContext();
 ## Client-side navigation yok
 
 Her gezinme tam sayfa yüküdür. Bu bilinçli: cache'lenmiş HTML dokümanı mimarinin merkezinde ve geri
-tuşu tarayıcının bfcache'iyle bir SPA router'ından hızlı çalışır. Bunun bir koşulu var — açık bir
-bağlantı sayfayı bfcache'e uygunsuz kılar. `src/islands/live-ticks.tsx` bu yüzden `pagehide`'da
+tuşu tarayıcının bfcache'iyle bir SPA router'ından hızlı çalışır. Aynı origin'deki `<a href>`
+geçişlerinde platform **Cross-Document View Transitions** kullanır: yeni HTML hazır olana kadar
+giden sayfa ekranda kalır (Chrome 126+, Edge 126+). Tam yenileme (F5) tarayıcı eski dokümanı
+siler; bu aralıkta siyah ekran yerine `DocumentLayout` head'e inline kritik arka plan rengi basar.
+
+Bunun bir koşulu var — açık bir bağlantı sayfayı bfcache'e uygunsuz kılar. `src/islands/live-ticks.tsx` bu yüzden `pagehide`'da
 bağlantıyı kapatıp `pageshow`'da geri açar; SSE veya WebSocket açan her island aynısını yapmalıdır.

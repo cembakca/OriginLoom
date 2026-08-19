@@ -7486,8 +7486,16 @@ const globalsCss = (standalone) => `@import "tailwindcss";
   --font-sans: ui-sans-serif, system-ui, sans-serif;
 }
 
-body {
-  font-family: var(--font-sans);
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    font-family: var(--font-sans);
+  }
+}
+
+/* Same-origin navigations keep the outgoing page visible until the next document is ready. */
+@view-transition {
+  navigation: auto;
 }
 `;
 

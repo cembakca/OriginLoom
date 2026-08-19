@@ -6,6 +6,7 @@ import type { ReactElement, ReactNode } from "react";
 
 import { REQUEST_CONTEXT_ELEMENT_ID, RequestContextProvider } from "../lib/request-context.js";
 import type { ReactRendererConfig } from "./types.js";
+import { criticalPaintCss, DEFAULT_CRITICAL_PAINT } from "./critical-paint.js";
 
 const fontCssCache = new WeakMap<readonly FontAsset[], string>();
 
@@ -31,12 +32,16 @@ export function DocumentLayout<Shell>({ input, config }: DocumentLayoutProps<She
     content,
     cspNonce,
   } = input;
+  const paint = { ...DEFAULT_CRITICAL_PAINT, ...config.criticalPaint };
 
   return (
-    <html lang={htmlLang}>
+    <html lang={htmlLang} style={{ backgroundColor: paint.backgroundColor, color: paint.color }}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content={paint.colorScheme} />
+        <meta name="theme-color" content={paint.themeColor} />
+        <style>{criticalPaintCss(config.criticalPaint)}</style>
         {config.renderHeadStart({ seo, cspNonce })}
         {assets.fonts.map((font) =>
           font.preload ? (

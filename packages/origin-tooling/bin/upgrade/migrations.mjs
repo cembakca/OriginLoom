@@ -21,6 +21,14 @@ export const PLUGIN_SCHEMA_MIGRATION = "0.7.11-plugin-schema-v2";
 export const HONO_SSR_SECURITY_MIGRATION = "0.7.12-hono-ssr-security";
 export const PUBLIC_STATIC_MIGRATION = "0.7.14-public-static";
 export const SCAFFOLD_GATEWAY_MIGRATION = "0.7.14-scaffold-gateway";
+export const NAVIGATION_PAINT_MIGRATION = "0.7.15-navigation-paint";
+
+const VIEW_TRANSITION_CSS = `
+/* Same-origin navigations keep the outgoing page visible until the next document is ready. */
+@view-transition {
+  navigation: auto;
+}
+`;
 
 function migrationAsset(name) {
   return readFileSync(fileURLToPath(new URL(`../create-app/assets/${name}`, import.meta.url)), "utf8");
@@ -186,6 +194,24 @@ export const migrations = [
         return;
       }
       setDependency(manifest, changes, "scripts", "contracts:scaffold", "origin-scaffold-gateway");
+    },
+  },
+  {
+    id: NAVIGATION_PAINT_MIGRATION,
+    introducedIn: "0.7.15",
+    description:
+      "Adds cross-document view transitions to globals.css; critical first-paint colors ship in @originloom/react DocumentLayout.",
+    migrateProject(root, changes, fileWrites) {
+      const globalsPath = join(root, "src/styles/globals.css");
+      if (!existsSync(globalsPath)) return;
+      const source = readFileSync(globalsPath, "utf8");
+      if (source.includes("@view-transition")) return;
+      fileWrites["src/styles/globals.css"] = `${source.trimEnd()}${VIEW_TRANSITION_CSS}\n`;
+      changes.push({
+        file: "src/styles/globals.css",
+        kind: "patch",
+        detail: "@view-transition { navigation: auto; } eklendi.",
+      });
     },
   },
 ];

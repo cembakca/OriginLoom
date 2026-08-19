@@ -206,7 +206,9 @@ function inferPlugins(current) {
 }
 
 function backupIfPresent(source, target) {
-  if (existsSync(source)) copyFileSync(source, target);
+  if (!existsSync(source)) return;
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(source, target);
 }
 
 async function writeJsonAtomic(path, value) {
