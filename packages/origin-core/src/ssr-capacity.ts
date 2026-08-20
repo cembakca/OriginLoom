@@ -139,13 +139,25 @@ export function ssrCapacityResponse(error: SsrCapacityError, requestId?: string)
   const headers = new Headers({
     "cache-control": "private, no-store",
     "content-type": "text/html; charset=utf-8",
-    "retry-after": "1",
     "x-ssr-rejection": error.reason,
   });
+  const retryAfter = retryAfterSeconds(error.reason);
+  if (retryAfter !== undefined) headers.set("retry-after", retryAfter);
   if (requestId) headers.set("x-request-id", requestId);
 
   return new Response(
     '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><title>Sunucu yoğun</title></head><body><main><h1>Sunucu şu anda yoğun</h1><p>Lütfen kısa süre sonra yeniden deneyin.</p></main></body></html>',
     { status: 503, headers },
   );
+}
+
+function retryAfterSeconds(reason: SsrCapacityRejectionReason): string | undefined {
+  switch (reason) {
+    case "queue_full":
+      return String(Math.max(1, Math.ceil(config.ssrQueueWaitMs / 1000)));
+    case "wait_timeout":
+      return "2";
+    case "request_aborted":
+      return undefined;
+  }
 }

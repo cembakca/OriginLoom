@@ -16,6 +16,8 @@ module.exports = {
           },
         },
       },
+      // Figma exports often bake colours into style="" — normalize before convertColors.
+      { name: "convertStyleToAttrs" },
       {
         name: "convertColors",
         params: { currentColor: true },

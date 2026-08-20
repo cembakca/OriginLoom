@@ -63,6 +63,9 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   assertPositiveInteger("API_REQUEST_TIMEOUT_MS", config.apiRequestTimeoutMs);
   assertPositiveInteger("PROXY_REQUEST_TIMEOUT_MS", config.proxyRequestTimeoutMs);
   assertPositiveInteger("SSR_MAX_CONCURRENCY", config.ssrMaxConcurrency);
+  if (config.ssrMaxConcurrency > 512) {
+    throw new Error(`Invalid SSR_MAX_CONCURRENCY: ${config.ssrMaxConcurrency}`);
+  }
   assertPositiveInteger("SSR_MAX_QUEUE", config.ssrMaxQueue);
   assertPositiveInteger("SSR_QUEUE_WAIT_MS", config.ssrQueueWaitMs);
   if (config.ssrRequestTimeoutMs <= config.cacheFillTimeoutMs) {

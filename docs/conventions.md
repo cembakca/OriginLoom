@@ -679,15 +679,13 @@ src/components/icons/index.ts     ← barrel export (BrandMark)
 
 ```bash
 pnpm icons          # manuel regenerate
-pnpm dev            # icons → Vite HMR + tsx watch + mock gateway
+pnpm dev            # icons (startup) + svg watch → Vite HMR + tsx watch
 pnpm build          # icons → vite build
 ```
 
-`pnpm dev` build-watch değildir. Vite 5173'te source modülleri, HMR websocket'i ve React Refresh
-runtime'ını servis eder; Hono 3005'te SSR HTML/API sunar. Browser her zaman Hono URL'inde açılır.
-Island/client değişiklikleri Fast Refresh olur. SSR dosyaları `tsx watch` ile restart edilir ve Hono
-hazır olduğunda yalnız bu değişiklikler full document reload tetikler. Production asset manifest'i bu
-akışta okunmaz veya yeniden yazılmaz.
+`pnpm dev` build-watch değildir; yalnızca `src/assets/svg/` ve `.svgrrc.cjs` için ikon codegen
+watch edilir. Vite üretilen `src/components/icons/*.tsx` dosyalarını HMR ile yeniler. SSR dosyaları
+`tsx watch` ile restart edilir.
 
 Config: `.svgrrc.cjs` (TypeScript, `icon: true`, SVGO + `currentColor`).
 

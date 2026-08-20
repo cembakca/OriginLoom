@@ -80,7 +80,8 @@ function generate(label, script) {
   });
 }
 
-if (existsSync(resolve(root, "src/assets/svg"))) await generate("icons", "./generate-icons.mjs");
+const hasSvgSources = existsSync(resolve(root, "src/assets/svg"));
+if (hasSvgSources) await generate("icons", "./generate-icons.mjs");
 if (existsSync(resolve(root, "server/media.config.json")))
   await generate("media", "./build-media.mjs");
 
@@ -173,6 +174,9 @@ if (gatewayEntry) {
   }
 }
 
+if (hasSvgSources) {
+  start("icons:watch", [new URL("./watch-icons.mjs", import.meta.url).pathname]);
+}
 start(
   "vite",
   [

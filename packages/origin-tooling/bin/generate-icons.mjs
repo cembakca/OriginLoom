@@ -8,9 +8,12 @@ import { transform } from "@svgr/core";
 import jsxPlugin from "@svgr/plugin-jsx";
 import svgoPlugin from "@svgr/plugin-svgo";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const TOOLING_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const ROOT = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
 const SVG_DIR = join(ROOT, "src/assets/svg");
@@ -98,7 +101,12 @@ async function readSvgrConfig() {
     const module = await import(pathToFileURL(configPath).href);
     return module.default ?? {};
   } catch (err) {
-    if (err && typeof err === "object" && "code" in err && err.code === "ERR_MODULE_NOT_FOUND") {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err.code === "ERR_MODULE_NOT_FOUND" || err.code === "ENOENT")
+    ) {
       return {};
     }
     throw err;
@@ -132,8 +140,17 @@ async function writeBarrel(svgFiles) {
   await writeFile(join(OUT_DIR, "index.ts"), content);
 }
 
+function resolvePrettierBin() {
+  const local = join(ROOT, "node_modules/prettier/bin/prettier.cjs");
+  if (existsSync(local)) return local;
+  const tooling = join(TOOLING_ROOT, "node_modules/prettier/bin/prettier.cjs");
+  if (existsSync(tooling)) return tooling;
+  return null;
+}
+
 function formatOutputs() {
-  const prettierBin = join(ROOT, "node_modules/prettier/bin/prettier.cjs");
+  const prettierBin = resolvePrettierBin();
+  if (!prettierBin) return;
   execFileSync(process.execPath, [prettierBin, "--write", OUT_DIR], {
     cwd: ROOT,
     stdio: "ignore",

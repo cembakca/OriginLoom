@@ -10,14 +10,72 @@ import { errorResponse } from "./error.js";
 import { logError } from "./logger.js";
 import type { PreparedRequest } from "./middleware/prepared-request.js";
 import { rethrowRequestDeadline } from "./ssr/context.js";
-import { resolveSsrRequest } from "./ssr/request-resolution.js";
+import { resolveSsrRequest, type ResolvedSsrRequest } from "./ssr/request-resolution.js";
 import { logRequest } from "./ssr/response.js";
-import { serveRoute } from "./ssr/serve-route.js";
+import { serveRoute, tryServeCachedRoute, type ServeRouteOptions } from "./ssr/serve-route.js";
 import type { HandleContext } from "./ssr/types.js";
 
 export { drainRevalidations } from "./cache/revalidation.js";
-export { handleHead } from "./ssr/head.js";
+export {
+  handleHead,
+  renderHeadRoute,
+  resolveHeadRoute,
+  tryServeCachedHead,
+} from "./ssr/head.js";
 export type { HandleContext } from "./ssr/types.js";
+export type { ServeRouteOptions } from "./ssr/serve-route.js";
+export { tryServeCachedRoute } from "./ssr/serve-route.js";
+
+export type ResolvedHandleRequest =
+  | { kind: "response"; response: Response }
+  | { kind: "route"; serveOptions: ServeRouteOptions };
+
+/** Resolves a GET request to either a terminal response or route serve options. */
+export async function resolveHandleRequest(
+  request: Request,
+  routes: Route[],
+  assets: Assets,
+  ctx: HandleContext = {},
+): Promise<ResolvedHandleRequest> {
+  const started = Date.now();
+  const url = new URL(request.url);
+  const pendingResolution = resolveSsrRequest({
+    request,
+    routes,
+    assets,
+    context: ctx,
+    started,
+  });
+  const resolved: ResolvedSsrRequest =
+    pendingResolution instanceof Promise ? await pendingResolution : pendingResolution;
+  if (resolved.kind === "response") return resolved;
+  return {
+    kind: "route",
+    serveOptions: {
+      request,
+      url,
+      route: resolved.route,
+      routeCtx: resolved.routeCtx,
+      policy: resolved.policy,
+      cacheKey: resolved.cacheKey,
+      assets,
+      requestId: ctx.requestId,
+      started,
+    },
+  };
+}
+
+/** Serves a cached GET response when one exists. */
+export async function tryCachedHandle(
+  serveOptions: ServeRouteOptions,
+): Promise<Response | null> {
+  return tryServeCachedRoute(serveOptions);
+}
+
+/** Renders a GET request after the cache fast path missed. */
+export async function renderHandle(serveOptions: ServeRouteOptions): Promise<Response> {
+  return serveRoute({ ...serveOptions, skipCacheProbe: true });
+}
 
 export function isSsrRouteRequest(
   request: Request,
@@ -59,27 +117,11 @@ export async function handle(
   const requestId = ctx.requestId;
 
   try {
-    const pendingResolution = resolveSsrRequest({
-      request,
-      routes,
-      assets,
-      context: ctx,
-      started,
-    });
-    const resolved =
-      pendingResolution instanceof Promise ? await pendingResolution : pendingResolution;
+    const resolved = await resolveHandleRequest(request, routes, assets, ctx);
     if (resolved.kind === "response") return resolved.response;
-    return await serveRoute({
-      request,
-      url,
-      route: resolved.route,
-      routeCtx: resolved.routeCtx,
-      policy: resolved.policy,
-      cacheKey: resolved.cacheKey,
-      assets,
-      requestId,
-      started,
-    });
+    const cached = await tryCachedHandle(resolved.serveOptions);
+    if (cached) return cached;
+    return renderHandle(resolved.serveOptions);
   } catch (err) {
     rethrowRequestDeadline(request, err);
     const errorId = randomUUID();

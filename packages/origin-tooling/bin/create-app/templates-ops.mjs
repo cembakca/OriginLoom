@@ -250,7 +250,8 @@ data:
   CACHE_FILL_POLL_MS: "100"
 
   # Render admission: past the queue, requests are shed with 503 so the app
-  # stays responsive instead of collapsing.
+  # stays responsive instead of collapsing. Unset SSR_MAX_CONCURRENCY scales
+  # with CPU (max(32, cores×4), cap 256); explicit env always wins.
   SSR_MAX_CONCURRENCY: "32"
   SSR_MAX_QUEUE: "64"
   SSR_QUEUE_WAIT_MS: "250"

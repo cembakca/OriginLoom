@@ -3,7 +3,18 @@ import type { Route } from "@originloom/shared/lib/types";
 import type { Handler } from "hono";
 
 import type { Assets } from "../assets.js";
-import { handle, handleHead, isSsrRouteRequest, methodNotAllowedResponse } from "../handler.js";
+import {
+  handle,
+  handleHead,
+  isSsrRouteRequest,
+  methodNotAllowedResponse,
+  renderHandle,
+  renderHeadRoute,
+  resolveHandleRequest,
+  resolveHeadRoute,
+  tryCachedHandle,
+  tryServeCachedHead,
+} from "../handler.js";
 import {
   finalizePipelineResponse,
   finalizeSsrResponse,
@@ -54,23 +65,25 @@ export function createSsrDispatch({
       return c.notFound();
     }
 
-    const execute = () =>
-      executeRequest({
-        request,
-        requestId,
-        clientIp,
-        ...stripUndefined({ cspNonce }),
-        method,
-        pathname,
-        routes,
-        assets,
-        pipeline,
-        ...stripUndefined({ preparedRequest }),
-      });
+    const requestOptions = {
+      request,
+      requestId,
+      clientIp,
+      ...stripUndefined({ cspNonce }),
+      method,
+      pathname,
+      routes,
+      assets,
+      pipeline,
+      ...stripUndefined({ preparedRequest }),
+    };
 
-    if (c.get("requestClass") !== "ssr") return execute();
+    if (c.get("requestClass") !== "ssr") {
+      return executeRequest(requestOptions);
+    }
+
     try {
-      return await capacity.run(request.signal, execute);
+      return await executeSsrRequest({ ...requestOptions, capacity });
     } catch (error) {
       if (error instanceof SsrCapacityError) return ssrCapacityResponse(error, requestId);
       throw error;
@@ -78,7 +91,7 @@ export function createSsrDispatch({
   };
 }
 
-async function executeRequest(options: {
+type RequestOptions = {
   request: Request;
   requestId: string;
   clientIp: string;
@@ -89,42 +102,165 @@ async function executeRequest(options: {
   assets: Assets;
   pipeline: Pipeline;
   preparedRequest?: NonNullable<AppVariables["preparedRequest"]>;
-}): Promise<Response> {
-  const {
-    request,
-    requestId,
-    clientIp,
-    cspNonce,
-    method,
-    pathname,
-    routes,
-    assets,
-    pipeline: runPipeline,
-    preparedRequest,
-  } = options;
-  const context = {
-    requestId,
-    clientIp,
-    ...stripUndefined({ cspNonce, preparedRequest }),
-  };
-  if (!shouldUsePipeline(pathname)) {
-    return method === "HEAD"
-      ? handleHead(request, routes, context)
-      : handle(request, routes, assets, context);
+};
+
+async function executeSsrRequest(
+  options: RequestOptions & { capacity: Capacity },
+): Promise<Response> {
+  const outcome = await tryServeFromCache(options);
+  if ("response" in outcome) return outcome.response;
+  return options.capacity.run(options.request.signal, outcome.render);
+}
+
+async function tryServeFromCache(
+  options: RequestOptions,
+): Promise<{ response: Response } | { render: () => Promise<Response> }> {
+  if (!shouldUsePipeline(options.pathname)) {
+    if (options.method === "HEAD") {
+      const context = buildContext(options);
+      const resolved = await resolveHeadRoute(options.request, options.routes, context);
+      if (resolved instanceof Response) {
+        resolved.headers.set("x-request-id", options.requestId);
+        return { response: resolved };
+      }
+      const cached = await tryServeCachedHead(resolved, options.requestId);
+      if (cached) {
+        cached.headers.set("x-request-id", options.requestId);
+        return { response: cached };
+      }
+      return {
+        render: async () => {
+          const response = await renderHeadRoute(resolved, options.requestId);
+          response.headers.set("x-request-id", options.requestId);
+          return response;
+        },
+      };
+    }
+
+    const context = buildContext(options);
+    const resolved = await resolveHandleRequest(
+      options.request,
+      options.routes,
+      options.assets,
+      context,
+    );
+    if (resolved.kind === "response") {
+      resolved.response.headers.set("x-request-id", options.requestId);
+      return { response: resolved.response };
+    }
+    const cached = await tryCachedHandle(resolved.serveOptions);
+    if (cached) {
+      cached.headers.set("x-request-id", options.requestId);
+      return { response: cached };
+    }
+    return {
+      render: async () => {
+        const response = await renderHandle(resolved.serveOptions);
+        response.headers.set("x-request-id", options.requestId);
+        return response;
+      },
+    };
   }
 
-  const pipeline = await runPipeline(request, requestId, clientIp, preparedRequest?.url);
+  const pipeline = await options.pipeline(
+    options.request,
+    options.requestId,
+    options.clientIp,
+    options.preparedRequest?.url,
+  );
   if (pipeline.response) {
     const response =
-      method === "HEAD"
+      options.method === "HEAD"
         ? withoutBody(finalizePipelineResponse(pipeline))
         : finalizePipelineResponse(pipeline);
-    response.headers.set("x-request-id", requestId);
+    response.headers.set("x-request-id", options.requestId);
+    return { response };
+  }
+
+  const handleContext = {
+    ...buildContext(options),
+    ...stripUndefined({
+      trackingId: pipeline.trackingId,
+      values: pipeline.values,
+      cacheVary: pipeline.cacheVary,
+    }),
+  };
+
+  if (options.method === "HEAD") {
+    const resolved = await resolveHeadRoute(pipeline.request, options.routes, handleContext);
+    if (resolved instanceof Response) {
+      const response = finalizeSsrResponse(resolved, pipeline);
+      response.headers.set("x-request-id", options.requestId);
+      return { response };
+    }
+    const cached = await tryServeCachedHead(resolved, options.requestId);
+    if (cached) {
+      const response = finalizeSsrResponse(cached, pipeline);
+      response.headers.set("x-request-id", options.requestId);
+      return { response };
+    }
+    return {
+      render: async () => {
+        const ssr = await renderHeadRoute(resolved, options.requestId);
+        const response = finalizeSsrResponse(ssr, pipeline);
+        response.headers.set("x-request-id", options.requestId);
+        return response;
+      },
+    };
+  }
+
+  const resolved = await resolveHandleRequest(
+    pipeline.request,
+    options.routes,
+    options.assets,
+    handleContext,
+  );
+  if (resolved.kind === "response") {
+    const response = finalizeSsrResponse(resolved.response, pipeline);
+    response.headers.set("x-request-id", options.requestId);
+    return { response };
+  }
+  const cached = await tryCachedHandle(resolved.serveOptions);
+  if (cached) {
+    const response = finalizeSsrResponse(cached, pipeline);
+    response.headers.set("x-request-id", options.requestId);
+    return { response };
+  }
+  return {
+    render: async () => {
+      const ssr = await renderHandle(resolved.serveOptions);
+      const response = finalizeSsrResponse(ssr, pipeline);
+      response.headers.set("x-request-id", options.requestId);
+      return response;
+    },
+  };
+}
+
+async function executeRequest(options: RequestOptions): Promise<Response> {
+  if (!shouldUsePipeline(options.pathname)) {
+    const context = buildContext(options);
+    return options.method === "HEAD"
+      ? handleHead(options.request, options.routes, context)
+      : handle(options.request, options.routes, options.assets, context);
+  }
+
+  const pipeline = await options.pipeline(
+    options.request,
+    options.requestId,
+    options.clientIp,
+    options.preparedRequest?.url,
+  );
+  if (pipeline.response) {
+    const response =
+      options.method === "HEAD"
+        ? withoutBody(finalizePipelineResponse(pipeline))
+        : finalizePipelineResponse(pipeline);
+    response.headers.set("x-request-id", options.requestId);
     return response;
   }
 
   const handleContext = {
-    ...context,
+    ...buildContext(options),
     ...stripUndefined({
       trackingId: pipeline.trackingId,
       values: pipeline.values,
@@ -132,12 +268,23 @@ async function executeRequest(options: {
     }),
   };
   const ssr =
-    method === "HEAD"
-      ? await handleHead(pipeline.request, routes, handleContext)
-      : await handle(pipeline.request, routes, assets, handleContext);
+    options.method === "HEAD"
+      ? await handleHead(pipeline.request, options.routes, handleContext)
+      : await handle(pipeline.request, options.routes, options.assets, handleContext);
   const response = finalizeSsrResponse(ssr, pipeline);
-  response.headers.set("x-request-id", requestId);
+  response.headers.set("x-request-id", options.requestId);
   return response;
+}
+
+function buildContext(options: RequestOptions) {
+  return {
+    requestId: options.requestId,
+    clientIp: options.clientIp,
+    ...stripUndefined({
+      cspNonce: options.cspNonce,
+      preparedRequest: options.preparedRequest,
+    }),
+  };
 }
 
 function withoutBody(response: Response): Response {

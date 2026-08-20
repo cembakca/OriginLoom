@@ -10813,6 +10813,8 @@ module.exports = {
   svgoConfig: {
     plugins: [
       { name: "preset-default", params: { overrides: { removeViewBox: false } } },
+      // Figma exports often bake colours into style="" — normalize before convertColors.
+      { name: "convertStyleToAttrs" },
       // Inherit the surrounding text colour instead of baking one in.
       { name: "convertColors", params: { currentColor: true } },
     ],

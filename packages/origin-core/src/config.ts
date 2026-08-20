@@ -1,10 +1,17 @@
-type CacheBackend = "memory" | "redis";
+import { availableParallelism } from "node:os";
 
 import { validateAppConfig } from "./config-validation.js";
+
+type CacheBackend = "memory" | "redis";
 
 export function numberEnv(name: string, fallback: number): number {
   const value = process.env[name];
   return value === undefined ? fallback : Number(value);
+}
+
+/** Default render slots scale with CPU count; explicit env always wins. */
+export function defaultSsrMaxConcurrency(): number {
+  return Math.min(256, Math.max(32, availableParallelism() * 4));
 }
 
 export function booleanEnv(name: string, fallback: boolean): boolean {
@@ -49,7 +56,7 @@ export const config = {
   ssrRequestTimeoutMs,
   apiRequestTimeoutMs: numberEnv("API_REQUEST_TIMEOUT_MS", 12_000),
   proxyRequestTimeoutMs: numberEnv("PROXY_REQUEST_TIMEOUT_MS", 8_000),
-  ssrMaxConcurrency: numberEnv("SSR_MAX_CONCURRENCY", 32),
+  ssrMaxConcurrency: numberEnv("SSR_MAX_CONCURRENCY", defaultSsrMaxConcurrency()),
   ssrMaxQueue: numberEnv("SSR_MAX_QUEUE", 64),
   ssrQueueWaitMs: numberEnv("SSR_QUEUE_WAIT_MS", 250),
   revalidationAttempts: numberEnv("SWR_REVALIDATION_ATTEMPTS", 3),

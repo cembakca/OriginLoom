@@ -45,6 +45,10 @@ terminal scrollback'i de bir ekran görüntüsü de token'ın bulunmaması gerek
 Başlıca kapasite grupları:
 
 - SSR: `SSR_REQUEST_TIMEOUT_MS`, `SSR_MAX_CONCURRENCY`, `SSR_MAX_QUEUE`, `SSR_QUEUE_WAIT_MS`.
+  - `SSR_MAX_CONCURRENCY` set edilmezse platform CPU sayısına göre hesaplar (`max(32, cores×4)`,
+    üst sınır 256). Mevcut deploy'larda env ile sabitlediyseniz davranış değişmez.
+  - Cache'li sayfalar (`x-cache: HIT` / `STALE`) render admission almaz; BYPASS rotalar slot
+    tüketir. Yoğunlukta önce cache hit oranını ve BYPASS payını kontrol edin.
 - Upstream: `GATEWAY_TIMEOUT_MS`, `GATEWAY_CONNECT_TIMEOUT_MS`,
   `GATEWAY_HEADERS_TIMEOUT_MS`, `GATEWAY_BODY_TIMEOUT_MS`, `GATEWAY_MAX_CONNECTIONS` (origin başına),
   `GATEWAY_PIPELINING`, `GATEWAY_KEEP_ALIVE_TIMEOUT_MS`, `API_REQUEST_TIMEOUT_MS`,

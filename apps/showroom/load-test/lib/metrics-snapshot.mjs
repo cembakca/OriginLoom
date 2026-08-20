@@ -13,7 +13,7 @@ export async function scrapeMetrics(metricsUrl) {
       "ssr_http_request_duration_milliseconds",
       "ssr_cache_response_duration_milliseconds",
       "ssr_request_timeout_total",
-      "ssr_ssr_capacity_rejected_total",
+      "ssr_render_rejections_total",
       "ssr_ssr_queue_wait_milliseconds",
       "ssr_gateway_requests_total",
       "ssr_gateway_invalid_payload_total",

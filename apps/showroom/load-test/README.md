@@ -74,7 +74,7 @@ pnpm stress:compare
 1. **memory vs redis**: Tiered mimaride redis profili L2 paylaşımı ve dağıtık cold-fill ölçer; memory profili tek pod L1-only davranışını yansıtır. Sıcak L1+Redis yolunda Redis GET yapılmaması beklenir — eski load test raporları birebir karşılaştırılamaz.
 2. **capacity-ramp**: Bilinçli stres — `503` (queue/full) ve `504` (deadline) burada beklenen sinyallerdir.
 3. **Mutlak RPS**: mock gateway ve tek container limiti nedeniyle prod taahhüdü değildir.
-4. **Metrikler**: `ssr_ssr_capacity_rejected_total`, `ssr_request_timeout_total`,
+4. **Metrikler**: `ssr_render_rejections_total`, `ssr_request_timeout_total`,
    `ssr_cache_response_duration_milliseconds` rapor sonrası incelenmelidir.
 
 ## Organizasyon önerisi

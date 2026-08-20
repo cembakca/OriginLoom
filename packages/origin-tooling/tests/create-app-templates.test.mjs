@@ -1337,6 +1337,7 @@ describe("renderTemplates — product config, public API and media", () => {
   it("ships icon codegen with the transformer left in the tooling that runs it", () => {
     const [, react] = modes[0];
     expect(react).toHaveProperty([".svgrrc.cjs"]);
+    expect(react[".svgrrc.cjs"]).toContain("convertStyleToAttrs");
     expect(JSON.parse(react["package.json"]).scripts.icons).toBe("origin-generate-icons");
     // The transformer belongs to the tooling that runs it. An app carrying its
     // own copy also carried @svgr/cli's deprecated glob chain for nothing.

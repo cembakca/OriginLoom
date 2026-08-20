@@ -22,7 +22,7 @@ import {
 } from "./response.js";
 import type { RouteExecution } from "./types.js";
 
-type ServeRouteOptions = {
+export type ServeRouteOptions = {
   request: Request;
   url: URL;
   route: Route;
@@ -32,19 +32,30 @@ type ServeRouteOptions = {
   assets: Assets;
   requestId: string | undefined;
   started: number;
+  /** Skip the cache probe when the caller already tried the fast path. */
+  skipCacheProbe?: boolean;
 };
 
+/** Serves a cached GET body without acquiring render admission. */
+export async function tryServeCachedRoute(
+  options: ServeRouteOptions,
+): Promise<Response | null> {
+  if (!options.cacheKey || options.request.method !== "GET") return null;
+  const hit = await cache.read(options.cacheKey);
+  if (!hit) return null;
+  return cachedResponse(
+    options,
+    hit.body,
+    hit.state === "fresh" ? "HIT" : "STALE",
+    hit.hasFragments,
+    hit.fragmentMarkers,
+  );
+}
+
 export async function serveRoute(options: ServeRouteOptions): Promise<Response> {
-  if (options.cacheKey && options.request.method === "GET") {
-    const hit = await cache.read(options.cacheKey);
-    if (hit)
-      return cachedResponse(
-        options,
-        hit.body,
-        hit.state === "fresh" ? "HIT" : "STALE",
-        hit.hasFragments,
-        hit.fragmentMarkers,
-      );
+  if (!options.skipCacheProbe) {
+    const cached = await tryServeCachedRoute(options);
+    if (cached) return cached;
   }
 
   try {

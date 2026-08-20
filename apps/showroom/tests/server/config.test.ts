@@ -291,6 +291,9 @@ describe("server config", () => {
     await expect(validateWith({ SSR_MAX_CONCURRENCY: "0" })).rejects.toThrow(
       "Invalid SSR_MAX_CONCURRENCY",
     );
+    await expect(validateWith({ SSR_MAX_CONCURRENCY: "513" })).rejects.toThrow(
+      "Invalid SSR_MAX_CONCURRENCY",
+    );
   });
 
   it("requires SITE_URL to be a public origin rather than a path-bearing URL", async () => {

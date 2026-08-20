@@ -22,6 +22,7 @@ export const HONO_SSR_SECURITY_MIGRATION = "0.7.12-hono-ssr-security";
 export const PUBLIC_STATIC_MIGRATION = "0.7.14-public-static";
 export const SCAFFOLD_GATEWAY_MIGRATION = "0.7.14-scaffold-gateway";
 export const NAVIGATION_PAINT_MIGRATION = "0.7.15-navigation-paint";
+export const SSR_CAPACITY_MIGRATION = "0.7.16-ssr-capacity";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -213,6 +214,12 @@ export const migrations = [
         detail: "@view-transition { navigation: auto; } eklendi.",
       });
     },
+  },
+  {
+    id: SSR_CAPACITY_MIGRATION,
+    introducedIn: "0.7.16",
+    description:
+      "SSR cache HIT/STALE bypasses render admission; CPU-aware SSR_MAX_CONCURRENCY default and 503 runbook ship in @originloom/core.",
   },
 ];
 

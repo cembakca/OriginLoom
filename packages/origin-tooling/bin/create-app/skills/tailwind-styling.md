@@ -63,6 +63,7 @@ scattered magic values.
 
 - `pnpm icons` — `src/assets/svg/*.svg` → `src/components/icons/*.tsx` (SVGR).
   Üretilen dosyalar elle düzenlenmez; SVG'yi değiştirip yeniden çalıştırın.
+  `pnpm dev` başlangıcında bir kez ve SVG/config değişince otomatik yeniden üretir.
   Renkler `currentColor`'a çevrilir, yani ikon çevresindeki metin rengini alır.
 - `pnpm media` — `server/media.config.json`'daki görselleri avif/webp/jpg
   varyantlarına çevirir, favicon/apple-touch-icon/OG görselini üretir ve hash'li
