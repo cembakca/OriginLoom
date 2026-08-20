@@ -8,6 +8,7 @@ import type { DocumentRenderInput, FrameworkNode, StreamResult } from "@originlo
 import type { Assets } from "./assets.js";
 import { resolveDocumentHeadAssets } from "./document/head-assets.js";
 import type { DocumentContext } from "./document/types.js";
+import { isSafeRequestId } from "./middleware/request-id.js";
 import type { DocumentShell } from "./runtime.js";
 import { getRuntime } from "./runtime.js";
 
@@ -108,6 +109,9 @@ async function buildDocumentInput({
     imagePreloads,
     modulePreloads,
     cspNonce,
+    ...(routeCtx.pageRequestId && isSafeRequestId(routeCtx.pageRequestId)
+      ? { pageRequestId: routeCtx.pageRequestId }
+      : {}),
   };
 }
 

@@ -6,8 +6,12 @@ export type { AppVariables } from "./context.js";
 
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 
+export function isSafeRequestId(value: string): boolean {
+  return SAFE_REQUEST_ID.test(value);
+}
+
 export function normalizeRequestId(value: string | undefined): string {
-  return value && SAFE_REQUEST_ID.test(value) ? value : crypto.randomUUID();
+  return value && isSafeRequestId(value) ? value : crypto.randomUUID();
 }
 
 export const requestId: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {

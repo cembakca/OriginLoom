@@ -65,7 +65,7 @@ Başlıca kapasite grupları:
   `IMAGE_TRANSFORM_URL`.
 - Operations: `METRICS_ENABLED`, `METRICS_PORT`, `CACHE_PURGE_SECRET`.
 - Security/telemetry: `CSP_ENFORCE`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`,
-  `LOG_LEVEL`, `REQUEST_LOG_SAMPLE_RATE`.
+  `LOG_LEVEL`, `LOG_FORMAT`, `REQUEST_LOG_SAMPLE_RATE`.
 
 Heartbeat stream süresinden, ürün worker drain'i global shutdown budget'ından kısa olmalıdır.
 Multi-pod production'da Redis zorunluysa `CACHE_REQUIRED=true` kullanın. `TRUST_PROXY` yalnız
@@ -79,4 +79,5 @@ gateway'e en fazla yaklaşık 640 açık bağlantı demektir.
 `REQUEST_LOG_SAMPLE_RATE` yalnız başarılı access log'larını örnekler. HTTP 4xx/5xx ve `x-cache=ERROR`
 cevapları her zaman loglanır. `LOG_LEVEL=info` production varsayılanıdır; tek tek Web Vitals/island
 metric JSON satırları yalnız `debug` seviyesinde yazılır, Prometheus serileri ise her seviyede devam
-eder.
+eder. Development'ta `LOG_FORMAT=pretty` (varsayılan) okunabilir satırlar üretir; test/staging/production
+JSON kalır (`LOG_FORMAT=json`).

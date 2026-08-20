@@ -36,6 +36,8 @@ export type DocumentRenderInput<Shell = unknown> = {
   imagePreloads: readonly ImagePreload[];
   modulePreloads: readonly string[];
   cspNonce?: string | undefined;
+  /** SSR request id embedded for client error correlation. */
+  pageRequestId?: string | undefined;
 };
 
 export type DocumentStreamOptions = {

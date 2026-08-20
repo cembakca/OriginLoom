@@ -2,6 +2,7 @@ import type { Ctx } from "@originloom/shared/lib/types";
 
 import { config } from "../config.js";
 import { isRequestDeadlineError } from "../middleware/request-deadline.js";
+import { isSafeRequestId } from "../middleware/request-id.js";
 import type { HandleContext } from "./types.js";
 
 export function createRouteContext(
@@ -17,6 +18,9 @@ export function createRouteContext(
     url,
     publicPath,
     siteUrl: config.siteUrl,
+    ...(ctx.requestId !== undefined && isSafeRequestId(ctx.requestId)
+      ? { pageRequestId: ctx.requestId }
+      : {}),
     ...(ctx.trackingId !== undefined ? { trackingId: ctx.trackingId } : {}),
     ...(ctx.cspNonce !== undefined ? { cspNonce: ctx.cspNonce } : {}),
     ...(ctx.values !== undefined ? { values: ctx.values } : {}),

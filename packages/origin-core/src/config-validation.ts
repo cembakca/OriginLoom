@@ -82,6 +82,9 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   if (!["debug", "info", "warn", "error", "silent"].includes(config.logLevel)) {
     throw new Error(`Invalid LOG_LEVEL: ${config.logLevel}`);
   }
+  if (!["json", "pretty"].includes(config.logFormat)) {
+    throw new Error(`Invalid LOG_FORMAT: ${env.LOG_FORMAT}`);
+  }
   validateTrustedProxyConfig(config);
   assertPositiveInteger("REDIRECT_CACHE_TTL_MS", config.redirectCacheTtlMs);
   assertPositiveInteger("REDIRECT_CACHE_MAX_ENTRIES", config.redirectCacheMaxEntries);

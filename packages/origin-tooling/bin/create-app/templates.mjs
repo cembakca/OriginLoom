@@ -619,10 +619,12 @@ const viteConfig = (vitePort) => `import { resolve } from "node:path";
 import { createClientViteConfig } from "@originloom/react/vite";
 import { defineConfig } from "vite";
 
+const root = import.meta.dirname;
+
 export default defineConfig(
   createClientViteConfig({
-    entry: resolve(__dirname, "src/entry.client.tsx"),
-    alias: { "~": resolve(__dirname, "src"), "@server": resolve(__dirname, "server") },
+    entry: resolve(root, "src/entry.client.tsx"),
+    alias: { "~": resolve(root, "src"), "@server": resolve(root, "server") },
     // Every app owns a port, so several can run side by side.
     devServer: { port: ${vitePort} },
     reload: {
@@ -640,10 +642,12 @@ const viteServerConfig = () => `import { resolve } from "node:path";
 import { createServerViteConfig } from "@originloom/react/vite";
 import { defineConfig } from "vite";
 
+const root = import.meta.dirname;
+
 export default defineConfig(
   createServerViteConfig({
-    entry: resolve(__dirname, "server/index.ts"),
-    alias: { "~": resolve(__dirname, "src"), "@server": resolve(__dirname, "server") },
+    entry: resolve(root, "server/index.ts"),
+    alias: { "~": resolve(root, "src"), "@server": resolve(root, "server") },
     // Self-contained server bundle: the production image ships dist/ only.
     noExternal: true,
   }),
@@ -654,11 +658,13 @@ const vitestConfig = (name) => `import { resolve } from "node:path";
 
 import { defineConfig } from "vitest/config";
 
+const root = import.meta.dirname;
+
 export default defineConfig({
   resolve: {
     alias: {
-      "~": resolve(__dirname, "src"),
-      "@server": resolve(__dirname, "server"),
+      "~": resolve(root, "src"),
+      "@server": resolve(root, "server"),
     },
   },
   test: {
@@ -1166,6 +1172,9 @@ VITE_DEV_SERVER_URL=http://127.0.0.1:${vitePort}
 # L1-only cache; no Redis needed for local development.
 CACHE_BACKEND=memory
 CACHE_REQUIRED=false
+
+# Human-readable dev logs; production stays JSON for log collectors.
+LOG_FORMAT=pretty
 
 # Upstream API. The mock owns its port; it never reuses the app's PORT value.
 MOCK_GATEWAY_PORT=4002
@@ -6709,12 +6718,16 @@ export function RouteErrorPage({ error }: { error: RouteError | null; status: nu
 
 const entryClient = () => `import "./styles/globals.css";
 
-import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
+import {
+  logPageRequestIdInDev,
+  reportClientError,
+} from "@originloom/shared/lib/client/error-telemetry";
 import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
 import { reportWebVital } from "@originloom/shared/lib/client/performance-telemetry";
 import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
 
 installReloadButtons();
+logPageRequestIdInDev();
 
 // Quality telemetry must not compete with first paint or island hydration.
 // The dynamic import keeps web-vitals out of the initial route chunk.

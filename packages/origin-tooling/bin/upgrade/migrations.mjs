@@ -23,6 +23,7 @@ export const PUBLIC_STATIC_MIGRATION = "0.7.14-public-static";
 export const SCAFFOLD_GATEWAY_MIGRATION = "0.7.14-scaffold-gateway";
 export const NAVIGATION_PAINT_MIGRATION = "0.7.15-navigation-paint";
 export const SSR_CAPACITY_MIGRATION = "0.7.16-ssr-capacity";
+export const DEV_EXPERIENCE_MIGRATION = "0.7.17-dev-experience";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -220,6 +221,12 @@ export const migrations = [
     introducedIn: "0.7.16",
     description:
       "SSR cache HIT/STALE bypasses render admission; CPU-aware SSR_MAX_CONCURRENCY default and 503 runbook ship in @originloom/core.",
+  },
+  {
+    id: DEV_EXPERIENCE_MIGRATION,
+    introducedIn: "0.7.17",
+    description:
+      "Dev pretty logs, client error pageRequestId correlation, SVG icon watch during dev, and SVGO convertStyleToAttrs in the icon pipeline.",
   },
 ];
 

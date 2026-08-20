@@ -7,7 +7,7 @@ uygulanır.
 Machine-readable liste: `packages/origin-tooling/tests/export-surface.manifest.mjs`  
 CI doğrulaması: `packages/origin-tooling/tests/export-surface.test.mjs`
 
-Son güncelleme: platform **0.7.16** (template sürümü `.originloom/project.json` ile ayrı izlenir).
+Son güncelleme: platform **0.7.17** (template sürümü `.originloom/project.json` ile ayrı izlenir).
 
 ---
 

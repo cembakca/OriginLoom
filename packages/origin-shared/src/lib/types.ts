@@ -49,6 +49,8 @@ export type Ctx = {
   values?: Readonly<Record<string, string>>;
   /** Per-response CSP nonce for React streaming runtime scripts. */
   cspNonce?: string;
+  /** Document SSR request id — embedded for client error correlation only. */
+  pageRequestId?: string;
 };
 
 /**

@@ -10,7 +10,19 @@ uygulama `server/api/index.ts` içinde bunu mount eder; etmezse tarayıcıdaki h
 konsolda 404 olur ve sunucuya hiç ulaşmaz. Showroom aynı mount'u kendi rate-limit/sampling
 ayarlarıyla sarar (`server/api/internal/client-errors.ts`).
 
-## Ingestion sırası
+# Client → server correlation
+
+Island and React errors call `reportClientError`, which POSTs to `/api/internal/client-errors`.
+The SSR document embeds a `pageRequestId` in the `originloom-request` JSON block; the client
+includes it in the telemetry payload so server logs can be joined to the original page request.
+
+Server logs carry:
+
+- `pageRequestId` — the GET/HEAD that rendered the document
+- `requestId` — the telemetry POST itself
+- `errorId` — stable id for the client error event
+
+Development also prints `[origin] page requestId …` in the browser console once per load.
 
 İstekler şu sırayla işlenir:
 

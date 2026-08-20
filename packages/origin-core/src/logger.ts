@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { formatPrettyLog } from "./log-format.js";
 import { activeTraceFields } from "./observability.js";
 
 type LogLevel = "info" | "warn" | "error" | "debug";
@@ -14,6 +15,7 @@ const LEVEL_WEIGHT: Record<LogLevel | "silent", number> = {
   silent: Number.POSITIVE_INFINITY,
 };
 const configuredLevel = config.logLevel as LogLevel | "silent";
+const usePrettyLogs = config.logFormat === "pretty";
 const baseFields = {
   service: process.env.OTEL_SERVICE_NAME ?? "origin-loom",
   releaseId: config.releaseId,
@@ -26,14 +28,15 @@ export function isLogEnabled(level: LogLevel): boolean {
 function write(level: LogLevel, msg: string, fields: LazyLogFields = {}): void {
   if (!isLogEnabled(level)) return;
   const resolvedFields = typeof fields === "function" ? fields() : fields;
-  const line = JSON.stringify({
-    level,
-    msg,
-    time: new Date().toISOString(),
-    ...baseFields,
-    ...activeTraceFields(),
-    ...resolvedFields,
-  });
+  const merged = { ...baseFields, ...activeTraceFields(), ...resolvedFields };
+  const line = usePrettyLogs
+    ? formatPrettyLog(level, msg, merged)
+    : JSON.stringify({
+        level,
+        msg,
+        time: new Date().toISOString(),
+        ...merged,
+      });
 
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);

@@ -71,4 +71,21 @@ describe("DocumentLayout", () => {
     expect(html).toContain("background-color:#ffffff");
     expect(html).toContain('meta name="theme-color" content="#ffffff"');
   });
+
+  it("embeds pageRequestId in the request context JSON block", () => {
+    const html = renderToStaticMarkup(
+      <DocumentLayout
+        input={{ ...baseInput, pageRequestId: "1ee4a9e7-4502-436c-8518-40cdbe1b1171" }}
+        config={{
+          NotFoundComponent: () => <p>404</p>,
+          ErrorComponent: () => <p>Error</p>,
+          renderHeadStart: () => null,
+          renderHeadEnd: () => null,
+          renderLayout: ({ children }) => <div>{children}</div>,
+        }}
+      />,
+    );
+
+    expect(html).toContain('"pageRequestId":"1ee4a9e7-4502-436c-8518-40cdbe1b1171"');
+  });
 });

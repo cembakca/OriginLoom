@@ -99,6 +99,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.14-scaffold-gateway");
     expect(metadata.appliedMigrations).toContain("0.7.15-navigation-paint");
     expect(metadata.appliedMigrations).toContain("0.7.16-ssr-capacity");
+    expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
     expect(existsSync(join(root, "public/README.md"))).toBe(true);
@@ -268,6 +269,7 @@ describe("origin-migrate", () => {
     const metadata = JSON.parse(readFileSync(join(root, ".originloom/project.json"), "utf8"));
     expect(metadata.appliedMigrations).toContain("0.7.15-navigation-paint");
     expect(metadata.appliedMigrations).toContain("0.7.16-ssr-capacity");
+    expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
     expect(metadata.templateVersion).toBe(TOOLING_VERSION);
   });
 });
@@ -338,6 +340,7 @@ function project({ version, metadata }) {
                   "0.7.14-scaffold-gateway",
                   "0.7.15-navigation-paint",
                   "0.7.16-ssr-capacity",
+                  "0.7.17-dev-experience",
                 ]
               : []),
           ],

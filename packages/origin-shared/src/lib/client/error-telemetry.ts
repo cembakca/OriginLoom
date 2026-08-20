@@ -1,3 +1,7 @@
+import {
+  readEmbeddedRequestContext,
+} from "./request-context.js";
+
 export type ClientErrorSource =
   | "island-bootstrap"
   | "island-chunk-load"
@@ -20,14 +24,35 @@ const MAX_MESSAGE = 500;
 const MAX_STACK = 4_000;
 const MAX_COMPONENT_STACK = 4_000;
 
+let loggedPageRequestId = false;
+
+type ClientImportMeta = ImportMeta & { env?: { DEV?: boolean } };
+
+function isDevClient(): boolean {
+  if (typeof import.meta === "undefined") return false;
+  return Boolean((import.meta as ClientImportMeta).env?.DEV);
+}
+
+/** Logs the SSR page request id once in development for terminal correlation. */
+export function logPageRequestIdInDev(): void {
+  if (!isDevClient() || loggedPageRequestId || typeof document === "undefined") return;
+  loggedPageRequestId = true;
+  const { pageRequestId } = readEmbeddedRequestContext();
+  if (pageRequestId) {
+    console.info(`[origin] page requestId ${pageRequestId}`);
+  }
+}
+
 /** Best-effort reporting. Telemetry failure must never break island mounting. */
 export function reportClientError(
   source: ClientErrorSource,
   error: unknown,
   context: ClientErrorContext = {},
 ): string {
+  logPageRequestIdInDev();
   const errorId = createErrorId();
   const normalized = normalizeError(error);
+  const pageRequestId = readEmbeddedRequestContext().pageRequestId;
   const payload = {
     errorId,
     source,
@@ -37,6 +62,7 @@ export function reportClientError(
     ...(context.componentStack
       ? { componentStack: truncate(context.componentStack, MAX_COMPONENT_STACK) }
       : {}),
+    ...(pageRequestId ? { pageRequestId } : {}),
     // Query values may contain search terms, identifiers or tokens; server strips them again.
     path: window.location.pathname.slice(0, 1_000),
   };
@@ -48,6 +74,11 @@ export function reportClientError(
     credentials: "omit",
     keepalive: true,
   }).catch(() => undefined);
+
+  if (isDevClient()) {
+    const pageHint = pageRequestId ? ` pageRequestId=${pageRequestId}` : "";
+    console.warn(`[origin] client error errorId=${errorId}${pageHint} source=${source}`);
+  }
 
   return errorId;
 }

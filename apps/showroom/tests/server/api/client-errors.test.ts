@@ -44,6 +44,26 @@ describe("client error telemetry API", () => {
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("attacker-controlled"));
   });
 
+  it("logs pageRequestId when the client correlates to the SSR document", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const res = await createApp().request("/api/internal/client-errors", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        errorId: "client-page-correlation",
+        source: "react-uncaught",
+        message: "render failed",
+        path: "/catalog",
+        pageRequestId: "1ee4a9e7-4502-436c-8518-40cdbe1b1171",
+      }),
+    });
+
+    expect(res.status).toBe(204);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('"pageRequestId":"1ee4a9e7-4502-436c-8518-40cdbe1b1171"'),
+    );
+  });
+
   it("accepts Web Vitals bootstrap failures from the performance telemetry source", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const res = await createApp().request("/api/internal/client-errors", {

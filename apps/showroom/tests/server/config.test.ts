@@ -379,4 +379,8 @@ describe("server config", () => {
       "Invalid TRUSTED_PROXY_CIDRS entry",
     );
   });
+
+  it("rejects an unknown log format", async () => {
+    await expect(validateWith({ LOG_FORMAT: "table" })).rejects.toThrow("Invalid LOG_FORMAT");
+  });
 });

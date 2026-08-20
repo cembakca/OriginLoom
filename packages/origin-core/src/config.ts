@@ -104,6 +104,7 @@ export const config = {
   httpCompressionThresholdBytes: numberEnv("HTTP_COMPRESSION_THRESHOLD_BYTES", 1_024),
   requestLogSampleRate: numberEnv("REQUEST_LOG_SAMPLE_RATE", nodeEnv === "production" ? 0.1 : 1),
   logLevel: (process.env.LOG_LEVEL ?? "info").toLowerCase(),
+  logFormat: (process.env.LOG_FORMAT ?? (nodeEnv === "development" ? "pretty" : "json")).toLowerCase(),
   imageCdnUrl: publicHttpUrlEnv("IMAGE_CDN_URL"),
   imageTransformUrl: publicHttpUrlEnv("IMAGE_TRANSFORM_URL"),
   viteDevServerUrl: process.env.VITE_DEV_SERVER_URL?.replace(/\/$/, "") || undefined,
