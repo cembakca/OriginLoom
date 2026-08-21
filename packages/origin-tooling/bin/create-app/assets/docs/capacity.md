@@ -42,6 +42,11 @@ Her ölçümde autocannon sonuçlarının yanında şunlar toplanır:
 
 ## Cache deneyleri
 
+Route ölçümü başlamadan önce `cache-acceptance.mjs` memory-only doğruluk matrisini çalıştırır. Cold ve
+stale burst, negative cache, stale-if-error veya byte eviction kontratlarından biri bozuksa runner RPS
+baseline'ı üretmeden non-zero çıkar. Redis matrisi ayrı ve opt-in'dir; ayrıntılar
+[cache performans kabul paketi](./cache-performance-acceptance.md) dokümanındadır.
+
 Route matrisi bittikten sonra runner cache'i kontrollü temizleyerek şu deneyleri yapar:
 
 1. `/catalog` cold burst: eşzamanlı miss'lerin tek loader/gateway çağrısına birleşmesi.
@@ -82,6 +87,9 @@ pnpm capacity:quick
 pnpm capacity -- --only catalog,data-cache
 pnpm capacity -- --connections 25,50,100 --duration 60 --repeats 5
 pnpm capacity -- --gateway-delay-ms 20
+pnpm capacity -- --compression identity
+pnpm capacity:gzip
+REDIS_URL=redis://127.0.0.1:6379 pnpm capacity -- --topology redis
 pnpm capacity -- --strict # herhangi bir geçersiz matriste non-zero exit
 pnpm capacity -- --profile-on-knee
 ```

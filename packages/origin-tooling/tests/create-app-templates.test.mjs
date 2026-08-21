@@ -625,10 +625,12 @@ describe("renderTemplates — browser E2E", () => {
     expect(route).toContain('path: "/data-cache"');
     expect(route).toContain("cache: neverCache");
     expect(route).toContain("getFeaturedItems(ctx.request)");
-    expect(service).toContain('FEATURED_ITEMS_CACHE_KEY = "items:featured:v1"');
-    expect(service).toContain('cacheStatus: "miss"');
-    expect(service).toContain('hit.state === "stale"');
-    expect(files["tests/featured-items-cache.test.ts"]).toContain("coalesces background refreshes");
+    expect(service).toContain("defineCachedResource<FeaturedItemsSnapshot>");
+    expect(service).toContain('namespace: "items:featured"');
+    expect(service).toContain("cacheStatus: result.cacheState");
+    expect(files["tests/featured-items-cache.test.ts"]).toContain(
+      "without implementing its own refresh loop",
+    );
     expect(files[".env.development"]).toContain("FEATURED_ITEMS_CACHE_TTL=10");
     expect(files[".env.development"]).toContain("FEATURED_ITEMS_CACHE_SWR=30");
   });
@@ -980,6 +982,8 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files).toHaveProperty(["load-test/capacity-metrics.mjs"]);
     expect(files).toHaveProperty(["load-test/capacity-report.mjs"]);
     expect(files).toHaveProperty(["load-test/capacity-scenarios.mjs"]);
+    expect(files).toHaveProperty(["load-test/cache-acceptance.mjs"]);
+    expect(files).toHaveProperty(["load-test/cache-worker.mjs"]);
     expect(files).toHaveProperty(["load-test/performance-policy.mjs"]);
     expect(files).toHaveProperty(["load-test/performance.mjs"]);
     expect(files).toHaveProperty(["load-test/profile.mjs"]);
@@ -987,6 +991,10 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files).toHaveProperty(["performance-policy.json"]);
     expect(pkg.scripts.capacity).toBe("node load-test/capacity.mjs");
     expect(pkg.scripts["capacity:quick"]).toContain("--profile quick");
+    expect(pkg.scripts["cache:acceptance"]).toContain("--topology memory");
+    expect(pkg.scripts["cache:acceptance:redis"]).toContain("--topology redis");
+    expect(pkg.scripts["capacity:gzip"]).toContain("--compression gzip");
+    expect(pkg.scripts["performance:gate"]).toContain("capacity.mjs --strict");
     expect(pkg.scripts["capacity:profile"]).toContain("profile.mjs");
     expect(pkg.scripts["performance:compare"]).toContain("performance.mjs");
     expect(pkg.scripts["performance:accept"]).toContain("--accept");
@@ -995,7 +1003,19 @@ describe("renderTemplates — production reference coverage", () => {
       expect(files["pnpm-workspace.yaml"]).toContain(`${selector}: ${version}`);
     }
     expect(files["docs/capacity.md"]).toContain("10 → 25 → 50 → 100 → 200 → 400");
+    expect(files["docs/cache-performance-acceptance.md"]).toContain("L2 promotion");
     expect(files[".gitignore"]).toContain("load-test/reports/");
+  });
+
+  it("demonstrates the backend-neutral typed resource API in the generated app", () => {
+    const files = standalone();
+    const service = files["server/services/featured-items.ts"];
+
+    expect(service).toContain('from "@originloom/core/cache/resource"');
+    expect(service).toContain("defineCachedResource<FeaturedItemsSnapshot>");
+    expect(service).toContain('namespace: "items:featured"');
+    expect(service).not.toContain("cache.read(");
+    expect(service).not.toContain("JSON.parse(");
   });
 
   it("ships a native CycloneDX and Dependency-Track workflow", () => {
@@ -1169,6 +1189,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(service).toContain("normalizeNavigationUrl");
     // Device is part of the key because it is part of the answer.
     expect(service).toContain("menuCacheKey(device)");
+    expect(service).toContain("tags: [CacheTag.menu]");
     expect(service).toContain('headers: { "content-type": "application/json", device }');
     expect(service).toContain("EMPTY_MENU");
     expect(files["server/services/shell-data.ts"]).toContain(
@@ -1192,7 +1213,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(guide).toContain("CACHE_FILL_WAIT_MS");
     expect(guide).toContain("CACHE_REQUIRED=true");
     expect(guide).toContain('{"pageIds":["catalog"]}');
-    expect(guide).toContain('{"prefix":"menu:"}');
+    expect(guide).toContain('{"tags":["resource:menu"]}');
     expect(guide).toContain('{"prefix":"items:featured:"}');
     expect(guide).toContain("Cache'siz HTML içinde cache'li public API verisi");
     expect(guide).toContain("keysEncoded");

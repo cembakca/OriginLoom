@@ -1,6 +1,8 @@
+import type { CachePolicy } from "@originloom/shared/lib/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const redisData = new Map<string, Buffer>();
+const redisZsets = new Map<string, Map<string, number>>();
 const published: string[] = [];
 
 function toBuffer(value: string | Buffer): Buffer {
@@ -14,6 +16,7 @@ vi.mock("ioredis", () => ({
 
     get = vi.fn(async (key: string) => redisData.get(key)?.toString("utf8") ?? null);
     getBuffer = vi.fn(async (key: string) => redisData.get(key) ?? null);
+    mgetBuffer = vi.fn(async (...keys: string[]) => keys.map((key) => redisData.get(key) ?? null));
     set = vi.fn(async (key: string, value: string | Buffer, ...args: unknown[]) => {
       if (args.includes("NX") && redisData.has(key)) return null;
       redisData.set(key, toBuffer(value));
@@ -23,6 +26,7 @@ vi.mock("ioredis", () => ({
       let count = 0;
       for (const key of keys) {
         if (redisData.delete(key)) count++;
+        else if (redisZsets.delete(key)) count++;
       }
       return count;
     });
@@ -30,7 +34,17 @@ vi.mock("ioredis", () => ({
       const ops: Array<() => [null, number]> = [];
       const chain = {
         del: (key: string) => {
-          ops.push(() => [null, redisData.delete(key) ? 1 : 0]);
+          ops.push(() => [null, redisData.delete(key) || redisZsets.delete(key) ? 1 : 0]);
+          return chain;
+        },
+        zrem: (key: string, ...members: string[]) => {
+          ops.push(() => {
+            let deleted = 0;
+            for (const member of members) {
+              if (redisZsets.get(key)?.delete(member)) deleted++;
+            }
+            return [null, deleted];
+          });
           return chain;
         },
         exec: async () => ops.map((op) => op()),
@@ -51,14 +65,79 @@ vi.mock("ioredis", () => ({
       }
     });
     duplicate = vi.fn(() => new RedisMock());
-    eval = vi.fn(async (_script: string, _keyCount: number, key: string, token: string) => {
+    eval = vi.fn(async (script: string, keyCount: number, ...args: unknown[]) => {
+      if (script.includes("originloom-tag-index-reserve")) {
+        const redisKeys = args.slice(0, keyCount) as string[];
+        const logicalKey = args[keyCount] as string;
+        const staleUntil = Number(args[keyCount + 1]);
+        const encoded = args[keyCount + 5] as Buffer;
+        const newTagCount = Number(args[keyCount + 7]);
+        redisData.set(redisKeys[1]!, encoded);
+        for (const tagKey of redisKeys.slice(2 + newTagCount)) {
+          const set = redisZsets.get(tagKey);
+          set?.delete(logicalKey);
+          if (set?.size === 0) redisZsets.delete(tagKey);
+        }
+        for (const tagKey of redisKeys.slice(2, 2 + newTagCount)) {
+          const set = redisZsets.get(tagKey) ?? new Map<string, number>();
+          set.set(logicalKey, staleUntil);
+          redisZsets.set(tagKey, set);
+        }
+        return 1;
+      }
+      if (script.includes("originloom-tag-index-remove")) {
+        const redisKeys = args.slice(0, keyCount) as string[];
+        const logicalKey = args[keyCount] as string;
+        for (const tagKey of redisKeys.slice(1)) {
+          const set = redisZsets.get(tagKey);
+          set?.delete(logicalKey);
+          if (set?.size === 0) redisZsets.delete(tagKey);
+        }
+        return 1;
+      }
+      if (script.includes("originloom-tag-index-clean-empty")) {
+        const redisKeys = args.slice(0, keyCount) as string[];
+        for (const tagKey of redisKeys.slice(1)) {
+          if ((redisZsets.get(tagKey)?.size ?? 0) === 0) redisZsets.delete(tagKey);
+        }
+        return 1;
+      }
+      const [key, token] = args as [string, string];
       if (redisData.get(key)?.toString("utf8") !== token) return 0;
       redisData.delete(key);
       return 1;
     });
+    zrem = vi.fn(async (key: string, member: string) =>
+      redisZsets.get(key)?.delete(member) ? 1 : 0,
+    );
+    zremrangebyscore = vi.fn(async (key: string, _min: string, max: number) => {
+      let deleted = 0;
+      for (const [member, score] of redisZsets.get(key) ?? []) {
+        if (score <= Number(max)) {
+          redisZsets.get(key)!.delete(member);
+          deleted++;
+        }
+      }
+      return deleted;
+    });
+    zrangebyscore = vi.fn(
+      async (
+        key: string,
+        min: number,
+        _max: string,
+        _limit: string,
+        offset: number,
+        count: number,
+      ) =>
+        [...(redisZsets.get(key) ?? [])]
+          .filter(([, score]) => score >= Number(min))
+          .sort((left, right) => left[1] - right[1])
+          .slice(offset, offset + count)
+          .map(([member]) => member),
+    );
     scan = vi.fn(async (_cursor: string, _matchFlag: string, pattern: string) => {
       const prefix = pattern.endsWith("*") ? pattern.slice(0, -1) : pattern;
-      const matches = [...redisData.keys()].filter((key) =>
+      const matches = [...new Set([...redisData.keys(), ...redisZsets.keys()])].filter((key) =>
         pattern.endsWith("*") ? key.startsWith(prefix) : key === pattern,
       );
       return ["0", matches];
@@ -82,6 +161,7 @@ import { TieredStore } from "@originloom/core/cache/tiered";
 describe("TieredStore", () => {
   afterEach(() => {
     redisData.clear();
+    redisZsets.clear();
     published.length = 0;
     vi.useRealTimers();
   });
@@ -114,6 +194,33 @@ describe("TieredStore", () => {
     expect(l1Only?.state).toBe("stale");
   });
 
+  it("returns an L2 hit without bypassing L1 byte admission on promotion", async () => {
+    const maxBytes = 300;
+    const l1 = new MemoryStore(10, {
+      maxBytes,
+      namespaces: {
+        page: { maxBytes, reserveBytes: 0 },
+        data: { maxBytes, reserveBytes: 0 },
+        fragment: { maxBytes, reserveBytes: 0 },
+        negative: { maxBytes, reserveBytes: 0 },
+      },
+      auxiliary: { maxLocks: 10, maxEphemeralValues: 10, maxRateLimits: 10 },
+    });
+    const l2 = new RedisStore("redis://localhost:6379");
+    await l2.write("large", `<html>${"x".repeat(300)}</html>`, {
+      kind: "shared",
+      ttl: 60,
+      key: ["large"],
+    });
+    vi.mocked(l2.getClient().getBuffer).mockClear();
+    const store = new TieredStore({ l1, l2 });
+
+    expect((await store.read("large"))?.body).toContain("xxx");
+    expect(await l1.read("large")).toBeNull();
+    expect((await store.read("large"))?.body).toContain("xxx");
+    expect(l2.getClient().getBuffer).toHaveBeenCalledTimes(2);
+  });
+
   it("write-through updates both layers", async () => {
     const l1 = new MemoryStore(10);
     const l2 = new RedisStore("redis://localhost:6379");
@@ -123,6 +230,24 @@ describe("TieredStore", () => {
 
     expect(await l1.read("home")).not.toBeNull();
     expect(await l2.read("home")).not.toBeNull();
+  });
+
+  it("rejects a tagged write in both tiers when the Redis tag index is full", async () => {
+    const l1 = new MemoryStore(10);
+    const l2 = new RedisStore("redis://localhost:6379");
+    vi.mocked(l2.getClient().eval).mockResolvedValueOnce(0);
+    const store = new TieredStore({ l1, l2 });
+
+    await expect(
+      store.write("page:home", "<html></html>", {
+        kind: "shared",
+        ttl: 60,
+        key: ["page:home"],
+        tags: ["resource:menu"],
+      }),
+    ).resolves.toBe(false);
+    expect(await l1.read("page:home")).toBeNull();
+    expect(await l2.read("page:home")).toBeNull();
   });
 
   it("continues with L1 when L2 read fails", async () => {
@@ -157,6 +282,7 @@ describe("TieredStore", () => {
       publishKey: vi.fn(async () => {}),
       publishKeys: vi.fn(async () => {}),
       publishPrefix: vi.fn(async () => {}),
+      publishTags: vi.fn(async () => {}),
       publishFlushAll: vi.fn(async () => {}),
       close: vi.fn(async () => {}),
     };
@@ -189,6 +315,90 @@ describe("TieredStore", () => {
     const deleted = await store.deleteByPrefix("menu:");
 
     expect(deleted).toBe(2);
+  });
+
+  it("returns the same tag invalidation result across L1 and Redis L2", async () => {
+    const l1 = new MemoryStore(20);
+    const l2 = new RedisStore("redis://localhost:6379", "release-a");
+    const invalidation = {
+      publishKey: vi.fn(async () => {}),
+      publishKeys: vi.fn(async () => {}),
+      publishPrefix: vi.fn(async () => {}),
+      publishTags: vi.fn(async () => {}),
+      publishFlushAll: vi.fn(async () => {}),
+      close: vi.fn(async () => {}),
+    };
+    const store = new TieredStore({ l1, l2, invalidation });
+    const tagged: CachePolicy = {
+      kind: "shared",
+      ttl: 60,
+      key: ["menu"],
+      tags: ["resource:menu"],
+    };
+
+    await store.write("page:home", "<html></html>", tagged, { namespace: "page" });
+    await store.write("fragment:header", "<header></header>", tagged, {
+      namespace: "fragment",
+    });
+    await store.write("data:rates", "{}", {
+      kind: "shared",
+      ttl: 60,
+      key: ["rates"],
+      tags: ["resource:rates"],
+    });
+
+    expect(await store.deleteByTags(["resource:menu"], 500)).toEqual({
+      keys: ["page:home", "fragment:header"],
+      truncated: false,
+    });
+    expect(await l1.read("data:rates")).not.toBeNull();
+    expect(await l2.read("data:rates")).not.toBeNull();
+    expect(invalidation.publishTags).toHaveBeenCalledWith(["resource:menu"]);
+  });
+
+  it("isolates tag indices by release namespace during rolling deployments", async () => {
+    const releaseA = new RedisStore("redis://localhost:6379", "release-a");
+    const releaseB = new RedisStore("redis://localhost:6379", "release-b");
+    const policy: CachePolicy = {
+      kind: "shared",
+      ttl: 60,
+      key: ["menu"],
+      tags: ["resource:menu"],
+    };
+    await releaseA.write("page:home", "release-a", policy);
+    await releaseB.write("page:home", "release-b", policy);
+
+    expect(await releaseA.deleteByTags(["resource:menu"], 500)).toEqual({
+      keys: ["page:home"],
+      truncated: false,
+    });
+    expect(await releaseA.read("page:home")).toBeNull();
+    expect((await releaseB.read("page:home"))?.body).toBe("release-b");
+  });
+
+  it("atomically replaces Redis tag associations when a key dependency changes", async () => {
+    const l2 = new RedisStore("redis://localhost:6379", "release-a");
+    await l2.write("resource:shared", "menu", {
+      kind: "shared",
+      ttl: 60,
+      key: ["resource:shared"],
+      tags: ["resource:menu"],
+    });
+    await l2.write("resource:shared", "rates", {
+      kind: "shared",
+      ttl: 60,
+      key: ["resource:shared"],
+      tags: ["resource:rates"],
+    });
+
+    expect(await l2.keysByTags(["resource:menu"], 500)).toEqual({
+      keys: [],
+      truncated: false,
+    });
+    expect(await l2.keysByTags(["resource:rates"], 500)).toEqual({
+      keys: ["resource:shared"],
+      truncated: false,
+    });
   });
 
   it("returns the exact union count when flushAll spans keys unique to each tier", async () => {

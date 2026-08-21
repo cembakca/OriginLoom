@@ -1,6 +1,10 @@
 import { escapeAttr, escapeHtml } from "@originloom/shared/html";
 
 import type { Assets } from "./assets.js";
+import {
+  type DynamicHtmlValues,
+  materializeCachedHtmlDynamicValues,
+} from "./cache/dynamic-html.js";
 import { tryGetRuntime } from "./runtime.js";
 
 /**
@@ -34,8 +38,13 @@ export function renderErrorPage(assets: Assets, errorId?: string): string {
   );
 }
 
-export function errorResponse(assets: Assets, errorId?: string): Response {
-  return new Response(renderErrorPage(assets, errorId), {
+export function errorResponse(
+  assets: Assets,
+  errorId?: string,
+  dynamicValues: DynamicHtmlValues = {},
+): Response {
+  const body = materializeCachedHtmlDynamicValues(renderErrorPage(assets, errorId), dynamicValues);
+  return new Response(body, {
     status: 500,
     headers: {
       "content-type": "text/html; charset=utf-8",

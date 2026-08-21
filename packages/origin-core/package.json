@@ -24,7 +24,10 @@
   "exports": {
     "./app/*": null,
     "./cache/cold-fill": null,
+    "./cache/l1-policy": null,
     "./cache/revalidation": null,
+    "./cache/resource-codec": null,
+    "./cache/resource-l1": null,
     "./document/*": null,
     "./metrics/cache-label": null,
     "./metrics/runtime": null,
@@ -35,6 +38,7 @@
     "./middleware/steps/auth/refresh-result": null,
     "./middleware/steps/redirection/gone": null,
     "./public-url": null,
+    "./shell-resolution": null,
     "./ssr/*": null,
     "./cache": "./src/cache/index.ts",
     "./middleware": "./src/middleware/index.ts",
@@ -69,7 +73,10 @@
     "exports": {
       "./app/*": null,
       "./cache/cold-fill": null,
+      "./cache/l1-policy": null,
       "./cache/revalidation": null,
+      "./cache/resource-codec": null,
+      "./cache/resource-l1": null,
       "./document/*": null,
       "./metrics/cache-label": null,
       "./metrics/runtime": null,
@@ -80,6 +87,7 @@
       "./middleware/steps/auth/refresh-result": null,
       "./middleware/steps/redirection/gone": null,
       "./public-url": null,
+      "./shell-resolution": null,
       "./ssr/*": null,
       "./cache": {
         "types": "./dist/cache/index.d.ts",

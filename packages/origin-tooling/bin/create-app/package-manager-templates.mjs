@@ -333,6 +333,10 @@ export function readmeCommandTable(pm) {
 | \`${run("lighthouse")}\`     | Route performance ve accessibility bütçelerini çalıştırır    |
 | \`${run("capacity")}\`       | Tüm route'larda kademeli kapasite testi ve Markdown/JSON raporu üretir |
 | \`${run("capacity:quick")}\` | Kapasite runner'ının kısa doğrulama profilini çalıştırır      |
+| \`${run("cache:acceptance")}\` | Redis gerektirmeden cold/stale/negative/error/eviction cache kontratını sınar |
+| \`${run("cache:acceptance:redis")}\` | Gerçek Redis ile distributed fill, refresh, promotion ve invalidation matrisini sınar |
+| \`${run("capacity:gzip")}\` | Gzip ingress profili için ayrı kapasite raporu üretir       |
+| \`${run("performance:gate")}\` | Cache doğruluğu + strict full kapasite release kapısını çalıştırır |
 | \`${run("capacity:profile")}\` | Seçilen route için ayrı CPU/heap profiling raporu üretir    |
 | \`${run("performance:compare")}\` | Son kapasite raporunu kabul edilmiş baseline ile karşılaştırır |
 | \`${run("performance:accept")}\` | İncelenen son full raporu yeni baseline olarak kaydeder       |

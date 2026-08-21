@@ -30,6 +30,7 @@ export const HONO_4_13_MIGRATION = "0.7.20-hono-4.13";
 export const CLIENT_ENTRY_TELEMETRY_IMPORT_FIX_MIGRATION =
   "0.7.21-client-entry-telemetry-import-fix";
 export const SSR_ERROR_REFERENCE_MIGRATION = "0.7.22-ssr-error-reference";
+export const CACHE_PERFORMANCE_ACCEPTANCE_MIGRATION = "0.7.23-cache-performance-acceptance";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -298,6 +299,60 @@ export const migrations = [
       }
       if (typeof manifest.dependencies?.["@hono/node-server"] === "string") {
         setDependency(manifest, changes, "dependencies", "@hono/node-server", "^2.1.1");
+      }
+    },
+  },
+  {
+    id: CACHE_PERFORMANCE_ACCEPTANCE_MIGRATION,
+    introducedIn: "0.7.23",
+    description:
+      "Adds the memory-first cache correctness gate, opt-in Redis regression matrix and separate identity/gzip capacity profiles.",
+    migratePackage(manifest, changes) {
+      if (typeof manifest.scripts?.capacity !== "string") return;
+      manifest.scripts ??= {};
+      setDependency(
+        manifest,
+        changes,
+        "scripts",
+        "cache:acceptance",
+        "node load-test/cache-acceptance.mjs --topology memory",
+      );
+      setDependency(
+        manifest,
+        changes,
+        "scripts",
+        "cache:acceptance:redis",
+        "node load-test/cache-acceptance.mjs --topology redis",
+      );
+      setDependency(
+        manifest,
+        changes,
+        "scripts",
+        "capacity:gzip",
+        "node load-test/capacity.mjs --compression gzip",
+      );
+      setDependency(
+        manifest,
+        changes,
+        "scripts",
+        "performance:gate",
+        "node load-test/cache-acceptance.mjs --topology memory && node load-test/capacity.mjs --strict",
+      );
+    },
+    migrateProject(root, changes, fileWrites) {
+      if (!existsSync(join(root, "load-test/capacity.mjs"))) return;
+      for (const relPath of [
+        "load-test/cache-acceptance.mjs",
+        "load-test/cache-worker.mjs",
+        "docs/cache-performance-acceptance.md",
+      ]) {
+        if (existsSync(join(root, relPath))) continue;
+        fileWrites[relPath] = migrationAsset(relPath);
+        changes.push({
+          file: relPath,
+          kind: "add",
+          detail: "Cache performance acceptance asset'i eklendi; mevcut kapasite dosyası korunur.",
+        });
       }
     },
   },

@@ -237,6 +237,7 @@ ssr:<release-id>:menu:Desktop          → menü JSON
 NODE_ENV=development
 CACHE_BACKEND=memory
 CACHE_MAX_ENTRIES=2000
+CACHE_L1_MAX_BYTES=134217728
 GATEWAY_URL=http://127.0.0.1:4002
 SITE_URL=http://127.0.0.1:3005
 VITE_DEV_SERVER_URL=http://127.0.0.1:5174
@@ -428,6 +429,18 @@ Mantıksal key = escape edilmiş parçaların `\0` (null) ile birleşimi. Örnek
 
 Menü fetch: [`apps/showroom/server/services/menu.ts`](../apps/showroom/server/services/menu.ts) — `menuCacheKey()` import eder, key tanımını tekrarlamaz.
 
+#### Document fragment cache
+
+`server/product/fragments.tsx` içindeki her fragment document'ten bağımsız `ttl`, opsiyonel `swr`
+ve timeout sahibidir. Locale/device/version gibi bounded request fact'leri yeterliyse
+`keyFromRequest(ctx)` kullanılmalıdır; böylece fragment HIT'i full shell veya menu yüklemeden döner.
+Yalnız key'in doğruluğu gerçekten shell verisine bağlıysa geriye uyumlu `key(shell, ctx)` seçilir.
+
+Stale fragment response'u bekletmez; process içinde ve Redis lock'u üzerinden tek detached refresh
+başlar. `timeoutMs` yoksa `FRAGMENT_TIMEOUT_MS` kullanılır. Resolver hatasında `fallback` cache'e
+yazılmadan render edilir; fallback yoksa marker içindeki son güvenli document HTML'i korunur. Fallback
+UI hata ayrıntısını veya request'e özel veriyi kullanıcıya taşımamalıdır.
+
 #### Key parçası kuralları
 
 | Parça                              | Ne zaman ekle                 | Fonksiyon                                                                                                           |
@@ -578,22 +591,23 @@ Yayın sonrası o sayfayı hemen tazelemek için purge API ile prefix veya tam k
 docker compose exec redis redis-cli DEL "ssr:docker-compose:menu:Desktop" "ssr:docker-compose:menu:Tablet" "ssr:docker-compose:menu:Mobile"
 ```
 
-Menü ve layout değiştiyse hem menü key'lerini hem ilgili HTML key'lerini silmek gerekir.
+Menü ve layout değiştiyse `resource:menu` dependency tag'i menu data, ilgili fragment ve HTML
+entry'lerini tek bounded operasyonla temizler.
 
 ### 5. Purge API (önerilen)
 
 Dahili HTTP endpoint'ler ile cache yönetimi:
 
-| Endpoint                         | Açıklama                        |
-| -------------------------------- | ------------------------------- |
-| `GET /api/internal/cache/keys`   | Key listele (prefix, sayfalama) |
-| `POST /api/internal/cache/purge` | Key / prefix / tümünü sil       |
+| Endpoint                         | Açıklama                            |
+| -------------------------------- | ----------------------------------- |
+| `GET /api/internal/cache/keys`   | Key listele (prefix/tag, sayfalama) |
+| `POST /api/internal/cache/purge` | Key / prefix / tag / tümünü sil     |
 
 ```bash
-# Menü cache temizle
+# Menüye bağlı data, page ve fragment cache'lerini temizle
 curl -X POST -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
   -H "Content-Type: application/json" \
-  -d '{"prefix": "menu:"}' \
+  -d '{"tags": ["resource:menu"]}' \
   http://localhost:9090/api/internal/cache/purge
 ```
 
@@ -601,7 +615,7 @@ Detaylı kullanım, örnekler ve operasyon senaryoları: **[`docs/cache-purge.md
 
 ### 6. Operasyon akışı (prod)
 
-1. CMS / deploy webhook → purge API çağır (menü prefix veya ilgili HTML key'leri)
+1. CMS / deploy webhook → purge API çağır (resource tag veya ilgili HTML key'leri)
 2. Anonim istek ile doğrula → `x-cache: MISS`
 3. Operations listener/Service (`:9090`) erişimini NetworkPolicy ile kısıtla + ayrı secret kullan
 
@@ -716,7 +730,9 @@ Config: `.svgrrc.cjs` (TypeScript, `icon: true`, SVGO + `currentColor`).
 
 ## Header, Footer ve MenuList
 
-Next.js root layout menü fetch karşılığı: **`buildShellData`** — tek istek, Header + Footer SSR.
+Next.js root layout menü fetch karşılığı: **`OriginRuntime.shell` dependency planı** — public snapshot
+route loader ile paralel başlar ve Header + Footer aynı promise'ı paylaşır. Legacy `buildShellData`
+yalnız migration uyumluluğu için desteklenir.
 
 ### Veri akışı
 

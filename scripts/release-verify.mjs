@@ -131,6 +131,13 @@ try {
       ],
       { cwd: appDir, env: npmEnv },
     );
+    if (process.env.REDIS_URL?.trim()) {
+      step("exercise the installed Redis cache regression matrix");
+      run("pnpm", ["run", "cache:acceptance:redis"], {
+        cwd: appDir,
+        env: { ...npmEnv, REDIS_URL: process.env.REDIS_URL },
+      });
+    }
   }
 
   {

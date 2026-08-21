@@ -6,7 +6,7 @@ import {
 } from "@server/api/internal/cache-purge";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { encodeCacheKeyForApi, formatCacheKey } from "~/lib/cache-keys";
+import { CacheTag, encodeCacheKeyForApi, formatCacheKey } from "~/lib/cache-keys";
 
 describe("cache purge API", () => {
   const envSnapshot = { ...process.env };
@@ -93,6 +93,51 @@ describe("cache purge API", () => {
     const body = (await res.json()) as { deleted: number };
     expect(body.deleted).toBe(2);
     expect(await read("home\0tr")).not.toBeNull();
+  });
+
+  it("lists and purges entries by dependency tag", async () => {
+    await write("fragment:header:Desktop", "<header></header>", {
+      kind: "shared",
+      ttl: 60,
+      key: ["fragment:header:Desktop"],
+      tags: [CacheTag.menu],
+    });
+    await write("data:rates", "{}", {
+      kind: "shared",
+      ttl: 60,
+      key: ["data:rates"],
+      tags: ["resource:rates"],
+    });
+
+    const listed = await handleCacheKeysList(
+      new Request(
+        `http://localhost/api/internal/cache/keys?tag=${encodeURIComponent(CacheTag.menu)}`,
+        { headers: { authorization: "Bearer test-secret" } },
+      ),
+    );
+    expect(listed.status).toBe(200);
+    expect((await listed.json()) as { keys: string[] }).toMatchObject({
+      keys: ["fragment:header:Desktop"],
+    });
+
+    const purged = await handleCachePurge(
+      new Request("http://localhost/api/internal/cache/purge", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ tags: [CacheTag.menu] }),
+      }),
+    );
+    expect(purged.status).toBe(200);
+    expect(await purged.json()).toMatchObject({
+      ok: true,
+      mode: "tags",
+      deleted: 1,
+      tags: [CacheTag.menu],
+    });
+    expect(await read("data:rates")).not.toBeNull();
   });
 
   it("flushes all cache entries", async () => {

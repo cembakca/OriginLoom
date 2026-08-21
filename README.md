@@ -402,7 +402,12 @@ Temel değişkenler:
 - `CACHE_REQUIRED` — yalnız _runtime_ Redis kesintisini yönetir: `true` ise başlangıç ping'i başarısız olursa process patlar ve sonraki kesintilerde readiness düşer; pub/sub subscriber kurulumu her zaman best-effort'tur ve bağlantı sağlanınca kendiliğinden toparlanır. `false` (varsayılan) L1-only fallback ile devam eder
 - `REDIS_URL` — `CACHE_BACKEND=redis` iken _her zaman_ zorunlu (startup'ta doğrulanır); `CACHE_REQUIRED` bu kontrolü etkilemez — eksikse process hiç başlamaz
 - `ALLOW_INSECURE_REDIS` — yalnız kontrollü internal ağ için açık production TLS istisnası
-- `CACHE_MAX_ENTRIES` — L1 memory kapasitesi (her pod)
+- `CACHE_MAX_ENTRIES` — L1 entry-count güvenlik sınırı (her pod)
+- `CACHE_L1_MAX_BYTES` — byte-weighted L1 global üst sınırı; varsayılan 128 MiB
+- `CACHE_L1_{PAGE,DATA,FRAGMENT,NEGATIVE}_{MAX,RESERVE}_BYTES` — namespace hard max ve korunan
+  minimum rezervleri; Redis L2 promotion'ları dahil tüm L1 admission bu bütçelere uyar
+- `CACHE_L1_MAX_LOCKS` / `CACHE_L1_MAX_EPHEMERAL_VALUES` / `CACHE_L1_MAX_RATE_LIMITS` — memory-only
+  coordination map sınırları
 - `CACHE_PURGE_SECRET` — production purge endpoint yetkilendirmesi
 - `REFERRAL_STATS_SECRET` — internal referral sayı/latency endpoint'i için operations token'ı
 - `MARKET_STREAM_TOKEN` — BFF ile gateway canlı piyasa stream'i arasındaki server-only token
@@ -422,6 +427,7 @@ Temel değişkenler:
 - `OTEL_SDK_DISABLED` — varsayılan `false`; `true` ile OpenTelemetry SDK'yı tamamen kapatır
 - `GATEWAY_TIMEOUT_MS` — gateway/proxy timeout'u
 - `CACHE_FILL_TIMEOUT_MS` — cold miss loader + render toplam timeout bütçesi
+- `FRAGMENT_TIMEOUT_MS` — fragment shell + resolver için varsayılan toplam timeout bütçesi
 - `CACHE_FILL_WAIT_MS` — başka pod'un cold fill sonucunu bekleme bütçesi
 - `CACHE_FILL_POLL_MS` — distributed cold fill sırasında cache/lock polling aralığı
 - `PROXY_BODY_LIMIT_BYTES` — public request/external rewrite gövdesi üst sınırı

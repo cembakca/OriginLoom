@@ -11,6 +11,7 @@ import type { DocumentContext } from "./document/types.js";
 import { isSafeRequestId } from "./middleware/request-id.js";
 import type { DocumentShell } from "./runtime.js";
 import { getRuntime } from "./runtime.js";
+import { createShellResolution, type ShellResolution } from "./shell-resolution.js";
 
 export type { DocumentContext, StreamResult } from "./document/types.js";
 
@@ -25,6 +26,9 @@ export type DocumentView = {
   preloadIslands?: readonly string[];
   minimalChrome?: boolean;
   cspNonce?: string | undefined;
+  shellResolution?: ShellResolution;
+  includeRequestOverlay?: boolean;
+  resolvedShell?: unknown;
 };
 
 export async function renderDocument<T>(
@@ -33,7 +37,7 @@ export async function renderDocument<T>(
   assets: Assets,
   docCtx: DocumentContext,
 ): Promise<string> {
-  const input = await buildDocumentInput(routeDocumentView(route, data, assets, docCtx.routeCtx));
+  const input = await buildDocumentInput(routeDocumentView(route, data, assets, docCtx));
   return getRuntime().renderer.renderDocument(input);
 }
 
@@ -48,7 +52,7 @@ export async function renderDocumentToStream<T>(
   docCtx: DocumentContext,
   onError: (error: unknown) => void,
 ): Promise<StreamResult> {
-  const input = await buildDocumentInput(routeDocumentView(route, data, assets, docCtx.routeCtx));
+  const input = await buildDocumentInput(routeDocumentView(route, data, assets, docCtx));
   return getRuntime().renderer.renderDocumentToStream(input, { onError });
 }
 
@@ -57,8 +61,9 @@ function routeDocumentView<T>(
   route: Route<T>,
   data: T,
   assets: Assets,
-  routeCtx: Ctx,
+  docCtx: DocumentContext,
 ): DocumentView {
+  const { routeCtx } = docCtx;
   const runtime = getRuntime();
   const doc = runtime.document;
   return {
@@ -75,6 +80,10 @@ function routeDocumentView<T>(
       minimalChrome: route.minimalChrome,
     }),
     cspNonce: routeCtx.cspNonce,
+    ...(docCtx.shellResolution ? { shellResolution: docCtx.shellResolution } : {}),
+    ...(docCtx.includeRequestOverlay !== undefined
+      ? { includeRequestOverlay: docCtx.includeRequestOverlay }
+      : {}),
   };
 }
 
@@ -88,9 +97,17 @@ async function buildDocumentInput({
   preloadIslands = [],
   minimalChrome,
   cspNonce = routeCtx.cspNonce,
+  shellResolution,
+  includeRequestOverlay = true,
+  resolvedShell,
 }: DocumentView): Promise<DocumentRenderInput> {
   const runtime = getRuntime();
-  const shell = await runtime.buildShellData(routeCtx, stripUndefined({ minimalChrome }));
+  const shellOptions = stripUndefined({ minimalChrome });
+  const shell =
+    resolvedShell ??
+    (await (
+      shellResolution ?? createShellResolution(routeCtx, routeCtx.url.pathname, shellOptions)
+    ).resolve({ includeRequestOverlay }));
   const { preconnectOrigins, modulePreloads } = resolveDocumentHeadAssets(assets, preloadIslands);
 
   return {

@@ -31,6 +31,7 @@ const nodeEnv = process.env.NODE_ENV ?? "development";
 const gatewayTimeoutMs = numberEnv("GATEWAY_TIMEOUT_MS", 5_000);
 const cacheFillTimeoutMs = numberEnv("CACHE_FILL_TIMEOUT_MS", gatewayTimeoutMs * 2 + 2_000);
 const ssrRequestTimeoutMs = numberEnv("SSR_REQUEST_TIMEOUT_MS", 15_000);
+const cacheL1MaxBytes = numberEnv("CACHE_L1_MAX_BYTES", 128 * 1024 * 1024);
 
 /** Platform runtime configuration. Product-specific env lives in the app config. */
 export const config = {
@@ -49,6 +50,33 @@ export const config = {
   cacheRequired: booleanEnv("CACHE_REQUIRED", false),
   redisUrl: process.env.REDIS_URL,
   cacheMaxEntries: numberEnv("CACHE_MAX_ENTRIES", 2000),
+  cacheL1MaxBytes,
+  cacheL1Namespaces: {
+    page: {
+      maxBytes: numberEnv("CACHE_L1_PAGE_MAX_BYTES", cacheL1MaxBytes),
+      reserveBytes: numberEnv("CACHE_L1_PAGE_RESERVE_BYTES", Math.floor(cacheL1MaxBytes * 0.4)),
+    },
+    data: {
+      maxBytes: numberEnv("CACHE_L1_DATA_MAX_BYTES", Math.floor(cacheL1MaxBytes * 0.6)),
+      reserveBytes: numberEnv("CACHE_L1_DATA_RESERVE_BYTES", Math.floor(cacheL1MaxBytes * 0.2)),
+    },
+    fragment: {
+      maxBytes: numberEnv("CACHE_L1_FRAGMENT_MAX_BYTES", Math.floor(cacheL1MaxBytes * 0.3)),
+      reserveBytes: numberEnv("CACHE_L1_FRAGMENT_RESERVE_BYTES", Math.floor(cacheL1MaxBytes * 0.1)),
+    },
+    negative: {
+      maxBytes: numberEnv("CACHE_L1_NEGATIVE_MAX_BYTES", Math.floor(cacheL1MaxBytes * 0.1)),
+      reserveBytes: numberEnv(
+        "CACHE_L1_NEGATIVE_RESERVE_BYTES",
+        Math.floor(cacheL1MaxBytes * 0.02),
+      ),
+    },
+  },
+  cacheL1Auxiliary: {
+    maxLocks: numberEnv("CACHE_L1_MAX_LOCKS", 4_000),
+    maxEphemeralValues: numberEnv("CACHE_L1_MAX_EPHEMERAL_VALUES", 2_000),
+    maxRateLimits: numberEnv("CACHE_L1_MAX_RATE_LIMITS", 10_000),
+  },
   nodeEnv,
   appEnv: process.env.APP_ENV ?? nodeEnv,
   isProduction: nodeEnv === "production",
@@ -83,6 +111,7 @@ export const config = {
   cacheFillTimeoutMs,
   cacheFillWaitMs: numberEnv("CACHE_FILL_WAIT_MS", cacheFillTimeoutMs + 500),
   cacheFillPollMs: numberEnv("CACHE_FILL_POLL_MS", 100),
+  fragmentTimeoutMs: numberEnv("FRAGMENT_TIMEOUT_MS", Math.min(2_000, cacheFillTimeoutMs)),
   proxyBodyLimitBytes: numberEnv("PROXY_BODY_LIMIT_BYTES", 1_048_576),
   trustProxy: booleanEnv("TRUST_PROXY", false),
   trustedProxyHops: numberEnv("TRUSTED_PROXY_HOPS", 1),

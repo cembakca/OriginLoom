@@ -1,7 +1,13 @@
 # Dynamic menu ve shell degradation
 
 Header/footer verisi route loader'ına değil `server/services/shell-data.ts` üzerinden
-`OriginRuntime.buildShellData` akışına aittir. Böylece tüm route'lar aynı chrome kontratını kullanır.
+`OriginRuntime.shell` dependency planına aittir. Public snapshot route loader ile paralel başlar;
+request facts, public snapshot, targeted shell ve request overlay ayrı kontratlardır.
+
+`RequestOverlay` shared cache fill/revalidation/fragment render aşamalarına verilmez. Cookie veya
+kullanıcıya özel değer yalnız no-store SSR için overlay'e girebilir; shared sayfada gerekli client
+state tarayıcının kendi cookie/context'inden kurulmalıdır. `buildShellData` yalnız eski runtime'ların
+geçiş uyumluluğu içindir.
 
 Public menu cache'lenebilir olduğundan `gatewayFetch` kullanılır; çağıranın Authorization header'ı
 paylaşılan isteğe taşınmaz. Response'u boyut sınırı ve runtime schema'dan geçirin; label, URL, child

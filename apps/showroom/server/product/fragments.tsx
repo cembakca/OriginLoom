@@ -1,18 +1,15 @@
-import { createHash } from "node:crypto";
-
 import { getOrSetFragmentByName } from "@originloom/core/cache/fragment";
 import type { FragmentDefinition } from "@originloom/core/runtime";
 import type { Ctx } from "@originloom/react/lib/types";
-import type { DeviceType } from "@originloom/shared/lib/device";
+import { deviceCacheFragment, type DeviceType } from "@originloom/shared/lib/device";
 import { productConfig } from "@server/product/config";
 import { getPopularKnowledgeArticles } from "@server/services/knowledge-center";
 
 import { Footer } from "~/components/layout/footer";
 import { Header } from "~/components/layout/header";
 import { PopularKnowledgeArticles } from "~/features/knowledge-center/popular-articles";
+import { CacheTag } from "~/lib/cache-keys";
 import type { ShellData } from "~/lib/shell-data";
-
-const menuFingerprints = new WeakMap<object, string>();
 
 export function headerFragmentKey(device: DeviceType): string {
   return `fragment:header:${device}`;
@@ -27,8 +24,9 @@ export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
     requiresShell: true,
     resolveOnFreshDocument: false,
     ttl: productConfig.menuCacheTtl,
-    key: (shell) =>
-      `${headerFragmentKey(requireShell(shell).deviceType)}:${menuFingerprint(shell)}`,
+    swr: productConfig.menuCacheTtl,
+    tags: [CacheTag.menu],
+    keyFromRequest: (ctx) => headerFragmentKey(deviceCacheFragment(ctx.request)),
     resolve: (shell) => {
       const resolved = requireShell(shell);
       return <Header menu={resolved.menu!} deviceType={resolved.deviceType} />;
@@ -38,8 +36,9 @@ export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
     requiresShell: true,
     resolveOnFreshDocument: false,
     ttl: productConfig.menuCacheTtl,
-    key: (shell) =>
-      `${footerFragmentKey(requireShell(shell).deviceType)}:${menuFingerprint(shell)}`,
+    swr: productConfig.menuCacheTtl,
+    tags: [CacheTag.menu],
+    keyFromRequest: (ctx) => footerFragmentKey(deviceCacheFragment(ctx.request)),
     resolve: (shell) => {
       const resolved = requireShell(shell);
       return <Footer menu={resolved.menu!} deviceType={resolved.deviceType} />;
@@ -49,11 +48,15 @@ export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
     requiresShell: false,
     resolveOnFreshDocument: true,
     ttl: 300,
-    key: () => "fragment:popular-knowledge-articles:v1",
+    swr: 300,
+    timeoutMs: 1_500,
+    tags: [CacheTag.popularKnowledge],
+    keyFromRequest: () => "fragment:popular-knowledge-articles:v1",
     resolve: async (_shell, ctx) => {
       const data = await getPopularKnowledgeArticles(ctx.request);
       return <PopularKnowledgeArticles items={data.items} />;
     },
+    fallback: () => <PopularKnowledgeArticles items={[]} />,
   },
 };
 
@@ -75,18 +78,6 @@ export async function getOrSetFooterFragment(
 function requireShell(shell: ShellData | null): ShellData {
   if (!shell?.menu) throw new Error("Fragment requires public shell menu data");
   return shell;
-}
-
-function menuFingerprint(shell: ShellData | null): string {
-  const menu = requireShell(shell).menu!;
-  const existing = menuFingerprints.get(menu);
-  if (existing) return existing;
-  const fingerprint = createHash("sha256")
-    .update(JSON.stringify(menu))
-    .digest("base64url")
-    .slice(0, 12);
-  menuFingerprints.set(menu, fingerprint);
-  return fingerprint;
 }
 
 function fragmentTestContext(): Ctx {

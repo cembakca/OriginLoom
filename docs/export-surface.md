@@ -44,6 +44,7 @@ değişebilir.
 | `auth/bff`                    | Session BFF, refresh                         |
 | `cache`                       | L1/L2 init, topology, read/write             |
 | `cache/key-codec`             | Cache key registry, purge API                |
+| `cache/resource`              | Typed data-cache resource tanımları          |
 | `config`                      | Env config, validation hook                  |
 | `config-validation`           | Product config helpers                       |
 | `gateway-payload`             | Contract budgets, JSON guards                |
@@ -79,6 +80,7 @@ Bu subpath'ler `exports: null` ile kapalıdır; dışarıdan import **desteklenm
 | `middleware/static-assets`             | Static asset middleware                   |
 | `cache/cold-fill`                      | Distributed cold fill                     |
 | `cache/revalidation`                   | SWR revalidation engine                   |
+| `shell-resolution`                     | Shell dependency orchestration internals  |
 | `metrics/cache-label`                  | Internal metric labels                    |
 | `metrics/runtime`                      | Internal runtime metrics                  |
 | `middleware/steps/auth/refresh-result` | Refresh result type (internal)            |

@@ -20,6 +20,7 @@ export type CacheBypassCheck = (ctx: Ctx) => boolean;
 export type SharedCacheOptions = {
   ttl?: number;
   swr?: number;
+  tags?: readonly string[];
   /** Route-local bypass checks (merged with global registry). */
   bypass?: CacheBypassCheck | CacheBypassCheck[];
   /** Always skip cache regardless of bypass checks (e.g. account pages). */
@@ -75,6 +76,7 @@ export function sharedUnlessBypass(
     ttl: opts.ttl ?? 300,
     swr: opts.swr ?? 86_400,
     key,
+    ...(opts.tags?.length ? { tags: opts.tags } : {}),
   };
 }
 

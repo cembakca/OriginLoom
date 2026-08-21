@@ -97,11 +97,15 @@ Cache'teki key'leri listeler (sayfalı).
 
 **Query parametreleri:**
 
-| Parametre | Varsayılan | Açıklama                          |
-| --------- | ---------- | --------------------------------- |
-| `prefix`  | —          | Key prefix filtresi (ör. `menu:`) |
-| `limit`   | `50`       | Sayfa boyutu (max 200)            |
-| `cursor`  | —          | Sonraki sayfa (Redis SCAN cursor) |
+| Parametre | Varsayılan | Açıklama                                  |
+| --------- | ---------- | ----------------------------------------- |
+| `prefix`  | —          | Key prefix filtresi (ör. `menu:`)         |
+| `tag`     | —          | Dependency tag filtresi (`resource:menu`) |
+| `limit`   | `50`       | Sayfa boyutu (max 200)                    |
+| `cursor`  | —          | Sonraki sayfa cursor'ı                    |
+
+`prefix` ve `tag` aynı istekte kullanılamaz. Tag inspect, tag başına en fazla 500 ilişkili key ile
+sınırlıdır.
 
 **Örnek:**
 
@@ -141,6 +145,14 @@ Query param'lı HTML key örneği:
 ```
 
 Silme için `encoded` alanını `keysEncoded` modunda kullan veya `pageIds: ["knowledge-center"]` gönder.
+
+Tag'e bağlı bütün entry türlerini görmek için:
+
+```bash
+curl -s \
+  -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
+  "http://localhost:9090/api/internal/cache/keys?tag=resource%3Amenu"
+```
 
 Redis'te daha fazla key varsa:
 
@@ -257,7 +269,34 @@ Yaygın prefix'ler (`pageCacheRegistry` ilk segment):
 
 Tam liste: `listPageCachePrefixes()` — [`src/lib/cache-keys.ts`](../apps/showroom/src/lib/cache-keys.ts).
 
-#### Mod 4 — Tüm cache'i sil
+#### Mod 4 — Dependency tag ile sil (`tags`) — ilişkili entry'ler için önerilen
+
+Stabil tag'e bağlı data, page ve fragment entry'lerini birlikte siler. Showroom'da menu kaynağı,
+header/footer fragmentleri ve menu kullanan page entry'leri `resource:menu` tag'ini paylaşır:
+
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer $CACHE_PURGE_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"tags": ["resource:menu"]}' \
+  http://localhost:9090/api/internal/cache/purge
+```
+
+```json
+{
+  "ok": true,
+  "mode": "tags",
+  "deleted": 7,
+  "tags": ["resource:menu"],
+  "backend": "memory+redis"
+}
+```
+
+Bir istekte en fazla 8 tag, tag başına en fazla 500 key işlenir. Sonuç `truncated: true` taşıyorsa
+aynı purge tekrarlanarak kalan bounded grup temizlenir. Tag değerleri request/user kimliği içermez;
+stabil resource veya dependency adlarıdır.
+
+#### Mod 5 — Tüm cache'i sil
 
 Aktif release'in `ssr:<release-id>:` namespace'i altındaki **tüm** entry'leri siler (HTML + menü + diğer):
 
@@ -280,23 +319,25 @@ curl -s -X POST \
 }
 ```
 
-> Redis'te yalnızca aktif `ssr:<release-id>:*` pattern'i silinir — `FLUSHDB` kullanılmaz; başka uygulamalar ve diğer release'ler etkilenmez.
+> Redis'te yalnızca aktif `ssr:<release-id>:*` entry'leri ve
+> `ssr-meta:<release-id>:tag:*` indeksleri silinir — `FLUSHDB` kullanılmaz; başka uygulamalar ve
+> diğer release'ler etkilenmez.
 
 ---
 
 ## Hata kodları
 
-| HTTP  | Anlam                                                |
-| ----- | ---------------------------------------------------- |
-| `200` | Başarılı                                             |
-| `400` | Geçersiz body (eksik mod, boş keys, wildcard prefix) |
-| `401` | Token hatalı veya eksik                              |
-| `503` | Production'da `CACHE_PURGE_SECRET` tanımlı değil     |
+| HTTP  | Anlam                                              |
+| ----- | -------------------------------------------------- |
+| `200` | Başarılı                                           |
+| `400` | Geçersiz body (eksik mod, boş keys/tags, wildcard) |
+| `401` | Token hatalı veya eksik                            |
+| `503` | Production'da `CACHE_PURGE_SECRET` tanımlı değil   |
 
 **Hata örneği:**
 
 ```json
-{ "error": "all, keys veya prefix alanlarından biri gerekli" }
+{ "error": "all, keys, keysEncoded, pageIds, tags veya prefix alanlarından biri gerekli" }
 ```
 
 ---
@@ -313,14 +354,14 @@ SECRET="${CACHE_PURGE_SECRET:?}"
 ### Menü güncellendi (CMS)
 
 ```bash
-# 1. Mevcut menü key'lerini kontrol et
+# 1. Menüye bağlı data, page ve fragment key'lerini kontrol et
 curl -s -H "Authorization: Bearer $SECRET" \
-  "$HOST/api/internal/cache/keys?prefix=menu:"
+  "$HOST/api/internal/cache/keys?tag=resource%3Amenu"
 
-# 2. Menü cache'ini temizle
+# 2. Aynı dependency'ye bağlı entry'leri birlikte temizle
 curl -s -X POST -H "Authorization: Bearer $SECRET" \
   -H "Content-Type: application/json" \
-  -d '{"prefix": "menu:"}' \
+  -d '{"tags": ["resource:menu"]}' \
   "$HOST/api/internal/cache/purge"
 ```
 
@@ -381,17 +422,11 @@ set -euo pipefail
 HOST="${SSR_OPERATIONS_HOST:-http://origin-loom-operations:9090}"
 SECRET="${CACHE_PURGE_SECRET:?}"
 
-# Menü + ana sayfa prefix purge
+# Menü kaynağına bağlı data + fragment + page purge
 curl -sf -X POST \
   -H "Authorization: Bearer ${SECRET}" \
   -H "Content-Type: application/json" \
-  -d '{"prefix": "menu:"}' \
-  "${HOST}/api/internal/cache/purge"
-
-curl -sf -X POST \
-  -H "Authorization: Bearer ${SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{"prefix": "home"}' \
+  -d '{"tags": ["resource:menu"]}' \
   "${HOST}/api/internal/cache/purge"
 ```
 
@@ -399,13 +434,13 @@ curl -sf -X POST \
 
 ## İlgili dosyalar
 
-| Dosya                                | Rol                       |
-| ------------------------------------ | ------------------------- |
-| `server/api/internal/cache-purge.ts` | HTTP handler + auth       |
-| `server/cache/purge.ts`              | Purge mantığı, body parse |
-| `server/cache/redis.ts`              | Redis SCAN + DEL          |
-| `server/cache/memory.ts`             | Bellek store purge        |
-| `src/lib/cache-keys.ts`              | Cache key registry        |
-| `server/config.ts`                   | `CACHE_PURGE_SECRET`      |
+| Dosya                                      | Rol                               |
+| ------------------------------------------ | --------------------------------- |
+| `server/api/internal/cache-purge.ts`       | HTTP handler + auth               |
+| `packages/origin-core/src/cache/purge.ts`  | Purge mantığı, body parse         |
+| `packages/origin-core/src/cache/redis.ts`  | Redis index, SCAN ve invalidation |
+| `packages/origin-core/src/cache/memory.ts` | L1 reverse tag index              |
+| `src/lib/cache-keys.ts`                    | Cache key registry                |
+| `server/config.ts`                         | `CACHE_PURGE_SECRET`              |
 
 Genel cache mimarisi: [`conventions.md`](./conventions.md#redis-ve-cache-altyapısı)

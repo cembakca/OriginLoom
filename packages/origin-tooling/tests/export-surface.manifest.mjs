@@ -18,6 +18,7 @@ export const CORE_TEMPLATE_SUBPATHS = [
   "auth/bff",
   "cache",
   "cache/key-codec",
+  "cache/resource",
   "config",
   "config-validation",
   "gateway-payload",
@@ -95,7 +96,10 @@ export const SHARED_TEMPLATE_SUBPATHS = [
 export const CORE_BLOCKED_SUBPATHS = [
   "app/*",
   "cache/cold-fill",
+  "cache/l1-policy",
   "cache/revalidation",
+  "cache/resource-codec",
+  "cache/resource-l1",
   "document/*",
   "metrics/cache-label",
   "metrics/runtime",
@@ -106,5 +110,6 @@ export const CORE_BLOCKED_SUBPATHS = [
   "middleware/steps/auth/refresh-result",
   "middleware/steps/redirection/gone",
   "public-url",
+  "shell-resolution",
   "ssr/*",
 ];

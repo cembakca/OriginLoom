@@ -15,6 +15,7 @@ import {
 } from "@server/product/fragments";
 import { installProductRuntime } from "@server/product/runtime";
 
+import { CacheTag } from "~/lib/cache-keys";
 import type { ShellData } from "~/lib/shell-data";
 
 describe("fragment cache", () => {
@@ -104,14 +105,36 @@ describe("fragment cache", () => {
 
     await getOrSetHeaderFragment("Desktop", dummyShell);
     await getOrSetFooterFragment("Desktop", dummyShell);
+    await write("menu:Desktop", "{}", {
+      kind: "shared",
+      ttl: 60,
+      key: ["menu:Desktop"],
+      tags: [CacheTag.menu],
+    });
+    await write("home\0tr\0Desktop", "<html></html>", {
+      kind: "shared",
+      ttl: 60,
+      key: ["home", "tr", "Desktop"],
+      tags: [CacheTag.menu],
+    });
+    await write("resource\0rates", "{}", {
+      kind: "shared",
+      ttl: 60,
+      key: ["resource", "rates"],
+      tags: ["resource:rates"],
+    });
 
     expect(await read(headerKey)).not.toBeNull();
     expect(await read(footerKey)).not.toBeNull();
 
-    await executePurge({ mode: "prefix", prefix: "menu:" }, "memory");
+    const purged = await executePurge({ mode: "tags", tags: [CacheTag.menu] }, "memory");
 
     expect(await read(headerKey)).toBeNull();
     expect(await read(footerKey)).toBeNull();
+    expect(await read("menu:Desktop")).toBeNull();
+    expect(await read("home\0tr\0Desktop")).toBeNull();
+    expect(await read("resource\0rates")).not.toBeNull();
+    expect(purged).toMatchObject({ mode: "tags", deleted: 4, tags: [CacheTag.menu] });
   });
 
   it("resolves custom fragment by name", async () => {
@@ -121,7 +144,7 @@ describe("fragment cache", () => {
     expect(resolved).toBe("Mock Header Content");
   });
 
-  it("changes shell fragment keys when menu content changes", () => {
+  it("derives shell fragment keys from request facts without loading menu data", () => {
     const changedShell: ShellData = {
       ...dummyShell,
       menu: {
@@ -130,7 +153,7 @@ describe("fragment cache", () => {
       },
     };
 
-    expect(fragmentCacheKey("header", changedShell, ctx)).not.toBe(
+    expect(fragmentCacheKey("header", changedShell, ctx)).toBe(
       fragmentCacheKey("header", dummyShell, ctx),
     );
   });
@@ -158,31 +181,31 @@ describe("fragment cache", () => {
     expect(results[0]).toContain("Popüler finans rehberleri");
   });
 
-  it("passes the request to asynchronous fragment resolvers, cancellation included", async () => {
+  it("lets caller cancellation stop waiting without cancelling the shared fragment fill", async () => {
     const controller = new AbortController();
     const abortedCtx = fragmentContext(controller.signal);
-    // The resolver takes the whole Request — it carries the gateway identity as
-    // well as the signal — so cancellation now travels through `request.signal`.
+    let resolverRequest: Request | undefined;
+    let release: (() => void) | undefined;
     getPopularKnowledgeArticles.mockImplementation(
-      ({ signal }: Request) =>
-        new Promise((_resolve, reject) => {
-          if (signal.aborted) {
-            reject(abortReason(signal));
-            return;
-          }
-          signal.addEventListener("abort", () => reject(abortReason(signal)), { once: true });
+      (request: Request) =>
+        new Promise((resolve) => {
+          resolverRequest = request;
+          release = () => resolve({ items: [] });
         }),
     );
     const pending = getOrSetFragmentByName("popular-knowledge-articles", null, abortedCtx);
     for (let turn = 0; turn < 20 && getPopularKnowledgeArticles.mock.calls.length === 0; turn++) {
       await Promise.resolve();
     }
-    expect(getPopularKnowledgeArticles).toHaveBeenCalledWith(abortedCtx.request);
+    expect(resolverRequest?.url).toBe(abortedCtx.request.url);
+    expect(resolverRequest?.signal).not.toBe(abortedCtx.request.signal);
     controller.abort(new DOMException("Aborted", "AbortError"));
 
     await expect(pending).rejects.toMatchObject({
       name: "AbortError",
     });
+    expect(resolverRequest?.signal.aborted).toBe(false);
+    release?.();
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 });
@@ -195,8 +218,4 @@ function fragmentContext(signal?: AbortSignal): Ctx {
     url: new URL(request.url),
     publicPath: "/",
   };
-}
-
-function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new DOMException("Aborted", "AbortError");
 }

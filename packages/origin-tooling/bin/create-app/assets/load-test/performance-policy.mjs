@@ -260,6 +260,7 @@ export async function writeBaseline(report, path, policy) {
 
 export function baselineAcceptanceIssues(report, policy) {
   const issues = [];
+  if (!report.cacheAcceptance?.passed) issues.push("cache correctness matrix missing or failed");
   const aggregates = Array.isArray(report.aggregates) ? report.aggregates : [];
   if (!aggregates.length) issues.push("aggregate measurements missing");
   if (aggregates.some((group) => !group.valid)) issues.push("invalid measurement");
@@ -324,6 +325,8 @@ function comparableConfig(report) {
     warmupSeconds: report.config.warmupSeconds,
     routes: report.config.routes,
     gatewayDelayMs: report.environment.gatewayDelayMs,
+    cacheTopology: report.environment.cacheTopology ?? "memory",
+    compressionProfile: report.environment.compressionProfile ?? "identity",
   };
 }
 

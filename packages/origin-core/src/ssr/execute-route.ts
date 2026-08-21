@@ -3,13 +3,14 @@ import { randomUUID } from "node:crypto";
 import type { Ctx, Route } from "@originloom/shared/lib/types";
 
 import type { Assets } from "../assets.js";
-import { cachedHtmlCspNonce } from "../cache/csp-nonce.js";
+import { cachedHtmlDynamicValues } from "../cache/dynamic-html.js";
 import { config } from "../config.js";
 import { renderDocument, renderDocumentToStream, streamToString } from "../document.js";
 import { logError } from "../logger.js";
 import { observePayloadSize, observeSerialization } from "../metrics.js";
 import { SpanKind, withSpan } from "../observability.js";
 import { getRuntime } from "../runtime.js";
+import { createShellResolution, type ShellResolution } from "../shell-resolution.js";
 import { rethrowRequestDeadline } from "./context.js";
 import type { RenderPhase, RouteExecution } from "./types.js";
 
@@ -52,13 +53,36 @@ export async function executeRoute(
   assets: Assets,
   phase: RenderPhase,
 ): Promise<RouteExecution> {
-  const result = await runLoader(route, routeCtx, phase);
-  if (result.kind && result.kind !== "data") return { result };
+  const shellResolution = createShellResolution(
+    routeCtx,
+    route.path,
+    route.minimalChrome === undefined ? {} : { minimalChrome: route.minimalChrome },
+  );
+  let result;
+  try {
+    result = await runLoader(route, routeCtx, phase);
+  } catch (error) {
+    shellResolution.abort(error);
+    throw error;
+  }
+  if (result.kind && result.kind !== "data") {
+    shellResolution.abort();
+    return { result };
+  }
 
   const shouldStream =
     route.streaming && phase === "request" && !getRuntime().document.isBotRequest(routeCtx.request);
   if (!shouldStream) {
-    return { result, body: await runRender(route, result.data, assets, routeCtx, phase) };
+    try {
+      return {
+        result,
+        body: await runRender(route, result.data, assets, routeCtx, phase, shellResolution),
+        shellResolution,
+      };
+    } catch (error) {
+      shellResolution.abort(error);
+      throw error;
+    }
   }
 
   try {
@@ -66,7 +90,7 @@ export async function executeRoute(
       route,
       result.data,
       assets,
-      { routeCtx },
+      { routeCtx, shellResolution, includeRequestOverlay: phase === "request" },
       (error) => {
         logError(error, {
           requestId: routeCtx.trackingId,
@@ -76,8 +100,9 @@ export async function executeRoute(
       },
     );
     routeCtx.request.signal.addEventListener("abort", () => streamResult.abort());
-    return { result, streamResult };
+    return { result, streamResult, shellResolution };
   } catch (error) {
+    shellResolution.abort(error);
     rethrowRequestDeadline(routeCtx.request, error);
     const errorId = randomUUID();
     logError(error, {
@@ -113,12 +138,12 @@ export async function runRender<T>(
   assets: Assets,
   routeCtx: Ctx,
   phase: RenderPhase,
+  shellResolution?: ShellResolution,
 ): Promise<string> {
-  const cacheNonce = cachedHtmlCspNonce(routeCtx.cspNonce);
+  const cachedValues = cachedHtmlDynamicValues(routeCtx);
+  const hasCachedValues = Object.keys(cachedValues).length > 0;
   const renderCtx =
-    phase === "request" || cacheNonce === undefined
-      ? routeCtx
-      : { ...routeCtx, cspNonce: cacheNonce };
+    phase === "request" || !hasCachedValues ? routeCtx : { ...routeCtx, ...cachedValues };
   return withSpan(
     "ssr.render",
     {
@@ -128,7 +153,11 @@ export async function runRender<T>(
     async () => {
       const started = performance.now();
       if (!route.streaming) {
-        const body = await renderDocument(route, data, assets, { routeCtx: renderCtx });
+        const body = await renderDocument(route, data, assets, {
+          routeCtx: renderCtx,
+          ...(shellResolution ? { shellResolution } : {}),
+          includeRequestOverlay: phase === "request",
+        });
         observeSerialization("document_render", route.path, performance.now() - started);
         observePayloadSize("html", route.path, Buffer.byteLength(body));
         return body;
@@ -138,7 +167,11 @@ export async function runRender<T>(
         route,
         data,
         assets,
-        { routeCtx: renderCtx },
+        {
+          routeCtx: renderCtx,
+          ...(shellResolution ? { shellResolution } : {}),
+          includeRequestOverlay: phase === "request",
+        },
         (error) => {
           logError(error, {
             requestId: routeCtx.trackingId,

@@ -1,4 +1,8 @@
-import { applyInvalidationToL1, CacheInvalidationBus } from "@originloom/core/cache/invalidation";
+import {
+  applyInvalidationToL1,
+  CacheInvalidationBus,
+  parseInvalidationMessage,
+} from "@originloom/core/cache/invalidation";
 import { MemoryStore } from "@originloom/core/cache/memory";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -53,11 +57,49 @@ describe("CacheInvalidationBus", () => {
     expect(await l1.read("home")).not.toBeNull();
   });
 
+  it("clears only matching L1 entries on dependency-tag invalidation", async () => {
+    const l1 = new MemoryStore(10);
+    await l1.write("page", "<html></html>", {
+      kind: "shared",
+      ttl: 60,
+      key: ["page"],
+      tags: ["resource:menu"],
+    });
+    await l1.write("rates", "{}", {
+      kind: "shared",
+      ttl: 60,
+      key: ["rates"],
+      tags: ["resource:rates"],
+    });
+
+    applyInvalidationToL1(l1, { type: "tags", tags: ["resource:menu"] });
+
+    await vi.waitFor(async () => expect(await l1.read("page")).toBeNull());
+    expect(await l1.read("rates")).not.toBeNull();
+  });
+
+  it("rejects malformed or unbounded pub/sub messages", () => {
+    expect(parseInvalidationMessage({ type: "tags", tags: ["resource:menu"] })).toEqual({
+      type: "tags",
+      tags: ["resource:menu"],
+    });
+    expect(parseInvalidationMessage({ type: "tags", tags: Array(9).fill("resource:menu") })).toBe(
+      null,
+    );
+    expect(parseInvalidationMessage({ type: "keys", keys: Array(501).fill("page") })).toBeNull();
+    expect(parseInvalidationMessage({ type: "prefix", prefix: "x".repeat(257) })).toBeNull();
+  });
+
   it("publishes invalidation messages", async () => {
     const publisher = new Redis("redis://localhost:6379");
     const bus = new CacheInvalidationBus(publisher, "test-release", () => {});
     await bus.publishKey("home");
+    await bus.publishTags(["resource:menu"]);
     expect(publisher.publish).toHaveBeenCalled();
+    expect(publisher.publish).toHaveBeenLastCalledWith(
+      "ssr:test-release:cache-invalidate",
+      JSON.stringify({ type: "tags", tags: ["resource:menu"] }),
+    );
   });
 
   it("registers the message listener before subscribing", async () => {

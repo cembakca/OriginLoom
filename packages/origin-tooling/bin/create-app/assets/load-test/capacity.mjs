@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { createServer } from "node:net";
 
 import autocannon from "autocannon";
+import { runCacheAcceptance } from "./cache-acceptance.mjs";
 
 /**
  * One visitor for the whole run.
@@ -61,6 +62,15 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 
 let environment;
 try {
+  console.log(`Cache doğruluk kapısı çalışıyor (${options.topology})...`);
+  const cacheAcceptance = await runCacheAcceptance({
+    topology: options.topology,
+    outputDirectory,
+    redisUrl: options.redisUrl,
+  });
+  if (!cacheAcceptance.report.passed) {
+    throw new Error("cache correctness matrix failed; performance measurement was not started");
+  }
   environment = options.external ? externalEnvironment(options) : await startLocalEnvironment();
   await verifyEnvironment(environment);
   const performancePolicy = await loadPerformancePolicy(options.policy);
@@ -125,7 +135,7 @@ try {
   const analysis = analyzeCapacity(aggregates);
   const runtimeBudgetResults = evaluateRuntimeBudgets(aggregates, performancePolicy);
   const report = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     startedAt,
     finishedAt: new Date().toISOString(),
     durationSeconds: (performance.now() - started) / 1_000,
@@ -144,6 +154,7 @@ try {
     aggregates,
     analysis,
     cacheExperiments,
+    cacheAcceptance: cacheAcceptance.report,
     payloads,
     payloadBudgetResults,
     runtimeBudgetResults,
@@ -182,6 +193,7 @@ try {
   }
 
   if (
+    !cacheAcceptance.report.passed ||
     cacheExperiments.some(({ passed }) => !passed) ||
     payloadBudgetResults.some(({ passed }) => !passed) ||
     runtimeBudgetResults.some(({ passed }) => !passed) ||
@@ -210,6 +222,9 @@ async function startLocalEnvironment() {
   const opsUrl = `http://127.0.0.1:${opsPort}`;
   const mockGatewayUrl = `http://127.0.0.1:${gatewayPort}`;
   const baseEnv = { ...process.env };
+  if (options.topology === "redis" && !options.redisUrl) {
+    throw new Error("managed Redis topology requires --redis-url or REDIS_URL");
+  }
 
   children.push(
     spawn(process.execPath, ["mock-gateway/server.mjs"], {
@@ -238,8 +253,10 @@ async function startLocalEnvironment() {
         RELEASE_ID: `capacity-${Date.now()}`,
         AUTH_REFRESH_COORDINATION_SECRET: "capacity-auth-refresh-secret-0000000000000000",
         CACHE_PURGE_SECRET: "capacity-cache-purge-secret",
-        CACHE_BACKEND: "memory",
-        CACHE_REQUIRED: "false",
+        CACHE_BACKEND: options.topology,
+        CACHE_REQUIRED: String(options.topology === "redis"),
+        ...(options.redisUrl ? { REDIS_URL: options.redisUrl } : { REDIS_URL: "" }),
+        ALLOW_INSECURE_REDIS: String(options.topology === "redis"),
         SUPPORT_EMAIL: "capacity@example.invalid",
         FEATURED_ITEMS_CACHE_TTL: "5",
         FEATURED_ITEMS_CACHE_SWR: "30",
@@ -265,6 +282,8 @@ async function startLocalEnvironment() {
     opsUrl,
     mockGatewayUrl,
     gatewayDelayMs: options.gatewayDelayMs,
+    cacheTopology: options.topology === "redis" ? "memory+redis" : "memory",
+    compressionProfile: options.compression,
     loadAverageStart: loadavg(),
   };
 }
@@ -279,6 +298,8 @@ function externalEnvironment(parsed) {
     opsUrl: parsed.opsUrl,
     mockGatewayUrl: parsed.mockGatewayUrl,
     gatewayDelayMs: parsed.gatewayDelayMs,
+    cacheTopology: parsed.topology === "redis" ? "memory+redis" : "memory",
+    compressionProfile: parsed.compression,
     loadAverageStart: loadavg(),
   };
 }
@@ -471,6 +492,7 @@ function runCannon({ url, route, connections, duration, amount }) {
         ...(amount ? { amount } : { duration }),
         headers: {
           accept: route.accept ?? "text/html",
+          "accept-encoding": options.compression,
           "user-agent": "OriginLoom-Capacity-Test/1.0",
           cookie: `user_tracking_id=${CAPACITY_VISITOR}`,
         },
@@ -521,6 +543,7 @@ async function verifyRoute(baseUrl, route) {
     redirect: "manual",
     headers: {
       accept: route.accept ?? "text/html",
+      "accept-encoding": options.compression,
       cookie: `user_tracking_id=${CAPACITY_VISITOR}`,
     },
     signal: AbortSignal.timeout(10_000),
@@ -621,6 +644,9 @@ function parseArgs(argv) {
     baseline: "performance-baseline.json",
     profileOnKnee: false,
     profileDurationSeconds: 30,
+    topology: "memory",
+    compression: "identity",
+    redisUrl: process.env.REDIS_URL?.trim() || undefined,
   };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
@@ -642,12 +668,22 @@ function parseArgs(argv) {
     else if (arg === "--profile-on-knee") parsed.profileOnKnee = true;
     else if (arg === "--profile-duration")
       parsed.profileDurationSeconds = positiveNumber(argv[++index], arg);
+    else if (arg === "--topology")
+      parsed.topology = enumValue(argv[++index], arg, ["memory", "redis"]);
+    else if (arg === "--compression")
+      parsed.compression = enumValue(argv[++index], arg, ["identity", "gzip"]);
+    else if (arg === "--redis-url") parsed.redisUrl = argv[++index];
     else if (arg === "--base") parsed.baseUrl = stripSlash(argv[++index]);
     else if (arg === "--ops") parsed.opsUrl = stripSlash(argv[++index]);
     else if (arg === "--mock-gateway") parsed.mockGatewayUrl = stripSlash(argv[++index]);
     else throw new Error(`bilinmeyen seçenek: ${arg}`);
   }
   return parsed;
+}
+
+function enumValue(value, flag, allowed) {
+  if (!allowed.includes(value)) throw new Error(`${flag}: ${allowed.join(" | ")} bekleniyor`);
+  return value;
 }
 
 function numberList(value, flag) {

@@ -70,7 +70,13 @@ metadata opsiyoneldir; platform güvenli fallback olarak body'yi bir kez tarar.
 HTML cache'e yazılırken fragment adı ile başlangıç/bitiş konumları bir kez derlenir. Cache hit,
 document üzerinde tekrar regex çalıştırmak yerine bu bounded planla `slice/join` yapar. Aynı isim
 document içinde birden fazla kez geçse bile resolver request başına bir kez çağrılır ve sonuç bütün
-konumlara uygulanır. Shell isteyen fragmentler de tek `buildShellData` çağrısını paylaşır.
+konumlara uygulanır. Shell isteyen fragmentler document render ile aynı public shell dependency
+promise'ını paylaşır.
+
+`keyFromRequest`, fragment cache probe'unu full shell'den önce yapar. Fresh hit shell'i hiç başlatmaz;
+stale hit eski fragmenti hemen kullanıp request'ten bağımsız, timeout'lu tek SWR refresh planlar.
+Redis topolojisinde refresh lock'u podlar arası çoğalmayı da sınırlar. Fragment resolver/fallback
+politikası document'ten bağımsızdır; başarısız tek parça tüm HTML response'unu düşürmez.
 
 Fragment marker'larını string manipülasyonuyla üretmeyin; JSX `<ssr-fragment>` kontratını kullanın.
 Marker içindeki kullanıcıya özel veri shared cache'e giremez. Statik veya yavaş değişen public
@@ -80,8 +86,8 @@ fragmentlere kendi TTL/key kontratını verin.
 
 Bağımsız fragment çıktıları React root olarak hydrate edilmediği için static markup renderer kullanır.
 Font CSS gibi asset'e bağlı sabit document parçaları process içinde yeniden kullanılır. Showroom'daki
-menu view-model snapshot yaklaşımı da sorting, device projection, serialization ve fingerprint
-üretimini her React render'da tekrarlamaz.
+menu view-model snapshot yaklaşımı da sorting, device projection ve serialization işini her React
+render'da tekrarlamaz.
 
 Route component'inde server'da işlevsiz provider/context ağacı kurmayın. Cache'siz route'larda büyük
 domain modelini JSX ağacından geçirmek yerine loader sonucunu sayfanın gerçekten render ettiği bounded

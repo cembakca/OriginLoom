@@ -214,9 +214,10 @@ curl -sS -X POST http://127.0.0.1:9010/api/internal/cache/purge \
 - Bozuk/eski cache değeri miss sayılır.
 - Local fallback yalnız kontrollü degradation içindir ve cache'e yazılmaz.
 
-Menu şeması veya render anlamı değiştiğinde key versiyonunu `menu:public:v2` yapın. İçerik değişiminde
-versiyon artırmak yerine `menu:` prefix purge kullanın. Menu purge, ilişkili header/footer fragment
-entry'lerini de temizler.
+Menu şeması veya render anlamı değiştiğinde key versiyonunu `menu:public:v2` yapın. Normal içerik
+değişiminde menu resource'u, onu kullanan page policy'leri ve header/footer fragmentleri aynı stabil
+`resource:menu` dependency tag'ini taşımalıdır. Tag purge bu entry'leri birlikte temizler; ilgisiz
+data cache entry'lerine dokunmaz.
 
 ## Fragment cache
 
@@ -226,7 +227,20 @@ deterministik ve güvenilir HTML olmalıdır. Shell verisi eksik veya runtime co
 render/degradation yolu kullanılmalıdır.
 
 Fragment key'i, document key'inden bağımsızdır. Fragmentin çıktısını değiştiren locale, device veya
-içerik fingerprint'i kendi key'inde bulunmalıdır.
+içerik sürümü kendi key'inde bulunmalıdır. Key yalnız request fact'lerinden hesaplanabiliyorsa
+`keyFromRequest` kullanın: fresh/stale fragment hit'i full shell veya menu I/O'sunu başlatmadan
+dönebilir. Shell'e gerçekten bağlı eski key'ler `key(shell, ctx)` ile çalışmaya devam eder.
+
+Her fragment kendi `ttl`, opsiyonel `swr` ve `timeoutMs` politikasını taşır. Stale hit eski HTML'i
+hemen döndürür ve aynı key için tek detached refresh başlatır; Redis aktifse podlar distributed lock
+ile koordine olur. `timeoutMs` verilmezse `FRAGMENT_TIMEOUT_MS` (varsayılan 2 saniye) kullanılır.
+Resolver request'i bu bağımsız timeout signal'ını taşır; ziyaretçinin bağlantıyı kapatması ortak cold
+fill'i yarıda kesmez.
+
+`fallback` tanımlıysa resolver error/timeout sonucunda cache'e yazılmadan render edilir. Tanımlı
+değilse platform `<ssr-fragment>` içindeki document render/cache-fill HTML'ini korur. Böylece tek
+fragment arızası document'i düşürmez. Background fragment refresh'leri graceful shutdown drain'ine
+dahildir.
 
 ## L1 memory ve Redis topolojisi
 
@@ -288,17 +302,21 @@ curl -sS "$OPS_URL/api/internal/cache/keys?limit=50" \
 curl -sS "$OPS_URL/api/internal/cache/keys?prefix=catalog&limit=50" \
   -H "authorization: Bearer $CACHE_TOKEN"
 
+# Dependency tag'e göre inspect.
+curl -sS "$OPS_URL/api/internal/cache/keys?tag=resource%3Amenu&limit=50" \
+  -H "authorization: Bearer $CACHE_TOKEN"
+
 # Registry'deki bir veya daha fazla sayfayı temizle.
 curl -sS -X POST "$OPS_URL/api/internal/cache/purge" \
   -H "authorization: Bearer $CACHE_TOKEN" \
   -H "content-type: application/json" \
   --data '{"pageIds":["catalog"]}'
 
-# Data cache ve ilişkili menu fragmentlerini temizle.
+# Menu data, ilişkili shell fragmentleri ve page entry'lerini birlikte temizle.
 curl -sS -X POST "$OPS_URL/api/internal/cache/purge" \
   -H "authorization: Bearer $CACHE_TOKEN" \
   -H "content-type: application/json" \
-  --data '{"prefix":"menu:"}'
+  --data '{"tags":["resource:menu"]}'
 
 # Inspect response'undaki encoded key'i güvenli biçimde geri gönder.
 curl -sS -X POST "$OPS_URL/api/internal/cache/purge" \
@@ -308,8 +326,9 @@ curl -sS -X POST "$OPS_URL/api/internal/cache/purge" \
 ```
 
 Ham `keys` de desteklenir; delimiter/escape hatası yaşamamak için otomasyonda `keysEncoded` tercih
-edin. Tek istekte en fazla 500 key/page id silinir, inspect `limit` en fazla 200'dür. `prefix` glob
-değildir; `*` ve `?` reddedilir. `{"all":true}` yalnız incident/emergency için son çare olmalıdır.
+edin. Tek istekte en fazla 500 key/page id veya tag başına 500 ilişkili entry silinir; bir tag
+operasyonu en fazla 8 tag kabul eder, inspect `limit` en fazla 200'dür. `prefix` glob değildir; `*`
+ve `?` reddedilir. `{"all":true}` yalnız incident/emergency için son çare olmalıdır.
 
 ## Metric ve alarm rehberi
 
@@ -321,6 +340,10 @@ değildir; `*` ve `?` reddedilir. `{"all":true}` yalnız incident/emergency içi
 - `ssr_cache_coalesced_wait_total{scope=...,outcome=...}`: process/Redis arkasında birleşen istekler.
 - `ssr_cache_lock_timeout_total`: Redis cold-fill bekleme bütçesi aşımları.
 - `ssr_cache_revalidations_total{outcome=...}`: SWR success/error/lock_miss.
+- `ssr_fragment_access_total{fragment=...,state=...}`: fragment fresh/stale/miss dağılımı.
+- `ssr_fragment_refresh_total` ve `ssr_fragment_refresh_duration_milliseconds`: detached fragment
+  refresh sonuçları ve süresi.
+- `ssr_fragment_fallback_total{fragment=...,reason=...}`: error/timeout fallback kullanımı.
 - `ssr_cache_operations_total{backend=...,operation=...,outcome=...}`: store hataları.
 - `ssr_cache_l2_healthy`: Redis son ping sonucu; 0 olduğunda alarm üretin.
 - `ssr_cache_promotion_total{source="l2"}`: L2 hit'in L1'e taşınması.
@@ -387,7 +410,8 @@ ziyaretçinin tarayıcısına ulaşabilir mi?
 1. **Cache entry'si yalnız gövdeyi saklar.** `CacheEntry` bir string ve iki zaman damgasıdır; header
    yoktur. Dolayısıyla bir entry'den `Set-Cookie` **tekrar oynatılamaz**, çünkü orada hiç yoktur.
 2. **Tracking id HTML'e girmez.** Gateway'e istek header'ı olarak gider (`gatewayFetchWithIdentity`).
-   Shell verisi (`buildLayoutClientProps`) bilerek cache-güvenlidir: trackingId yok, token yok.
+   Shell dependency planının `RequestFacts → PublicShellSnapshot → TargetedShell` hattı bilerek
+   cache-güvenlidir: trackingId yok, token yok. `RequestOverlay` shared render'a hiç verilmez.
 3. **Cookie yazan yanıt saklanmaz.** `applyCookies`, `Set-Cookie` eklediği her yanıta
    `cache-control: private, no-store` koyar. Ne tarayıcı ne CDN o yanıtı tutar.
 

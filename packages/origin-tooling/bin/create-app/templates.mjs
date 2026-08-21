@@ -152,6 +152,7 @@ export function renderTemplates({
     "docs/testing.md": asset("docs/testing.md"),
     "docs/tools.md": asset("docs/tools.md"),
     "docs/analytics.md": asset("docs/analytics.md"),
+    "docs/cache-performance-acceptance.md": asset("docs/cache-performance-acceptance.md"),
     "docs/webhooks.md": asset("docs/webhooks.md"),
     "docs/contracts.md": asset("docs/contracts.md"),
     "docs/performance.md": asset("docs/performance.md"),
@@ -169,6 +170,8 @@ export function renderTemplates({
     "load-test/capacity-metrics.mjs": asset("load-test/capacity-metrics.mjs"),
     "load-test/capacity-report.mjs": asset("load-test/capacity-report.mjs"),
     "load-test/capacity-scenarios.mjs": asset("load-test/capacity-scenarios.mjs"),
+    "load-test/cache-acceptance.mjs": asset("load-test/cache-acceptance.mjs"),
+    "load-test/cache-worker.mjs": asset("load-test/cache-worker.mjs"),
     "load-test/performance-policy.mjs": asset("load-test/performance-policy.mjs"),
     "load-test/performance.mjs": asset("load-test/performance.mjs"),
     "load-test/profile.mjs": asset("load-test/profile.mjs"),
@@ -411,6 +414,10 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
         ...{
           capacity: "node load-test/capacity.mjs",
           "capacity:quick": "node load-test/capacity.mjs --profile quick",
+          "cache:acceptance": "node load-test/cache-acceptance.mjs --topology memory",
+          "cache:acceptance:redis": "node load-test/cache-acceptance.mjs --topology redis",
+          "capacity:gzip": "node load-test/capacity.mjs --compression gzip",
+          "performance:gate": "node load-test/capacity.mjs --strict",
           "performance:compare": "node load-test/performance.mjs",
           "performance:accept": "node load-test/performance.mjs --accept",
           "capacity:profile": "node load-test/profile.mjs",
@@ -1213,6 +1220,7 @@ ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
 # SSR_REQUEST_TIMEOUT_MS=15000
 # API_REQUEST_TIMEOUT_MS=12000
 # CACHE_FILL_TIMEOUT_MS=12000
+# FRAGMENT_TIMEOUT_MS=2000
 #
 # Render admission. Past max concurrency requests queue, and past the queue they
 # are shed with 503 — the app stays responsive instead of collapsing under load.
@@ -1220,8 +1228,21 @@ ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
 # SSR_MAX_QUEUE=64
 # SSR_QUEUE_WAIT_MS=250
 #
-# In-process HTML cache size, in entries.
+# In-process cache has both entry-count and byte-weighted namespace limits.
 # CACHE_MAX_ENTRIES=2000
+# CACHE_L1_MAX_BYTES=134217728
+# Namespace max/reserve byte settings derive from the global limit unless overridden.
+# CACHE_L1_PAGE_MAX_BYTES=134217728
+# CACHE_L1_PAGE_RESERVE_BYTES=53687091
+# CACHE_L1_DATA_MAX_BYTES=80530636
+# CACHE_L1_DATA_RESERVE_BYTES=26843545
+# CACHE_L1_FRAGMENT_MAX_BYTES=40265318
+# CACHE_L1_FRAGMENT_RESERVE_BYTES=13421772
+# CACHE_L1_NEGATIVE_MAX_BYTES=13421772
+# CACHE_L1_NEGATIVE_RESERVE_BYTES=2684354
+# CACHE_L1_MAX_LOCKS=4000
+# CACHE_L1_MAX_EPHEMERAL_VALUES=2000
+# CACHE_L1_MAX_RATE_LIMITS=10000
 # HTTP_COMPRESSION_THRESHOLD_BYTES=1024
 #
 # Successful access logs are deterministically sampled in production. Errors
@@ -2555,6 +2576,7 @@ export default defineRoute<Data>({
 const fragmentsFile = () => `import type { FragmentDefinition } from "@originloom/core/runtime";
 
 import { ServerTimeFragment } from "~/features/showcase/server-time-fragment";
+import { CacheTag } from "~/lib/cache-keys";
 import type { ShellData } from "~/lib/shell-data";
 
 /**
@@ -2573,7 +2595,11 @@ export const productFragments: Record<string, FragmentDefinition<ShellData>> = {
     // Resolve on a fresh render too, not only on cached-document hits.
     resolveOnFreshDocument: true,
     ttl: 15,
-    key: () => "fragment:server-time:v1",
+    swr: 30,
+    timeoutMs: 1_000,
+    tags: [CacheTag.serverTime],
+    // A fresh/stale cache hit can be decided before any shell dependency starts.
+    keyFromRequest: () => "fragment:server-time:v1",
     resolve: () => <ServerTimeFragment renderedAt={new Date().toISOString()} />,
   },
 };
@@ -2797,20 +2823,14 @@ const featuredItemsCacheTest =
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  deleteKey: vi.fn(),
+  get: vi.fn(),
   listItems: vi.fn(),
-  read: vi.fn(),
-  warn: vi.fn(),
-  write: vi.fn(),
 }));
 
-vi.mock("@originloom/core/cache", () => ({
-  cacheKey: (policy: { key: string[] }) => policy.key.join("\\0"),
-  deleteKey: mocks.deleteKey,
-  read: mocks.read,
-  write: mocks.write,
+vi.mock("@originloom/core/cache/resource", () => ({
+  cachedResourceValue: <T,>(value: T) => ({ kind: "value", value }),
+  defineCachedResource: () => ({ get: mocks.get }),
 }));
-vi.mock("@originloom/core/logger", () => ({ logger: { warn: mocks.warn } }));
 vi.mock("@server/services/items", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@server/services/items")>()),
   listItems: mocks.listItems,
@@ -2842,15 +2862,16 @@ const page = {
 describe("featured items API data cache", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.deleteKey.mockResolvedValue(true);
     mocks.listItems.mockResolvedValue(page);
-    mocks.read.mockResolvedValue(null);
-    mocks.write.mockResolvedValue(true);
+    mocks.get.mockImplementation(async (_parts, load) => ({
+      ...(await load({ signal: new AbortController().signal, reason: "miss" })),
+      cacheState: "miss",
+    }));
   });
 
   it("serves a fresh snapshot without calling the gateway service", async () => {
     const snapshot = { ...page, fetchedAt: "2026-01-01T00:00:00.000Z" };
-    mocks.read.mockResolvedValue({ body: JSON.stringify(snapshot), state: "fresh" });
+    mocks.get.mockResolvedValue({ kind: "value", value: snapshot, cacheState: "fresh" });
 
     await expect(getFeaturedItems(new Request("http://app.local/data-cache"))).resolves.toEqual({
       ...snapshot,
@@ -2869,38 +2890,22 @@ describe("featured items API data cache", () => {
     // The whole query goes to the service, not a page number: filters and
     // sorting are part of what identifies this snapshot.
     expect(mocks.listItems).toHaveBeenCalledWith(expect.any(URLSearchParams), expect.any(Request));
-    expect(mocks.write).toHaveBeenCalledWith(
-      "items:featured:v1",
-      expect.any(String),
-      expect.objectContaining({ kind: "shared", key: ["items:featured:v1"] }),
+    expect(mocks.get).toHaveBeenCalledWith(
+      ["main"],
+      expect.any(Function),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
-  it("returns stale data immediately and coalesces background refreshes", async () => {
+  it("maps the resource stale state without implementing its own refresh loop", async () => {
     const snapshot = { ...page, fetchedAt: "2026-01-01T00:00:00.000Z" };
-    mocks.read.mockResolvedValue({ body: JSON.stringify(snapshot), state: "stale" });
+    mocks.get.mockResolvedValue({ kind: "value", value: snapshot, cacheState: "stale" });
 
-    await expect(
-      Promise.all([
-        getFeaturedItems(new Request("http://app.local/data-cache?one")),
-        getFeaturedItems(new Request("http://app.local/data-cache?two")),
-      ]),
-    ).resolves.toEqual([
-      { ...snapshot, cacheStatus: "stale" },
-      { ...snapshot, cacheStatus: "stale" },
-    ]);
-    await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledOnce());
-    expect(mocks.listItems).toHaveBeenCalledOnce();
-  });
-
-  it("deletes an invalid cache entry before refilling it", async () => {
-    mocks.read.mockResolvedValue({ body: '{"items":"invalid"}', state: "fresh" });
-
-    await expect(
-      getFeaturedItems(new Request("http://app.local/data-cache")),
-    ).resolves.toMatchObject({ cacheStatus: "miss" });
-    expect(mocks.deleteKey).toHaveBeenCalledWith("items:featured:v1");
-    expect(mocks.listItems).toHaveBeenCalledOnce();
+    await expect(getFeaturedItems(new Request("http://app.local/data-cache"))).resolves.toEqual({
+      ...snapshot,
+      cacheStatus: "stale",
+    });
+    expect(mocks.listItems).not.toHaveBeenCalled();
   });
 });
 `;
@@ -3406,8 +3411,10 @@ function isCount(value: unknown): value is number {
 }
 `;
 
-const featuredItemsService = () => `import * as cache from "@originloom/core/cache";
-import { logger } from "@originloom/core/logger";
+const featuredItemsService = () => `import {
+  cachedResourceValue,
+  defineCachedResource,
+} from "@originloom/core/cache/resource";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import { productConfig } from "@server/product/config";
 
@@ -3421,14 +3428,14 @@ export type FeaturedItemsResult = FeaturedItemsSnapshot & {
   cacheStatus: FeaturedItemsCacheStatus;
 };
 
-const FEATURED_ITEMS_CACHE_KEY = "items:featured:v1";
-const FEATURED_ITEMS_CACHE_POLICY = {
-  kind: "shared" as const,
+const featuredItems = defineCachedResource<FeaturedItemsSnapshot>({
+  namespace: "items:featured",
+  version: 1,
   ttl: productConfig.featuredItemsCacheTtl,
   swr: productConfig.featuredItemsCacheSwr,
-  key: [FEATURED_ITEMS_CACHE_KEY],
-};
-let refreshInFlight: Promise<FeaturedItemsSnapshot> | undefined;
+  tags: ["resource:items:featured"],
+  parse: parseSnapshot,
+});
 
 /**
  * Demonstrates endpoint-data caching independently from document caching.
@@ -3436,87 +3443,31 @@ let refreshInFlight: Promise<FeaturedItemsSnapshot> | undefined;
  * shared by every request. User identity and authorization never enter the key.
  */
 export async function getFeaturedItems(request: Request): Promise<FeaturedItemsResult> {
-  const key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY);
-  if (!key) throw new Error("Featured items cache policy must be shared");
-
-  const hit = await cache.read(key);
-  if (hit) {
-    const cached = parseSnapshot(hit.body);
-    if (cached) {
-      if (hit.state === "stale") scheduleRefresh(request);
-      return { ...cached, cacheStatus: hit.state };
-    }
-    try {
-      await cache.deleteKey(key);
-    } catch (error) {
-      logger.warn("invalid featured-items cache entry could not be deleted", {
-        error: errorMessage(error),
-      });
-    }
-  }
-
-  const snapshot = await waitForRequest(refresh(request, key), request.signal);
-  return { ...snapshot, cacheStatus: "miss" };
-}
-
-function refresh(
-  request: Request,
-  key = cache.cacheKey(FEATURED_ITEMS_CACHE_POLICY),
-): Promise<FeaturedItemsSnapshot> {
-  if (refreshInFlight) return refreshInFlight;
-  if (!key) return Promise.reject(new Error("Featured items cache policy must be shared"));
-
-  const pending = listItems(itemsQuery({ perPage: productConfig.catalogPageSize }), request)
-    .then(async (page) => {
+  const result = await featuredItems.get(
+    ["main"],
+    async ({ signal }) => {
+      const page = await listItems(
+        itemsQuery({ perPage: productConfig.catalogPageSize }),
+        new Request(request, { signal }),
+      );
       const snapshot = { ...page, fetchedAt: new Date().toISOString() };
-      await cache.write(key, JSON.stringify(snapshot), FEATURED_ITEMS_CACHE_POLICY);
-      return snapshot;
-    })
-    .finally(() => {
-      if (refreshInFlight === pending) refreshInFlight = undefined;
-    });
-  refreshInFlight = pending;
-  return pending;
+      return cachedResourceValue(snapshot);
+    },
+    { signal: request.signal },
+  );
+  if (result.kind !== "value") throw new Error("Featured items returned no value");
+  return { ...result.value, cacheStatus: result.cacheState };
 }
 
-function scheduleRefresh(request: Request): void {
-  void refresh(request).catch((error: unknown) => {
-    logger.warn("stale featured-items refresh failed", { error: errorMessage(error) });
-  });
-}
-
-function parseSnapshot(body: string): FeaturedItemsSnapshot | null {
-  try {
-    const value: unknown = JSON.parse(body);
-    return isFeaturedItemsSnapshot(value) ? value : null;
-  } catch {
-    return null;
-  }
+function parseSnapshot(value: unknown): FeaturedItemsSnapshot {
+  if (!isFeaturedItemsSnapshot(value)) throw new Error("Invalid featured items snapshot");
+  return value;
 }
 
 function isFeaturedItemsSnapshot(value: unknown): value is FeaturedItemsSnapshot {
   return isRecord(value) && isBoundedString(value.fetchedAt, 100) && isItemPage(value);
 }
 
-function waitForRequest<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Request aborted"));
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason ?? new Error("Request aborted"));
-    const settle = <TValue>(fn: (value: TValue) => void, value: TValue) => {
-      signal.removeEventListener("abort", abort);
-      fn(value);
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    void work.then(
-      (value) => settle(resolve, value),
-      (error: unknown) => settle(reject, error),
-    );
-  });
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 `;
 
 const liveMessageService = () => `import {
@@ -6017,15 +5968,25 @@ export function normalizePageParam(value: string | null): string {
 }
 `;
 
-const serverShellData = () => `import type { Ctx } from "@originloom/react/lib/types";
+const serverShellData = () => `import type { ShellDependencyPlan } from "@originloom/core/runtime";
+import type { Ctx } from "@originloom/react/lib/types";
 import { getMenu } from "@server/services/menu";
 
-import { buildLayoutClientProps, type ShellData } from "~/lib/shell-data";
+import { EMPTY_MENU } from "~/lib/menu";
+import {
+  buildLayoutClientProps,
+  buildRequestOverlay,
+  buildShellRequestFacts,
+  type PublicShellSnapshot,
+  type RequestOverlay,
+  type ShellData,
+  type ShellRequestFacts,
+  type TargetedShell,
+} from "~/lib/shell-data";
 
 /**
- * Per-request shell data: everything the layout needs that is not route data.
- * Fetch navigation, feature flags or branding here — keep it cache-safe
- * (no auth tokens, no user-specific values).
+ * Legacy shell builder retained for migration compatibility. New SSR requests
+ * use shellDependencyPlan below so public I/O can run beside the route loader.
  */
 export async function buildShellData(
   ctx: Ctx,
@@ -6037,6 +5998,26 @@ export async function buildShellData(
   const menu = await getMenu(ctx.request, base.deviceType);
   return { ...base, menu };
 }
+
+export const shellDependencyPlan: ShellDependencyPlan<
+  ShellData,
+  ShellRequestFacts,
+  PublicShellSnapshot,
+  TargetedShell,
+  RequestOverlay
+> = {
+  requestFacts: (ctx, options) => buildShellRequestFacts(ctx, options),
+  loadPublicShellSnapshot: async (facts, { ctx }) => ({
+    menu: facts.minimalChrome ? EMPTY_MENU : await getMenu(ctx.request, facts.deviceType),
+  }),
+  buildTargetedShell: (snapshot, facts) => ({ ...facts, ...snapshot }),
+  loadRequestOverlay: (_facts, { ctx }) => buildRequestOverlay(ctx),
+  composeShell: ({ targetedShell, requestOverlay }) => ({
+    ...targetedShell,
+    ...(requestOverlay ?? {}),
+  }),
+  composeTerminalShell: ({ facts }) => ({ ...facts, menu: EMPTY_MENU }),
+};
 `;
 
 const menuService =
@@ -6055,7 +6036,7 @@ import type { DeviceType } from "@originloom/shared/lib/device";
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 import { productConfig } from "@server/product/config";
 
-import { menuCacheKey } from "~/lib/cache-keys";
+import { CacheTag, menuCacheKey } from "~/lib/cache-keys";
 import { EMPTY_MENU, type IMenuItems, type MenuItem } from "~/lib/menu";
 
 import { GatewayContracts } from "./gateway-contracts";
@@ -6090,6 +6071,7 @@ async function loadMenu(request: Request, device: DeviceType): Promise<IMenuItem
     kind: "shared" as const,
     ttl: productConfig.menuCacheTtl,
     swr: productConfig.menuCacheSwr,
+    tags: [CacheTag.menu],
     key: [menuCacheKey(device)],
   };
 
@@ -6461,11 +6443,17 @@ import { configureSiteMetadata } from "@originloom/shared/lib/metadata/site-conf
 import { catalogMetricLines } from "@server/metrics/catalog";
 import { liveStreamMetricLines } from "@server/metrics/live-stream";
 import { storeBotVisit } from "@server/services/bot-analytics";
-import { buildShellData } from "@server/services/shell-data";
+import { shellDependencyPlan } from "@server/services/shell-data";
 
 import { isKnownPageCachePrefix } from "~/lib/cache-keys";
 import { siteMetadata } from "~/lib/metadata/site-defaults";
-import type { ShellData } from "~/lib/shell-data";
+import type {
+  PublicShellSnapshot,
+  RequestOverlay,
+  ShellData,
+  ShellRequestFacts,
+  TargetedShell,
+} from "~/lib/shell-data";
 
 import { productDocumentShell } from "./document-shell";
 import { productFragments } from "./fragments";
@@ -6475,12 +6463,18 @@ import { productRenderer } from "./renderer";
  * The product side of the platform contract. @originloom/core reads this instead
  * of importing anything from this app.
  */
-export const productRuntime: OriginRuntime<ShellData> = {
+export const productRuntime: OriginRuntime<
+  ShellData,
+  ShellRequestFacts,
+  PublicShellSnapshot,
+  TargetedShell,
+  RequestOverlay
+> = {
   // Turns this app's React views into HTML. Swapping this swaps the UI framework.
   renderer: productRenderer,
   // Cached HTML fragments resolved independently of the page (header, footer, …).
   fragments: productFragments,
-  buildShellData,
+  shell: shellDependencyPlan,
   isShellUsableForFragments: () => true,
   document: productDocumentShell,
   cacheKeys: { isKnownPageCachePrefix },
@@ -7070,7 +7064,7 @@ import { cookie } from "@originloom/shared/lib/request";
 
 import { EMPTY_MENU, type IMenuItems } from "~/lib/menu";
 
-/** Cache-safe props for the shell — no trackingId, no auth tokens. */
+/** Final shell shape. Request-private fields must live only in RequestOverlay. */
 export type ShellData = {
   publicPath: string;
   pathname: string;
@@ -7081,19 +7075,37 @@ export type ShellData = {
   menu: IMenuItems;
 };
 
+export type ShellRequestFacts = Omit<ShellData, "theme" | "menu">;
+export type PublicShellSnapshot = Pick<ShellData, "menu">;
+export type TargetedShell = ShellRequestFacts & PublicShellSnapshot;
+export type RequestOverlay = Pick<ShellData, "theme">;
+
+export function buildShellRequestFacts(
+  ctx: Ctx,
+  opts?: { minimalChrome?: boolean | undefined },
+): ShellRequestFacts {
+  const deviceType = deviceCacheFragment(ctx.request);
+  return {
+    publicPath: ctx.publicPath,
+    pathname: ctx.url.pathname,
+    ...(opts?.minimalChrome !== undefined ? { minimalChrome: opts.minimalChrome } : {}),
+    deviceType,
+    deviceShell: getDeviceShell(deviceType),
+  };
+}
+
+export function buildRequestOverlay(ctx: Ctx): RequestOverlay {
+  const theme = cookie(ctx.request, Cookie.theme);
+  return theme === undefined ? {} : { theme };
+}
+
 export function buildLayoutClientProps(
   ctx: Ctx,
   opts?: { minimalChrome?: boolean | undefined },
 ): ShellData {
-  const deviceType = deviceCacheFragment(ctx.request);
-  const theme = cookie(ctx.request, Cookie.theme);
   return {
-    publicPath: ctx.publicPath,
-    pathname: ctx.url.pathname,
-    ...(theme !== undefined ? { theme } : {}),
-    ...(opts?.minimalChrome !== undefined ? { minimalChrome: opts.minimalChrome } : {}),
-    deviceType,
-    deviceShell: getDeviceShell(deviceType),
+    ...buildShellRequestFacts(ctx, opts),
+    ...buildRequestOverlay(ctx),
     menu: EMPTY_MENU,
   };
 }
@@ -7167,6 +7179,13 @@ export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
 
 export type PageCacheStrategy = "shared" | "never";
 
+export const CacheTag = {
+  menu: "resource:menu",
+  serverTime: "resource:server-time",
+} as const;
+
+const SHARED_SHELL_TAGS = [CacheTag.menu] as const;
+
 export type PageCacheDefinition = {
   id: PageCacheId;
   description: string;
@@ -7174,6 +7193,7 @@ export type PageCacheDefinition = {
   strategy: PageCacheStrategy;
   ttl?: number;
   swr?: number;
+  tags?: readonly string[];
   contentQuery?: ContentQueryConfig;
   buildKey: (ctx: Ctx) => string[];
 };
@@ -7341,6 +7361,7 @@ export function pageCachePolicy(id: PageCacheId, ctx: Ctx): CachePolicy {
   return sharedUnlessBypass(ctx, entry.buildKey(ctx), {
     ttl: entry.ttl ?? DEFAULT_TTL,
     swr: entry.swr ?? DEFAULT_SWR,
+    tags: entry.tags ?? SHARED_SHELL_TAGS,
   });
 }
 

@@ -5,15 +5,27 @@ import { config } from "../config.js";
 import { logError } from "../logger.js";
 import { observeRevalidation } from "../metrics.js";
 import { SpanKind, SpanStatusCode, withSpan } from "../observability.js";
+import { createShellResolution } from "../shell-resolution.js";
 import { runLoader, runRender } from "../ssr/execute-route.js";
-import { normalizeCachedHtmlNonce } from "./csp-nonce.js";
+import { normalizeCachedHtmlDynamicValues } from "./dynamic-html.js";
+import { drainFragmentRevalidations } from "./fragment.js";
 import * as cache from "./index.js";
+import { drainCachedResourceRevalidations } from "./resource.js";
 
 type SharedPolicy = ReturnType<NonNullable<Route["cache"]>>;
 
 const revalidationsInFlight = new Map<string, Promise<void>>();
 
 export async function drainRevalidations(timeoutMs: number): Promise<boolean> {
+  const [pages, resources, fragments] = await Promise.all([
+    drainPageRevalidations(timeoutMs),
+    drainCachedResourceRevalidations(timeoutMs),
+    drainFragmentRevalidations(timeoutMs),
+  ]);
+  return pages && resources && fragments;
+}
+
+async function drainPageRevalidations(timeoutMs: number): Promise<boolean> {
   const pending = [...revalidationsInFlight.values()];
   if (pending.length === 0) return true;
 
@@ -85,6 +97,11 @@ async function revalidate(
   if (!lockToken) return "lock_miss";
   try {
     for (let attempt = 1; attempt <= config.revalidationAttempts; attempt++) {
+      const shellResolution = createShellResolution(
+        routeCtx,
+        route.path,
+        route.minimalChrome === undefined ? {} : { minimalChrome: route.minimalChrome },
+      );
       try {
         const result = await runLoader(route, routeCtx, "revalidation");
         if (result.kind && result.kind !== "data") {
@@ -93,13 +110,21 @@ async function revalidate(
         if ((result.status ?? 200) !== 200) {
           throw new Error(`revalidation loader returned ${result.status ?? 200}`);
         }
-        const rendered = await runRender(route, result.data, assets, routeCtx, "revalidation");
-        const body = normalizeCachedHtmlNonce(rendered, routeCtx.cspNonce);
+        const rendered = await runRender(
+          route,
+          result.data,
+          assets,
+          routeCtx,
+          "revalidation",
+          shellResolution,
+        );
+        const body = normalizeCachedHtmlDynamicValues(rendered, routeCtx);
         if (!(await cache.write(key, body, policy))) {
           throw new Error("revalidation cache write failed");
         }
         return "success";
       } catch (error) {
+        shellResolution.abort(error);
         logError(error, {
           requestId,
           key,

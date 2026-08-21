@@ -2,18 +2,24 @@ import type Redis from "ioredis";
 
 import { logger } from "../logger.js";
 import type { MemoryStore } from "./memory.js";
+import { MAX_TAG_KEYS, normalizeTagOperation } from "./tags.js";
 import type { TieredStore } from "./tiered.js";
 
 export type InvalidationMessage =
   | { type: "key"; key: string }
   | { type: "keys"; keys: string[] }
   | { type: "prefix"; prefix: string }
+  | { type: "tags"; tags: string[] }
   | { type: "flush" };
+
+const MAX_INVALIDATION_KEY_LENGTH = 2_048;
+const MAX_INVALIDATION_PREFIX_LENGTH = 256;
 
 export interface CacheInvalidationPublisher {
   publishKey(key: string): Promise<void>;
   publishKeys(keys: string[]): Promise<void>;
   publishPrefix(prefix: string): Promise<void>;
+  publishTags(tags: readonly string[]): Promise<void>;
   publishFlushAll(): Promise<void>;
   close(): Promise<void>;
 }
@@ -45,7 +51,8 @@ export class CacheInvalidationBus implements CacheInvalidationPublisher {
     // read as our own subscribe ack would otherwise be silently lost.
     subscriber.on("message", (_channel, payload) => {
       try {
-        const message = JSON.parse(payload) as InvalidationMessage;
+        const message = parseInvalidationMessage(JSON.parse(payload));
+        if (!message) throw new Error("invalid cache invalidation payload");
         this.onMessage(message);
       } catch (error) {
         logger.warn("cache invalidation message parse failed", {
@@ -98,16 +105,26 @@ export class CacheInvalidationBus implements CacheInvalidationPublisher {
   }
 
   async publishKey(key: string): Promise<void> {
+    assertCacheKey(key);
     await this.publish({ type: "key", key });
   }
 
   async publishKeys(keys: string[]): Promise<void> {
     if (keys.length === 0) return;
+    if (keys.length > MAX_TAG_KEYS) throw new Error(`Too many cache keys: ${keys.length}`);
+    for (const key of keys) assertCacheKey(key);
     await this.publish({ type: "keys", keys });
   }
 
   async publishPrefix(prefix: string): Promise<void> {
+    if (!isBoundedString(prefix, MAX_INVALIDATION_PREFIX_LENGTH)) {
+      throw new Error("Invalid cache invalidation prefix");
+    }
     await this.publish({ type: "prefix", prefix });
+  }
+
+  async publishTags(tags: readonly string[]): Promise<void> {
+    await this.publish({ type: "tags", tags: [...normalizeTagOperation(tags)] });
   }
 
   async publishFlushAll(): Promise<void> {
@@ -134,6 +151,42 @@ export class CacheInvalidationBus implements CacheInvalidationPublisher {
   }
 }
 
+export function parseInvalidationMessage(value: unknown): InvalidationMessage | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  if (input.type === "flush") return { type: "flush" };
+  if (input.type === "key" && isBoundedString(input.key, MAX_INVALIDATION_KEY_LENGTH)) {
+    return { type: "key", key: input.key };
+  }
+  if (input.type === "prefix" && isBoundedString(input.prefix, MAX_INVALIDATION_PREFIX_LENGTH)) {
+    return { type: "prefix", prefix: input.prefix };
+  }
+  if (input.type === "keys" && Array.isArray(input.keys)) {
+    if (input.keys.length === 0 || input.keys.length > MAX_TAG_KEYS) return null;
+    if (!input.keys.every((key) => isBoundedString(key, MAX_INVALIDATION_KEY_LENGTH))) return null;
+    return { type: "keys", keys: [...new Set(input.keys)] };
+  }
+  if (input.type === "tags" && Array.isArray(input.tags)) {
+    if (!input.tags.every((tag): tag is string => typeof tag === "string")) return null;
+    try {
+      return { type: "tags", tags: [...normalizeTagOperation(input.tags)] };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function assertCacheKey(key: string): void {
+  if (!isBoundedString(key, MAX_INVALIDATION_KEY_LENGTH)) {
+    throw new Error("Invalid cache invalidation key");
+  }
+}
+
+function isBoundedString(value: unknown, maxLength: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maxLength;
+}
+
 export function applyInvalidationToL1(l1: MemoryStore, message: InvalidationMessage): void {
   switch (message.type) {
     case "key":
@@ -144,6 +197,9 @@ export function applyInvalidationToL1(l1: MemoryStore, message: InvalidationMess
       break;
     case "prefix":
       void l1.deleteByPrefix(message.prefix);
+      break;
+    case "tags":
+      void l1.deleteByTags(message.tags, MAX_TAG_KEYS);
       break;
     case "flush":
       l1.flushAllSync();

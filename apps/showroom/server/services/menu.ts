@@ -13,7 +13,7 @@ import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 import { productConfig } from "@server/product/config";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 
-import { menuCacheKey } from "~/lib/cache-keys";
+import { CacheTag, menuCacheKey } from "~/lib/cache-keys";
 
 const MAX_MENU_DEPTH = 3;
 const MAX_MENU_ITEMS = 200;
@@ -34,6 +34,7 @@ async function loadMenuList(request: Request, device: DeviceType): Promise<IMenu
     kind: "shared" as const,
     ttl: productConfig.menuCacheTtl,
     swr: productConfig.menuCacheSwr,
+    tags: [CacheTag.menu],
     key: [key],
   };
   const cacheKey = cache.cacheKey(policy);

@@ -7,12 +7,15 @@ import { observeCacheEntryWrite, observeCacheOperation, setCacheL2Health } from 
 import { SpanKind, withSpan } from "../observability.js";
 import { applyInvalidationToL1, CacheInvalidationBus } from "./invalidation.js";
 import { formatCacheKey } from "./key-codec.js";
+import type { CacheMemoryWriteOptions, CacheNamespace } from "./l1-policy.js";
 import { MemoryStore } from "./memory.js";
 import { RedisStore } from "./redis.js";
+import { MAX_TAG_KEYS, normalizeTagOperation } from "./tags.js";
 import { TieredStore } from "./tiered.js";
 import type { CacheStore } from "./types.js";
 import type { CacheReadResult } from "./types.js";
 import type { RateLimitResult } from "./types.js";
+import type { TagInvalidationResult } from "./types.js";
 
 let store: CacheStore | null = null;
 let invalidationBus: CacheInvalidationBus | null = null;
@@ -40,7 +43,11 @@ export function isL2Configured(): boolean {
 export async function initCache(): Promise<CacheStore> {
   if (store) return store;
 
-  const l1 = new MemoryStore(config.cacheMaxEntries);
+  const l1 = new MemoryStore(config.cacheMaxEntries, {
+    maxBytes: config.cacheL1MaxBytes,
+    namespaces: config.cacheL1Namespaces,
+    auxiliary: config.cacheL1Auxiliary,
+  });
   let l2: RedisStore | null = null;
   let invalidation: CacheInvalidationBus | undefined;
   const backend = runtimeCacheBackend();
@@ -117,19 +124,51 @@ export async function read(key: string): Promise<CacheReadResult | null> {
   }
 }
 
-export async function write(key: string, body: string, policy: CachePolicy): Promise<boolean> {
+export async function write(
+  key: string,
+  body: string,
+  policy: CachePolicy,
+  memory?: CacheMemoryWriteOptions,
+): Promise<boolean> {
   try {
-    await runCacheOperation("write", () => getCache().write(key, body, policy));
-    observeCacheEntryWrite(key, body);
-    return true;
+    const written = await runCacheOperation("write", () =>
+      getCache().write(key, body, policy, memory),
+    );
+    if (written) observeCacheEntryWrite(key, body);
+    return written;
   } catch (error) {
     logError(error, { msg: "cache write failed", key });
     return false;
   }
 }
 
+export async function attachMemoryValue(
+  key: string,
+  value: unknown,
+  valueBytes: number,
+  namespace: CacheNamespace,
+): Promise<boolean> {
+  try {
+    const cache = getCache();
+    if (!cache.attachMemoryValue) return false;
+    return await runCacheOperation("l1.attach", () =>
+      cache.attachMemoryValue!(key, value, valueBytes, namespace),
+    );
+  } catch (error) {
+    logError(error, { msg: "cache L1 typed value attach failed", key });
+    return false;
+  }
+}
+
 export async function deleteKey(key: string): Promise<boolean> {
   return runCacheOperation("delete", () => getCache().deleteKey(key));
+}
+
+export async function invalidateTags(tags: readonly string[]): Promise<TagInvalidationResult> {
+  const normalized = normalizeTagOperation(tags);
+  return runCacheOperation("tag.invalidate", () =>
+    getCache().deleteByTags(normalized, MAX_TAG_KEYS),
+  );
 }
 
 export function cacheControl(policy: CachePolicy): string {

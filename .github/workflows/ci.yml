@@ -100,6 +100,16 @@ jobs:
   release-verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
 
     steps:
       - name: Check out repository
@@ -120,4 +130,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Publish to a local registry and build an installed app
+        env:
+          REDIS_URL: redis://127.0.0.1:6379
         run: pnpm run release:verify --renderer ${{ matrix.renderer }}

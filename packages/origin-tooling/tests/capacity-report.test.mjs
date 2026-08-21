@@ -145,6 +145,16 @@ metric_count{kind="document_render"} 13
       expect.objectContaining({ status: "inconclusive" }),
     );
   });
+
+  it("keeps cache topology and compression profiles out of the same baseline", () => {
+    const report = reportFixture();
+    const baseline = createPerformanceBaseline(report);
+    report.environment.compressionProfile = "gzip";
+
+    expect(comparePerformance(report, baseline, report.performancePolicy)).toEqual(
+      expect.objectContaining({ status: "incompatible" }),
+    );
+  });
 });
 
 function reportFixture() {
@@ -188,6 +198,7 @@ function reportFixture() {
       },
     ],
     cacheExperiments: [{ passed: true }],
+    cacheAcceptance: { passed: true, topologies: [] },
     payloadBudgetResults: [{ passed: true }],
     runtimeBudgetResults: [{ passed: true }],
     performancePolicy: {

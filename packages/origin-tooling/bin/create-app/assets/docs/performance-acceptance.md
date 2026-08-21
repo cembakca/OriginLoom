@@ -19,6 +19,18 @@ serialization histogramları ve varsa `performance-baseline.json` karşılaştı
 raporuna ekler. Hard payload veya serialization bütçesi, cache doğruluk deneyi ya da karşılaştırılabilir
 baseline regresyonu başarısızsa komut non-zero çıkar.
 
+Kapasite ölçümü başlamadan önce memory cache doğruluk matrisi ayrı process'te çalışır: cold/stale burst,
+negative cache, stale-if-error ve byte eviction başarısızsa RPS sonucu üretilmez. Paketi tek başına
+çalıştırmak için `pnpm cache:acceptance` kullanın. Gerçek Redis regresyon matrisi opt-in'dir:
+
+```bash
+REDIS_URL=redis://127.0.0.1:6379 pnpm cache:acceptance:redis
+```
+
+Bu ikinci matris iki bağımsız Node process'iyle distributed cold fill/revalidation, L2 promotion,
+pub/sub L1 invalidation ve optional/required Redis degradation davranışlarını doğrular. Uygulama kaynak
+kodu topology'yi bilmez; yalnız `CACHE_BACKEND`, `CACHE_REQUIRED` ve `REDIS_URL` değişir.
+
 İlk kurulumda baseline bulunmaması hata değildir; raporda `BASELINE YOK` görünür. Önce stabil bir full
 raporu inceleyin, sonra bilinçli olarak kabul edin:
 
@@ -50,6 +62,8 @@ Baseline karşılaştırması yalnız şu alanlar aynıysa geçerlidir:
 - profil adı, route listesi ve connection kademeleri;
 - warm-up, kademe süresi ve tekrar sayısı;
 - mock gateway delay ayarı.
+- cache topology (`memory` veya `memory+redis`);
+- ingress compression profili (`identity` veya `gzip`).
 
 Uyumsuz rapor başarısız regresyon diye yorumlanmaz; `UYUMSUZ / KARŞILAŞTIRILMADI` olur. CI için aynı
 runner sınıfını ve sabit Node sürümünü kullanın. CV ve generator CPU eşikleri
@@ -89,6 +103,17 @@ Varsayılan template limitleri:
 HTML probe ağ transferi değil, sıkıştırılmamış document büyüklüğüdür. Lighthouse script transfer
 bütçesi ve `performance-budgets.json` içindeki gzip JS bütçeleri ayrı katmanlardır. Üçü birlikte
 korunmalıdır.
+
+Identity ve gzip ölçümlerini aynı baseline'a yazmayın. Varsayılan `pnpm capacity` identity profilidir;
+`pnpm capacity:gzip` sıkıştırılmış transfer profilidir. Ayrı baseline dosyaları kullanın:
+
+```bash
+pnpm capacity -- --baseline performance-baseline.identity.json
+pnpm capacity:gzip -- --baseline performance-baseline.gzip.json
+```
+
+HTML/island hard budget probe'u her iki profilde de bilinçli olarak identity body üzerinde çalışır;
+autocannon throughput ve response latency ise seçilen ingress `Accept-Encoding` profiline aittir.
 
 React Query bu template'te client-side session sorgusunda kullanılır; server dehydration eklenirse
 dehydrated state'i ayrı bir HTML işaretleyicisiyle ölçüp `performance-policy.json` içine bağımsız hard

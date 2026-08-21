@@ -3,9 +3,11 @@ import {
   cacheKey,
   closeCache,
   initCache,
+  read,
   releaseColdMissLock,
   write,
 } from "@originloom/core/cache";
+import { dynamicHtmlPlaceholders } from "@originloom/core/cache/dynamic-html";
 import { config } from "@originloom/core/config";
 import {
   drainRevalidations,
@@ -63,7 +65,14 @@ vi.mock("ioredis", () => ({
     publish = vi.fn(async () => 1);
     subscribe = vi.fn(async () => {});
     scan = vi.fn(async () => ["0", [] as string[]]);
-    eval = vi.fn(async (_script: string, _keyCount: number, key: string, token: string) => {
+    eval = vi.fn(async (script: string, keyCount: number, ...args: unknown[]) => {
+      if (script.includes("originloom-tag-index-reserve")) {
+        const redisKeys = args.slice(0, keyCount) as string[];
+        handlerRedisData.set(redisKeys[1]!, handlerRedisBuffer(args[keyCount + 5] as Buffer));
+        return 1;
+      }
+      if (script.includes("originloom-tag-index-remove")) return 1;
+      const [key, token] = args as [string, string];
       if (handlerRedisData.get(key)?.toString("utf8") !== token) return 0;
       handlerRedisData.delete(key);
       return 1;
@@ -398,7 +407,10 @@ describe("handler", () => {
       minimalChrome: true,
     };
 
-    const res = await handle(new Request("http://localhost/expected-error"), [route], assets);
+    const res = await handle(new Request("http://localhost/expected-error"), [route], assets, {
+      requestId: "expected-error-request",
+      cspNonce: "expected-error-nonce",
+    });
     const body = await res.text();
     expect(res.status).toBe(422);
     expect(body).toContain("422:Teklif şu anda kullanılamıyor.");
@@ -411,6 +423,9 @@ describe("handler", () => {
     const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
     expect(errorId).not.toBe("");
     expect(body).toContain(`Referans: ${errorId}`);
+    expect(body).toContain('"pageRequestId":"expected-error-request"');
+    expect(body).toContain('nonce="expected-error-nonce"');
+    expect(body).not.toContain("__ORIGINLOOM_");
   });
 
   it("renders the default route retry action as a button instead of a crawlable self-link", async () => {
@@ -447,7 +462,9 @@ describe("handler", () => {
       minimalChrome: true,
     };
 
-    const res = await handle(new Request("http://localhost/unexpected-error"), [route], assets);
+    const res = await handle(new Request("http://localhost/unexpected-error"), [route], assets, {
+      requestId: "unexpected-error-request",
+    });
     const body = await res.text();
     expect(res.status).toBe(500);
     expect(res.headers.get("x-cache")).toBe("ERROR");
@@ -460,6 +477,8 @@ describe("handler", () => {
     const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
     expect(errorId).not.toBe("");
     expect(body).toContain(errorId);
+    expect(body).toContain('"pageRequestId":"unexpected-error-request"');
+    expect(body).not.toContain("__ORIGINLOOM_");
   });
 
   it("falls back to the global error page when the route boundary also fails", async () => {
@@ -476,7 +495,9 @@ describe("handler", () => {
       minimalChrome: true,
     };
 
-    const res = await handle(new Request("http://localhost/broken-boundary"), [route], assets);
+    const res = await handle(new Request("http://localhost/broken-boundary"), [route], assets, {
+      requestId: "global-error-request",
+    });
     const body = await res.text();
     expect(res.status).toBe(500);
     expect(body).toContain("Bir hata oluştu");
@@ -489,6 +510,8 @@ describe("handler", () => {
     const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
     expect(errorId).not.toBe("");
     expect(body).toContain(`Referans: ${errorId}`);
+    expect(res.headers.get("x-request-id")).toBe("global-error-request");
+    expect(body).not.toContain("__ORIGINLOOM_");
   });
 
   it("serves cached pages with HIT on second request", async () => {
@@ -509,6 +532,107 @@ describe("handler", () => {
     expect(body).toContain('width="1600" height="900"');
     expect(body).toContain("&quot;publicPath&quot;:&quot;\\/&quot;");
     expect(body).not.toContain("&quot;publicPath&quot;:&quot;/&quot;");
+  });
+
+  it.each(["memory", "redis"] as const)(
+    "materializes request values per MISS/HIT/STALE response with the %s backend",
+    async (backend) => {
+      process.env.CACHE_BACKEND = backend;
+      process.env.REDIS_URL = backend === "redis" ? "redis://127.0.0.1:6379" : "";
+      await closeCache();
+      await initCache();
+      vi.useFakeTimers();
+
+      const route: Route = {
+        path: `/dynamic-html-${backend}`,
+        cache: () => ({
+          kind: "shared",
+          ttl: 1,
+          swr: 10,
+          key: [`dynamic-html-${backend}`],
+        }),
+        loader: async () => ({ data: {} }),
+        Component: () => createElement("main", null, "cache-safe"),
+        minimalChrome: true,
+      };
+      const request = new Request(`http://localhost/dynamic-html-${backend}`);
+
+      const first = await handle(request, [route], assets, {
+        requestId: `${backend}-fill-request`,
+        cspNonce: `${backend}-fill-nonce`,
+      });
+      const firstBody = await first.text();
+      expect(first.headers.get("x-cache")).toBe("MISS");
+      expect(firstBody).toContain(`${backend}-fill-request`);
+      expect(firstBody).toContain(`nonce="${backend}-fill-nonce"`);
+
+      const stored = await read(formatCacheKey([`dynamic-html-${backend}`]));
+      const slots = dynamicHtmlPlaceholders();
+      expect(stored?.body).toContain(slots.pageRequestId);
+      expect(stored?.body).toContain(slots.cspNonce);
+      expect(stored?.body).not.toContain(`${backend}-fill-request`);
+      expect(stored?.body).not.toContain(`${backend}-fill-nonce`);
+
+      const hit = await handle(request, [route], assets, {
+        requestId: `${backend}-hit-request`,
+        cspNonce: `${backend}-hit-nonce`,
+      });
+      const hitBody = await hit.text();
+      expect(hit.headers.get("x-cache")).toBe("HIT");
+      expect(hitBody).toContain(`${backend}-hit-request`);
+      expect(hitBody).toContain(`nonce="${backend}-hit-nonce"`);
+      expect(hitBody).not.toContain(`${backend}-fill-request`);
+
+      vi.advanceTimersByTime(1_500);
+      const stale = await handle(request, [route], assets, {
+        requestId: `${backend}-stale-request`,
+        cspNonce: `${backend}-stale-nonce`,
+      });
+      const staleBody = await stale.text();
+      expect(stale.headers.get("x-cache")).toBe("STALE");
+      expect(staleBody).toContain(`${backend}-stale-request`);
+      expect(staleBody).toContain(`nonce="${backend}-stale-nonce"`);
+      expect(staleBody).not.toContain(`${backend}-fill-request`);
+      expect(staleBody).not.toContain("__ORIGINLOOM_");
+
+      await vi.runAllTimersAsync();
+      await expect(drainRevalidations(1_000)).resolves.toBe(true);
+    },
+  );
+
+  it("keeps request overlay values out of shared HTML while retaining them for no-store SSR", async () => {
+    const secretTheme = "request-only-theme";
+    const sharedRoute: Route = {
+      path: "/shared-overlay",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["shared-overlay"] }),
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "shared"),
+    };
+    const privateRoute: Route = {
+      path: "/private-overlay",
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "private"),
+    };
+
+    const shared = await handle(
+      new Request("http://localhost/shared-overlay", {
+        headers: { cookie: `theme=${secretTheme}` },
+      }),
+      [sharedRoute],
+      assets,
+    );
+    const stored = await read(formatCacheKey(["shared-overlay"]));
+    const privateResponse = await handle(
+      new Request("http://localhost/private-overlay", {
+        headers: { cookie: `theme=${secretTheme}` },
+      }),
+      [privateRoute],
+      assets,
+    );
+
+    expect(await shared.text()).not.toContain(secretTheme);
+    expect(stored?.body).not.toContain(secretTheme);
+    expect(await privateResponse.text()).toContain(secretTheme);
   });
 
   it("coalesces concurrent cold misses inside the process", async () => {
@@ -878,11 +1002,11 @@ describe("handler", () => {
     result = { data: { text: "upstream failure" }, status: 503 };
     const stale = await handle(request, [route], assets);
     expect(stale.headers.get("x-cache")).toBe("STALE");
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(751);
 
     const afterFailure = await handle(request, [route], assets);
     expect(await afterFailure.text()).toContain("fresh");
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(751);
     await expect(drainRevalidations(1_000)).resolves.toBe(true);
   });
 
@@ -905,7 +1029,7 @@ describe("handler", () => {
     await handle(request, [route], assets);
     vi.advanceTimersByTime(1_500);
     expect((await handle(request, [route], assets)).headers.get("x-cache")).toBe("STALE");
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(300);
     await expect(drainRevalidations(1_000)).resolves.toBe(true);
 
     const updated = await handle(request, [route], assets);

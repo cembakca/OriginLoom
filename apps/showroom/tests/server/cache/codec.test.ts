@@ -1,4 +1,5 @@
 import { decodeCacheEntry, encodeCacheEntry } from "@originloom/core/cache/codec";
+import { dynamicHtmlPlaceholders } from "@originloom/core/cache/dynamic-html";
 import type { CacheEntry } from "@originloom/core/cache/types";
 import { findSsrFragmentMarkers } from "@originloom/shared/fragment-markup";
 import { describe, expect, it } from "vitest";
@@ -28,6 +29,76 @@ describe("Redis cache codec", () => {
 
     expect(encoded.subarray(-Buffer.byteLength(body)).toString("utf8")).toBe(body);
     expect(decodeCacheEntry(encoded)?.body).toBe(body);
+  });
+
+  it("preserves dynamic HTML slots through the Redis wire codec", () => {
+    const slots = dynamicHtmlPlaceholders();
+    const body =
+      `<!DOCTYPE html><script nonce="${slots.cspNonce}">run()</script>` +
+      `<script type="application/json">{"pageRequestId":"${slots.pageRequestId}"}</script>`;
+    const entry: CacheEntry = { body, ...timestamps };
+
+    expect(decodeCacheEntry(encodeCacheEntry(entry))).toMatchObject({ body });
+  });
+
+  it("preserves the compiled fragment plan through the current Redis wire codec", () => {
+    const body =
+      '<!DOCTYPE html><ssr-fragment name="header" style="display: contents">header</ssr-fragment>' +
+      '<main><ssr-fragment name="footer" style="display: contents">footer</ssr-fragment></main>';
+    const fragmentMarkers = findSsrFragmentMarkers(body);
+    const entry: CacheEntry = { body, fragmentMarkers, hasFragments: true, ...timestamps };
+
+    expect(decodeCacheEntry(encodeCacheEntry(entry))).toEqual(entry);
+  });
+
+  it("preserves dependency tags through the current Redis wire codec", () => {
+    const entry: CacheEntry = {
+      body: '{"menu":true}',
+      tags: ["page:home", "resource:menu"],
+      ...timestamps,
+    };
+
+    expect(decodeCacheEntry(encodeCacheEntry(entry))).toEqual({
+      ...entry,
+      hasFragments: false,
+      fragmentMarkers: [],
+    });
+  });
+
+  it("reads version 3 compiled-marker entries without tags during a rolling deployment", () => {
+    const body =
+      '<!DOCTYPE html><ssr-fragment name="menu" style="display: contents">fallback</ssr-fragment>';
+    const markers = findSsrFragmentMarkers(body);
+    const versionThree = asVersionThree(
+      encodeCacheEntry({ body, tags: ["resource:menu"], ...timestamps }),
+      markers,
+    );
+
+    expect(decodeCacheEntry(versionThree)).toEqual({
+      body,
+      ...timestamps,
+      hasFragments: true,
+      fragmentMarkers: markers,
+    });
+  });
+
+  it("rejects HTML entries containing a concrete request id from an older release", () => {
+    const unsafe = encodeCacheEntry({
+      body: '<!DOCTYPE html><script>{"pageRequestId":"fill-request-id"}</script>',
+      ...timestamps,
+    });
+
+    expect(decodeCacheEntry(unsafe)).toBeNull();
+    expect(
+      decodeCacheEntry(
+        Buffer.from(
+          JSON.stringify({
+            body: '<!DOCTYPE html><script>{"pageRequestId":"legacy-request-id"}</script>',
+            ...timestamps,
+          }),
+        ),
+      ),
+    ).toBeNull();
   });
 
   it("reads legacy JSON entries during the rolling migration", () => {
@@ -99,5 +170,27 @@ function withoutVersionThreeMetadata(current: Buffer): Buffer {
   return Buffer.concat([
     current.subarray(0, headerBytes),
     current.subarray(headerBytes + 4 + metadataBytes),
+  ]);
+}
+
+function asVersionThree(
+  current: Buffer,
+  markers: ReturnType<typeof findSsrFragmentMarkers>,
+): Buffer {
+  const headerBytes = 22;
+  const currentMetadataBytes = current.readUInt32BE(headerBytes);
+  const metadata = Buffer.from(
+    JSON.stringify(markers.map(({ name, start, end }) => [name, start, end])),
+    "utf8",
+  );
+  const length = Buffer.allocUnsafe(4);
+  length.writeUInt32BE(metadata.length);
+  const header = Buffer.from(current.subarray(0, headerBytes));
+  header.writeUInt8(3, 4);
+  return Buffer.concat([
+    header,
+    length,
+    metadata,
+    current.subarray(headerBytes + 4 + currentMetadataBytes),
   ]);
 }

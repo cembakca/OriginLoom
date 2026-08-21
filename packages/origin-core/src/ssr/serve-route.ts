@@ -5,7 +5,11 @@ import type { CachePolicy, Ctx, LoaderResult, Route } from "@originloom/shared/l
 
 import type { Assets } from "../assets.js";
 import { coalesceColdMiss } from "../cache/cold-fill.js";
-import { materializeCachedHtmlNonce, normalizeCachedHtmlNonce } from "../cache/csp-nonce.js";
+import {
+  cachedHtmlDynamicValues,
+  materializeCachedHtmlDynamicValues,
+  normalizeCachedHtmlDynamicValues,
+} from "../cache/dynamic-html.js";
 import * as cache from "../cache/index.js";
 import { scheduleRevalidation } from "../cache/revalidation.js";
 import { stitchCachedHtml } from "../cache/stitch-fragments.js";
@@ -65,7 +69,7 @@ export async function serveRoute(options: ServeRouteOptions): Promise<Response> 
         work: async () =>
           toColdFillResult(
             await executeRouteWithBudget(options.route, options.routeCtx, options.assets),
-            options.routeCtx.cspNonce,
+            options.routeCtx,
           ),
         isTimeout: (error) => error instanceof CacheFillTimeoutError,
       });
@@ -100,16 +104,18 @@ async function cachedResponse(
   const stitchedBody = hasFragments
     ? await stitchCachedHtml(cachedBody, options.route, options.routeCtx, true, fragmentMarkers)
     : cachedBody;
-  const body = materializeCachedHtmlNonce(stitchedBody, options.routeCtx.cspNonce);
+  const body = materializeCachedHtmlDynamicValues(stitchedBody, options.routeCtx);
   return htmlResponse(body, 200, options.policy, state, undefined, options.requestId);
 }
 
-function toColdFillResult(value: RouteExecution, cspNonce: string | undefined) {
+function toColdFillResult(value: RouteExecution, dynamicValues: Ctx) {
   const status = "status" in value.result ? (value.result.status ?? 200) : 200;
   const terminal =
     (value.result.kind !== undefined && value.result.kind !== "data") || status !== 200;
   const body =
-    value.body === undefined ? undefined : normalizeCachedHtmlNonce(value.body, cspNonce);
+    value.body === undefined
+      ? undefined
+      : normalizeCachedHtmlDynamicValues(value.body, dynamicValues);
   const normalizedValue = body === undefined || body === value.body ? value : { ...value, body };
   return {
     value: normalizedValue,
@@ -150,8 +156,10 @@ async function respondToExecution(
     options.route,
     options.routeCtx,
     false,
+    undefined,
+    execution.shellResolution,
   );
-  const body = materializeCachedHtmlNonce(stitchedBody, options.routeCtx.cspNonce);
+  const body = materializeCachedHtmlDynamicValues(stitchedBody, options.routeCtx);
   return htmlResponse(body, status, options.policy, state, result.headers, options.requestId);
 }
 
@@ -168,12 +176,18 @@ async function respondToNotFound(
   options: ServeRouteOptions,
   result: Extract<LoaderResult<unknown>, { kind: "notFound" }>,
 ): Promise<Response> {
-  const body = await withSpan(
+  const rendered = await withSpan(
     "ssr.render.not_found",
     { kind: SpanKind.INTERNAL, attributes: { "http.route": options.route.path } },
-    () => renderNotFoundDocument(options.assets, options.routeCtx, options.route),
+    () =>
+      renderNotFoundDocument(
+        options.assets,
+        cacheSafeRenderContext(options.routeCtx),
+        options.route,
+      ),
   );
   logOutcome(options, 404, "BYPASS");
+  const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
   return htmlResponse(body, 404, { kind: "none" }, "BYPASS", result.headers, options.requestId);
 }
 
@@ -192,19 +206,20 @@ async function respondToExpectedError(
     status,
     code: result.error.code,
   });
-  const body = await withSpan(
+  const rendered = await withSpan(
     "ssr.render.route_error",
     { kind: SpanKind.INTERNAL, attributes: { "http.route": options.route.path } },
     () =>
       renderRouteErrorDocument(
         options.assets,
-        options.routeCtx,
+        cacheSafeRenderContext(options.routeCtx),
         options.route,
         result.error,
         status,
         errorId,
       ),
   );
+  const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
   logOutcome(options, status, "BYPASS");
   return htmlResponse(body, status, { kind: "none" }, "BYPASS", result.headers, options.requestId);
 }
@@ -222,14 +237,26 @@ async function renderUnexpectedRouteError(
     path: options.url.pathname,
     route: options.route.path,
   });
-  const body = await withSpan(
+  const rendered = await withSpan(
     "ssr.render.route_error",
     { kind: SpanKind.INTERNAL, attributes: { "http.route": options.route.path } },
     () =>
-      renderRouteErrorDocument(options.assets, options.routeCtx, options.route, null, 500, errorId),
+      renderRouteErrorDocument(
+        options.assets,
+        cacheSafeRenderContext(options.routeCtx),
+        options.route,
+        null,
+        500,
+        errorId,
+      ),
   );
+  const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
   logOutcome(options, 500, "ERROR");
   return htmlResponse(body, 500, { kind: "none" }, "ERROR", undefined, options.requestId);
+}
+
+function cacheSafeRenderContext(routeCtx: Ctx): Ctx {
+  return { ...routeCtx, ...cachedHtmlDynamicValues(routeCtx) };
 }
 
 function scheduleRouteRevalidation(options: ServeRouteOptions): void {

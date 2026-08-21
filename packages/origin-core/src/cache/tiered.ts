@@ -3,8 +3,10 @@ import type { CachePolicy } from "@originloom/shared/lib/types";
 import { logError } from "../logger.js";
 import { observeCachePromotion } from "../metrics.js";
 import type { CacheInvalidationPublisher } from "./invalidation.js";
+import type { CacheMemoryWriteOptions, CacheNamespace } from "./l1-policy.js";
 import type { MemoryStore } from "./memory.js";
 import type { RedisStore } from "./redis.js";
+import { MAX_TAG_KEYS } from "./tags.js";
 import {
   buildCacheEntry,
   type CacheEntry,
@@ -14,6 +16,7 @@ import {
   type ListKeysOptions,
   type ListKeysResult,
   type RateLimitResult,
+  type TagInvalidationResult,
 } from "./types.js";
 
 export type TieredStoreOptions = {
@@ -47,14 +50,14 @@ export class TieredStore implements CacheStore {
     try {
       const l2Hit = await this.l2.readEntry(key);
       if (!l2Hit) return null;
-      await this.promoteToL1(key, l2Hit.entry);
-      observeCachePromotion("l2");
+      if (await this.promoteToL1(key, l2Hit.entry)) observeCachePromotion("l2");
       const fragmentMarkers = cacheEntryFragmentMarkers(l2Hit.entry);
       return {
         body: l2Hit.entry.body,
         state: l2Hit.state,
         hasFragments: fragmentMarkers.length > 0,
         fragmentMarkers,
+        ...(l2Hit.entry.tags?.length ? { tags: l2Hit.entry.tags } : {}),
       };
     } catch (error) {
       logError(error, { msg: "L2 cache read failed; treating as miss", key });
@@ -62,14 +65,21 @@ export class TieredStore implements CacheStore {
     }
   }
 
-  async write(key: string, body: string, policy: CachePolicy): Promise<void> {
-    if (policy.kind !== "shared") return;
+  async write(
+    key: string,
+    body: string,
+    policy: CachePolicy,
+    memory?: CacheMemoryWriteOptions,
+  ): Promise<boolean> {
+    if (policy.kind !== "shared") return false;
 
-    const entry = buildCacheEntry(body, policy);
+    const entry = buildCacheEntry(body, policy, memory);
+    let l2Written = false;
 
     if (this.l2) {
       try {
-        await this.l2.writeEntry(key, entry, policy);
+        l2Written = await this.l2.writeEntry(key, entry, policy);
+        if (!l2Written && entry.tags?.length) return false;
         // Tell other pods to drop their L1 copy so the next read on each of
         // them re-fetches this fresher entry from L2 instead of serving a
         // stale one until its own (unrelated) staleUntil elapses.
@@ -79,7 +89,16 @@ export class TieredStore implements CacheStore {
       }
     }
 
-    await this.l1.writeEntry(key, entry);
+    return (await this.l1.writeEntry(key, entry)) || l2Written;
+  }
+
+  async attachMemoryValue(
+    key: string,
+    value: unknown,
+    valueBytes: number,
+    namespace: CacheNamespace,
+  ): Promise<boolean> {
+    return this.l1.attachMemoryValue(key, value, valueBytes, namespace);
   }
 
   async deleteKey(key: string): Promise<boolean> {
@@ -122,6 +141,36 @@ export class TieredStore implements CacheStore {
     return deleted.size;
   }
 
+  async keysByTags(tags: readonly string[], limit: number): Promise<TagInvalidationResult> {
+    const l1 = await this.l1.keysByTags(tags, limit + 1);
+    if (!this.l2) {
+      return {
+        keys: l1.keys.slice(0, limit),
+        truncated: l1.truncated || l1.keys.length > limit,
+      };
+    }
+    const l2 = await this.l2.keysByTags(tags, limit + 1);
+    const keys = [...new Set([...l1.keys, ...l2.keys])];
+    return {
+      keys: keys.slice(0, limit),
+      truncated: l1.truncated || l2.truncated || keys.length > limit,
+    };
+  }
+
+  async deleteByTags(tags: readonly string[], limit: number): Promise<TagInvalidationResult> {
+    const matches = await this.keysByTags(tags, limit);
+    const deleted = new Set(this.l1.deleteKeysReturningNames(matches.keys));
+    if (this.l2) {
+      try {
+        for (const key of await this.l2.deleteKeysReturningNames(matches.keys)) deleted.add(key);
+        await this.invalidation?.publishTags(tags);
+      } catch (error) {
+        logError(error, { msg: "L2 cache deleteByTags failed", tags });
+      }
+    }
+    return { keys: [...deleted], truncated: matches.truncated };
+  }
+
   async flushAll(): Promise<number> {
     const deleted = new Set(this.l1.flushAllReturningNames());
     if (this.l2) {
@@ -136,6 +185,17 @@ export class TieredStore implements CacheStore {
   }
 
   async listKeys(options: ListKeysOptions): Promise<ListKeysResult> {
+    if (options.tag) {
+      const offset = Number(options.cursor ?? 0);
+      const result = await this.keysByTags([options.tag], MAX_TAG_KEYS);
+      const keys = result.keys.slice(offset, offset + options.limit);
+      const nextOffset = offset + options.limit;
+      return {
+        keys,
+        ...(nextOffset < result.keys.length ? { nextCursor: String(nextOffset) } : {}),
+        ...(result.truncated ? { truncated: true } : {}),
+      };
+    }
     if (this.l2) return this.l2.listKeys(options);
     return this.l1.listKeys(options);
   }
@@ -172,6 +232,7 @@ export class TieredStore implements CacheStore {
 
   async close(): Promise<void> {
     await this.invalidation?.close();
+    await this.l1.close();
     await this.l2?.close?.();
   }
 
@@ -180,7 +241,7 @@ export class TieredStore implements CacheStore {
     return this.l1.flushAllSync();
   }
 
-  private async promoteToL1(key: string, entry: CacheEntry): Promise<void> {
-    await this.l1.writeEntry(key, entry);
+  private async promoteToL1(key: string, entry: CacheEntry): Promise<boolean> {
+    return this.l1.writeEntry(key, entry);
   }
 }

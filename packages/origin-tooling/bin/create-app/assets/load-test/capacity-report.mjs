@@ -123,6 +123,9 @@ function renderMarkdown(report) {
     (group) => group.generatorCpuPercentMedian >= generatorCpuLimit,
   );
   const cacheFailures = report.cacheExperiments.filter((experiment) => !experiment.passed);
+  const correctnessFailures = (report.cacheAcceptance?.topologies ?? []).flatMap(({ scenarios }) =>
+    scenarios.filter(({ passed }) => !passed),
+  );
   const payloadFailures = (report.payloadBudgetResults ?? []).filter(({ passed }) => !passed);
   const runtimeBudgetFailures = (report.runtimeBudgetResults ?? []).filter(({ passed }) => !passed);
   const baselineFailures = (report.baselineComparison?.results ?? []).filter(
@@ -140,16 +143,19 @@ function renderMarkdown(report) {
     "## Sonuç",
     "",
     `- Profil: **${report.config.profile}**`,
+    `- Cache topology: **${report.environment.cacheTopology ?? "memory"}**`,
+    `- Compression profili: **${report.environment.compressionProfile ?? "identity"}**`,
     `- Süre: **${formatDuration(report.durationSeconds)}**`,
     `- Toplam istek: **${integer(sum(report.runs.map((run) => run.requests)))}**`,
     `- Geçersiz ölçüm: **${failures.length}**`,
     `- Değişkenliği yüksek kademe (CV > %${number(cvLimit)}): **${unstable.length}**`,
     `- Olası load-generator sınırı (CPU >= %${number(generatorCpuLimit)}): **${generatorLimited.length}**`,
     `- Cache deneyi başarısız: **${cacheFailures.length}**`,
+    `- Cache doğruluk senaryosu başarısız: **${correctnessFailures.length}**`,
     `- Payload bütçesi başarısız: **${payloadFailures.length}**`,
     `- Serialization bütçesi başarısız: **${runtimeBudgetFailures.length}**`,
     `- Baseline regresyonu: **${baselineFailures.length}**`,
-    `- Genel durum: **${failures.length || unstable.length || generatorLimited.length || cacheFailures.length || payloadFailures.length || runtimeBudgetFailures.length || baselineFailures.length ? "İNCELE" : "GEÇTİ"}**`,
+    `- Genel durum: **${failures.length || unstable.length || generatorLimited.length || cacheFailures.length || correctnessFailures.length || payloadFailures.length || runtimeBudgetFailures.length || baselineFailures.length ? "İNCELE" : "GEÇTİ"}**`,
     "",
     "## Önerilen eşzamanlılık ve knee",
     "",
@@ -182,6 +188,17 @@ function renderMarkdown(report) {
     ...report.cacheExperiments.map(
       (experiment) =>
         `| ${escapeCell(experiment.title)} | ${integer(experiment.requests)} | ${integer(experiment.gatewayItemsRequests)} | ${integer(experiment.gatewayTotalRequests)} | ${experiment.passed ? "GEÇTİ" : "BAŞARISIZ"} | ${escapeCell(experiment.detail)} |`,
+    ),
+    "",
+    "### Cache doğruluk matrisi",
+    "",
+    "| Topology | Senaryo | İstek | Loader | Koruma oranı | Gecikme | Sonuç |",
+    "| --- | --- | ---: | ---: | ---: | ---: | --- |",
+    ...(report.cacheAcceptance?.topologies ?? []).flatMap((topology) =>
+      topology.scenarios.map(
+        (scenario) =>
+          `| ${topology.topology} | ${escapeCell(scenario.title)} | ${integer(scenario.requests)} | ${integer(scenario.gatewayRequests)} | ${number(scenario.protectionRatio)}x | ${number(scenario.latencyMs)} ms | ${scenario.passed ? "GEÇTİ" : "BAŞARISIZ"} |`,
+      ),
     ),
     "",
     "## Payload ve serialization bütçeleri",

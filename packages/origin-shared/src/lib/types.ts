@@ -61,7 +61,15 @@ export type Ctx = {
  * mechanism — there is no inference step that can override it.
  */
 export type CachePolicy =
-  { kind: "none" } | { kind: "shared"; ttl: number; swr?: number; key: string[] };
+  | { kind: "none" }
+  | {
+      kind: "shared";
+      ttl: number;
+      swr?: number;
+      key: string[];
+      /** Stable public dependency tags used for bounded invalidation. */
+      tags?: readonly string[];
+    };
 
 /** Build-time description attached to a route cache resolver. Runtime policy remains authoritative. */
 export type RouteCacheDescription =

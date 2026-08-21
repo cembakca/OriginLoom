@@ -249,6 +249,7 @@ data:
   CACHE_FILL_TIMEOUT_MS: "12000"
   CACHE_FILL_WAIT_MS: "12500"
   CACHE_FILL_POLL_MS: "100"
+  FRAGMENT_TIMEOUT_MS: "2000"
 
   # Render admission: past the queue, requests are shed with 503 so the app
   # stays responsive instead of collapsing. Unset SSR_MAX_CONCURRENCY scales
@@ -260,6 +261,10 @@ data:
   CACHE_BACKEND: memory
   CACHE_REQUIRED: "false"
   CACHE_MAX_ENTRIES: "2000"
+  CACHE_L1_MAX_BYTES: "134217728"
+  CACHE_L1_MAX_LOCKS: "4000"
+  CACHE_L1_MAX_EPHEMERAL_VALUES: "2000"
+  CACHE_L1_MAX_RATE_LIMITS: "10000"
 
   SWR_REVALIDATION_ATTEMPTS: "3"
   SWR_REVALIDATION_BACKOFF_MS: "250"

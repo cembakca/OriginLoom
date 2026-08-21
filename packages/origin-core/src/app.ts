@@ -98,7 +98,10 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
       requestId: c.get("requestId"),
       path: new URL(c.req.url).pathname,
     });
-    const response = errorResponse(options.assets, errorId);
+    const response = errorResponse(options.assets, errorId, {
+      pageRequestId: c.get("requestId"),
+      cspNonce: c.get("cspNonce"),
+    });
     response.headers.set("cache-control", "private, no-store");
     const requestIdValue = c.get("requestId");
     if (requestIdValue) response.headers.set("x-request-id", requestIdValue);

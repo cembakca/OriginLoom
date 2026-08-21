@@ -20,20 +20,35 @@ export type ShellData = LayoutClientProps & {
   menu: IMenuItems | null;
 };
 
-export function buildLayoutClientProps(
+export type ShellRequestFacts = Omit<LayoutClientProps, "theme">;
+export type PublicShellSnapshot = { menu: IMenuItems | null };
+export type TargetedShell = ShellRequestFacts & PublicShellSnapshot;
+export type RequestOverlay = Pick<LayoutClientProps, "theme">;
+
+export function buildShellRequestFacts(
   ctx: Ctx,
   opts?: { minimalChrome?: boolean | undefined },
-): LayoutClientProps {
+): ShellRequestFacts {
   const deviceType = deviceCacheFragment(ctx.request);
-  const theme = cookie(ctx.request, Cookie.theme);
   return {
     publicPath: ctx.publicPath,
     pathname: ctx.url.pathname,
-    ...(theme !== undefined ? { theme } : {}),
     ...(opts?.minimalChrome !== undefined ? { minimalChrome: opts.minimalChrome } : {}),
     deviceType,
     deviceShell: getDeviceShell(deviceType),
   };
+}
+
+export function buildRequestOverlay(ctx: Ctx): RequestOverlay {
+  const theme = cookie(ctx.request, Cookie.theme);
+  return theme === undefined ? {} : { theme };
+}
+
+export function buildLayoutClientProps(
+  ctx: Ctx,
+  opts?: { minimalChrome?: boolean | undefined },
+): LayoutClientProps {
+  return { ...buildShellRequestFacts(ctx, opts), ...buildRequestOverlay(ctx) };
 }
 
 /** Root layout shell — tek menu fetch, Header + Footer SSR'da kullanır. */

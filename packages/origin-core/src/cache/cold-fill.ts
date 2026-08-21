@@ -4,6 +4,7 @@ import type { CachePolicy } from "@originloom/shared/lib/types";
 import { config } from "../config.js";
 import { observeCacheFill, observeCoalescedWait, observeColdMissLockTimeout } from "../metrics.js";
 import * as cache from "./index.js";
+import type { CacheMemoryWriteOptions } from "./l1-policy.js";
 
 export type ColdFillWork<T> = {
   value: T;
@@ -29,6 +30,7 @@ export async function coalesceColdMiss<T>(options: {
   policy: CachePolicy;
   work: () => Promise<ColdFillWork<T>>;
   isTimeout: (error: unknown) => boolean;
+  memory?: CacheMemoryWriteOptions;
 }): Promise<ColdFillResult<T>> {
   const existing = fillsInFlight.get(options.key) as Promise<ColdFillResult<T>> | undefined;
   if (existing) return observeProcessWait(existing);
@@ -135,7 +137,7 @@ async function fillUnderLock<T>(
     } else if (work.body === undefined) {
       throw new Error("Cacheable cold fill did not produce a body");
     } else {
-      outcome = (await cache.write(options.key, work.body, options.policy))
+      outcome = (await cache.write(options.key, work.body, options.policy, options.memory))
         ? "success"
         : "write_error";
     }

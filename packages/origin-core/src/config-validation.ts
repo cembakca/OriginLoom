@@ -6,6 +6,10 @@ export function assertPositiveInteger(name: string, value: number): void {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`Invalid ${name}: ${value}`);
 }
 
+function assertNonNegativeInteger(name: string, value: number): void {
+  if (!Number.isInteger(value) || value < 0) throw new Error(`Invalid ${name}: ${value}`);
+}
+
 export function assertUrl(name: string, value: string): URL {
   try {
     return new URL(value);
@@ -33,6 +37,7 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     throw new Error(`Invalid METRICS_PORT: ${config.metricsPort}`);
   }
   assertPositiveInteger("CACHE_MAX_ENTRIES", config.cacheMaxEntries);
+  validateL1MemoryConfig(config);
   assertPositiveInteger("SWR_REVALIDATION_ATTEMPTS", config.revalidationAttempts);
   assertPositiveInteger("SWR_REVALIDATION_BACKOFF_MS", config.revalidationBackoffMs);
   assertPositiveInteger("SWR_DRAIN_TIMEOUT_MS", config.revalidationDrainTimeoutMs);
@@ -53,11 +58,15 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   assertPositiveInteger("CACHE_FILL_TIMEOUT_MS", config.cacheFillTimeoutMs);
   assertPositiveInteger("CACHE_FILL_WAIT_MS", config.cacheFillWaitMs);
   assertPositiveInteger("CACHE_FILL_POLL_MS", config.cacheFillPollMs);
+  assertPositiveInteger("FRAGMENT_TIMEOUT_MS", config.fragmentTimeoutMs);
   if (config.cacheFillWaitMs < config.cacheFillTimeoutMs) {
     throw new Error("CACHE_FILL_WAIT_MS must not be lower than CACHE_FILL_TIMEOUT_MS");
   }
   if (config.cacheFillPollMs > config.cacheFillWaitMs) {
     throw new Error("CACHE_FILL_POLL_MS must not exceed CACHE_FILL_WAIT_MS");
+  }
+  if (config.fragmentTimeoutMs >= config.ssrRequestTimeoutMs) {
+    throw new Error("FRAGMENT_TIMEOUT_MS must be lower than SSR_REQUEST_TIMEOUT_MS");
   }
   assertPositiveInteger("SSR_REQUEST_TIMEOUT_MS", config.ssrRequestTimeoutMs);
   assertPositiveInteger("API_REQUEST_TIMEOUT_MS", config.apiRequestTimeoutMs);
@@ -105,6 +114,33 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     if (config.cachePurgeSecret) {
       assertNotProductionPlaceholder("CACHE_PURGE_SECRET", config.cachePurgeSecret);
     }
+  }
+}
+
+function validateL1MemoryConfig(config: AppConfig): void {
+  assertPositiveInteger("CACHE_L1_MAX_BYTES", config.cacheL1MaxBytes);
+  assertPositiveInteger("CACHE_L1_MAX_LOCKS", config.cacheL1Auxiliary.maxLocks);
+  assertPositiveInteger(
+    "CACHE_L1_MAX_EPHEMERAL_VALUES",
+    config.cacheL1Auxiliary.maxEphemeralValues,
+  );
+  assertPositiveInteger("CACHE_L1_MAX_RATE_LIMITS", config.cacheL1Auxiliary.maxRateLimits);
+
+  let totalReserve = 0;
+  for (const [namespace, budget] of Object.entries(config.cacheL1Namespaces)) {
+    const label = namespace.toUpperCase();
+    assertPositiveInteger(`CACHE_L1_${label}_MAX_BYTES`, budget.maxBytes);
+    assertNonNegativeInteger(`CACHE_L1_${label}_RESERVE_BYTES`, budget.reserveBytes);
+    if (budget.maxBytes > config.cacheL1MaxBytes) {
+      throw new Error(`CACHE_L1_${label}_MAX_BYTES must not exceed CACHE_L1_MAX_BYTES`);
+    }
+    if (budget.reserveBytes > budget.maxBytes) {
+      throw new Error(`CACHE_L1_${label}_RESERVE_BYTES must not exceed its namespace max`);
+    }
+    totalReserve += budget.reserveBytes;
+  }
+  if (totalReserve > config.cacheL1MaxBytes) {
+    throw new Error("CACHE_L1 namespace reserves must not exceed CACHE_L1_MAX_BYTES in total");
   }
 }
 

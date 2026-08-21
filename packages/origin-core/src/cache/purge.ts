@@ -1,17 +1,24 @@
 import { getRuntime } from "../runtime.js";
 import { cacheTopology, getCache } from "./index.js";
 import { type CacheKeyApiEntry, decodeCacheKeyFromApi, toCacheKeyApiEntry } from "./key-codec.js";
+import {
+  isDependencyTag,
+  MAX_TAG_KEYS,
+  MAX_TAGS_PER_OPERATION,
+  normalizeTagOperation,
+} from "./tags.js";
 import type { ListKeysOptions, ListKeysResult } from "./types.js";
 
 export type { CacheKeyApiEntry };
 
-export type PurgeMode = "all" | "keys" | "prefix" | "pageIds";
+export type PurgeMode = "all" | "keys" | "prefix" | "pageIds" | "tags";
 
 export type PurgeRequest =
   | { mode: "all" }
   | { mode: "keys"; keys: string[] }
   | { mode: "prefix"; prefix: string }
-  | { mode: "pageIds"; pageIds: string[] };
+  | { mode: "pageIds"; pageIds: string[] }
+  | { mode: "tags"; tags: string[] };
 
 export type PurgeResult = {
   mode: PurgeMode;
@@ -19,6 +26,8 @@ export type PurgeResult = {
   keys?: string[];
   prefix?: string;
   pageIds?: string[];
+  tags?: string[];
+  truncated?: boolean;
   backend: string;
 };
 
@@ -79,6 +88,20 @@ export function parsePurgeBody(body: unknown): PurgeRequest | { error: string } 
     return { mode: "pageIds", pageIds };
   }
 
+  if (Array.isArray(input.tags)) {
+    const tags = input.tags.filter((tag): tag is string => typeof tag === "string");
+    if (tags.length !== input.tags.length || tags.length === 0) {
+      return { error: "tags dizisi geçerli string değerler içermeli" };
+    }
+    try {
+      return { mode: "tags", tags: [...normalizeTagOperation(tags)] };
+    } catch {
+      return {
+        error: `En fazla ${MAX_TAGS_PER_OPERATION} geçerli dependency tag gönderilebilir`,
+      };
+    }
+  }
+
   if (typeof input.prefix === "string") {
     const prefix = input.prefix.trim();
     if (!prefix) return { error: "prefix boş olamaz" };
@@ -89,22 +112,33 @@ export function parsePurgeBody(body: unknown): PurgeRequest | { error: string } 
     return { mode: "prefix", prefix };
   }
 
-  return { error: "all, keys, keysEncoded, pageIds veya prefix alanlarından biri gerekli" };
+  return { error: "all, keys, keysEncoded, pageIds, tags veya prefix alanlarından biri gerekli" };
 }
 
 export function parseListKeysQuery(url: URL): ListKeysOptions | { error: string } {
   const prefix = url.searchParams.get("prefix") ?? undefined;
+  const tag = url.searchParams.get("tag") ?? undefined;
+  if (prefix && tag) return { error: "prefix ve tag birlikte kullanılamaz" };
+  if (prefix && prefix.length > MAX_PREFIX_LENGTH) return { error: "prefix çok uzun" };
   if (prefix && (prefix.includes("*") || prefix.includes("?"))) {
     return { error: "prefix wildcard içeremez" };
   }
+  if (tag && !isDependencyTag(tag)) return { error: "Geçersiz dependency tag" };
 
   const limitRaw = Number(url.searchParams.get("limit") ?? 50);
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, Math.floor(limitRaw)), 200) : 50;
   const cursor = url.searchParams.get("cursor");
+  if (tag && cursor !== null) {
+    const offset = Number(cursor);
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > MAX_TAG_KEYS) {
+      return { error: "Geçersiz tag cursor" };
+    }
+  }
 
   return {
     limit,
     ...(prefix ? { prefix } : {}),
+    ...(tag ? { tag } : {}),
     ...(cursor ? { cursor } : {}),
   };
 }
@@ -118,18 +152,8 @@ export async function executePurge(request: PurgeRequest, _backend?: string): Pr
     return { mode: "all", deleted, backend };
   }
 
-  // Menu invalidation also removes obsolete fingerprinted shell fragments.
-  const shouldPurgeFragments =
-    (request.mode === "prefix" && request.prefix.startsWith("menu:")) ||
-    (request.mode === "keys" && request.keys.some((key) => key.startsWith("menu:")));
-
-  const relatedDeleted = shouldPurgeFragments
-    ? (await store.deleteByPrefix("fragment:header:")) +
-      (await store.deleteByPrefix("fragment:footer:"))
-    : 0;
-
   if (request.mode === "keys") {
-    const deleted = relatedDeleted + (await store.deleteKeys(request.keys));
+    const deleted = await store.deleteKeys(request.keys);
     return { mode: "keys", deleted, keys: request.keys, backend };
   }
 
@@ -141,7 +165,18 @@ export async function executePurge(request: PurgeRequest, _backend?: string): Pr
     return { mode: "pageIds", deleted, pageIds: request.pageIds, backend };
   }
 
-  const deleted = relatedDeleted + (await store.deleteByPrefix(request.prefix));
+  if (request.mode === "tags") {
+    const result = await store.deleteByTags(request.tags, MAX_TAG_KEYS);
+    return {
+      mode: "tags",
+      deleted: result.keys.length,
+      tags: request.tags,
+      ...(result.truncated ? { truncated: true } : {}),
+      backend,
+    };
+  }
+
+  const deleted = await store.deleteByPrefix(request.prefix);
   return { mode: "prefix", deleted, prefix: request.prefix, backend };
 }
 

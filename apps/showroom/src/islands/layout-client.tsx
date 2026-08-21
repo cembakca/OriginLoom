@@ -9,11 +9,12 @@ import type { LayoutClientProps } from "~/lib/shell-data";
 /** Store bootstrap — Header/Footer SSR; burada sadece session + auth store. */
 export default function LayoutClient(props: LayoutClientProps) {
   useLayoutEffect(() => {
+    const theme = props.theme ?? readCookie(Cookie.theme);
     seedSession({
       publicPath: props.publicPath,
       pathname: props.pathname,
       search: window.location.search,
-      ...(props.theme !== undefined ? { theme: props.theme } : {}),
+      ...(theme !== undefined ? { theme } : {}),
     });
 
     const signedIn = hasAuthCookies();

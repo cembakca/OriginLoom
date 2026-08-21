@@ -49,6 +49,13 @@ export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
 
 export type PageCacheStrategy = "shared" | "never";
 
+export const CacheTag = {
+  menu: "resource:menu",
+  popularKnowledge: "resource:knowledge-popular",
+} as const;
+
+const SHARED_SHELL_TAGS = [CacheTag.menu] as const;
+
 export type PageCacheDefinition = {
   id: PageCacheId;
   description: string;
@@ -56,6 +63,7 @@ export type PageCacheDefinition = {
   strategy: PageCacheStrategy;
   ttl?: number;
   swr?: number;
+  tags?: readonly string[];
   /** SSR HTML'i değiştiren query param allowlist — utm/gclid vb. asla ekleme. */
   contentQueryParams?: readonly string[];
   contentQueryDefaults?: Record<string, string>;
@@ -81,6 +89,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/",
     strategy: "shared",
     ttl: 3600,
+    tags: SHARED_SHELL_TAGS,
     buildKey: (ctx) => ["home", locale(ctx.request), layoutCacheFragment(ctx)],
   },
 
@@ -89,6 +98,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Uzaktan müşteri edinimi",
     path: "/remote-customer-obtain",
     strategy: "shared",
+    tags: SHARED_SHELL_TAGS,
     buildKey: (ctx) => ["remote-customer-obtain", ctx.publicPath, layoutCacheFragment(ctx)],
   },
 
@@ -113,6 +123,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/medya-pipeline",
     strategy: "shared",
     ttl: 3600,
+    tags: SHARED_SHELL_TAGS,
     buildKey: (ctx) => ["media-pipeline", locale(ctx.request), layoutCacheFragment(ctx)],
   },
   [PageCacheId.housingLoans]: {
@@ -120,6 +131,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Konut kredisi ürün listesi",
     path: "/housing-loans",
     strategy: "shared",
+    tags: SHARED_SHELL_TAGS,
     contentQueryParams: ["amount", "term", "city", "bank", "sortBy", "page"],
     contentQueryDefaults: {
       amount: "2000000",
@@ -145,6 +157,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Konut kredisi ürün detayı",
     path: "/housing-loans/:slug",
     strategy: "shared",
+    tags: SHARED_SHELL_TAGS,
     contentQueryParams: ["amount", "term"],
     contentQueryDefaults: { amount: "2000000", term: "120" },
     contentQueryNormalize: financeQueryNormalizers,
@@ -164,6 +177,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Kredi kartı ürün listesi",
     path: "/kredi-kartlari",
     strategy: "shared",
+    tags: SHARED_SHELL_TAGS,
     contentQueryParams: ["bank", "cardType", "annualFee", "network", "sortBy", "page"],
     contentQueryDefaults: {
       bank: "-",
@@ -185,6 +199,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/bankalar/:slug",
     strategy: "shared",
     ttl: 900,
+    tags: SHARED_SHELL_TAGS,
     buildKey: (ctx) => [
       "bank-detail",
       ctx.params.slug ?? "-",
@@ -197,6 +212,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Bilgi Merkezi içerik listesi",
     path: "/bilgi-merkezi",
     strategy: "shared",
+    tags: SHARED_SHELL_TAGS,
     contentQueryParams: ["category", "orderBy", "page"],
     contentQueryDefaults: { category: "all", orderBy: "date-desc", page: "1" },
     contentQueryNormalize: knowledgeQueryNormalizers,
@@ -215,6 +231,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Bilgi Merkezi makale detayı",
     path: "/bilgi-merkezi/:slug",
     strategy: "shared",
+    tags: SHARED_SHELL_TAGS,
     buildKey: (ctx) => [
       "knowledge-article",
       ctx.params.slug ?? "-",
@@ -229,6 +246,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     strategy: "shared",
     ttl: 30,
     swr: 300,
+    tags: SHARED_SHELL_TAGS,
     contentQueryParams: ["sortBy", "page"],
     contentQueryDefaults: { sortBy: "market-cap-desc", page: "1" },
     contentQueryNormalize: marketQueryNormalizers,
@@ -242,6 +260,7 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     description: "Finans ürünü başvuru yönlendirme onayı",
     path: "/basvuru/:productType/:slug/yonlendirme",
     strategy: "shared",
+    tags: SHARED_SHELL_TAGS,
     buildKey: (ctx) => [
       "finance-referral",
       ctx.params.productType ?? "-",
@@ -260,6 +279,7 @@ export function pageCachePolicy(id: PageCacheId, ctx: Ctx): CachePolicy {
   return sharedUnlessBypass(ctx, entry.buildKey(ctx), {
     ttl: entry.ttl ?? DEFAULT_TTL,
     swr: entry.swr ?? DEFAULT_SWR,
+    ...(entry.tags?.length ? { tags: entry.tags } : {}),
   });
 }
 

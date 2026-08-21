@@ -7,10 +7,11 @@ import type { Ctx, Route } from "@originloom/shared/lib/types";
 
 import { logError } from "../logger.js";
 import { getRuntime } from "../runtime.js";
+import { createShellResolution, type ShellResolution } from "../shell-resolution.js";
 import { rethrowRequestDeadline } from "../ssr/context.js";
 import {
-  fragmentRequiresShell,
-  getOrSetFragmentByName,
+  fragmentFallbackByName,
+  resolveFragmentByName,
   shouldResolveFragment,
 } from "./fragment.js";
 
@@ -20,6 +21,7 @@ export async function stitchCachedHtml(
   routeCtx: Ctx,
   cachedDocument: boolean,
   compiledMarkers?: readonly SsrFragmentMarker[],
+  shellResolution?: ShellResolution,
 ): Promise<string> {
   if (route.minimalChrome) return htmlContent;
   if (!htmlContent.includes("<ssr-fragment ")) return htmlContent;
@@ -31,17 +33,35 @@ export async function stitchCachedHtml(
 
   try {
     const runtime = getRuntime();
-    const needsShell = markers.some((marker) => fragmentRequiresShell(marker.name));
-    const shell = needsShell ? await runtime.buildShellData(routeCtx) : null;
-    if (needsShell && (shell == null || !runtime.isShellUsableForFragments(shell))) {
-      return htmlContent;
-    }
+    let foregroundShell: Promise<unknown> | undefined;
+    let refreshShell: Promise<unknown> | undefined;
+    const getShell = () => {
+      foregroundShell ??= resolveUsableShell(
+        shellResolution ?? createShellResolution(routeCtx, route.path),
+        runtime.isShellUsableForFragments,
+      );
+      return foregroundShell;
+    };
+    const getRefreshShell = () => {
+      refreshShell ??= resolveUsableShell(
+        createShellResolution(detachedContext(routeCtx), route.path),
+        runtime.isShellUsableForFragments,
+      );
+      return refreshShell;
+    };
 
     const names = [...new Set(markers.map((marker) => marker.name))];
     const resolvedHtmls = await Promise.all(
       names.map(async (name): Promise<[string, string | undefined]> => {
         try {
-          return [name, await getOrSetFragmentByName(name, shell, routeCtx)];
+          return [
+            name,
+            await resolveFragmentByName(name, routeCtx, {
+              getShell,
+              getFillShell: cachedDocument ? getRefreshShell : getShell,
+              getRefreshShell,
+            }),
+          ];
         } catch (error) {
           rethrowRequestDeadline(routeCtx.request, error);
           logError(error, {
@@ -49,7 +69,16 @@ export async function stitchCachedHtml(
             fragment: name,
             path: routeCtx.url.pathname,
           });
-          return [name, undefined];
+          try {
+            return [name, await fragmentFallbackByName(name, error, routeCtx)];
+          } catch (fallbackError) {
+            logError(fallbackError, {
+              msg: "Failed to render cached HTML fragment fallback",
+              fragment: name,
+              path: routeCtx.url.pathname,
+            });
+            return [name, undefined];
+          }
         }
       }),
     );
@@ -64,6 +93,22 @@ export async function stitchCachedHtml(
     });
     return htmlContent;
   }
+}
+
+async function resolveUsableShell(
+  resolution: ShellResolution,
+  isUsable: (shell: unknown) => boolean,
+): Promise<unknown> {
+  const shell = await resolution.resolve({ includeRequestOverlay: false });
+  if (shell == null || !isUsable(shell)) throw new Error("Shell is unavailable for fragments");
+  return shell;
+}
+
+function detachedContext(ctx: Ctx): Ctx {
+  return {
+    ...ctx,
+    request: new Request(ctx.request, { signal: new AbortController().signal }),
+  };
 }
 
 function stitchByOffsets(

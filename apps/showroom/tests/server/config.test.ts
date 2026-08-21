@@ -33,6 +33,21 @@ describe("server config", () => {
     );
   });
 
+  it("rejects invalid L1 byte budgets and namespace reserves", async () => {
+    await expect(
+      validateWith({ CACHE_L1_MAX_BYTES: "1000", CACHE_L1_PAGE_MAX_BYTES: "1001" }),
+    ).rejects.toThrow("CACHE_L1_PAGE_MAX_BYTES must not exceed CACHE_L1_MAX_BYTES");
+    await expect(
+      validateWith({
+        CACHE_L1_MAX_BYTES: "1000",
+        CACHE_L1_PAGE_RESERVE_BYTES: "600",
+        CACHE_L1_DATA_RESERVE_BYTES: "300",
+        CACHE_L1_FRAGMENT_RESERVE_BYTES: "200",
+        CACHE_L1_NEGATIVE_RESERVE_BYTES: "0",
+      }),
+    ).rejects.toThrow("CACHE_L1 namespace reserves must not exceed CACHE_L1_MAX_BYTES in total");
+  });
+
   it("rejects a cold-fill polling interval longer than its wait budget", async () => {
     await expect(
       validateWith({
@@ -47,6 +62,15 @@ describe("server config", () => {
     await expect(
       validateWith({ CACHE_FILL_TIMEOUT_MS: "1000", CACHE_FILL_WAIT_MS: "999" }),
     ).rejects.toThrow("CACHE_FILL_WAIT_MS must not be lower than CACHE_FILL_TIMEOUT_MS");
+  });
+
+  it("keeps the default fragment budget inside the SSR request deadline", async () => {
+    await expect(validateWith({ FRAGMENT_TIMEOUT_MS: "0" })).rejects.toThrow(
+      "Invalid FRAGMENT_TIMEOUT_MS",
+    );
+    await expect(
+      validateWith({ FRAGMENT_TIMEOUT_MS: "15000", SSR_REQUEST_TIMEOUT_MS: "15000" }),
+    ).rejects.toThrow("FRAGMENT_TIMEOUT_MS must be lower than SSR_REQUEST_TIMEOUT_MS");
   });
 
   it("rejects unsafe bot analytics queue and sampling settings", async () => {

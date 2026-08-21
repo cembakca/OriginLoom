@@ -16,7 +16,7 @@ export type CachePurgeApiOptions = {
  * Operational endpoints for the shared HTML cache:
  *
  *   GET  /api/internal/cache/keys   — inspect what is cached
- *   POST /api/internal/cache/purge  — drop entries by key or prefix
+ *   POST /api/internal/cache/purge  — drop entries by key, prefix or dependency tag
  *
  * They read and destroy shared state, so they are secret-gated: a bearer token
  * or `X-Cache-Purge-Token`, compared in constant time. With no secret set they
