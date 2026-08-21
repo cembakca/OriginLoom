@@ -177,13 +177,22 @@ function validateAuthRefreshSecrets(config: AppConfig): void {
   }
 }
 
-/** Deployment templates are intentionally non-runnable until sentinels are replaced. */
+/**
+ * Deployment templates are intentionally non-runnable until sentinels are replaced.
+ * This is an exact-match list, not a substring/prefix check (besides the deliberate
+ * "replace-with-" prefix): an ordinary release id or secret that merely contains
+ * "todo" as a substring (e.g. a ticket reference) must not be rejected. See OR5 in
+ * CACHE_PERFORMANCE_ROADMAP.md for the accept/reject matrix this guards.
+ */
 function assertNotProductionPlaceholder(name: string, value: string): void {
   const normalized = value.trim().toLowerCase();
   if (
     normalized.startsWith("replace-with-") ||
     normalized === "change-me" ||
     normalized === "changeme" ||
+    normalized === "change_me" ||
+    normalized === "replace-me" ||
+    normalized === "replace_me" ||
     normalized === "placeholder" ||
     normalized === "todo"
   ) {

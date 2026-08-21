@@ -23,9 +23,11 @@ Server logs carry:
 - `requestId` — the telemetry POST itself
 - `errorId` — stable id for the client error event
 
-Fatal island yükleme, props, mount veya React root hatasında kullanıcıya hata içeriği yerine yalnız
-`Bir sorun oluştu. Referans: <errorId>` gösterilir. Bu referans PII içermez ve support tarafından
-aynı `errorId` log alanıyla aranabilir.
+Fatal island yükleme, props, mount veya React root hatasında kullanıcıya hata içeriği (exception
+message, stack, component stack) gösterilmez; SSR içeriği silinmez. Island root'un yanına ayrı,
+erişilebilir bir `role="alert"` status elementi eklenir ve app-owned `formatIslandError` formatter'ının
+ürettiği PII-free `<errorId>` referansını gösterir; bu referans support tarafından aynı `errorId` log
+alanıyla aranabilir.
 
 Development also prints `[origin] page requestId …` in the browser console once per load.
 

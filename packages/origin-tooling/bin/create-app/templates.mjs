@@ -3429,7 +3429,7 @@ export type FeaturedItemsResult = FeaturedItemsSnapshot & {
 };
 
 const featuredItems = defineCachedResource<FeaturedItemsSnapshot>({
-  namespace: "items:featured",
+  namespace: "items.featured",
   version: 1,
   ttl: productConfig.featuredItemsCacheTtl,
   swr: productConfig.featuredItemsCacheSwr,
@@ -6758,6 +6758,9 @@ const hydrateClient =
 // app-owned by design. Every src/islands/*.tsx becomes an island named after it.
 export const mount = createIslandMounter({
   modules: import.meta.glob<IslandModule>("./islands/*.tsx"),
+  // App-owned copy — the platform never bakes a locale-specific string into the
+  // island runtime itself. Replace with your own copy or i18n lookup.
+  formatIslandError: ({ errorId }) => \`Something went wrong. Reference: \${errorId}\`,
 });
 `;
 

@@ -6,6 +6,7 @@ import { brotliCompressSync } from "node:zlib";
 import { createApp, DEV_SERVER_GENERATION_HEADER } from "@originloom/core/app";
 import { closeCache, initCache } from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
+import { SsrCapacity } from "@originloom/core/ssr-capacity";
 import type { Route } from "@originloom/react/lib/types";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -339,5 +340,79 @@ describe("Hono application integration", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toContain("user_tracking_id=");
     expect(body).toContain("/pipeline-integration:");
+  });
+
+  // OR3: x-request-id is owned by the single boundary `requestId` middleware
+  // (packages/origin-core/src/middleware/request-id.ts), not by individual
+  // response paths inside ssr-dispatch.ts. This is the one contract test that
+  // exercises every response shape the app boundary can produce.
+  it("stamps x-request-id from the single boundary middleware across every response path", async () => {
+    const cachedRoute: Route = {
+      path: "/or3-cached",
+      cache: () => ({ kind: "shared", ttl: 60, key: ["or3-cached"] }),
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "cached"),
+      minimalChrome: true,
+    };
+    const renderedRoute: Route = {
+      path: "/or3-rendered",
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "rendered"),
+      minimalChrome: true,
+    };
+    const app = appWith([cachedRoute, renderedRoute]);
+
+    const miss = await app.request("/or3-cached", {
+      headers: { "x-request-id": "req-cache-miss" },
+    });
+    expect(miss.headers.get("x-cache")).toBe("MISS");
+    expect(miss.headers.get("x-request-id")).toBe("req-cache-miss");
+
+    const hit = await app.request("/or3-cached", {
+      headers: { "x-request-id": "req-cache-hit" },
+    });
+    expect(hit.headers.get("x-cache")).toBe("HIT");
+    expect(hit.headers.get("x-request-id")).toBe("req-cache-hit");
+
+    const head = await app.request("/or3-cached", {
+      method: "HEAD",
+      headers: { "x-request-id": "req-head" },
+    });
+    expect(head.status).toBe(200);
+    expect(head.headers.get("x-request-id")).toBe("req-head");
+
+    // Pipeline short-circuit: a CMS redirect rule resolves before rendering.
+    const redirect = await app.request("/eski-konut-kredisi", {
+      headers: { "x-request-id": "req-redirect" },
+    });
+    expect(redirect.status).toBeGreaterThanOrEqual(300);
+    expect(redirect.status).toBeLessThan(400);
+    expect(redirect.headers.get("x-request-id")).toBe("req-redirect");
+
+    // Capacity rejection: zero concurrency and zero queue reject immediately.
+    const busyApp = appWith([renderedRoute], { capacity: new SsrCapacity(0, 0, 100) });
+    const rejected = await busyApp.request("/or3-rendered", {
+      headers: { "x-request-id": "req-capacity" },
+    });
+    expect(rejected.status).toBe(503);
+    expect(rejected.headers.get("x-request-id")).toBe("req-capacity");
+
+    const notFound = await app.request("/or3-missing", {
+      headers: { "x-request-id": "req-404" },
+    });
+    expect(notFound.status).toBe(404);
+    expect(notFound.headers.get("x-request-id")).toBe("req-404");
+
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failingApp = appWith([], {
+      readinessCheck: async () => {
+        throw new Error("boom");
+      },
+    });
+    const errored = await failingApp.request("/readyz", {
+      headers: { "x-request-id": "req-error" },
+    });
+    expect(errored.status).toBe(500);
+    expect(errored.headers.get("x-request-id")).toBe("req-error");
   });
 });

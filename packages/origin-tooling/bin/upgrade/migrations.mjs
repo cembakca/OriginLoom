@@ -278,13 +278,14 @@ export const migrations = [
     introducedIn: "0.7.22",
     description:
       "Generated React error boundaries receive and display the server errorId used by structured logs.",
-    migrateProject(root, changes, fileWrites) {
+    migrateProject(root, changes, fileWrites, manualRequired) {
       patchProjectFile(
         root,
         changes,
         fileWrites,
         "server/product/boundary-pages.tsx",
         patchBoundaryErrorReference,
+        manualRequired,
       );
     },
   },
@@ -358,19 +359,45 @@ export const migrations = [
   },
 ];
 
-function patchProjectFile(root, changes, fileWrites, relativePath, patch) {
+// `patch` may return either a plain string (legacy contract: unchanged output means
+// "nothing to do", patched vs. already-applied are not distinguished) or a tagged
+// outcome `{ status: "patched" | "already-applied" | "manual-required", source?, detail? }`.
+// The tagged contract exists so a file that merely doesn't match the known generated
+// pattern is never silently treated the same as one that was already migrated —
+// callers that need that distinction (e.g. custom boundary-pages.tsx, OR1) pass a
+// `manualRequired` array to collect entries that must NOT be marked applied.
+function patchProjectFile(root, changes, fileWrites, relativePath, patch, manualRequired) {
   const path = join(root, relativePath);
   if (!existsSync(path)) return;
   // Several migrations may safely touch the same generated file in one run.
   // Compose from the staged result instead of letting the last patch erase the first.
   const source = fileWrites[relativePath] ?? readFileSync(path, "utf8");
-  const next = patch(source);
-  if (next === source) return;
-  fileWrites[relativePath] = next;
+  const outcome = patch(source);
+
+  if (typeof outcome === "string") {
+    if (outcome === source) return;
+    fileWrites[relativePath] = outcome;
+    changes.push({
+      file: relativePath,
+      kind: "patch",
+      detail: "Bilinen generated kalıp güvenli ve idempotent biçimde güncellendi.",
+    });
+    return;
+  }
+
+  if (outcome.status === "already-applied") return;
+
+  if (outcome.status === "manual-required") {
+    manualRequired?.push({ file: relativePath, detail: outcome.detail });
+    changes.push({ file: relativePath, kind: "manual-required", detail: outcome.detail });
+    return;
+  }
+
+  fileWrites[relativePath] = outcome.source;
   changes.push({
     file: relativePath,
     kind: "patch",
-    detail: "Bilinen generated kalıp güvenli ve idempotent biçimde güncellendi.",
+    detail: outcome.detail ?? "Bilinen generated kalıp güvenli ve idempotent biçimde güncellendi.",
   });
 }
 
@@ -449,17 +476,30 @@ function repairClientEntryTelemetryImport(source) {
 
 function patchBoundaryErrorReference(source) {
   if (/RouteErrorPage\s*\([^)]*errorId/.test(source) || source.includes("Referans: {errorId}")) {
-    return source;
+    return { status: "already-applied" };
   }
   const signature =
     "export function RouteErrorPage({ error }: { error: RouteError | null; status: number }) {";
   const message =
     '      <p className="text-slate-600">{error?.message ?? "Lütfen daha sonra tekrar deneyin."}</p>';
-  if (!source.includes(signature) || !source.includes(message)) return source;
+  const importStatement = 'import type { RouteError } from "@originloom/react/lib/types";';
+  if (
+    !source.includes(signature) ||
+    !source.includes(message) ||
+    !source.includes(importStatement)
+  ) {
+    return {
+      status: "manual-required",
+      detail:
+        "server/product/boundary-pages.tsx bilinen generated kalıba uymuyor (custom dosya); " +
+        "RouteErrorPage bileşeni elle errorId prop'unu (RouteErrorBoundaryProps) almalı ve " +
+        "kullanıcıya PII içermeyen bir referans olarak göstermelidir.",
+    };
+  }
 
-  return source
+  const next = source
     .replace(
-      'import type { RouteError } from "@originloom/react/lib/types";',
+      importStatement,
       'import type { RouteErrorBoundaryProps } from "@originloom/react/lib/types";',
     )
     .replace(
@@ -470,6 +510,7 @@ function patchBoundaryErrorReference(source) {
       message,
       `${message}\n      <p className="text-xs text-slate-500">Referans: {errorId}</p>`,
     );
+  return { status: "patched", source: next };
 }
 
 function patchViteConfig(source) {

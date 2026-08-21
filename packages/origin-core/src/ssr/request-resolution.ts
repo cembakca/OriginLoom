@@ -11,7 +11,7 @@ import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url
 import { renderNotFoundDocument } from "../route-boundary.js";
 import { applyMiddlewareCacheVary } from "./cache-vary.js";
 import { createRouteContext } from "./context.js";
-import { htmlResponse, logRequest } from "./response.js";
+import { htmlResponse, logRouteOutcome as logOutcome } from "./response.js";
 import type { HandleContext } from "./types.js";
 
 export type ResolvedSsrRequest =
@@ -97,7 +97,6 @@ async function resolveProxyResponse(
   started: number,
 ): Promise<ResolvedSsrRequest> {
   const response = await proxyRequest(request, destination, context.clientIp);
-  if (context.requestId) response.headers.set("x-request-id", context.requestId);
   logOutcome(context.requestId, publicUrl, response.status, "PROXY", started);
   return { kind: "response", response };
 }
@@ -153,19 +152,4 @@ function renderNotFound(assets: Assets, routeCtx: Ctx, route?: Route): Promise<s
     },
     () => renderNotFoundDocument(assets, routeCtx, route),
   );
-}
-
-function logOutcome(
-  requestId: string | undefined,
-  url: URL,
-  status: number,
-  cacheState: string,
-  started: number,
-): void {
-  logRequest(requestId, {
-    path: url.pathname,
-    status,
-    cache: cacheState,
-    durationMs: Date.now() - started,
-  });
 }

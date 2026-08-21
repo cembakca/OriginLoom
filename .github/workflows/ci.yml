@@ -132,4 +132,4 @@ jobs:
       - name: Publish to a local registry and build an installed app
         env:
           REDIS_URL: redis://127.0.0.1:6379
-        run: pnpm run release:verify --renderer ${{ matrix.renderer }}
+        run: pnpm run release:verify

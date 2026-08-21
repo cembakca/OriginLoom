@@ -49,6 +49,9 @@ function cacheStyle(cache: string, enabled: boolean): string {
   return paint(cache, ANSI.gray, enabled);
 }
 
+// Truncation is a dev-console readability affordance only — this module formats the
+// `pretty` log line, never the structured JSON output. Production JSON logs always
+// carry the full, untruncated requestId/pageRequestId.
 function shortRequestId(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length === 0) return undefined;
   return value.length <= 8 ? value : `${value.slice(0, 8)}…`;

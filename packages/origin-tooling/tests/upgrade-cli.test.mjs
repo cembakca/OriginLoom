@@ -475,6 +475,60 @@ export function RouteErrorPage({ error }: { error: RouteError | null; status: nu
     expect(second.status).toBe(0);
     expect(second.stdout).toContain("Uygulanacak değişiklik yok");
   });
+
+  it("reports a custom error boundary as manual-required and never marks it applied", () => {
+    const root = project({ version: TOOLING_VERSION, metadata: true });
+    const metadataPath = join(root, ".originloom/project.json");
+    const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    metadata.appliedMigrations = metadata.appliedMigrations.filter(
+      (id) => id !== "0.7.22-ssr-error-reference",
+    );
+    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n");
+    mkdirSync(join(root, "server/product"), { recursive: true });
+    const customBoundary = `import type { RouteError } from "@originloom/react/lib/types";
+
+export function RouteErrorPage({ error, status }: { error: RouteError | null; status: number }) {
+  return (
+    <div className="custom-error-shell">
+      <p>{status} — something custom happened.</p>
+      <p>{error?.message}</p>
+    </div>
+  );
+}
+`;
+    writeFileSync(join(root, "server/product/boundary-pages.tsx"), customBoundary);
+
+    const applied = run(MIGRATE, ["--cwd", root, "--apply"]);
+    // A pending manual-required change must not report success: automation
+    // checking the exit code needs to see this upgrade as incomplete.
+    expect(applied.status).toBe(1);
+    expect(applied.stdout).toContain("Elle müdahale gerekiyor");
+    expect(applied.stdout).toContain("server/product/boundary-pages.tsx");
+    expect(applied.stdout).toContain("Migration kısmen tamamlandı");
+
+    // The custom file must be left untouched — no blind regex rewrite of a non-matching file.
+    expect(readFileSync(join(root, "server/product/boundary-pages.tsx"), "utf8")).toBe(
+      customBoundary,
+    );
+
+    // The migration must not be recorded as applied.
+    const nextMetadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    expect(nextMetadata.appliedMigrations).not.toContain("0.7.22-ssr-error-reference");
+
+    // origin:doctor --strict keeps reporting it as pending.
+    const doctorResult = run(DOCTOR, ["--cwd", root, "--strict", "--json"]);
+    expect(doctorResult.status).toBe(1);
+    const report = JSON.parse(doctorResult.stdout);
+    expect(report.findings).toContainEqual(expect.objectContaining({ code: "migration-pending" }));
+
+    // Re-running migrate stays idempotent: same manual-required report, no crash.
+    const second = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(second.status).toBe(1);
+    expect(second.stdout).toContain("Elle müdahale gerekiyor");
+    expect(readFileSync(join(root, "server/product/boundary-pages.tsx"), "utf8")).toBe(
+      customBoundary,
+    );
+  });
 });
 
 function project({ version, metadata }) {
@@ -551,6 +605,7 @@ function project({ version, metadata }) {
                   "0.7.21-client-entry-telemetry-import-fix",
                   "0.7.22-ssr-error-reference",
                   "0.7.20-hono-4.13",
+                  "0.7.23-cache-performance-acceptance",
                 ]
               : []),
           ],

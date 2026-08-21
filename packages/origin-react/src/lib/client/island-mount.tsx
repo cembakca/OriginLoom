@@ -19,6 +19,40 @@ export type IslandModuleLoaders = Record<string, () => Promise<IslandModule>>;
 
 export type IslandMounter = (el: HTMLElement) => Promise<void>;
 
+export type IslandErrorContext = {
+  island: string;
+  errorId: string;
+  /**
+   * The raw thrown value — for telemetry/`onComponentFailure` only. Never render
+   * `error.message`/`error.stack` into `formatIslandError`'s returned string: they can
+   * carry internal paths or reflected user input, and that string becomes visible DOM
+   * text. Use `errorId` as the user-facing reference instead.
+   */
+  error: unknown;
+};
+
+/**
+ * Formats the PII-free text shown next to a failed island. Must not use `context.error`
+ * (see its doc comment) — only `errorId` is safe to render. Platform code never bakes in
+ * app-facing copy or a specific locale — apps pass their own formatter (or the create-app
+ * template's default) via `createIslandMounter({ formatIslandError })`.
+ */
+export type IslandErrorFormatter = (context: IslandErrorContext) => string;
+
+/**
+ * Explicit, opt-in hook for a genuine post-mount component failure (React's
+ * `onUncaughtError`), as opposed to a pre-mount loading/parsing failure that leaves the
+ * server-rendered markup intact. The platform does not prescribe what happens to `element`
+ * here — an app may mount its own fallback UI into it, leave it alone, or anything else.
+ */
+export type IslandComponentFailureHandler = (
+  element: HTMLElement,
+  context: IslandErrorContext,
+) => void;
+
+const defaultFormatIslandError: IslandErrorFormatter = ({ errorId }) =>
+  `Something went wrong. Reference: ${errorId}`;
+
 function IslandCommitSignal({ children, onCommit }: { children: ReactNode; onCommit: () => void }) {
   useEffect(onCommit, [onCommit]);
   return children;
@@ -28,6 +62,8 @@ function reactErrorOptions(
   island: string,
   cancelMountTimeout: () => void,
   element: HTMLElement,
+  formatIslandError: IslandErrorFormatter,
+  onComponentFailure: IslandComponentFailureHandler | undefined,
 ): NonNullable<Parameters<typeof hydrateRoot>[2]> {
   return {
     onCaughtError: (error, errorInfo) => {
@@ -44,13 +80,12 @@ function reactErrorOptions(
     },
     onUncaughtError: (error, errorInfo) => {
       cancelMountTimeout();
-      showIslandErrorReference(
-        element,
-        reportClientError("react-uncaught", error, {
-          island,
-          componentStack: errorInfo.componentStack,
-        }),
-      );
+      const errorId = reportClientError("react-uncaught", error, {
+        island,
+        componentStack: errorInfo.componentStack,
+      });
+      showIslandErrorReference(element, { island, errorId, error }, formatIslandError);
+      onComponentFailure?.(element, { island, errorId, error });
     },
   };
 }
@@ -62,9 +97,13 @@ function reactErrorOptions(
 export function createIslandMounter(options: {
   modules: IslandModuleLoaders;
   Wrapper?: ComponentType<{ children: ReactNode }>;
+  formatIslandError?: IslandErrorFormatter;
+  onComponentFailure?: IslandComponentFailureHandler;
 }): IslandMounter {
   const byName = new Map<string, () => Promise<IslandModule>>();
   const Wrapper = options.Wrapper;
+  const formatIslandError = options.formatIslandError ?? defaultFormatIslandError;
+  const onComponentFailure = options.onComponentFailure;
   // An island is its own React root, so it would otherwise start with none of
   // the request identity the document rendered with — and a link inside it
   // would quietly point somewhere else than the same link outside it.
@@ -78,14 +117,9 @@ export function createIslandMounter(options: {
     const island = el.dataset.island ?? "unknown";
     const load = byName.get(island);
     if (!load) {
-      showIslandErrorReference(
-        el,
-        reportClientError(
-          "island-module-missing",
-          new Error(`Island module not found: ${island}`),
-          { island },
-        ),
-      );
+      const error = new Error(`Island module not found: ${island}`);
+      const errorId = reportClientError("island-module-missing", error, { island });
+      showIslandErrorReference(el, { island, errorId, error }, formatIslandError);
       return;
     }
 
@@ -97,7 +131,8 @@ export function createIslandMounter(options: {
         error instanceof IslandRuntimeError && error.failure === "mount-timeout"
           ? "island-mount-timeout"
           : "island-chunk-load";
-      showIslandErrorReference(el, reportClientError(source, error, { island }));
+      const errorId = reportClientError(source, error, { island });
+      showIslandErrorReference(el, { island, errorId, error }, formatIslandError);
       return;
     }
 
@@ -105,28 +140,21 @@ export function createIslandMounter(options: {
     try {
       props = parseEmbeddedJson<Record<string, unknown>>(el.dataset.props || "{}");
     } catch (error) {
-      showIslandErrorReference(el, reportClientError("island-props", error, { island }));
+      const errorId = reportClientError("island-props", error, { island });
+      showIslandErrorReference(el, { island, errorId, error }, formatIslandError);
       return;
     }
 
     try {
       const cancelMountTimeout = createIslandMountWatchdog(() => {
-        showIslandErrorReference(
-          el,
-          reportClientError(
-            "island-mount-timeout",
-            new Error("Island root did not commit in time"),
-            { island },
-          ),
-        );
+        const error = new Error("Island root did not commit in time");
+        const errorId = reportClientError("island-mount-timeout", error, { island });
+        showIslandErrorReference(el, { island, errorId, error }, formatIslandError);
       });
       const markCommitted = () => {
         cancelMountTimeout();
         reportIslandMount(island, performance.now() - startedAt);
-        if (el.dataset.errorReference) {
-          delete el.dataset.errorReference;
-          if (el.getAttribute("role") === "alert") el.removeAttribute("role");
-        }
+        clearIslandErrorReference(el);
         // A deterministic readiness signal for browser tests, monitoring and
         // progressive UI. Presence means React committed, not merely that the
         // server-rendered fallback was visible.
@@ -140,7 +168,13 @@ export function createIslandMounter(options: {
           </RequestContextProvider>
         </IslandCommitSignal>
       );
-      const errorOptions = reactErrorOptions(island, cancelMountTimeout, el);
+      const errorOptions = reactErrorOptions(
+        island,
+        cancelMountTimeout,
+        el,
+        formatIslandError,
+        onComponentFailure,
+      );
 
       try {
         if (el.dataset.mode === "hydrate") {
@@ -153,16 +187,44 @@ export function createIslandMounter(options: {
         throw error;
       }
     } catch (error) {
-      showIslandErrorReference(el, reportClientError("island-mount", error, { island }));
+      const errorId = reportClientError("island-mount", error, { island });
+      showIslandErrorReference(el, { island, errorId, error }, formatIslandError);
     }
   };
 }
 
-function showIslandErrorReference(element: HTMLElement, errorId: string): void {
+// One status element per island root, tracked outside the DOM so a second failure
+// (e.g. the mount-timeout watchdog followed by onUncaughtError) updates the existing
+// element instead of appending a duplicate. The root's own children — the
+// server-rendered markup — are never touched here.
+const errorStatusElements = new WeakMap<HTMLElement, HTMLElement>();
+
+function showIslandErrorReference(
+  element: HTMLElement,
+  context: IslandErrorContext,
+  formatIslandError: IslandErrorFormatter,
+): void {
   element.removeAttribute("data-hydrated");
-  element.dataset.errorReference = errorId;
-  element.setAttribute("role", "alert");
-  element.textContent = `Bir sorun oluştu. Referans: ${errorId}`;
+  element.dataset.errorReference = context.errorId;
+
+  let status = errorStatusElements.get(element);
+  if (!status || status.previousElementSibling !== element) {
+    status = document.createElement("p");
+    status.setAttribute("role", "alert");
+    status.setAttribute("data-island-error-for", context.island);
+    element.insertAdjacentElement("afterend", status);
+    errorStatusElements.set(element, status);
+  }
+  status.textContent = formatIslandError(context);
+}
+
+function clearIslandErrorReference(element: HTMLElement): void {
+  if (element.dataset.errorReference) delete element.dataset.errorReference;
+  const status = errorStatusElements.get(element);
+  if (status) {
+    status.remove();
+    errorStatusElements.delete(element);
+  }
 }
 
 function islandNameFromPath(path: string): string {

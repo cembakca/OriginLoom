@@ -21,7 +21,7 @@ import { CacheFillTimeoutError, executeRoute, executeRouteWithBudget } from "./e
 import {
   htmlResponse,
   loaderRedirectResponse,
-  logRequest,
+  logRouteOutcome,
   normalizeErrorStatus,
 } from "./response.js";
 import type { RouteExecution } from "./types.js";
@@ -271,10 +271,5 @@ function scheduleRouteRevalidation(options: ServeRouteOptions): void {
 }
 
 function logOutcome(options: ServeRouteOptions, status: number, cacheState: string): void {
-  logRequest(options.requestId, {
-    path: options.url.pathname,
-    status,
-    cache: cacheState,
-    durationMs: Date.now() - options.started,
-  });
+  logRouteOutcome(options.requestId, options.url, status, cacheState, options.started);
 }

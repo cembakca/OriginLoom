@@ -38,6 +38,9 @@ type SsrDispatchOptions = {
   pipeline: Pipeline;
 };
 
+// x-request-id is owned by the outer `requestId` Hono middleware (middleware/request-id.ts),
+// which stamps the header on the final response after this handler returns. Individual
+// paths below do not set it themselves — see OR3 in CACHE_PERFORMANCE_ROADMAP.md.
 export function createSsrDispatch({
   assets,
   routes,
@@ -120,20 +123,14 @@ async function tryServeFromCache(
       const context = buildContext(options);
       const resolved = await resolveHeadRoute(options.request, options.routes, context);
       if (resolved instanceof Response) {
-        resolved.headers.set("x-request-id", options.requestId);
         return { response: resolved };
       }
       const cached = await tryServeCachedHead(resolved, options.requestId);
       if (cached) {
-        cached.headers.set("x-request-id", options.requestId);
         return { response: cached };
       }
       return {
-        render: async () => {
-          const response = await renderHeadRoute(resolved, options.requestId);
-          response.headers.set("x-request-id", options.requestId);
-          return response;
-        },
+        render: () => renderHeadRoute(resolved, options.requestId),
       };
     }
 
@@ -145,20 +142,14 @@ async function tryServeFromCache(
       context,
     );
     if (resolved.kind === "response") {
-      resolved.response.headers.set("x-request-id", options.requestId);
       return { response: resolved.response };
     }
     const cached = await tryCachedHandle(resolved.serveOptions);
     if (cached) {
-      cached.headers.set("x-request-id", options.requestId);
       return { response: cached };
     }
     return {
-      render: async () => {
-        const response = await renderHandle(resolved.serveOptions);
-        response.headers.set("x-request-id", options.requestId);
-        return response;
-      },
+      render: () => renderHandle(resolved.serveOptions),
     };
   }
 
@@ -173,7 +164,6 @@ async function tryServeFromCache(
       options.method === "HEAD"
         ? withoutBody(finalizePipelineResponse(pipeline))
         : finalizePipelineResponse(pipeline);
-    response.headers.set("x-request-id", options.requestId);
     return { response };
   }
 
@@ -189,22 +179,16 @@ async function tryServeFromCache(
   if (options.method === "HEAD") {
     const resolved = await resolveHeadRoute(pipeline.request, options.routes, handleContext);
     if (resolved instanceof Response) {
-      const response = finalizeSsrResponse(resolved, pipeline);
-      response.headers.set("x-request-id", options.requestId);
-      return { response };
+      return { response: finalizeSsrResponse(resolved, pipeline) };
     }
     const cached = await tryServeCachedHead(resolved, options.requestId);
     if (cached) {
-      const response = finalizeSsrResponse(cached, pipeline);
-      response.headers.set("x-request-id", options.requestId);
-      return { response };
+      return { response: finalizeSsrResponse(cached, pipeline) };
     }
     return {
       render: async () => {
         const ssr = await renderHeadRoute(resolved, options.requestId);
-        const response = finalizeSsrResponse(ssr, pipeline);
-        response.headers.set("x-request-id", options.requestId);
-        return response;
+        return finalizeSsrResponse(ssr, pipeline);
       },
     };
   }
@@ -216,22 +200,16 @@ async function tryServeFromCache(
     handleContext,
   );
   if (resolved.kind === "response") {
-    const response = finalizeSsrResponse(resolved.response, pipeline);
-    response.headers.set("x-request-id", options.requestId);
-    return { response };
+    return { response: finalizeSsrResponse(resolved.response, pipeline) };
   }
   const cached = await tryCachedHandle(resolved.serveOptions);
   if (cached) {
-    const response = finalizeSsrResponse(cached, pipeline);
-    response.headers.set("x-request-id", options.requestId);
-    return { response };
+    return { response: finalizeSsrResponse(cached, pipeline) };
   }
   return {
     render: async () => {
       const ssr = await renderHandle(resolved.serveOptions);
-      const response = finalizeSsrResponse(ssr, pipeline);
-      response.headers.set("x-request-id", options.requestId);
-      return response;
+      return finalizeSsrResponse(ssr, pipeline);
     },
   };
 }
@@ -251,12 +229,9 @@ async function executeRequest(options: RequestOptions): Promise<Response> {
     options.preparedRequest?.url,
   );
   if (pipeline.response) {
-    const response =
-      options.method === "HEAD"
-        ? withoutBody(finalizePipelineResponse(pipeline))
-        : finalizePipelineResponse(pipeline);
-    response.headers.set("x-request-id", options.requestId);
-    return response;
+    return options.method === "HEAD"
+      ? withoutBody(finalizePipelineResponse(pipeline))
+      : finalizePipelineResponse(pipeline);
   }
 
   const handleContext = {
@@ -271,9 +246,7 @@ async function executeRequest(options: RequestOptions): Promise<Response> {
     options.method === "HEAD"
       ? await handleHead(pipeline.request, options.routes, handleContext)
       : await handle(pipeline.request, options.routes, options.assets, handleContext);
-  const response = finalizeSsrResponse(ssr, pipeline);
-  response.headers.set("x-request-id", options.requestId);
-  return response;
+  return finalizeSsrResponse(ssr, pipeline);
 }
 
 function buildContext(options: RequestOptions) {

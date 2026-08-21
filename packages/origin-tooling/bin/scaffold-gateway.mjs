@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readFileSync, readSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { applyScaffold, detectProjectLayout } from "./lib/scaffold-gateway/apply.mjs";
@@ -9,6 +9,11 @@ import {
   defaultGatewayPropertyKey,
   defaultSchemaName,
 } from "./lib/scaffold-gateway/generate.mjs";
+
+// Fixtures are illustrative sample payloads, not bulk data — a stray huge file or
+// accidental `cat bigfile | origin-scaffold-gateway` should fail fast with a clear
+// limit instead of buffering an unbounded amount of memory before JSON.parse.
+const MAX_FIXTURE_BYTES = 5 * 1024 * 1024;
 
 const options = parseArgs(process.argv.slice(2));
 const sample = readSample(options);
@@ -85,14 +90,63 @@ console.log("\nApply with: origin-scaffold-gateway ... --apply");
 
 function readSample(options) {
   if (options.fixture) {
-    return parseJson(readFileSync(resolve(options.cwd, options.fixture), "utf8"), options.fixture);
+    const path = resolve(options.cwd, options.fixture);
+    // Checked before the read, not after: a size check against an already-buffered
+    // file provides no memory protection at all.
+    assertWithinByteLimit(statSync(path).size, options.fixture);
+    const buffer = readFileSync(path);
+    return parseJson(buffer.toString("utf8"), options.fixture);
   }
   if (!process.stdin.isTTY) {
-    const raw = readFileSync(0, "utf8").trim();
+    const raw = readStdinBounded().toString("utf8").trim();
     if (!raw) fail("Fixture JSON gerekli: --fixture veya stdin.");
     return parseJson(raw, "stdin");
   }
   fail("Fixture JSON gerekli: --fixture path.json veya pipe ile stdin.");
+}
+
+function assertWithinByteLimit(byteLength, label) {
+  if (byteLength > MAX_FIXTURE_BYTES) {
+    fail(
+      `${label} maksimum fixture boyutunu (${MAX_FIXTURE_BYTES} byte) aşıyor (${byteLength} byte).`,
+    );
+  }
+}
+
+// Reads fd 0 in bounded chunks instead of a single readFileSync(0) call: the cap is
+// enforced as data arrives (no unbounded buffering of a mistakenly huge pipe), and a
+// short EAGAIN retry-with-backoff works around synchronous reads from a non-blocking
+// pipe (observed when a parent process feeds stdin through a pipe, e.g. spawnSync's
+// `input` option) instead of surfacing a raw EAGAIN error.
+function readStdinBounded() {
+  const chunks = [];
+  let total = 0;
+  const chunk = Buffer.alloc(65536);
+  let eagainRetries = 0;
+  for (;;) {
+    let bytesRead;
+    try {
+      bytesRead = readSync(0, chunk, 0, chunk.length, null);
+    } catch (error) {
+      if (error && error.code === "EOF") break;
+      if (error && error.code === "EAGAIN" && eagainRetries < 200) {
+        eagainRetries++;
+        sleepSync(5);
+        continue;
+      }
+      throw error;
+    }
+    if (bytesRead === 0) break;
+    eagainRetries = 0;
+    total += bytesRead;
+    assertWithinByteLimit(total, "stdin");
+    chunks.push(Buffer.from(chunk.subarray(0, bytesRead)));
+  }
+  return Buffer.concat(chunks);
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 function parseJson(raw, label) {
@@ -124,17 +178,17 @@ function parseArgs(argv) {
 
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
-    if (arg === "--cwd") parsed.cwd = argv[++index];
-    else if (arg === "--id") parsed.id = argv[++index];
-    else if (arg === "--path") parsed.path = argv[++index];
-    else if (arg === "--method") parsed.method = argv[++index]?.toUpperCase();
-    else if (arg === "--schema") parsed.schema = argv[++index];
-    else if (arg === "--contract-key") parsed.contractKey = argv[++index];
-    else if (arg === "--gateway-key") parsed.gatewayPropertyKey = argv[++index];
-    else if (arg === "--service") parsed.service = argv[++index];
-    else if (arg === "--operation-id") parsed.operationId = argv[++index];
-    else if (arg === "--fixture") parsed.fixture = argv[++index];
-    else if (arg === "--fetch") parsed.fetch = argv[++index];
+    if (arg === "--cwd") parsed.cwd = requireValue(argv, ++index, arg);
+    else if (arg === "--id") parsed.id = requireValue(argv, ++index, arg);
+    else if (arg === "--path") parsed.path = requireValue(argv, ++index, arg);
+    else if (arg === "--method") parsed.method = requireValue(argv, ++index, arg).toUpperCase();
+    else if (arg === "--schema") parsed.schema = requireValue(argv, ++index, arg);
+    else if (arg === "--contract-key") parsed.contractKey = requireValue(argv, ++index, arg);
+    else if (arg === "--gateway-key") parsed.gatewayPropertyKey = requireValue(argv, ++index, arg);
+    else if (arg === "--service") parsed.service = requireValue(argv, ++index, arg);
+    else if (arg === "--operation-id") parsed.operationId = requireValue(argv, ++index, arg);
+    else if (arg === "--fixture") parsed.fixture = requireValue(argv, ++index, arg);
+    else if (arg === "--fetch") parsed.fetch = requireValue(argv, ++index, arg);
     else if (arg === "--apply") parsed.apply = true;
     else if (arg === "--force") parsed.force = true;
     else if (arg === "--json") parsed.json = true;
@@ -183,6 +237,12 @@ Options:
   --force                Overwrite existing scaffold files
   --json                 Emit machine-readable plan
 `);
+}
+
+function requireValue(argv, index, flagName) {
+  const value = argv[index];
+  if (value === undefined) fail(`${flagName} requires a value.`);
+  return value;
 }
 
 function fail(message) {

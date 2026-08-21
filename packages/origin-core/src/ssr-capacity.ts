@@ -156,6 +156,10 @@ function retryAfterSeconds(reason: SsrCapacityRejectionReason): string | undefin
     case "queue_full":
       return String(Math.max(1, Math.ceil(config.ssrQueueWaitMs / 1000)));
     case "wait_timeout":
+      // A fixed client backoff hint, not the elapsed queue-wait duration (that duration
+      // is `config.ssrQueueWaitMs`, already elapsed by the time this fires). If
+      // operational data ever calls for tuning it, give it its own config value instead
+      // of deriving it from ssrQueueWaitMs.
       return "2";
     case "request_aborted":
       return undefined;

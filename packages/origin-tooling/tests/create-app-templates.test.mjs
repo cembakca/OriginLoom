@@ -626,7 +626,7 @@ describe("renderTemplates — browser E2E", () => {
     expect(route).toContain("cache: neverCache");
     expect(route).toContain("getFeaturedItems(ctx.request)");
     expect(service).toContain("defineCachedResource<FeaturedItemsSnapshot>");
-    expect(service).toContain('namespace: "items:featured"');
+    expect(service).toContain('namespace: "items.featured"');
     expect(service).toContain("cacheStatus: result.cacheState");
     expect(files["tests/featured-items-cache.test.ts"]).toContain(
       "without implementing its own refresh loop",
@@ -1013,7 +1013,7 @@ describe("renderTemplates — production reference coverage", () => {
 
     expect(service).toContain('from "@originloom/core/cache/resource"');
     expect(service).toContain("defineCachedResource<FeaturedItemsSnapshot>");
-    expect(service).toContain('namespace: "items:featured"');
+    expect(service).toContain('namespace: "items.featured"');
     expect(service).not.toContain("cache.read(");
     expect(service).not.toContain("JSON.parse(");
   });
@@ -1214,7 +1214,7 @@ describe("renderTemplates — production reference coverage", () => {
     expect(guide).toContain("CACHE_REQUIRED=true");
     expect(guide).toContain('{"pageIds":["catalog"]}');
     expect(guide).toContain('{"tags":["resource:menu"]}');
-    expect(guide).toContain('{"prefix":"items:featured:"}');
+    expect(guide).toContain('{"prefix":"items.featured"}');
     expect(guide).toContain("Cache'siz HTML içinde cache'li public API verisi");
     expect(guide).toContain("keysEncoded");
     expect(guide).toContain("ssr_cache_l2_healthy");

@@ -60,6 +60,15 @@ if (!options.allowDirty && isDirtyGitRepo(root)) {
 }
 
 await applyPlan(project, plan);
+if (plan.manualRequired.length > 0) {
+  console.log(
+    "\n⚠ Migration kısmen tamamlandı. Backup: " +
+      plan.backupDirectory +
+      "\n  Yukarıdaki elle müdahale gereken değişiklikler metadata'ya işlenmedi — bu proje hâlâ " +
+      "pending migration içeriyor. Elle uyguladıktan sonra origin-migrate --apply'ı tekrar çalıştırın.\n",
+  );
+  process.exit(1);
+}
 console.log("\n✓ Migration tamamlandı. Backup: " + plan.backupDirectory);
 console.log("  Sonraki adımlar: pnpm install && pnpm origin:doctor --strict && pnpm ci\n");
 
@@ -67,9 +76,19 @@ function buildPlan(current, fromVersion, migrations) {
   const changes = [];
   const fileWrites = {};
   const nextPackage = structuredClone(current.pkg);
+  const manualRequired = [];
+  const completedMigrationIds = new Set();
   for (const migration of migrations) {
+    const migrationManualRequired = [];
     migration.migratePackage?.(nextPackage, changes);
-    migration.migrateProject?.(current.root, changes, fileWrites);
+    migration.migrateProject?.(current.root, changes, fileWrites, migrationManualRequired);
+    if (migrationManualRequired.length > 0) {
+      for (const entry of migrationManualRequired) {
+        manualRequired.push({ migration: migration.id, file: entry.file, detail: entry.detail });
+      }
+    } else {
+      completedMigrationIds.add(migration.id);
+    }
   }
   nextPackage.scripts ??= {};
   if (nextPackage.scripts["origin:doctor"] !== "origin-doctor") {
@@ -120,7 +139,7 @@ function buildPlan(current, fromVersion, migrations) {
   }
 
   const appliedMigrations = new Set(current.metadata?.appliedMigrations ?? []);
-  for (const migration of migrations) appliedMigrations.add(migration.id);
+  for (const id of completedMigrationIds) appliedMigrations.add(id);
   appliedMigrations.add(UPGRADE_CONTRACT_MIGRATION);
   const nextMetadata = {
     schemaVersion: PROJECT_SCHEMA_VERSION,
@@ -154,6 +173,7 @@ function buildPlan(current, fromVersion, migrations) {
     toVersion: TOOLING_VERSION,
     migrations: migrations.map(({ id, description }) => ({ id, description })),
     changes,
+    manualRequired,
     fileWrites,
     nextPackage,
     nextMetadata,
@@ -240,6 +260,7 @@ function publicPlan(plan) {
     toVersion: plan.toVersion,
     migrations: plan.migrations,
     changes: plan.changes,
+    manualRequired: plan.manualRequired,
     backupDirectory: plan.backupDirectory,
   };
 }
@@ -248,13 +269,24 @@ function renderPlan(plan, applying) {
   console.log("OriginLoom migration planı: " + plan.fromVersion + " → " + plan.toVersion);
   if (plan.changes.length === 0) {
     console.log("✓ Uygulanacak değişiklik yok.");
-    return;
+  } else {
+    for (const change of plan.changes) {
+      console.log("- " + change.file + ": " + change.detail);
+    }
+    if (!applying) {
+      console.log(
+        "\nDry-run: değişiklik yazılmadı. Uygulamak için origin-migrate --apply kullanın.",
+      );
+    }
   }
-  for (const change of plan.changes) {
-    console.log("- " + change.file + ": " + change.detail);
-  }
-  if (!applying) {
-    console.log("\nDry-run: değişiklik yazılmadı. Uygulamak için origin-migrate --apply kullanın.");
+  if (plan.manualRequired.length > 0) {
+    console.log(
+      "\n⚠ Elle müdahale gerekiyor — bu değişiklikler otomatik uygulanamadı ve migration " +
+        "uygulanmış sayılmayacak:",
+    );
+    for (const entry of plan.manualRequired) {
+      console.log("- [" + entry.migration + "] " + entry.file + ": " + entry.detail);
+    }
   }
 }
 

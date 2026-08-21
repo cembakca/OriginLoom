@@ -66,6 +66,21 @@ export function normalizeErrorStatus(status = 500): number {
   return status;
 }
 
+export function logRouteOutcome(
+  requestId: string | undefined,
+  url: URL,
+  status: number,
+  cacheState: string,
+  started: number,
+): void {
+  logRequest(requestId, {
+    path: url.pathname,
+    status,
+    cache: cacheState,
+    durationMs: Date.now() - started,
+  });
+}
+
 export function logRequest(
   requestId: string | undefined,
   fields: { path: string; status: number; cache: string; durationMs: number },

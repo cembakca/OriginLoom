@@ -175,7 +175,7 @@ sonra `x-cache`, latency, revalidation hataları ve içerik tazeliği SLO'suna g
 
 `/data-cache` route'u `neverCache()` kullanır; bu nedenle response `x-cache: BYPASS` taşır ve
 `pageRenderedAt` her istekte değişir. Loader'ın çağırdığı `server/services/featured-items.ts` ise
-doğrulanmış `/items` gateway payload'ını `items:featured:v1` key'iyle paylaşır.
+doğrulanmış `/items` gateway payload'ını `items.featured` namespace'i ve `v:1` versiyonuyla paylaşır.
 
 Development varsayılanı 10 saniye TTL + 30 saniye SWR'dir. Sayfayı birkaç kez yenileyerek üç durumu
 görebilirsiniz:
@@ -198,7 +198,7 @@ curl -si http://127.0.0.1:3010/data-cache | rg "x-cache|HTML render|Gateway veri
 # Yalnız örnek data cache entry'lerini temizle.
 curl -sS -X POST http://127.0.0.1:9010/api/internal/cache/purge \
   -H "content-type: application/json" \
-  --data '{"prefix":"items:featured:"}'
+  --data '{"prefix":"items.featured"}'
 ```
 
 ## Endpoint/data cache: menu örneği

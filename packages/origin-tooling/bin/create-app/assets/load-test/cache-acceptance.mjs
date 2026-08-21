@@ -436,7 +436,8 @@ async function startWorker(topology, options) {
         const waiter = pending.get(message.id);
         if (!waiter) continue;
         pending.delete(message.id);
-        message.ok ? waiter.resolve(message.result) : waiter.reject(new Error(message.error));
+        if (message.ok) waiter.resolve(message.result);
+        else waiter.reject(new Error(message.error));
       }
     }
   });

@@ -55,3 +55,14 @@ The page is server-rendered static HTML. The only interactive parts are
   (download the chunk immediately) is only for early global state like analytics
   or a store seed — not ordinary widgets.
 - Use `defer` + a client fetch for per-user data; keep it out of the SSR HTML.
+
+## When an island fails to load or mount
+
+The server-rendered fallback inside the island is never wiped. A separate,
+accessible `role="alert"` element appears next to the island with a PII-free
+error reference (`errorId`) that support can look up in structured logs. The
+visible text comes from `formatIslandError` in `hydrate.client.tsx` — edit that
+string for your app's copy/locale, not the platform. For a genuine post-mount
+component failure (not a loading/parsing failure), pass an optional
+`onComponentFailure(element, { island, errorId, error })` to
+`createIslandMounter` if you want to mount your own fallback UI into the island.

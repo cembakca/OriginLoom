@@ -238,4 +238,48 @@ describe("origin-scaffold-gateway CLI", () => {
     expect(stdout).toContain("origin-scaffold-gateway apply");
     expect(existsSync(join(root, "contracts/fixtures/finance-widgets.json"))).toBe(true);
   });
+
+  it("names the option instead of throwing a generic TypeError when a flag value is missing", () => {
+    const root = fixture({ "server/services/gateway-contracts.ts": gatewayContractsSource });
+    const { status, stderr } = runCli(["--id", "menu", "--path", "/pages/menu", "--cwd"], {
+      cwd: root,
+    });
+    expect(status).toBe(1);
+    expect(stderr).toContain("--cwd requires a value");
+    expect(stderr).not.toContain("TypeError");
+  });
+
+  it("names --fixture when it is the last argument with no value", () => {
+    const root = fixture({ "server/services/gateway-contracts.ts": gatewayContractsSource });
+    const { status, stderr } = runCli(["--id", "menu", "--path", "/pages/menu", "--fixture"], {
+      cwd: root,
+    });
+    expect(status).toBe(1);
+    expect(stderr).toContain("--fixture requires a value");
+  });
+
+  it("rejects a fixture file that exceeds the maximum size instead of buffering it whole", () => {
+    const root = fixture({
+      "server/services/gateway-contracts.ts": gatewayContractsSource,
+      "huge.json": `{"padding":"${"x".repeat(5 * 1024 * 1024 + 16)}"}`,
+    });
+    const { status, stderr } = runCli(
+      ["--id", "menu", "--path", "/pages/menu", "--fixture", "huge.json"],
+      { cwd: root },
+    );
+    expect(status).toBe(1);
+    expect(stderr).toContain("huge.json");
+    expect(stderr).toMatch(/maksimum fixture boyutunu \(\d+ byte\) aşıyor/);
+  });
+
+  it("rejects oversized stdin input with the same bounded error", () => {
+    const root = fixture({ "server/services/gateway-contracts.ts": gatewayContractsSource });
+    const { status, stderr } = runCli(["--id", "menu", "--path", "/pages/menu"], {
+      cwd: root,
+      input: `{"padding":"${"x".repeat(5 * 1024 * 1024 + 16)}"}`,
+    });
+    expect(status).toBe(1);
+    expect(stderr).toContain("stdin");
+    expect(stderr).toMatch(/maksimum fixture boyutunu \(\d+ byte\) aşıyor/);
+  });
 });

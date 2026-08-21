@@ -100,8 +100,14 @@ Client bootstrap dayanıklılık kontratı:
 - Telemetry source sınıfları korunur: `island-bootstrap`, `island-module-missing`,
   `island-chunk-load`, `island-mount-timeout`, `island-props`, `island-mount` ve React root
   callback'leri.
-- Fatal island hatası SSR fallback'ini `Bir sorun oluştu. Referans: <errorId>` satırıyla değiştirir;
-  kullanıcıya exception message, stack veya component stack gösterilmez.
+- Fatal island hatası SSR fallback'ini/DOM'unu silmez. Root üzerinde makine tarafından okunabilen
+  `data-error-reference` tutulur; görünür, PII-free `<errorId>` referansı island root'un dışında ayrı
+  bir `role="alert"` status elementiyle gösterilir ve tekrar hata gelirse aynı element güncellenir,
+  çoğaltılmaz. Kullanıcıya gösterilen metin platforma sabit bir dille gömülmez —
+  `createIslandMounter({ formatIslandError })` ile app-owned bir formatter'dan gelir; kullanıcıya
+  exception message, stack veya component stack gösterilmez. Post-mount gerçek component
+  failure'ları (`onUncaughtError`) için `onComponentFailure` opsiyonel, app-owned bir fallback kancası
+  sağlar. Başarılı retry/mount durumunda status elementi ve `data-error-reference` temizlenir.
 - `page-analytics` sinyali gelmezse inline EventQueue 5 saniyede fail-open olur. Bu süreyi sınırsız
   beklemeye çevirme; analytics temel client lifecycle'ını kilitlememelidir.
 

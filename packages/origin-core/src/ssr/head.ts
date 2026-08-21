@@ -16,7 +16,7 @@ import { runLoader } from "./execute-route.js";
 import {
   headResponse,
   loaderRedirectResponse,
-  logRequest,
+  logRouteOutcome as logOutcome,
   normalizeErrorStatus,
 } from "./response.js";
 import type { HandleContext } from "./types.js";
@@ -49,9 +49,7 @@ export async function resolveHeadRoute(
   const resolution = prepared?.routing ?? resolveRoute(url, config.gatewayUrl);
   if (resolution.kind === "redirect") return Response.redirect(resolution.url, resolution.status);
   if (resolution.kind === "proxy") {
-    const response = await proxyRequest(request, resolution.url, ctx.clientIp);
-    if (ctx.requestId) response.headers.set("x-request-id", ctx.requestId);
-    return response;
+    return proxyRequest(request, resolution.url, ctx.clientIp);
   }
 
   const internalUrl = new URL(url);
@@ -95,12 +93,7 @@ export async function tryServeCachedHead(
 
   const state = hit.state === "fresh" ? "HIT" : "STALE";
   const response = headResponse(200, resolved.policy, state, undefined, requestId);
-  logRequest(requestId, {
-    path: resolved.url.pathname,
-    status: response.status,
-    cache: state,
-    durationMs: Date.now() - resolved.started,
-  });
+  logOutcome(requestId, resolved.url, response.status, state, resolved.started);
   return response;
 }
 
@@ -167,19 +160,4 @@ export async function handleHead(
     logError(error, { msg: "HEAD route resolution failed", requestId, path: url.pathname });
     return headResponse(500, { kind: "none" }, "ERROR", undefined, requestId);
   }
-}
-
-function logOutcome(
-  requestId: string | undefined,
-  url: URL,
-  status: number,
-  cacheState: string,
-  started: number,
-): void {
-  logRequest(requestId, {
-    path: url.pathname,
-    status,
-    cache: cacheState,
-    durationMs: Date.now() - started,
-  });
 }
