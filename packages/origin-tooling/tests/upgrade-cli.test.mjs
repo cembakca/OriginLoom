@@ -102,6 +102,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
     expect(metadata.appliedMigrations).toContain("0.7.18-dev-experience-source-patches");
     expect(metadata.appliedMigrations).toContain("0.7.18-generation-aware-dev-reload");
+    expect(metadata.appliedMigrations).toContain("0.7.20-hono-4.13");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
     expect(existsSync(join(root, "public/README.md"))).toBe(true);
@@ -142,19 +143,22 @@ describe("origin-migrate", () => {
     expect(migrated.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
   });
 
-  it("migrates vulnerable Hono versions to the patched SSR security release", () => {
+  it("migrates Hono and its Node adapter through the security and 4.13 releases", () => {
     const root = project({ version: "0.7.11", metadata: true });
     const manifestPath = join(root, "package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     manifest.dependencies.hono = "^4.12.32";
+    manifest.dependencies["@hono/node-server"] = "^2.0.12";
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
     const result = run(MIGRATE, ["--cwd", root, "--apply"]);
     expect(result.status).toBe(0);
     const migrated = JSON.parse(readFileSync(manifestPath, "utf8"));
-    expect(migrated.dependencies.hono).toBe("^4.12.34");
+    expect(migrated.dependencies.hono).toBe("^4.13.3");
+    expect(migrated.dependencies["@hono/node-server"]).toBe("^2.1.1");
     const metadata = JSON.parse(readFileSync(join(root, ".originloom/project.json"), "utf8"));
     expect(metadata.appliedMigrations).toContain("0.7.12-hono-ssr-security");
+    expect(metadata.appliedMigrations).toContain("0.7.20-hono-4.13");
   });
 
   it("migrates 0.7.13 projects to public static files and gateway scaffold script", () => {
@@ -379,6 +383,8 @@ function project({ version, metadata }) {
           "@originloom/shared": "^" + version,
           "@originloom/core": "^" + version,
           "@originloom/react": "^" + version,
+          "@hono/node-server": "^2.1.1",
+          hono: "^4.13.3",
         },
         engines: metadata ? { node: ">=22.13.0" } : undefined,
         devDependencies: {
@@ -425,6 +431,7 @@ function project({ version, metadata }) {
                   "0.7.17-dev-experience",
                   "0.7.18-dev-experience-source-patches",
                   "0.7.18-generation-aware-dev-reload",
+                  "0.7.20-hono-4.13",
                 ]
               : []),
           ],

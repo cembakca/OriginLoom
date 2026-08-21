@@ -293,7 +293,8 @@ describe("renderTemplates — standalone mode", () => {
     const pkg = JSON.parse(standalone({ version: "^1.2.0" })["package.json"]);
     expect(pkg.dependencies["@originloom/core"]).toBe("^1.2.0");
     expect(pkg.dependencies["@originloom/react"]).toBe("^1.2.0");
-    expect(pkg.dependencies.hono).toBe("^4.12.34");
+    expect(pkg.dependencies.hono).toBe("^4.13.3");
+    expect(pkg.dependencies["@hono/node-server"]).toBe("^2.1.1");
     expect(pkg.devDependencies["@originloom/tooling"]).toBe("^1.2.0");
     const specs = [
       pkg.dependencies["@originloom/core"],

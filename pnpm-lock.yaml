@@ -73,8 +73,8 @@ importers:
   apps/showroom:
     dependencies:
       '@hono/node-server':
-        specifier: ^2.0.12
-        version: 2.0.12(hono@4.12.34)
+        specifier: ^2.1.1
+        version: 2.1.1(hono@4.13.3)
       '@originloom/core':
         specifier: workspace:*
         version: link:../../packages/origin-core
@@ -109,8 +109,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       hono:
-        specifier: ^4.12.34
-        version: 4.12.34
+        specifier: ^4.13.3
+        version: 4.13.3
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -173,8 +173,8 @@ importers:
   packages/origin-core:
     dependencies:
       '@hono/node-server':
-        specifier: ^2.0.12
-        version: 2.0.12(hono@4.12.34)
+        specifier: ^2.1.1
+        version: 2.1.1(hono@4.13.3)
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -191,8 +191,8 @@ importers:
         specifier: workspace:*
         version: link:../origin-shared
       hono:
-        specifier: ^4.12.34
-        version: 4.12.34
+        specifier: ^4.13.3
+        version: 4.13.3
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1
@@ -770,8 +770,8 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@hono/node-server@2.0.12':
-    resolution: {integrity: sha512-eWpQYr67tqJLeaSUl0Q+TquuYfUdTibpOJlUMV2FfUP7+KqCC5TufnwnlXL6mobZBJbGAYRd7ZvEBDCbLInjhg==}
+  '@hono/node-server@2.1.1':
+    resolution: {integrity: sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
@@ -3312,8 +3312,8 @@ packages:
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
-  hono@4.12.34:
-    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
+  hono@4.13.3:
+    resolution: {integrity: sha512-r8AO2mYHoLxSHkgafNeC/BXyb2vWRxD3jem4Ts+ptav8oTG5FIRifAjuJEmZI4bSvvc2ns0GxmIYiZnHqN3mMw==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@9.0.3:
@@ -5869,9 +5869,9 @@ snapshots:
       protobufjs: 7.6.5
       yargs: 17.7.3
 
-  '@hono/node-server@2.0.12(hono@4.12.34)':
+  '@hono/node-server@2.1.1(hono@4.13.3)':
     dependencies:
-      hono: 4.12.34
+      hono: 4.13.3
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -8692,7 +8692,7 @@ snapshots:
     dependencies:
       hermes-estree: 0.25.1
 
-  hono@4.12.34: {}
+  hono@4.13.3: {}
 
   hosted-git-info@9.0.3:
     dependencies:

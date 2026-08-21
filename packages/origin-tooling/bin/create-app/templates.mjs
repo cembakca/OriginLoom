@@ -439,7 +439,7 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
         ci: ciScript(packageManager),
       },
       dependencies: {
-        "@hono/node-server": "^2.0.12",
+        "@hono/node-server": "^2.1.1",
         "@originloom/core": originloom,
         "@originloom/shared": originloom,
         "@originloom/react": originloom,
@@ -447,7 +447,7 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
         "@tanstack/react-query": "^5.101.4",
         "web-vitals": "^6.0.1",
         clsx: "^2.1.1",
-        hono: "^4.12.34",
+        hono: "^4.13.3",
         react: "^19.2.8",
         "react-dom": "^19.2.8",
         tailwindcss: "^4.3.3",

@@ -189,7 +189,7 @@ describe("Hono application integration", () => {
 
     const identity = await app.request("http://localhost/assets/entry.js");
     expect(identity.headers.get("content-encoding")).toBeNull();
-    expect(identity.headers.get("vary")).toBeNull();
+    expect(identity.headers.get("vary")).toContain("Accept-Encoding");
   });
 
   it("varies dynamically compressed HTML by Accept-Encoding", async () => {

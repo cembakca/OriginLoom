@@ -26,6 +26,7 @@ export const SSR_CAPACITY_MIGRATION = "0.7.16-ssr-capacity";
 export const DEV_EXPERIENCE_MIGRATION = "0.7.17-dev-experience";
 export const DEV_EXPERIENCE_SOURCE_PATCHES_MIGRATION = "0.7.18-dev-experience-source-patches";
 export const GENERATION_AWARE_DEV_RELOAD_MIGRATION = "0.7.18-generation-aware-dev-reload";
+export const HONO_4_13_MIGRATION = "0.7.20-hono-4.13";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -251,6 +252,20 @@ export const migrations = [
       "Known generated Vite configs replace brittle SSR path allowlists with generation-aware readiness reloads.",
     migrateProject(root, changes, fileWrites) {
       patchProjectFile(root, changes, fileWrites, "vite.config.ts", patchDevReloadConfig);
+    },
+  },
+  {
+    id: HONO_4_13_MIGRATION,
+    introducedIn: "0.7.20",
+    description:
+      "Hono is bumped to 4.13.3 and @hono/node-server to 2.1.1; compression now manages Vary: Accept-Encoding itself.",
+    migratePackage(manifest, changes) {
+      if (typeof manifest.dependencies?.hono === "string") {
+        setDependency(manifest, changes, "dependencies", "hono", "^4.13.3");
+      }
+      if (typeof manifest.dependencies?.["@hono/node-server"] === "string") {
+        setDependency(manifest, changes, "dependencies", "@hono/node-server", "^2.1.1");
+      }
     },
   },
 ];

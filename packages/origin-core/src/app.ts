@@ -25,7 +25,6 @@ import { contextRequest, requestDeadline } from "./middleware/request-deadline.j
 import { type AppVariables, requestId } from "./middleware/request-id.js";
 import { createSecurityMiddleware, type CspSources } from "./middleware/security.js";
 import { staticAssetCacheHeaders } from "./middleware/static-assets.js";
-import { appendVary } from "./middleware/vary.js";
 import { SpanStatusCode, withRequestSpan } from "./observability.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url.js";
 import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity.js";
@@ -143,15 +142,7 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     });
   });
   app.use("*", createSecurityMiddleware(options.csp));
-  // Compression changes the selected representation. This wrapper must be
-  // registered before Hono's compression middleware so its post-next phase
-  // observes the final Content-Encoding header.
-  app.use("*", async (c, next) => {
-    await next();
-    if (c.res.headers.has("Content-Encoding")) {
-      c.header("Vary", appendVary(c.res.headers.get("Vary"), "Accept-Encoding"));
-    }
-  });
+  // Hono >=4.13 owns compression negotiation and its Vary: Accept-Encoding header.
   app.use("*", compress({ threshold: config.httpCompressionThresholdBytes }));
   app.use("*", async (c, next) => {
     const started = performance.now();
