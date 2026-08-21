@@ -7,11 +7,21 @@ import type { Plugin, PluginOption, UserConfig, ViteDevServer } from "vite";
  * `@originloom/react/vite`) layer their own plugins on top.
  */
 export type DevReloadOptions = {
-  /** Decides whether a changed file needs a full document reload (SSR output changed). */
-  shouldReload: (file: string) => boolean;
-  /** Health endpoint polled before triggering the reload. */
+  /**
+   * Legacy fallback for servers that do not expose a generation header yet.
+   * New servers detect restarts from `/readyz`, so a path allowlist is unnecessary.
+   * @deprecated Remove this after every environment serves the generation-aware readiness route.
+   */
+  shouldReload?: (file: string) => boolean;
+  /** Readiness endpoint carrying `x-originloom-dev-generation`. */
+  readinessUrl?: string;
+  /** @deprecated Use `readinessUrl`; retained for existing Vite configs. */
   healthUrl?: string;
   debounceMs?: number;
+  /** Poll cadence while the SSR watcher is replacing a process. */
+  pollIntervalMs?: number;
+  /** Maximum time to wait for the replacement process. */
+  maxWaitMs?: number;
 };
 
 export type ClientViteConfigOptions = {
@@ -116,44 +126,180 @@ export function createServerViteConfig(options: ServerViteConfigOptions): UserCo
 }
 
 /**
- * Full-reloads the browser after the SSR server restarts: waits until the health
- * endpoint responds, so the reload lands on the new process instead of the gap.
+ * Full-reloads the browser only after the SSR process generation changes. Vite's
+ * normal HMR remains in charge when a change does not restart the Node server.
  */
 export function createDevReloadPlugin(options: DevReloadOptions): Plugin {
   const debounceMs = options.debounceMs ?? 600;
+  const pollIntervalMs = options.pollIntervalMs ?? 100;
+  const maxWaitMs = options.maxWaitMs ?? 5_000;
+  const readinessUrl =
+    options.readinessUrl ??
+    options.healthUrl ??
+    `${process.env.SITE_URL ?? "http://127.0.0.1:3005"}/readyz`;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let knownGeneration: string | undefined;
+  let eventSequence = 0;
+  let activeRun = 0;
+  let closed = false;
+  let warnedAboutMissingGeneration = false;
+  let pendingLegacyReload = false;
 
   return {
     name: "origin-loom-server-reload",
     apply: "serve",
     configureServer(server) {
+      const primeSequence = eventSequence;
+      void primeReadyGeneration({
+        readinessUrl,
+        pollIntervalMs,
+        maxWaitMs,
+        isCancelled: () => closed || eventSequence !== primeSequence,
+        setKnownGeneration: (generation) => {
+          knownGeneration = generation;
+        },
+      });
+
       const onChange = (file: string) => {
-        if (!options.shouldReload(file.replaceAll("\\", "/"))) return;
+        const normalizedFile = file.replaceAll("\\", "/");
+        pendingLegacyReload ||= options.shouldReload?.(normalizedFile) ?? false;
+        eventSequence++;
+        const run = ++activeRun;
         if (timer) clearTimeout(timer);
-        timer = setTimeout(() => void reloadWhenReady(server, options.healthUrl), debounceMs);
+        timer = setTimeout(() => {
+          const legacyReloadRequested = pendingLegacyReload;
+          pendingLegacyReload = false;
+          void reloadAfterGenerationChange({
+            server,
+            readinessUrl,
+            pollIntervalMs,
+            maxWaitMs,
+            legacyReloadRequested,
+            getKnownGeneration: () => knownGeneration,
+            setKnownGeneration: (generation) => {
+              knownGeneration = generation;
+            },
+            isCancelled: () => closed || run !== activeRun,
+            warnAboutMissingGeneration: () => {
+              if (warnedAboutMissingGeneration) return;
+              warnedAboutMissingGeneration = true;
+              server.config.logger.warn(
+                "SSR readiness endpoint has no x-originloom-dev-generation header; " +
+                  "generation-aware browser reload is unavailable",
+              );
+            },
+          });
+        }, debounceMs);
       };
-      server.watcher.on("change", onChange);
+      for (const event of ["add", "change", "unlink"] as const) {
+        server.watcher.on(event, onChange);
+      }
       server.httpServer?.once("close", () => {
+        closed = true;
+        activeRun++;
         if (timer) clearTimeout(timer);
-        server.watcher.off("change", onChange);
+        for (const event of ["add", "change", "unlink"] as const) {
+          server.watcher.off(event, onChange);
+        }
       });
     },
   };
 }
 
-async function reloadWhenReady(server: ViteDevServer, healthUrl?: string): Promise<void> {
-  const url = healthUrl ?? `${process.env.SITE_URL ?? "http://127.0.0.1:3005"}/healthz`;
-  for (let attempt = 0; attempt < 20; attempt++) {
-    try {
-      const response = await fetch(url, { cache: "no-store" });
-      if (response.ok) {
+const DEV_SERVER_GENERATION_HEADER = "x-originloom-dev-generation";
+
+type ReadyGeneration = { generation?: string };
+
+async function readReadyGeneration(url: string): Promise<ReadyGeneration | undefined> {
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return undefined;
+    const generation = response.headers.get(DEV_SERVER_GENERATION_HEADER);
+    return generation ? { generation } : {};
+  } catch {
+    return undefined;
+  }
+}
+
+type PrimeReadyGenerationOptions = {
+  readinessUrl: string;
+  pollIntervalMs: number;
+  maxWaitMs: number;
+  isCancelled: () => boolean;
+  setKnownGeneration: (generation: string) => void;
+};
+
+async function primeReadyGeneration({
+  readinessUrl,
+  pollIntervalMs,
+  maxWaitMs,
+  isCancelled,
+  setKnownGeneration,
+}: PrimeReadyGenerationOptions): Promise<void> {
+  const deadline = Date.now() + maxWaitMs;
+  do {
+    if (isCancelled()) return;
+    const result = await readReadyGeneration(readinessUrl);
+    if (result?.generation) {
+      setKnownGeneration(result.generation);
+      return;
+    }
+    await delay(pollIntervalMs);
+  } while (Date.now() < deadline);
+}
+
+type ReloadAfterGenerationChangeOptions = {
+  server: ViteDevServer;
+  readinessUrl: string;
+  pollIntervalMs: number;
+  maxWaitMs: number;
+  legacyReloadRequested: boolean;
+  getKnownGeneration: () => string | undefined;
+  setKnownGeneration: (generation: string) => void;
+  isCancelled: () => boolean;
+  warnAboutMissingGeneration: () => void;
+};
+
+async function reloadAfterGenerationChange({
+  server,
+  readinessUrl,
+  pollIntervalMs,
+  maxWaitMs,
+  legacyReloadRequested,
+  getKnownGeneration,
+  setKnownGeneration,
+  isCancelled,
+  warnAboutMissingGeneration,
+}: ReloadAfterGenerationChangeOptions): Promise<void> {
+  const deadline = Date.now() + maxWaitMs;
+  let reachedReadyServer = false;
+
+  do {
+    if (isCancelled()) return;
+    const result = await readReadyGeneration(readinessUrl);
+    if (result) {
+      reachedReadyServer = true;
+      if (!result.generation) {
+        if (legacyReloadRequested) server.ws.send({ type: "full-reload" });
+        else warnAboutMissingGeneration();
+        return;
+      }
+
+      const knownGeneration = getKnownGeneration();
+      if (!knownGeneration || result.generation !== knownGeneration) {
+        setKnownGeneration(result.generation);
         server.ws.send({ type: "full-reload" });
         return;
       }
-    } catch {
-      // The SSR server is between the old and new process; retry below.
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await delay(pollIntervalMs);
+  } while (Date.now() < deadline);
+
+  if (!reachedReadyServer && !isCancelled()) {
+    server.config.logger.warn("SSR server did not become ready; browser reload was skipped");
   }
-  server.config.logger.warn("SSR server did not become ready; browser reload was skipped");
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

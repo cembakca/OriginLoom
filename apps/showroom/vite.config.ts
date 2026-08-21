@@ -9,12 +9,6 @@ export default defineConfig(
   createClientViteConfig({
     entry: resolve(root, "src/entry.client.tsx"),
     alias: { "~": resolve(root, "src"), "@server": resolve(root, "server") },
-    reload: {
-      shouldReload: (file) =>
-        file.includes("/server/") ||
-        file.includes("/src/features/") ||
-        file.includes("/src/components/") ||
-        file.endsWith("/src/lib/island.tsx"),
-    },
+    reload: {},
   }),
 );

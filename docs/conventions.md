@@ -681,13 +681,33 @@ src/components/icons/index.ts     ← barrel export (BrandMark)
 
 ```bash
 pnpm icons          # manuel regenerate
-pnpm dev            # icons (startup) + svg watch → Vite HMR + tsx watch
+pnpm dev            # icon/media watch + Vite HMR + tsx watch
 pnpm build          # icons → vite build
 ```
 
-`pnpm dev` build-watch değildir; yalnızca `src/assets/svg/` ve `.svgrrc.cjs` için ikon codegen
-watch edilir. Vite üretilen `src/components/icons/*.tsx` dosyalarını HMR ile yeniler. SSR dosyaları
-`tsx watch` ile restart edilir.
+`pnpm dev` genel bir build-watch değildir. Icon watcher `src/assets/svg/` ile `.svgrrc.cjs` dosyasını;
+media watcher `server/media.config.json` ile onun referans verdiği görsel/font/lisans kaynaklarını
+izler. Codegen sonucu aynıysa generated icon dosyası yeniden yazılmaz; bu hem Vite event gürültüsünü
+hem de `tsx watch` restart zincirini keser.
+
+### Development reload kontratı
+
+Development'ta üç ayrı lifecycle vardır:
+
+1. Vite ve React Fast Refresh client modüllerini/state'i mümkün olduğunca yerinde günceller.
+2. `tsx watch`, yalnız Node dependency grafiği değiştiğinde SSR process'ini yeniden başlatır.
+3. Vite reload plugin'i başarılı `/readyz` cevabındaki `x-originloom-dev-generation` değerini izler;
+   yalnız değer gerçekten değiştiğinde ve yeni process hazır olduğunda full document reload gönderir.
+
+`vite.config.ts` içinde SSR dosyalarını tahmin eden `shouldReload` path allowlist'i kullanılmaz:
+dependency graph zamanla genişlediğinde yanlış negatif üretir, client-only shared component'lerde ise
+yanlış pozitif olabilir. Eski config'lerdeki callback yalnız generation header'ı bulunmayan server'lar
+için geriye dönük fallback'tir; `origin-migrate` bilinen generated kalıbı `reload: {}` biçimine taşır.
+
+Soft reload/veil eklenmez. Eski HTML'i geçici olarak örterken focus, scroll ve erişilebilirlik state'i
+oluşturduğu için gerçek süreyi yalnız gizler. Partial SSR de aynı `tsx` process'i restart ettiği sürece
+temel beklemeyi kaldırmaz; fragment ownership, cache ve hydration kontratı ayrı tasarlanmadan dev-only
+bir protokol olarak eklenmez.
 
 Config: `.svgrrc.cjs` (TypeScript, `icon: true`, SVGO + `currentColor`).
 

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,5 +74,24 @@ describe("generate-icons", () => {
 
     expect(index).toContain("AccentStroke");
     expect(index).toContain("StyledStroke");
+
+    const generatedPaths = [
+      join(outDir, "accent-stroke.tsx"),
+      join(outDir, "accent-fill.tsx"),
+      join(outDir, "styled-stroke.tsx"),
+      join(outDir, "index.ts"),
+    ];
+    const firstMtimes = await Promise.all(generatedPaths.map((path) => stat(path)));
+
+    execFileSync(process.execPath, [generateIcons], {
+      cwd: root,
+      env: { ...process.env, ORIGIN_APP_ROOT: root },
+      stdio: "pipe",
+    });
+
+    const secondMtimes = await Promise.all(generatedPaths.map((path) => stat(path)));
+    expect(secondMtimes.map(({ mtimeMs }) => mtimeMs)).toEqual(
+      firstMtimes.map(({ mtimeMs }) => mtimeMs),
+    );
   });
 });

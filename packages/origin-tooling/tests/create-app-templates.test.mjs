@@ -75,6 +75,8 @@ describe("renderTemplates — shared shape", () => {
       });
       expect(files[".env.development"]).toContain("VITE_DEV_SERVER_URL=http://127.0.0.1:5020");
       expect(files["vite.config.ts"]).toContain("devServer: { port: 5020 }");
+      expect(files["vite.config.ts"]).toContain("reload: {}");
+      expect(files["vite.config.ts"]).not.toContain("shouldReload");
       expect(files["README.md"]).toContain(":5020");
     }
   });

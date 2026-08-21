@@ -627,12 +627,7 @@ export default defineConfig(
     alias: { "~": resolve(root, "src"), "@server": resolve(root, "server") },
     // Every app owns a port, so several can run side by side.
     devServer: { port: ${vitePort} },
-    reload: {
-      shouldReload: (file) =>
-        file.includes("/server/") ||
-        file.includes("/src/features/") ||
-        file.includes("/src/components/"),
-    },
+    reload: {},
   }),
 );
 `;

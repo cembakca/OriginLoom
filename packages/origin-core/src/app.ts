@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
@@ -27,6 +29,9 @@ import { appendVary } from "./middleware/vary.js";
 import { SpanStatusCode, withRequestSpan } from "./observability.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url.js";
 import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity.js";
+
+export const DEV_SERVER_GENERATION_HEADER = "x-originloom-dev-generation";
+const devServerGeneration = config.isProduction ? undefined : randomUUID();
 
 const clientIpMiddleware: MiddlewareHandler<{ Variables: AppVariables }> = async (c, next) => {
   c.set("clientIp", resolveClientIp(c));
@@ -201,9 +206,12 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   app.all("/metrics", (c) => c.body(null, 404, { "cache-control": "private, no-store" }));
   app.get("/readyz", async (c) => {
     c.set("requestRoute", "<health>");
+    c.header("cache-control", "private, no-store");
     if (isShuttingDown()) return c.text("shutting down", 503);
     const ok = await readinessCheck();
-    return ok || !cacheRequired ? c.text("ok") : c.text("cache unavailable", 503);
+    if (!ok && cacheRequired) return c.text("cache unavailable", 503);
+    if (devServerGeneration) c.header(DEV_SERVER_GENERATION_HEADER, devServerGeneration);
+    return c.text("ok");
   });
 
   options.mounts?.seo?.(app, config.siteUrl);

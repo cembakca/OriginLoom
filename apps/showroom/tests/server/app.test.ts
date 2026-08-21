@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { brotliCompressSync } from "node:zlib";
 
-import { createApp } from "@originloom/core/app";
+import { createApp, DEV_SERVER_GENERATION_HEADER } from "@originloom/core/app";
 import { closeCache, initCache } from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
 import type { Route } from "@originloom/react/lib/types";
@@ -267,12 +267,26 @@ describe("Hono application integration", () => {
   });
 
   it("reports readiness degradation and shutdown independently from liveness", async () => {
+    const ready = await appWith([]).request("/readyz");
+    const secondReady = await appWith([]).request("/readyz");
+    expect(ready.status).toBe(200);
+    expect(ready.headers.get("cache-control")).toBe("private, no-store");
+    expect(ready.headers.get(DEV_SERVER_GENERATION_HEADER)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(secondReady.headers.get(DEV_SERVER_GENERATION_HEADER)).toBe(
+      ready.headers.get(DEV_SERVER_GENERATION_HEADER),
+    );
+
     const unavailable = appWith([], {
       cacheRequired: true,
       readinessCheck: async () => false,
     });
     expect((await unavailable.request("/healthz")).status).toBe(200);
-    expect((await unavailable.request("/readyz")).status).toBe(503);
+    const unavailableResponse = await unavailable.request("/readyz");
+    expect(unavailableResponse.status).toBe(503);
+    expect(unavailableResponse.headers.get("cache-control")).toBe("private, no-store");
+    expect(unavailableResponse.headers.get(DEV_SERVER_GENERATION_HEADER)).toBeNull();
 
     const stopping = appWith([], { isShuttingDown: () => true });
     expect((await stopping.request("/readyz")).status).toBe(503);

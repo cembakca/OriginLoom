@@ -7,13 +7,10 @@
 import { transform } from "@svgr/core";
 import jsxPlugin from "@svgr/plugin-jsx";
 import svgoPlugin from "@svgr/plugin-svgo";
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const TOOLING_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+import { basename, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { format, resolveConfig } from "prettier";
 
 const ROOT = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
 const SVG_DIR = join(ROOT, "src/assets/svg");
@@ -75,7 +72,10 @@ async function removeStaleOutputs(svgFiles) {
 async function runSvgr(svgFiles) {
   await mkdir(OUT_DIR, { recursive: true });
   if (svgFiles.length === 0) {
-    await writeFile(join(OUT_DIR, "index.ts"), `${BANNER}// No SVG sources in src/assets/svg\n`);
+    await writeGeneratedFile(
+      join(OUT_DIR, "index.ts"),
+      `${BANNER}// No SVG sources in src/assets/svg\n`,
+    );
     return;
   }
 
@@ -90,7 +90,7 @@ async function runSvgr(svgFiles) {
       // what @svgr/cli produced, so upgrading does not rewrite every icon.
       { componentName: `Svg${toPascalCase(stem)}`, filePath: join(SVG_DIR, name) },
     );
-    await writeFile(join(OUT_DIR, `${stem}.tsx`), code);
+    await writeGeneratedFile(join(OUT_DIR, `${stem}.tsx`), `${BANNER}${code}`);
   }
 }
 
@@ -113,18 +113,6 @@ async function readSvgrConfig() {
   }
 }
 
-async function stampGeneratedFiles(svgFiles) {
-  await Promise.all(
-    svgFiles.map(async (name) => {
-      const outPath = join(OUT_DIR, `${svgStem(name)}.tsx`);
-      const body = await readFile(outPath, "utf8");
-      if (!body.startsWith(BANNER)) {
-        await writeFile(outPath, `${BANNER}${body}`);
-      }
-    }),
-  );
-}
-
 async function writeBarrel(svgFiles) {
   const lines = svgFiles.map((name) => {
     const stem = svgStem(name);
@@ -137,33 +125,27 @@ async function writeBarrel(svgFiles) {
       ? `${BANNER}${lines.join("\n")}\n`
       : `${BANNER}// No SVG sources in src/assets/svg\n`;
 
-  await writeFile(join(OUT_DIR, "index.ts"), content);
+  await writeGeneratedFile(join(OUT_DIR, "index.ts"), content);
 }
 
-function resolvePrettierBin() {
-  const local = join(ROOT, "node_modules/prettier/bin/prettier.cjs");
-  if (existsSync(local)) return local;
-  const tooling = join(TOOLING_ROOT, "node_modules/prettier/bin/prettier.cjs");
-  if (existsSync(tooling)) return tooling;
-  return null;
-}
-
-function formatOutputs() {
-  const prettierBin = resolvePrettierBin();
-  if (!prettierBin) return;
-  execFileSync(process.execPath, [prettierBin, "--write", OUT_DIR], {
-    cwd: ROOT,
-    stdio: "ignore",
-  });
+async function writeGeneratedFile(path, source) {
+  const prettierConfig = (await resolveConfig(path)) ?? {};
+  const content = await format(source, { ...prettierConfig, filepath: path });
+  try {
+    if ((await readFile(path, "utf8")) === content) return;
+  } catch (error) {
+    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+  await writeFile(path, content);
 }
 
 async function main() {
   const svgFiles = await listSvgFiles();
   await removeStaleOutputs(svgFiles);
   await runSvgr(svgFiles);
-  await stampGeneratedFiles(svgFiles);
   await writeBarrel(svgFiles);
-  formatOutputs();
 
   const count = svgFiles.length;
   console.log(`[icons] ${count} SVG → ${count} TSX (${OUT_DIR})`);

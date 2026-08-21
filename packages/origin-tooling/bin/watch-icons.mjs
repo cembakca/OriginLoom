@@ -4,7 +4,7 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, watch } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(process.env.ORIGIN_APP_ROOT ?? process.cwd());
@@ -59,10 +59,19 @@ function regenerate(reason) {
     });
 }
 
-function watchPath(label, path) {
-  watch(path, { recursive: label === "svg" }, (_event, filename) => {
-    if (filename && !filename.endsWith(".svg") && label === "svg") return;
-    scheduleRegenerate(`${label}:${filename ?? "change"}`);
+function watchSvgSources() {
+  watch(SVG_DIR, { recursive: true }, (_event, filename) => {
+    if (filename && !filename.endsWith(".svg")) return;
+    scheduleRegenerate(`svg:${filename ?? "change"}`);
+  });
+}
+
+function watchSvgrConfig() {
+  // Watching the file handle directly is noisy on macOS and can repeatedly emit
+  // after unrelated writes. Watch its directory and accept only the exact name.
+  watch(dirname(SVGR_CONFIG), (_event, filename) => {
+    if (filename?.toString() !== basename(SVGR_CONFIG)) return;
+    scheduleRegenerate("config:.svgrrc.cjs");
   });
 }
 
@@ -71,8 +80,8 @@ if (!existsSync(SVG_DIR)) {
   process.exit(1);
 }
 
-watchPath("svg", SVG_DIR);
-if (existsSync(SVGR_CONFIG)) watchPath("config", SVGR_CONFIG);
+watchSvgSources();
+if (existsSync(SVGR_CONFIG)) watchSvgrConfig();
 
 console.log(`[icons:watch] watching ${SVG_DIR}`);
 

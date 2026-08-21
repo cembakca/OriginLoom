@@ -101,6 +101,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.16-ssr-capacity");
     expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
     expect(metadata.appliedMigrations).toContain("0.7.18-dev-experience-source-patches");
+    expect(metadata.appliedMigrations).toContain("0.7.18-generation-aware-dev-reload");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
     expect(existsSync(join(root, "public/README.md"))).toBe(true);
@@ -316,6 +317,13 @@ runIslandBootstrap(() => reportClientError("island-bootstrap", new Error("failed
 export default {
   entry: resolve(__dirname, "src/entry.client.tsx"),
   alias: { "~": resolve(__dirname, "src") },
+  reload: {
+    shouldReload: (file) =>
+      file.includes("/server/") ||
+      file.includes("/src/features/") ||
+      file.includes("/src/components/") ||
+      file.endsWith("/src/lib/island.tsx"),
+  },
 };
 `,
     );
@@ -331,6 +339,8 @@ export default {
     const viteConfig = readFileSync(join(root, "vite.config.ts"), "utf8");
     expect(viteConfig).not.toContain("__dirname");
     expect(viteConfig).toContain("import.meta.dirname");
+    expect(viteConfig).toContain("reload: {}");
+    expect(viteConfig).not.toContain("shouldReload");
 
     const snapshots = [".svgrrc.cjs", "src/entry.client.tsx", "vite.config.ts"].map((path) =>
       readFileSync(join(root, path), "utf8"),
@@ -414,6 +424,7 @@ function project({ version, metadata }) {
                   "0.7.16-ssr-capacity",
                   "0.7.17-dev-experience",
                   "0.7.18-dev-experience-source-patches",
+                  "0.7.18-generation-aware-dev-reload",
                 ]
               : []),
           ],

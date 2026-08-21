@@ -22,6 +22,17 @@ yazmayın.
   isterseniz `METRICS_ENABLED=true` verin. Kapalı olmasının pratik faydası: `pnpm dev` iki yerine tek
   port tutar, yani aynı anda açık ikinci bir projeyle iki kat daha az çakışır.
 
+Client değişikliklerinde Vite/React Fast Refresh state'i korur. Node dependency grafiği değişirse
+`tsx watch` SSR process'ini yeniden başlatır; browser ancak yeni process'in `/readyz` cevabındaki
+`x-originloom-dev-generation` değeri değişip endpoint hazır olduktan sonra full reload alır.
+`vite.config.ts` için beklenen ayar `reload: {}` biçimindedir; server dizinlerini tahmin eden bir
+`shouldReload` allowlist'i eklemeyin.
+
+`pnpm dev` ayrıca SVG/SVGR ve `server/media.config.json` içinde referanslanan media kaynaklarını izler.
+OG/favicon veya responsive görsel kaynağı değişince ayrıca `pnpm media` çalıştırmanız gerekmez. Icon
+codegen aynı sonucu üretirse dosyaya dokunmaz; böylece generated output kendi watcher zincirini yeniden
+tetiklemez.
+
 ## Mock gateway ne gördüğünü yazar
 
 Her istekte uygulamanın gerçekten ne gönderdiğini görürsünüz:

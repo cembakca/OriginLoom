@@ -197,8 +197,9 @@ olarak yüklenir; böylece full reload'da layout kayması (FOUC) oluşmaz.
 Cache in-memory çalışır; process restart sonrası sıfırlanır.
 
 - `src/islands` ve client bağımlılıkları React Fast Refresh ile state'i koruyarak güncellenir.
-- Server/SSR dosyaları `tsx watch` ile kontrollü restart olur; Hono hazır olduğunda browser tam
-  document reload yapar.
+- Server/SSR dependency grafiği `tsx watch` ile kontrollü restart olur. Vite `/readyz` üzerindeki
+  process generation değişimini doğruladıktan sonra browser tam document reload yapar; CSS/client-only
+  HMR için path allowlist veya gereksiz reload yoktur.
 - Development sırasında `dist/client` veya manifest yeniden üretilmez.
 - Production build hâlâ hashed asset ve `.vite/manifest.json` kullanır.
 

@@ -1,5 +1,14 @@
 # @originloom/core
 
+## 0.7.19
+
+### Patch Changes
+
+- Coordinate development full reloads with the ready SSR process generation, migrate generated Vite
+  path allowlists, and prevent no-op icon codegen from causing watcher restart storms.
+- Updated dependencies
+  - @originloom/shared@0.7.19
+
 ## 0.7.18
 
 ### Patch Changes

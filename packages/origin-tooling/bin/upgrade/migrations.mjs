@@ -25,6 +25,7 @@ export const NAVIGATION_PAINT_MIGRATION = "0.7.15-navigation-paint";
 export const SSR_CAPACITY_MIGRATION = "0.7.16-ssr-capacity";
 export const DEV_EXPERIENCE_MIGRATION = "0.7.17-dev-experience";
 export const DEV_EXPERIENCE_SOURCE_PATCHES_MIGRATION = "0.7.18-dev-experience-source-patches";
+export const GENERATION_AWARE_DEV_RELOAD_MIGRATION = "0.7.18-generation-aware-dev-reload";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -243,19 +244,30 @@ export const migrations = [
       patchProjectFile(root, changes, fileWrites, "vite.config.ts", patchViteConfig);
     },
   },
+  {
+    id: GENERATION_AWARE_DEV_RELOAD_MIGRATION,
+    introducedIn: "0.7.18",
+    description:
+      "Known generated Vite configs replace brittle SSR path allowlists with generation-aware readiness reloads.",
+    migrateProject(root, changes, fileWrites) {
+      patchProjectFile(root, changes, fileWrites, "vite.config.ts", patchDevReloadConfig);
+    },
+  },
 ];
 
 function patchProjectFile(root, changes, fileWrites, relativePath, patch) {
   const path = join(root, relativePath);
   if (!existsSync(path)) return;
-  const source = readFileSync(path, "utf8");
+  // Several migrations may safely touch the same generated file in one run.
+  // Compose from the staged result instead of letting the last patch erase the first.
+  const source = fileWrites[relativePath] ?? readFileSync(path, "utf8");
   const next = patch(source);
   if (next === source) return;
   fileWrites[relativePath] = next;
   changes.push({
     file: relativePath,
     kind: "patch",
-    detail: "0.7.17 dev deneyimi kalıbına güvenli biçimde hizalandı.",
+    detail: "Bilinen generated kalıp güvenli ve idempotent biçimde güncellendi.",
   });
 }
 
@@ -317,6 +329,12 @@ function patchViteConfig(source) {
   return source.includes("__dirname")
     ? source.replaceAll("__dirname", "import.meta.dirname")
     : source;
+}
+
+function patchDevReloadConfig(source) {
+  const generatedAllowlist =
+    /^(\s*)reload:\s*\{\s*\n\s*shouldReload:\s*\(file\)\s*=>\s*\n(?:\s*file\.(?:includes|endsWith)\([^\n]+\),?(?:\s*\|\|)?\s*\n)+\1\},/m;
+  return source.replace(generatedAllowlist, "$1reload: {},");
 }
 
 function setDependency(manifest, changes, section, name, expected) {
