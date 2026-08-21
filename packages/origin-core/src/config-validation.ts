@@ -101,6 +101,10 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     if (!env.SITE_URL) throw new Error("Production SITE_URL must be explicitly configured");
     validateAuthRefreshSecrets(config);
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
+    assertNotProductionPlaceholder("RELEASE_ID", config.releaseId);
+    if (config.cachePurgeSecret) {
+      assertNotProductionPlaceholder("CACHE_PURGE_SECRET", config.cachePurgeSecret);
+    }
   }
 }
 
@@ -117,6 +121,10 @@ function validateAuthRefreshSecrets(config: AppConfig): void {
       "AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters in production",
     );
   }
+  assertNotProductionPlaceholder(
+    "AUTH_REFRESH_COORDINATION_SECRET",
+    config.authRefreshCoordinationSecret,
+  );
   if (
     config.authRefreshCoordinationPreviousSecret &&
     config.authRefreshCoordinationPreviousSecret.length < 32
@@ -124,6 +132,26 @@ function validateAuthRefreshSecrets(config: AppConfig): void {
     throw new Error(
       "AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET must be at least 32 characters when configured",
     );
+  }
+  if (config.authRefreshCoordinationPreviousSecret) {
+    assertNotProductionPlaceholder(
+      "AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET",
+      config.authRefreshCoordinationPreviousSecret,
+    );
+  }
+}
+
+/** Deployment templates are intentionally non-runnable until sentinels are replaced. */
+function assertNotProductionPlaceholder(name: string, value: string): void {
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized.startsWith("replace-with-") ||
+    normalized === "change-me" ||
+    normalized === "changeme" ||
+    normalized === "placeholder" ||
+    normalized === "todo"
+  ) {
+    throw new Error(`${name} still contains a template placeholder in production`);
   }
 }
 

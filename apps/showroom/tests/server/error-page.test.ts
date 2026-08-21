@@ -49,11 +49,19 @@ describe("renderErrorPage", () => {
     });
   });
 
+  it("renders an escaped support reference without exposing exception details", () => {
+    const html = renderErrorPage(assets, `server-123<script>alert("x")</script>`);
+    expect(html).toContain("Referans: server-123&lt;script&gt;");
+    expect(html).not.toContain("<script>alert");
+  });
+
   it("serves the page as a no-store 500 response", async () => {
-    const response = errorResponse(assets);
+    const response = errorResponse(assets, "server-123");
     expect(response.status).toBe(500);
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(await response.text()).toContain("Bir hata oluştu");
+    const html = await response.text();
+    expect(html).toContain("Bir hata oluştu");
+    expect(html).toContain("Referans: server-123");
   });
 });

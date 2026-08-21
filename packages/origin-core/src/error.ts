@@ -7,7 +7,7 @@ import { tryGetRuntime } from "./runtime.js";
  * Last-resort 500 page. Built from strings on purpose: it has to render when no
  * runtime is installed, and the core must not depend on a UI framework.
  */
-export function renderErrorPage(assets: Assets): string {
+export function renderErrorPage(assets: Assets, errorId?: string): string {
   const doc = tryGetRuntime()?.document;
   const stylesheets = assets.css
     .map((href) => `<link rel="stylesheet" href="${escapeAttr(href)}"/>`)
@@ -28,13 +28,14 @@ export function renderErrorPage(assets: Assets): string {
     "<body><main>" +
     "<h1>Bir hata oluştu</h1>" +
     "<p>Lütfen daha sonra tekrar deneyin.</p>" +
+    (errorId ? `<p>Referans: ${escapeHtml(errorId)}</p>` : "") +
     '<p><a href="/">Ana sayfaya dön</a></p>' +
     "</main></body></html>"
   );
 }
 
-export function errorResponse(assets: Assets): Response {
-  return new Response(renderErrorPage(assets), {
+export function errorResponse(assets: Assets, errorId?: string): Response {
+  return new Response(renderErrorPage(assets, errorId), {
     status: 500,
     headers: {
       "content-type": "text/html; charset=utf-8",

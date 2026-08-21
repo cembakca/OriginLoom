@@ -67,6 +67,10 @@ Return `undefined` to do nothing. Otherwise return any of:
 | `values`          | Readable as `ctx.values` in loaders, cache resolvers, later middleware      |
 | `cacheVary`       | Which of those values fragment the shared HTML cache (default: all)         |
 
+Cookie writes default to `Path=/` and `SameSite=Lax`. In production the core
+forces `Secure` for sets, deletes, and merged jars even if middleware passes
+`secure: false`.
+
 ## The cache rule — read this before publishing a value
 
 Every entry in `values` fragments the shared HTML cache by default. A middleware

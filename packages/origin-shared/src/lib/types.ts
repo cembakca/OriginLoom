@@ -13,7 +13,7 @@ type RouteComponent<T, TNode> = {
 }["bivarianceHack"];
 
 type RouteErrorComponent<E, TNode> = {
-  bivarianceHack(props: { error: E | null; status: number }): TNode;
+  bivarianceHack(props: RouteErrorBoundaryProps<E>): TNode;
 }["bivarianceHack"];
 
 type RouteNotFoundComponent<TNode> = () => TNode;
@@ -86,6 +86,14 @@ export type RouteError = {
   code: string;
   /** Safe to show to the user. Never put stack traces or secrets here. */
   message: string;
+};
+
+/** Safe values exposed to a route error boundary. The original exception never crosses this seam. */
+export type RouteErrorBoundaryProps<E = RouteError> = {
+  error: E | null;
+  status: number;
+  /** Opaque server-side reference that support can correlate with structured logs. */
+  errorId: string;
 };
 
 type ResultHeaders = { headers?: Record<string, string> };

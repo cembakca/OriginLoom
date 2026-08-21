@@ -39,10 +39,6 @@ const coordinationCodec = createRefreshCoordinationCodec(
   config.authRefreshCoordinationPreviousSecret,
 );
 
-function useSecureCookies(): boolean {
-  return (process.env.NODE_ENV ?? "development") === "production";
-}
-
 export function displayNameFromAccess(access: string): string {
   const parts = access.split(".");
   const payloadSegment = parts[1];
@@ -91,16 +87,14 @@ export function isAccessTokenExpired(token: string | undefined): boolean {
 }
 
 export function setTokenCookies(jar: CookieJar, access: string, refresh: string): void {
-  const secure = useSecureCookies();
-  jar.set(Cookie.accessToken, access, { httpOnly: true, secure, maxAge: 3600 });
-  jar.set(Cookie.refreshToken, refresh, { httpOnly: true, secure, maxAge: 86_400 });
+  jar.set(Cookie.accessToken, access, { httpOnly: true, maxAge: 3600 });
+  jar.set(Cookie.refreshToken, refresh, { httpOnly: true, maxAge: 86_400 });
 }
 
 /** UI + client island'lar için okunabilir oturum cookie'leri (httpOnly değil). */
 export function setSessionCookies(jar: CookieJar, profile: { displayName: string }): void {
-  const secure = useSecureCookies();
-  jar.set(Cookie.signedIn, "1", { secure, maxAge: 86_400 });
-  jar.set(Cookie.accountText, profile.displayName, { secure, maxAge: 86_400 });
+  jar.set(Cookie.signedIn, "1", { maxAge: 86_400 });
+  jar.set(Cookie.accountText, profile.displayName, { maxAge: 86_400 });
 }
 
 const AUTH_COOKIES = [

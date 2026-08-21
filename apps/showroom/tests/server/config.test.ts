@@ -169,6 +169,35 @@ describe("server config", () => {
     ).rejects.toThrow("AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters");
   });
 
+  it("fails closed when production deployment placeholders were not replaced", async () => {
+    const production = {
+      NODE_ENV: "production",
+      CACHE_BACKEND: "memory",
+      GATEWAY_URL: "https://gateway.example.com",
+      SITE_URL: "https://www.example.com",
+      CACHE_PURGE_SECRET: "a-real-cache-purge-secret",
+      REFERRAL_STATS_SECRET: "referral-secret",
+      MARKET_STREAM_TOKEN: "market-secret",
+      AUTH_REFRESH_COORDINATION_SECRET: "a-real-auth-coordination-secret-123456",
+      RELEASE_ID: "release-1",
+    };
+
+    await expect(
+      validateWith({
+        ...production,
+        AUTH_REFRESH_COORDINATION_SECRET: "replace-with-a-dedicated-long-random-secret",
+      }),
+    ).rejects.toThrow(
+      "AUTH_REFRESH_COORDINATION_SECRET still contains a template placeholder in production",
+    );
+    await expect(
+      validateWith({ ...production, CACHE_PURGE_SECRET: "replace-with-a-long-random-secret" }),
+    ).rejects.toThrow("CACHE_PURGE_SECRET still contains a template placeholder in production");
+    await expect(
+      validateWith({ ...production, RELEASE_ID: "replace-with-release-or-git-sha" }),
+    ).rejects.toThrow("RELEASE_ID still contains a template placeholder in production");
+  });
+
   it("rejects a weak previous auth coordination key during rotation", async () => {
     await expect(
       validateWith({

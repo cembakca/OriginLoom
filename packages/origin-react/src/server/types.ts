@@ -1,6 +1,6 @@
 import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ResolvedMetadata } from "@originloom/shared/lib/metadata/types";
-import type { RouteError } from "@originloom/shared/lib/types";
+import type { RouteErrorBoundaryProps } from "@originloom/shared/lib/types";
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
 export type CriticalPaintConfig = {
@@ -18,7 +18,7 @@ export type CriticalPaintConfig = {
  */
 export type ReactRendererConfig<Shell = unknown> = {
   NotFoundComponent: ComponentType;
-  ErrorComponent: ComponentType<{ error: RouteError | null; status: number }>;
+  ErrorComponent: ComponentType<RouteErrorBoundaryProps>;
   /**
    * First-paint colors inlined before external CSS. Prevents a black/white flash
    * on reload and enables same-origin cross-document view transitions.

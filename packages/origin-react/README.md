@@ -37,6 +37,10 @@ export const productRenderer = createReactRenderer<ShellData>({
 `@originloom/react/server` pulls in `react-dom/server`; it belongs to the SSR bundle only and must
 never be reached from the client entry.
 
+Error views receive `{ error, status, errorId }`. `errorId` is the same opaque reference written to
+the server's structured log and is safe to show to support users; unexpected exception details stay
+server-only because `error` is `null` for thrown failures.
+
 ## Islands
 
 The page is static HTML except for islands. `<Island>` emits the marker; the client mounter wakes

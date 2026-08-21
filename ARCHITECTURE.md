@@ -67,7 +67,13 @@ export type FrameworkNode = unknown; // opaque: içine yalnız adaptör bakar
 export interface OriginRenderer<Shell = unknown> {
   routeContent<T>(route: Route<T>, data: T, ctx: Ctx): FrameworkNode;
   notFoundContent(ctx: Ctx, route?: Route): FrameworkNode;
-  errorContent(ctx: Ctx, route: Route, error: RouteError | null, status: number): FrameworkNode;
+  errorContent(
+    ctx: Ctx,
+    route: Route,
+    error: RouteError | null,
+    status: number,
+    errorId: string,
+  ): FrameworkNode;
   renderNode(node: FrameworkNode): string; // fragment / partial
   renderDocument(input: DocumentRenderInput<Shell>): string; // <!DOCTYPE html> dahil
   renderDocumentToStream(
@@ -458,7 +464,7 @@ type Route<T> = {
   loader: (ctx: Ctx) => Promise<LoaderResult<T>>;
   Component: ({ data: T }) => ReactElement;
   NotFoundComponent?: () => ReactElement;
-  ErrorComponent?: ({ error: RouteError | null; status: number }) => ReactElement;
+  ErrorComponent?: (props: RouteErrorBoundaryProps) => ReactElement;
   generateMetadata?: (data: T, ctx: Ctx) => PageMetadata;
   pageMeta?: (data: T, ctx: Ctx) => PageAnalyticsMeta;
   minimalChrome?: boolean;

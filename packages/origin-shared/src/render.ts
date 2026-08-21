@@ -57,7 +57,13 @@ export interface OriginRenderer<Shell = unknown> {
   /** Wraps a route's component around its loaded data. */
   routeContent<T>(route: Route<T>, data: T, ctx: Ctx): FrameworkNode;
   notFoundContent(ctx: Ctx, route?: Route): FrameworkNode;
-  errorContent(ctx: Ctx, route: Route, error: RouteError | null, status: number): FrameworkNode;
+  errorContent(
+    ctx: Ctx,
+    route: Route,
+    error: RouteError | null,
+    status: number,
+    errorId: string,
+  ): FrameworkNode;
   /** Fragment / partial render — no doctype, no document chrome. */
   renderNode(node: FrameworkNode): string;
   /** The full document, `<!DOCTYPE html>` prefix included. */

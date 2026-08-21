@@ -91,12 +91,14 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
+    const errorId = randomUUID();
     logError(error, {
       msg: "unhandled Hono application error",
+      errorId,
       requestId: c.get("requestId"),
       path: new URL(c.req.url).pathname,
     });
-    const response = errorResponse(options.assets);
+    const response = errorResponse(options.assets, errorId);
     response.headers.set("cache-control", "private, no-store");
     const requestIdValue = c.get("requestId");
     if (requestIdValue) response.headers.set("x-request-id", requestIdValue);

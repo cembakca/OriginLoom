@@ -76,7 +76,7 @@ describe("auth helpers", () => {
     const outcome = await runAuthCore(request, jar);
     expect(outcome.kind).toBe("anonymous");
     expect(outcome.authorization).toBeUndefined();
-    expect(jar.toHeaderStrings()).toContain("refresh_token=; Max-Age=0; Path=/");
+    expect(jar.toHeaderStrings()).toContain("refresh_token=; Max-Age=0; Path=/; Secure");
     expect(jar.toHeaderStrings()).not.toContainEqual(expect.stringMatching(/^signed_in=1/));
   });
 

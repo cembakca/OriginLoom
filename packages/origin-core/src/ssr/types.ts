@@ -21,4 +21,6 @@ export type RouteExecution = {
   result: LoaderResult<unknown>;
   body?: string;
   streamResult?: StreamResult;
+  /** Preserves a render failure reference until the error boundary is rendered. */
+  errorId?: string;
 };

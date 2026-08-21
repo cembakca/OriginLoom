@@ -57,6 +57,12 @@ describe("renderTemplates — shared shape", () => {
     }
   });
 
+  it("shows the server error reference in the generated route boundary", () => {
+    const boundary = standalone()["server/product/boundary-pages.tsx"];
+    expect(boundary).toContain("RouteErrorBoundaryProps");
+    expect(boundary).toContain("Referans: {errorId}");
+  });
+
   it("produces valid JSON for package.json and tsconfig.json in both modes", () => {
     for (const files of [standalone(), workspace()]) {
       expect(() => JSON.parse(files["package.json"])).not.toThrow();

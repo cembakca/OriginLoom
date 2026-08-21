@@ -27,13 +27,14 @@ export async function renderRouteErrorDocument(
   route: Route,
   error: RouteError | null,
   status: number,
+  errorId: string,
 ): Promise<string> {
   const runtime = getRuntime();
   const doc = runtime.document;
   return renderDocumentView({
     assets,
     routeCtx,
-    content: runtime.renderer.errorContent(routeCtx, route, error, status),
+    content: runtime.renderer.errorContent(routeCtx, route, error, status, errorId),
     metadata: doc.boundaryMetadata("route-error", routeCtx),
     pageMeta: doc.defaultPageMeta(routeCtx, "route-error"),
     ...(route.minimalChrome !== undefined ? { minimalChrome: route.minimalChrome } : {}),

@@ -126,7 +126,7 @@ export async function handle(
       cache: "ERROR",
       durationMs: Date.now() - started,
     });
-    const response = errorResponse(assets);
+    const response = errorResponse(assets, errorId);
     if (requestId) response.headers.set("x-request-id", requestId);
     return response;
   }

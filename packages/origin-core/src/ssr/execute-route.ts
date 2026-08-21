@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { Ctx, Route } from "@originloom/shared/lib/types";
 
 import type { Assets } from "../assets.js";
@@ -7,7 +9,6 @@ import { renderDocument, renderDocumentToStream, streamToString } from "../docum
 import { logError } from "../logger.js";
 import { observePayloadSize, observeSerialization } from "../metrics.js";
 import { SpanKind, withSpan } from "../observability.js";
-import { renderRouteErrorDocument } from "../route-boundary.js";
 import { getRuntime } from "../runtime.js";
 import { rethrowRequestDeadline } from "./context.js";
 import type { RenderPhase, RouteExecution } from "./types.js";
@@ -78,14 +79,19 @@ export async function executeRoute(
     return { result, streamResult };
   } catch (error) {
     rethrowRequestDeadline(routeCtx.request, error);
-    logError(error, { msg: "stream shell render failed", path: routeCtx.url.pathname });
-    const body = await renderRouteErrorDocument(assets, routeCtx, route, null, 500);
+    const errorId = randomUUID();
+    logError(error, {
+      msg: "stream shell render failed",
+      errorId,
+      requestId: routeCtx.pageRequestId,
+      path: routeCtx.url.pathname,
+    });
     return {
       result: {
         kind: "error",
         error: { code: "stream_shell_error", message: "Stream shell render error" },
       },
-      body,
+      errorId,
     };
   }
 }

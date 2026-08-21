@@ -231,6 +231,7 @@ data:
 
   GATEWAY_URL: https://gateway.example.com
   SITE_URL: https://www.example.com
+  # Startup rejects this sentinel in production; inject a real release or Git SHA.
   RELEASE_ID: replace-with-release-or-git-sha
 
   # Time budgets. A request that outlives its budget is failed on purpose: a
@@ -316,6 +317,7 @@ stringData:
   # Replace through your secret manager; do not commit real credentials.
   # Required only when CACHE_BACKEND=redis.
   REDIS_URL: rediss://managed-redis.example.internal:6379
+  # Startup rejects replace-with-* sentinels in production.
   CACHE_PURGE_SECRET: replace-with-a-long-random-secret
   # Coordinates token refresh across pods so a burst of expired sessions turns
   # into one upstream refresh rather than one per request.

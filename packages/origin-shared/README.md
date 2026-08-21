@@ -33,7 +33,13 @@ whatever implements this interface:
 export interface OriginRenderer<Shell = unknown> {
   routeContent<T>(route: Route<T>, data: T, ctx: Ctx): FrameworkNode;
   notFoundContent(ctx: Ctx, route?: Route): FrameworkNode;
-  errorContent(ctx: Ctx, route: Route, error: RouteError | null, status: number): FrameworkNode;
+  errorContent(
+    ctx: Ctx,
+    route: Route,
+    error: RouteError | null,
+    status: number,
+    errorId: string,
+  ): FrameworkNode;
   renderNode(node: FrameworkNode): string;
   renderDocument(input: DocumentRenderInput<Shell>): string;
   renderDocumentToStream(

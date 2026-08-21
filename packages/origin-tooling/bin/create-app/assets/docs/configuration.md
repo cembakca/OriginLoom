@@ -7,7 +7,8 @@ ilk request'ten önce fail-fast doğrulanmalıdır.
 Production'da `SITE_URL`, `GATEWAY_URL`, `RELEASE_ID` ve
 `AUTH_REFRESH_COORDINATION_SECRET` zorunludur. Redis için `REDIS_URL`, purge için
 `CACHE_PURGE_SECRET` secret manager'dan gelir. Secret'ları image, repo, ConfigMap veya client bundle'a
-yazmayın.
+yazmayın. Production doğrulaması `replace-with-*`, `change-me`, `changeme`, `placeholder` ve `todo`
+gibi template sentinel'larını kabul etmez; manifest uygulanmadan önce gerçek değerleri inject edin.
 
 ## Development'ta ne çalışır
 

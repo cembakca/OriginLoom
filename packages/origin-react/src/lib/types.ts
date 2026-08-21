@@ -20,5 +20,6 @@ export type {
   RouteCacheDescription,
   RouteCacheResolver,
   RouteError,
+  RouteErrorBoundaryProps,
 } from "@originloom/shared/lib/types";
 export { notFound, redirect, routeError } from "@originloom/shared/lib/types";

@@ -29,6 +29,7 @@ export const GENERATION_AWARE_DEV_RELOAD_MIGRATION = "0.7.18-generation-aware-de
 export const HONO_4_13_MIGRATION = "0.7.20-hono-4.13";
 export const CLIENT_ENTRY_TELEMETRY_IMPORT_FIX_MIGRATION =
   "0.7.21-client-entry-telemetry-import-fix";
+export const SSR_ERROR_REFERENCE_MIGRATION = "0.7.22-ssr-error-reference";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -272,6 +273,21 @@ export const migrations = [
     },
   },
   {
+    id: SSR_ERROR_REFERENCE_MIGRATION,
+    introducedIn: "0.7.22",
+    description:
+      "Generated React error boundaries receive and display the server errorId used by structured logs.",
+    migrateProject(root, changes, fileWrites) {
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "server/product/boundary-pages.tsx",
+        patchBoundaryErrorReference,
+      );
+    },
+  },
+  {
     id: HONO_4_13_MIGRATION,
     introducedIn: "0.7.20",
     description:
@@ -374,6 +390,31 @@ function repairClientEntryTelemetryImport(source) {
     next = next.replace(analyticsImportPattern, repairedAnalyticsImport);
   }
   return patchClientEntry(next);
+}
+
+function patchBoundaryErrorReference(source) {
+  if (/RouteErrorPage\s*\([^)]*errorId/.test(source) || source.includes("Referans: {errorId}")) {
+    return source;
+  }
+  const signature =
+    "export function RouteErrorPage({ error }: { error: RouteError | null; status: number }) {";
+  const message =
+    '      <p className="text-slate-600">{error?.message ?? "Lütfen daha sonra tekrar deneyin."}</p>';
+  if (!source.includes(signature) || !source.includes(message)) return source;
+
+  return source
+    .replace(
+      'import type { RouteError } from "@originloom/react/lib/types";',
+      'import type { RouteErrorBoundaryProps } from "@originloom/react/lib/types";',
+    )
+    .replace(
+      signature,
+      "export function RouteErrorPage({ error, errorId }: RouteErrorBoundaryProps) {",
+    )
+    .replace(
+      message,
+      `${message}\n      <p className="text-xs text-slate-500">Referans: {errorId}</p>`,
+    );
 }
 
 function patchViteConfig(source) {

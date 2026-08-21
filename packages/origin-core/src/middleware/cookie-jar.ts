@@ -11,18 +11,25 @@ type Entry = { value: string; options: CookieOptions };
 /** Accumulates Set-Cookie headers across pipeline steps. */
 export class CookieJar {
   private entries = new Map<string, Entry>();
+  private readonly requireSecure: boolean;
+
+  constructor() {
+    // This is deliberately enforced below caller options: product middleware
+    // cannot accidentally downgrade a production cookie with `secure: false`.
+    this.requireSecure = (process.env.NODE_ENV ?? "development") === "production";
+  }
 
   set(name: string, value: string, options: CookieOptions = {}): void {
     this.entries.set(name, {
       value,
-      options: { path: "/", sameSite: "lax", ...options },
+      options: this.applySecurityPolicy({ path: "/", sameSite: "lax", ...options }),
     });
   }
 
   delete(name: string): void {
     this.entries.set(name, {
       value: "",
-      options: { path: "/", maxAge: 0 },
+      options: this.applySecurityPolicy({ path: "/", maxAge: 0 }),
     });
   }
 
@@ -40,8 +47,15 @@ export class CookieJar {
 
   merge(other: CookieJar): void {
     for (const [name, entry] of other.entries) {
-      this.entries.set(name, entry);
+      this.entries.set(name, {
+        ...entry,
+        options: this.applySecurityPolicy(entry.options),
+      });
     }
+  }
+
+  private applySecurityPolicy(options: CookieOptions): CookieOptions {
+    return this.requireSecure ? { ...options, secure: true } : options;
   }
 }
 

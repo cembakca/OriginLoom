@@ -1,5 +1,5 @@
 import { Link } from "@originloom/react/lib/link";
-import type { RouteError } from "@originloom/react/lib/types";
+import type { RouteErrorBoundaryProps } from "@originloom/react/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 
@@ -22,13 +22,14 @@ export function NotFoundPage() {
   );
 }
 
-export function RouteErrorPage({ error }: { error: RouteError | null; status: number }) {
+export function RouteErrorPage({ error, errorId }: RouteErrorBoundaryProps) {
   return (
     <Card className="mx-auto max-w-2xl">
       <CardHeader>
         <p className="text-sm font-semibold text-brand-700">Bir sorun oluştu</p>
         <CardTitle>Bu sayfa şu anda gösterilemiyor</CardTitle>
         <CardDescription>{error?.message ?? "Lütfen daha sonra tekrar deneyin."}</CardDescription>
+        <p className="text-xs text-slate-500">Referans: {errorId}</p>
       </CardHeader>
       <CardContent className="flex gap-4">
         <button

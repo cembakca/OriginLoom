@@ -126,7 +126,7 @@ async function respondToExecution(
   const { result } = execution;
   if (result.kind === "redirect") return respondToRedirect(options, result);
   if (result.kind === "notFound") return respondToNotFound(options, result);
-  if (result.kind === "error") return respondToExpectedError(options, result);
+  if (result.kind === "error") return respondToExpectedError(options, result, execution.errorId);
 
   if (execution.body === undefined && execution.streamResult === undefined) {
     throw new Error("Route data result was not rendered");
@@ -180,10 +180,12 @@ async function respondToNotFound(
 async function respondToExpectedError(
   options: ServeRouteOptions,
   result: Extract<LoaderResult<unknown>, { kind: "error" }>,
+  existingErrorId?: string,
 ): Promise<Response> {
   const status = normalizeErrorStatus(result.status);
+  const errorId = existingErrorId ?? randomUUID();
   logger.warn("route expected error", {
-    errorId: randomUUID(),
+    errorId,
     requestId: options.requestId,
     path: options.url.pathname,
     route: options.route.path,
@@ -200,6 +202,7 @@ async function respondToExpectedError(
         options.route,
         result.error,
         status,
+        errorId,
       ),
   );
   logOutcome(options, status, "BYPASS");
@@ -222,7 +225,8 @@ async function renderUnexpectedRouteError(
   const body = await withSpan(
     "ssr.render.route_error",
     { kind: SpanKind.INTERNAL, attributes: { "http.route": options.route.path } },
-    () => renderRouteErrorDocument(options.assets, options.routeCtx, options.route, null, 500),
+    () =>
+      renderRouteErrorDocument(options.assets, options.routeCtx, options.route, null, 500, errorId),
   );
   logOutcome(options, 500, "ERROR");
   return htmlResponse(body, 500, { kind: "none" }, "ERROR", undefined, options.requestId);

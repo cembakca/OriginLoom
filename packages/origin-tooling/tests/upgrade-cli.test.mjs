@@ -103,6 +103,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.18-dev-experience-source-patches");
     expect(metadata.appliedMigrations).toContain("0.7.18-generation-aware-dev-reload");
     expect(metadata.appliedMigrations).toContain("0.7.21-client-entry-telemetry-import-fix");
+    expect(metadata.appliedMigrations).toContain("0.7.22-ssr-error-reference");
     expect(metadata.appliedMigrations).toContain("0.7.20-hono-4.13");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
@@ -439,6 +440,41 @@ reportClientError("island-bootstrap", new Error("failed"));
     );
     expect(clientEntry).toContain("installReloadButtons();\nlogPageRequestIdInDev();");
   });
+
+  it("adds the structured-log reference to a known generated error boundary", () => {
+    const root = project({ version: TOOLING_VERSION, metadata: true });
+    const metadataPath = join(root, ".originloom/project.json");
+    const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    metadata.appliedMigrations = metadata.appliedMigrations.filter(
+      (id) => id !== "0.7.22-ssr-error-reference",
+    );
+    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n");
+    mkdirSync(join(root, "server/product"), { recursive: true });
+    writeFileSync(
+      join(root, "server/product/boundary-pages.tsx"),
+      `import type { RouteError } from "@originloom/react/lib/types";
+
+export function RouteErrorPage({ error }: { error: RouteError | null; status: number }) {
+  return (
+    <div>
+      <p className="text-slate-600">{error?.message ?? "Lütfen daha sonra tekrar deneyin."}</p>
+    </div>
+  );
+}
+`,
+    );
+
+    const applied = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(applied.status).toBe(0);
+    const boundary = readFileSync(join(root, "server/product/boundary-pages.tsx"), "utf8");
+    expect(boundary).toContain("RouteErrorBoundaryProps");
+    expect(boundary).toContain("RouteErrorPage({ error, errorId }");
+    expect(boundary).toContain("Referans: {errorId}");
+
+    const second = run(MIGRATE, ["--cwd", root]);
+    expect(second.status).toBe(0);
+    expect(second.stdout).toContain("Uygulanacak değişiklik yok");
+  });
 });
 
 function project({ version, metadata }) {
@@ -513,6 +549,7 @@ function project({ version, metadata }) {
                   "0.7.18-dev-experience-source-patches",
                   "0.7.18-generation-aware-dev-reload",
                   "0.7.21-client-entry-telemetry-import-fix",
+                  "0.7.22-ssr-error-reference",
                   "0.7.20-hono-4.13",
                 ]
               : []),

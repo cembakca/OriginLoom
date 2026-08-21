@@ -1,5 +1,5 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import type { RouteError } from "@originloom/shared/lib/types";
+import type { RouteError, RouteErrorBoundaryProps } from "@originloom/shared/lib/types";
 import type {
   DocumentRenderInput,
   DocumentStreamOptions,
@@ -35,12 +35,10 @@ export function createReactRenderer<Shell>(
       return <Component />;
     },
 
-    errorContent(_ctx, route, error: RouteError | null, status: number) {
-      const Component = (route.ErrorComponent ?? config.ErrorComponent) as ComponentType<{
-        error: RouteError | null;
-        status: number;
-      }>;
-      return <Component error={error} status={status} />;
+    errorContent(_ctx, route, error: RouteError | null, status: number, errorId: string) {
+      const Component = (route.ErrorComponent ??
+        config.ErrorComponent) as ComponentType<RouteErrorBoundaryProps>;
+      return <Component error={error} status={status} errorId={errorId} />;
     },
 
     renderNode(node: FrameworkNode) {

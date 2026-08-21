@@ -60,6 +60,9 @@ Dönen nesnedeki alanlar:
 
 Hiçbir şey yapmayacaksa `undefined` döndürün.
 
+Cookie seçeneklerinde `Path=/` ve `SameSite=Lax` platform varsayılanıdır. Production'da bütün set,
+delete ve merge yollarında `Secure` merkezi olarak zorlanır; `secure: false` bu politikayı gevşetmez.
+
 ## Matcher
 
 `matcher` bir allowlist'tir: verilmezse her document isteğinde çalışır. `exclude` ise önce bakılan ve

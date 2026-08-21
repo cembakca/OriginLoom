@@ -6680,7 +6680,8 @@ export const productRenderer = createReactRenderer<ShellData>({
 });
 `;
 
-const boundaryPages = () => `import type { RouteError } from "@originloom/react/lib/types";
+const boundaryPages =
+  () => `import type { RouteErrorBoundaryProps } from "@originloom/react/lib/types";
 
 export function NotFoundPage() {
   return (
@@ -6694,11 +6695,12 @@ export function NotFoundPage() {
   );
 }
 
-export function RouteErrorPage({ error }: { error: RouteError | null; status: number }) {
+export function RouteErrorPage({ error, errorId }: RouteErrorBoundaryProps) {
   return (
     <div className="mx-auto max-w-2xl space-y-3 py-16 text-center">
       <h1 className="text-2xl font-bold text-slate-900">Bu sayfa şu anda gösterilemiyor</h1>
       <p className="text-slate-600">{error?.message ?? "Lütfen daha sonra tekrar deneyin."}</p>
+      <p className="text-xs text-slate-500">Referans: {errorId}</p>
       <button
         type="button"
         data-reload-page
@@ -7694,7 +7696,8 @@ docker build -f apps/${name}/Dockerfile -t ${name} .`
 
 Production'da \`SITE_URL\`, \`GATEWAY_URL\`, \`RELEASE_ID\` ve
 \`AUTH_REFRESH_COORDINATION_SECRET\` zorunludur. \`RELEASE_ID\` ortak Redis'te cache
-namespace'ini de belirler — her uygulamaya kendine ait bir değer verin.
+namespace'ini de belirler — her uygulamaya kendine ait bir değer verin. Production startup,
+\`replace-with-*\` ve \`change-me\` gibi template placeholder'ları fail-closed reddeder.
 
 ${
   withOps

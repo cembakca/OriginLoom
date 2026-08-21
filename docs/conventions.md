@@ -61,6 +61,7 @@ return routeError({ code: "OFFER_UNAVAILABLE", message: "Teklif kullanılamıyor
 - `notFound`: uygulama 404 sayfasını veya route `NotFoundComponent`'ini shell içinde render eder.
 - `redirect`: render ve cache adımlarını çalıştırmadan `Location` response'u döner.
 - `routeError`: güvenli domain mesajını `ErrorComponent`'e verir.
+- `ErrorComponent`, log ile aynı opaque `errorId` referansını alır; support için gösterebilir.
 - Loader/render exception: `ErrorComponent` `error: null` alır; gerçek hata yalnız server logundadır.
 - Terminal sonuçlar shared HTML cache'e yazılmaz ve `cache-control: private, no-store` kullanır.
 
@@ -1135,6 +1136,10 @@ loader: async (ctx) => {
 | `account_text`  | Hayır    | Client island            | Header'da görünen isim         |
 
 **Neden client access token görmüyor?** Güvenlik için token'lar httpOnly. `user-chrome` ve `layout-client` **`signed_in`** cookie'sini okur — `access_token` değil.
+
+`CookieJar` bütün cookie türlerinde `SameSite=Lax` ve `Path=/` varsayılanlarını uygular; production'da
+set, delete ve merge işlemlerinin tamamında `Secure` zorunludur. Ürün middleware'i `secure: false`
+vererek bu politikayı gevşetemez.
 
 **Refresh akışı:**
 

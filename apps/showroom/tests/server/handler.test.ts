@@ -379,7 +379,7 @@ describe("handler", () => {
     expect(res.headers.get("x-request-id")).toBe("redirect-request");
   });
 
-  it("renders an expected domain error without exposing its error id", async () => {
+  it("renders an expected domain error with the same reference recorded in logs", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const route: Route = {
       path: "/expected-error",
@@ -389,8 +389,12 @@ describe("handler", () => {
         status: 422,
       }),
       Component: () => createElement("p", null, "unreachable"),
-      ErrorComponent: ({ error, status }) =>
-        createElement("p", null, `${status}:${error?.message ?? "unexpected"}`),
+      ErrorComponent: ({ error, status, errorId }) =>
+        createElement(
+          "p",
+          null,
+          `${status}:${error?.message ?? "unexpected"} Referans: ${errorId}`,
+        ),
       minimalChrome: true,
     };
 
@@ -406,7 +410,7 @@ describe("handler", () => {
     expect(entry).toBeDefined();
     const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
     expect(errorId).not.toBe("");
-    expect(body).not.toContain(errorId);
+    expect(body).toContain(`Referans: ${errorId}`);
   });
 
   it("renders the default route retry action as a button instead of a crawlable self-link", async () => {
@@ -427,15 +431,19 @@ describe("handler", () => {
   });
 
   it("uses the route error boundary for unexpected loader failures", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const route: Route = {
       path: "/unexpected-error",
       loader: async () => {
         throw new Error("secret upstream detail");
       },
       Component: () => createElement("p", null, "unreachable"),
-      ErrorComponent: ({ error, status }) =>
-        createElement("p", null, `${status}:${error === null ? "safe fallback" : error.message}`),
+      ErrorComponent: ({ error, status, errorId }) =>
+        createElement(
+          "p",
+          null,
+          `${status}:${error === null ? "safe fallback" : error.message} Referans: ${errorId}`,
+        ),
       minimalChrome: true,
     };
 
@@ -445,10 +453,17 @@ describe("handler", () => {
     expect(res.headers.get("x-cache")).toBe("ERROR");
     expect(body).toContain("500:safe fallback");
     expect(body).not.toContain("secret upstream detail");
+    const entry = log.mock.calls
+      .flat()
+      .map(String)
+      .find((line) => line.includes("route execution failed"));
+    const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
+    expect(errorId).not.toBe("");
+    expect(body).toContain(errorId);
   });
 
   it("falls back to the global error page when the route boundary also fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const route: Route = {
       path: "/broken-boundary",
       loader: async () => {
@@ -467,6 +482,13 @@ describe("handler", () => {
     expect(body).toContain("Bir hata oluştu");
     expect(body).not.toContain("loader failed");
     expect(body).not.toContain("boundary failed");
+    const entry = log.mock.calls
+      .flat()
+      .map(String)
+      .find((line) => line.includes("global request failure"));
+    const errorId = entry ? (JSON.parse(entry) as { errorId: string }).errorId : "";
+    expect(errorId).not.toBe("");
+    expect(body).toContain(`Referans: ${errorId}`);
   });
 
   it("serves cached pages with HIT on second request", async () => {
