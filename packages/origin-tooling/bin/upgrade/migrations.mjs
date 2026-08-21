@@ -27,6 +27,8 @@ export const DEV_EXPERIENCE_MIGRATION = "0.7.17-dev-experience";
 export const DEV_EXPERIENCE_SOURCE_PATCHES_MIGRATION = "0.7.18-dev-experience-source-patches";
 export const GENERATION_AWARE_DEV_RELOAD_MIGRATION = "0.7.18-generation-aware-dev-reload";
 export const HONO_4_13_MIGRATION = "0.7.20-hono-4.13";
+export const CLIENT_ENTRY_TELEMETRY_IMPORT_FIX_MIGRATION =
+  "0.7.21-client-entry-telemetry-import-fix";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -255,6 +257,21 @@ export const migrations = [
     },
   },
   {
+    id: CLIENT_ENTRY_TELEMETRY_IMPORT_FIX_MIGRATION,
+    introducedIn: "0.7.21",
+    description:
+      "Repairs client entries where the 0.7.18 source patch placed logPageRequestIdInDev in the analytics data-layer import.",
+    migrateProject(root, changes, fileWrites) {
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "src/entry.client.tsx",
+        repairClientEntryTelemetryImport,
+      );
+    },
+  },
+  {
     id: HONO_4_13_MIGRATION,
     introducedIn: "0.7.20",
     description:
@@ -314,7 +331,7 @@ function patchSvgrConfig(source) {
 
 function patchClientEntry(source) {
   const importPattern =
-    /import\s*\{([\s\S]*?)\}\s*from\s*(["'])@originloom\/shared\/lib\/client\/error-telemetry\2;/;
+    /import\s*\{([^}]*)\}\s*from\s*(["'])@originloom\/shared\/lib\/client\/error-telemetry\2;/;
   const importMatch = importPattern.exec(source);
   if (!importMatch) return source;
 
@@ -338,6 +355,25 @@ function patchClientEntry(source) {
     return next.replace(bootstrapCall, `logPageRequestIdInDev();\n\n${bootstrapCall}`);
   }
   return source;
+}
+
+function repairClientEntryTelemetryImport(source) {
+  const analyticsImportPattern =
+    /import\s*\{([^}]*)\}\s*from\s*(["'])@originloom\/shared\/lib\/analytics\/data-layer\2;/;
+  const analyticsImport = analyticsImportPattern.exec(source);
+  let next = source;
+  if (analyticsImport && /\blogPageRequestIdInDev\b/.test(analyticsImport[1])) {
+    const bindings = analyticsImport[1]
+      .split(",")
+      .map((binding) => binding.trim())
+      .filter((binding) => binding && binding !== "logPageRequestIdInDev");
+    const quote = analyticsImport[2];
+    const repairedAnalyticsImport = bindings.length
+      ? `import { ${bindings.join(", ")} } from ${quote}@originloom/shared/lib/analytics/data-layer${quote};`
+      : "";
+    next = next.replace(analyticsImportPattern, repairedAnalyticsImport);
+  }
+  return patchClientEntry(next);
 }
 
 function patchViteConfig(source) {

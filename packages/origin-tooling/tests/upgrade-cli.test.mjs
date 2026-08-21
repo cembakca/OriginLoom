@@ -102,6 +102,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
     expect(metadata.appliedMigrations).toContain("0.7.18-dev-experience-source-patches");
     expect(metadata.appliedMigrations).toContain("0.7.18-generation-aware-dev-reload");
+    expect(metadata.appliedMigrations).toContain("0.7.21-client-entry-telemetry-import-fix");
     expect(metadata.appliedMigrations).toContain("0.7.20-hono-4.13");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
@@ -306,7 +307,8 @@ describe("origin-migrate", () => {
     );
     writeFileSync(
       join(root, "src/entry.client.tsx"),
-      `import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
+      `import { signalReactReady } from "@originloom/shared/lib/analytics/data-layer";
+import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
 import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
 import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
 
@@ -340,6 +342,12 @@ export default {
     const clientEntry = readFileSync(join(root, "src/entry.client.tsx"), "utf8");
     expect(clientEntry).toContain("logPageRequestIdInDev,");
     expect(clientEntry).toContain("logPageRequestIdInDev();");
+    expect(clientEntry).toContain(
+      'import { signalReactReady } from "@originloom/shared/lib/analytics/data-layer";',
+    );
+    expect(clientEntry).not.toMatch(
+      /logPageRequestIdInDev[^}]*from "@originloom\/shared\/lib\/analytics\/data-layer"/,
+    );
     const viteConfig = readFileSync(join(root, "vite.config.ts"), "utf8");
     expect(viteConfig).not.toContain("__dirname");
     expect(viteConfig).toContain("import.meta.dirname");
@@ -357,6 +365,79 @@ export default {
         readFileSync(join(root, path), "utf8"),
       ),
     ).toEqual(snapshots);
+  });
+
+  it("repairs the malformed analytics import produced by the old client-entry patch", () => {
+    const root = project({ version: TOOLING_VERSION, metadata: true });
+    const metadataPath = join(root, ".originloom/project.json");
+    const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    metadata.appliedMigrations = metadata.appliedMigrations.filter(
+      (id) => id !== "0.7.21-client-entry-telemetry-import-fix",
+    );
+    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n");
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(
+      join(root, "src/entry.client.tsx"),
+      `import {
+  logPageRequestIdInDev,
+  signalReactReady
+} from "@originloom/shared/lib/analytics/data-layer";
+import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
+import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
+
+installReloadButtons();
+logPageRequestIdInDev();
+signalReactReady();
+reportClientError("island-bootstrap", new Error("failed"));
+`,
+    );
+
+    const applied = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(applied.status).toBe(0);
+    const clientEntry = readFileSync(join(root, "src/entry.client.tsx"), "utf8");
+    expect(clientEntry).toContain(
+      'import { signalReactReady } from "@originloom/shared/lib/analytics/data-layer";',
+    );
+    expect(clientEntry).toMatch(
+      /import\s*\{[^}]*logPageRequestIdInDev[^}]*reportClientError[^}]*\}\s*from\s*"@originloom\/shared\/lib\/client\/error-telemetry"/,
+    );
+    expect(clientEntry).not.toMatch(
+      /logPageRequestIdInDev[^}]*from "@originloom\/shared\/lib\/analytics\/data-layer"/,
+    );
+    const repairedMetadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    expect(repairedMetadata.appliedMigrations).toContain(
+      "0.7.21-client-entry-telemetry-import-fix",
+    );
+  });
+
+  it("restores telemetry after the malformed import and call were removed manually", () => {
+    const root = project({ version: TOOLING_VERSION, metadata: true });
+    const metadataPath = join(root, ".originloom/project.json");
+    const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    metadata.appliedMigrations = metadata.appliedMigrations.filter(
+      (id) => id !== "0.7.21-client-entry-telemetry-import-fix",
+    );
+    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n");
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(
+      join(root, "src/entry.client.tsx"),
+      `import { signalReactReady } from "@originloom/shared/lib/analytics/data-layer";
+import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
+import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
+
+installReloadButtons();
+signalReactReady();
+reportClientError("island-bootstrap", new Error("failed"));
+`,
+    );
+
+    const applied = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(applied.status).toBe(0);
+    const clientEntry = readFileSync(join(root, "src/entry.client.tsx"), "utf8");
+    expect(clientEntry).toMatch(
+      /import\s*\{[^}]*logPageRequestIdInDev[^}]*reportClientError[^}]*\}\s*from\s*"@originloom\/shared\/lib\/client\/error-telemetry"/,
+    );
+    expect(clientEntry).toContain("installReloadButtons();\nlogPageRequestIdInDev();");
   });
 });
 
@@ -431,6 +512,7 @@ function project({ version, metadata }) {
                   "0.7.17-dev-experience",
                   "0.7.18-dev-experience-source-patches",
                   "0.7.18-generation-aware-dev-reload",
+                  "0.7.21-client-entry-telemetry-import-fix",
                   "0.7.20-hono-4.13",
                 ]
               : []),
