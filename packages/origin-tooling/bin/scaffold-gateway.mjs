@@ -99,9 +99,7 @@ function parseJson(raw, label) {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    fail(
-      `${label} geçerli JSON değil: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    fail(`${label} geçerli JSON değil: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

@@ -1,9 +1,9 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
+import type { DocumentRenderInput } from "@originloom/shared/render";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { DocumentLayout } from "../src/server/document-layout.js";
-import type { DocumentRenderInput } from "@originloom/shared/render";
 
 const baseInput: DocumentRenderInput = {
   htmlLang: "tr",
@@ -12,12 +12,25 @@ const baseInput: DocumentRenderInput = {
   siteUrl: "http://localhost:3010",
   assets: { js: "/assets/entry.client.js", css: ["/assets/entry.css"], fonts: [] },
   seo: {
+    applicationName: "Test",
+    siteName: "Test",
     title: "Test",
     description: "Test page",
     canonical: "http://localhost:3010/",
-    robots: { index: true, follow: true },
-    openGraph: { title: "Test", description: "Test page", type: "website" },
-    twitter: { card: "summary" },
+    robots: "index, follow",
+    openGraph: {
+      title: "Test",
+      description: "Test page",
+      type: "website",
+      url: "http://localhost:3010/",
+    },
+    twitter: { card: "summary", title: "Test", description: "Test page" },
+    icons: { icon: "/favicon.ico" },
+    verification: {},
+    pagination: {},
+    languageAlternates: {},
+    formatDetection: { telephone: false },
+    structuredData: [],
   },
   pageMeta: { pageType: "home", publicPath: "/" },
   shell: {},

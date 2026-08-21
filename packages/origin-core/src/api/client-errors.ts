@@ -91,6 +91,8 @@ export function mountClientErrorApi(
     observeClientRuntimeError(sanitized.source);
     logger.warn("client runtime error", {
       ...sanitized,
+      // Stable top-level Loki field, including when the page correlation is unavailable.
+      pageRequestId: sanitized.pageRequestId ?? null,
       requestId: c.get("requestId"),
     });
     return c.body(null, 204, noStore);

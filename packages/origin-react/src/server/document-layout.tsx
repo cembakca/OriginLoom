@@ -9,8 +9,8 @@ import {
   RequestContextProvider,
   type RequestContextValue,
 } from "../lib/request-context.js";
-import type { ReactRendererConfig } from "./types.js";
 import { criticalPaintCss, DEFAULT_CRITICAL_PAINT } from "./critical-paint.js";
+import type { ReactRendererConfig } from "./types.js";
 
 const fontCssCache = new WeakMap<readonly FontAsset[], string>();
 

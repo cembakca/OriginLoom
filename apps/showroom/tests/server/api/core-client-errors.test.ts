@@ -1,7 +1,7 @@
 import { mountClientErrorApi } from "@originloom/core/api/client-errors";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The platform's own mount — what a generated app gets by calling
@@ -21,8 +21,11 @@ const report = (body: unknown) =>
     body: JSON.stringify(body),
   });
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("mountClientErrorApi", () => {
   it("accepts a report the island runtime would send", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const response = await appWithEndpoint().request(
       report({
         errorId: "3f2a1c9e-0000-4000-8000-000000000000",
@@ -34,6 +37,11 @@ describe("mountClientErrorApi", () => {
 
     expect(response.status).toBe(204);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(JSON.parse(String(warn.mock.calls[0]?.[0]))).toMatchObject({
+      msg: "client runtime error",
+      errorId: "3f2a1c9e-0000-4000-8000-000000000000",
+      pageRequestId: null,
+    });
   });
 
   it("rejects a payload that is not the client-error shape", async () => {

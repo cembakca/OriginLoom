@@ -18,9 +18,14 @@ includes it in the telemetry payload so server logs can be joined to the origina
 
 Server logs carry:
 
-- `pageRequestId` — the GET/HEAD that rendered the document
+- `pageRequestId` — the GET/HEAD that rendered the document; production JSON logunda her zaman
+  top-level aynı key ile bulunur, korelasyon yoksa `null` olur
 - `requestId` — the telemetry POST itself
 - `errorId` — stable id for the client error event
+
+Fatal island yükleme, props, mount veya React root hatasında kullanıcıya hata içeriği yerine yalnız
+`Bir sorun oluştu. Referans: <errorId>` gösterilir. Bu referans PII içermez ve support tarafından
+aynı `errorId` log alanıyla aranabilir.
 
 Development also prints `[origin] page requestId …` in the browser console once per load.
 

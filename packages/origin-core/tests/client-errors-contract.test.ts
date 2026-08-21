@@ -7,6 +7,23 @@ import {
 } from "../src/api/client-errors-contract.js";
 
 describe("client error contract", () => {
+  it("accepts market stream errors reported by the showroom island", async () => {
+    const payload = await parseClientErrorPayload(
+      request({
+        errorId: "market-stream-123",
+        source: "market-stream",
+        message: "Invalid market quote event",
+        path: "/markets",
+      }),
+    );
+
+    expect(payload).toMatchObject({
+      errorId: "market-stream-123",
+      source: "market-stream",
+      message: "Invalid market quote event",
+    });
+  });
+
   it("accepts an optional pageRequestId for SSR correlation", async () => {
     const payload = await parseClientErrorPayload(
       request({

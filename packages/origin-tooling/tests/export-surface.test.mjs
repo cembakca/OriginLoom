@@ -89,7 +89,9 @@ describe("export surface — create-app template contract", () => {
 
   it("does not import blocked @originloom/core pipeline internals", () => {
     const found = collectSubpaths("core", templatesSource);
-    const violations = found.filter((subpath) => isCoreSubpathBlocked(subpath, CORE_BLOCKED_SUBPATHS));
+    const violations = found.filter((subpath) =>
+      isCoreSubpathBlocked(subpath, CORE_BLOCKED_SUBPATHS),
+    );
     expect(violations).toEqual([]);
   });
 

@@ -9,10 +9,10 @@ Platform geliştirme **pnpm** ile yürür; npm/yarn desteği ürün repo'ları i
 
 ## Ne üretiliyor?
 
-| Komut | Çıktı |
-| ----- | ----- |
-| `pnpm run sbom` | `artifacts/sbom/bom.cdx.json` — workspace aggregate (CycloneDX 1.6) |
-| `pnpm run sbom:prod` | `artifacts/sbom/bom.production.cdx.json` — yalnız production bağımlılıkları |
+| Komut                    | Çıktı                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `pnpm run sbom`          | `artifacts/sbom/bom.cdx.json` — workspace aggregate (CycloneDX 1.6)             |
+| `pnpm run sbom:prod`     | `artifacts/sbom/bom.production.cdx.json` — yalnız production bağımlılıkları     |
 | `pnpm run sbom:packages` | `artifacts/sbom/packages/*.cdx.json` — her `@originloom/*` paketi için ayrı BOM |
 
 SBOM üretimi lockfile'dan yapılır; `pnpm-lock.yaml` commitli olmalıdır.

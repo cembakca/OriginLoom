@@ -147,10 +147,7 @@ export function inspect(project) {
           );
         }
       }
-      if (
-        plugins.includes("with-ops") &&
-        typeof project.pkg.scripts?.["compose:up"] !== "string"
-      ) {
+      if (plugins.includes("with-ops") && typeof project.pkg.scripts?.["compose:up"] !== "string") {
         add(
           "warning",
           "plugin-drift",

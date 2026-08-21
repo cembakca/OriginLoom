@@ -7513,9 +7513,7 @@ const globalsCss = (standalone) => `@import "tailwindcss";
 `;
 
 const dockerfile = (name, port, standalone, packageManager = "pnpm") =>
-  standalone
-    ? standaloneDockerfile(name, port, packageManager)
-    : workspaceDockerfile(name, port);
+  standalone ? standaloneDockerfile(name, port, packageManager) : workspaceDockerfile(name, port);
 
 const workspaceDockerfile = (name, port) => `# Build context is the repository root:
 #   docker build -f apps/${name}/Dockerfile -t ${name} .
@@ -7538,7 +7536,15 @@ ${dockerfileRunner(name, port, "/repo/apps/" + name + "/dist")}`;
 // from the registry, so the build host needs registry access.
 // PM-specific standalone Dockerfiles live in package-manager-templates.mjs.
 
-const readme = (name, title, port, vitePort, standalone, withOps, packageManager = "pnpm") => `# ${title}
+const readme = (
+  name,
+  title,
+  port,
+  vitePort,
+  standalone,
+  withOps,
+  packageManager = "pnpm",
+) => `# ${title}
 
 OriginLoom ürün uygulaması. Platform runtime'ı \`@originloom/core\` ve \`@originloom/react\`
 paketlerinden gelir; bu repo route tablosunu, ürün kontratlarını, cache kimliğini ve kendi UI'ını

@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { renderTemplates } from "../bin/create-app/templates.mjs";
-import {
-  PNPM_DEPENDENCY_OVERRIDES,
-  YARN_RESOLUTIONS,
-} from "../bin/lib/package-manager.mjs";
+import { PNPM_DEPENDENCY_OVERRIDES, YARN_RESOLUTIONS } from "../bin/lib/package-manager.mjs";
 
 /** Structural YAML checks for template strings — full parse is release-verify's job. */
 function assertTemplateYaml(content, path) {

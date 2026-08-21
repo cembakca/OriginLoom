@@ -19,7 +19,7 @@ describe("client error telemetry", () => {
       componentStack: "at BlogPagination",
     });
 
-    expect(errorId).toBeTruthy();
+    expect(errorId).toMatch(/^client-[A-Za-z0-9-]+$/);
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/internal/client-errors");

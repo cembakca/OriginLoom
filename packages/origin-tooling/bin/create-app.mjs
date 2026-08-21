@@ -146,9 +146,12 @@ function report(o) {
   console.log(`  cd ${o.appDir}`);
   console.log("  git init");
   console.log(`  ${installHint(pm)}        # needs access to the @originloom/* registry`);
-  console.log(`  ${runScriptCommand(pm, "dev:mock")}       # app + Vite + the bundled mock gateway\n`);
+  console.log(
+    `  ${runScriptCommand(pm, "dev:mock")}       # app + Vite + the bundled mock gateway\n`,
+  );
   console.log(`The app will serve on http://127.0.0.1:${o.port}.`);
-  console.log(`Once GATEWAY_URL points at a gateway of your own, use \`${runScriptCommand(pm, "dev")}\`:`
+  console.log(
+    `Once GATEWAY_URL points at a gateway of your own, use \`${runScriptCommand(pm, "dev")}\`:`,
   );
   console.log("it runs the app and Vite and nothing else.\n");
   console.log(`Commit ${lockfileFor(pm)} after the first install.\n`);
@@ -199,8 +202,7 @@ function parseArgs(argv) {
         fail(`Unknown option: ${arg}. Known plugin flags: ${knownPluginFlags().join(", ")}`);
       }
       if (!options.plugins.includes(pluginId)) options.plugins.push(pluginId);
-    }
-    else if (arg === "--port") options.port = Number(argv[++i]);
+    } else if (arg === "--port") options.port = Number(argv[++i]);
     else if (arg === "--vite-port") options.vitePort = Number(argv[++i]);
     else if (arg === "--registry") options.registry = assertValidRegistry(argv[++i]);
     else if (arg === "--title") options.title = argv[++i];
@@ -209,8 +211,7 @@ function parseArgs(argv) {
     else if (arg === "--package-manager") {
       options.packageManager = argv[++i];
       assertKnownPackageManager(options.packageManager);
-    }
-    else if (arg.startsWith("--")) fail(`Unknown option: ${arg}`);
+    } else if (arg.startsWith("--")) fail(`Unknown option: ${arg}`);
     else if (options.name === undefined) options.name = arg;
     else fail(`Unexpected argument: ${arg}`);
   }

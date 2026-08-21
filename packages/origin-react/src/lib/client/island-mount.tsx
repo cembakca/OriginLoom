@@ -27,6 +27,7 @@ function IslandCommitSignal({ children, onCommit }: { children: ReactNode; onCom
 function reactErrorOptions(
   island: string,
   cancelMountTimeout: () => void,
+  element: HTMLElement,
 ): NonNullable<Parameters<typeof hydrateRoot>[2]> {
   return {
     onCaughtError: (error, errorInfo) => {
@@ -43,10 +44,13 @@ function reactErrorOptions(
     },
     onUncaughtError: (error, errorInfo) => {
       cancelMountTimeout();
-      reportClientError("react-uncaught", error, {
-        island,
-        componentStack: errorInfo.componentStack,
-      });
+      showIslandErrorReference(
+        element,
+        reportClientError("react-uncaught", error, {
+          island,
+          componentStack: errorInfo.componentStack,
+        }),
+      );
     },
   };
 }
@@ -74,9 +78,14 @@ export function createIslandMounter(options: {
     const island = el.dataset.island ?? "unknown";
     const load = byName.get(island);
     if (!load) {
-      reportClientError("island-module-missing", new Error(`Island module not found: ${island}`), {
-        island,
-      });
+      showIslandErrorReference(
+        el,
+        reportClientError(
+          "island-module-missing",
+          new Error(`Island module not found: ${island}`),
+          { island },
+        ),
+      );
       return;
     }
 
@@ -88,7 +97,7 @@ export function createIslandMounter(options: {
         error instanceof IslandRuntimeError && error.failure === "mount-timeout"
           ? "island-mount-timeout"
           : "island-chunk-load";
-      reportClientError(source, error, { island });
+      showIslandErrorReference(el, reportClientError(source, error, { island }));
       return;
     }
 
@@ -96,19 +105,28 @@ export function createIslandMounter(options: {
     try {
       props = parseEmbeddedJson<Record<string, unknown>>(el.dataset.props || "{}");
     } catch (error) {
-      reportClientError("island-props", error, { island });
+      showIslandErrorReference(el, reportClientError("island-props", error, { island }));
       return;
     }
 
     try {
       const cancelMountTimeout = createIslandMountWatchdog(() => {
-        reportClientError("island-mount-timeout", new Error("Island root did not commit in time"), {
-          island,
-        });
+        showIslandErrorReference(
+          el,
+          reportClientError(
+            "island-mount-timeout",
+            new Error("Island root did not commit in time"),
+            { island },
+          ),
+        );
       });
       const markCommitted = () => {
         cancelMountTimeout();
         reportIslandMount(island, performance.now() - startedAt);
+        if (el.dataset.errorReference) {
+          delete el.dataset.errorReference;
+          if (el.getAttribute("role") === "alert") el.removeAttribute("role");
+        }
         // A deterministic readiness signal for browser tests, monitoring and
         // progressive UI. Presence means React committed, not merely that the
         // server-rendered fallback was visible.
@@ -122,7 +140,7 @@ export function createIslandMounter(options: {
           </RequestContextProvider>
         </IslandCommitSignal>
       );
-      const errorOptions = reactErrorOptions(island, cancelMountTimeout);
+      const errorOptions = reactErrorOptions(island, cancelMountTimeout, el);
 
       try {
         if (el.dataset.mode === "hydrate") {
@@ -135,9 +153,16 @@ export function createIslandMounter(options: {
         throw error;
       }
     } catch (error) {
-      reportClientError("island-mount", error, { island });
+      showIslandErrorReference(el, reportClientError("island-mount", error, { island }));
     }
   };
+}
+
+function showIslandErrorReference(element: HTMLElement, errorId: string): void {
+  element.removeAttribute("data-hydrated");
+  element.dataset.errorReference = errorId;
+  element.setAttribute("role", "alert");
+  element.textContent = `Bir sorun oluştu. Referans: ${errorId}`;
 }
 
 function islandNameFromPath(path: string): string {

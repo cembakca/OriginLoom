@@ -136,7 +136,13 @@ export async function renderHeadRoute(
   }
 
   const state = resolved.cacheKey ? "MISS" : "BYPASS";
-  const response = headResponse(result.status ?? 200, resolved.policy, state, result.headers, requestId);
+  const response = headResponse(
+    result.status ?? 200,
+    resolved.policy,
+    state,
+    result.headers,
+    requestId,
+  );
   logOutcome(requestId, resolved.url, response.status, state, resolved.started);
   return response;
 }

@@ -7,6 +7,7 @@ const SOURCES = new Set([
   "island-mount",
   "island-mount-timeout",
   "island-props",
+  "market-stream",
   "performance-telemetry",
   "react-caught",
   "react-recoverable",

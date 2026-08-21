@@ -6,24 +6,24 @@ Bu belge projede kod yazarken uyulması gereken yapı, isimlendirme ve operasyon
 
 ## Klasör yapısı
 
-| Dizin                                 | Amaç                                                                               |
-| ------------------------------------- | ---------------------------------------------------------------------------------- |
-| `apps/showroom/server/routes/`        | Loader, cache, metadata ve route tablosu                                           |
-| `apps/showroom/server/services/`      | Cache/gateway kullanan server-only veri orkestrasyonu                              |
-| `apps/showroom/server/product/`       | Platforma enjekte edilen ürün kontratı (runtime, fragment, document shell, config) |
-| `apps/showroom/src/features/{name}/`  | Feature'a özel SSR-safe sunum/shell bileşenleri                                    |
-| `apps/showroom/src/islands/`          | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir                    |
-| `apps/showroom/src/components/`       | Paylaşılan SSR-güvenli UI (hook yok)                                               |
-| `apps/showroom/src/assets/svg/`       | SVG kaynakları — `pnpm icons` ile TSX'e dönüşür                                    |
-| `apps/showroom/src/components/icons/` | Otomatik üretilen icon bileşenleri (elle düzenlenmez)                              |
-| `apps/showroom/src/lib/`              | Ürüne özel yardımcılar, kontratlar ve cache-key registry                           |
-| `apps/showroom/tests/`                | `server/` ve `src/` yapısını yansıtır                                              |
-| `packages/origin-shared/src/`         | Framework-nötr taban — tipler, routing engine, metadata motoru, render kontratı    |
-| `packages/origin-core/src/`           | Platform runtime — cache, middleware, SSR pipeline, document orkestrasyonu         |
-| `packages/origin-core/src/adapters/`  | Gateway ve dış sistem adapter'ları                                                 |
-| `packages/origin-react/src/`          | React adaptörü — island runtime, `server/` render adaptörü, Vite preset            |
-| `packages/origin-tooling/bin/`        | build/dev/env/compose/smoke bin'leri                                               |
-| `apps/showroom/tests/fixtures/gateway/` | Showroom mock gateway (referans; ayrı process)                                   |
+| Dizin                                   | Amaç                                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------------------- |
+| `apps/showroom/server/routes/`          | Loader, cache, metadata ve route tablosu                                           |
+| `apps/showroom/server/services/`        | Cache/gateway kullanan server-only veri orkestrasyonu                              |
+| `apps/showroom/server/product/`         | Platforma enjekte edilen ürün kontratı (runtime, fragment, document shell, config) |
+| `apps/showroom/src/features/{name}/`    | Feature'a özel SSR-safe sunum/shell bileşenleri                                    |
+| `apps/showroom/src/islands/`            | Yalnızca client widget'ları — Vite glob ile otomatik keşfedilir                    |
+| `apps/showroom/src/components/`         | Paylaşılan SSR-güvenli UI (hook yok)                                               |
+| `apps/showroom/src/assets/svg/`         | SVG kaynakları — `pnpm icons` ile TSX'e dönüşür                                    |
+| `apps/showroom/src/components/icons/`   | Otomatik üretilen icon bileşenleri (elle düzenlenmez)                              |
+| `apps/showroom/src/lib/`                | Ürüne özel yardımcılar, kontratlar ve cache-key registry                           |
+| `apps/showroom/tests/`                  | `server/` ve `src/` yapısını yansıtır                                              |
+| `packages/origin-shared/src/`           | Framework-nötr taban — tipler, routing engine, metadata motoru, render kontratı    |
+| `packages/origin-core/src/`             | Platform runtime — cache, middleware, SSR pipeline, document orkestrasyonu         |
+| `packages/origin-core/src/adapters/`    | Gateway ve dış sistem adapter'ları                                                 |
+| `packages/origin-react/src/`            | React adaptörü — island runtime, `server/` render adaptörü, Vite preset            |
+| `packages/origin-tooling/bin/`          | build/dev/env/compose/smoke bin'leri                                               |
+| `apps/showroom/tests/fixtures/gateway/` | Showroom mock gateway (referans; ayrı process)                                     |
 
 Ürün kodu platform paketlerini `@originloom/core`, `@originloom/react` ve `@originloom/shared`
 üzerinden import eder;
@@ -99,6 +99,8 @@ Client bootstrap dayanıklılık kontratı:
 - Telemetry source sınıfları korunur: `island-bootstrap`, `island-module-missing`,
   `island-chunk-load`, `island-mount-timeout`, `island-props`, `island-mount` ve React root
   callback'leri.
+- Fatal island hatası SSR fallback'ini `Bir sorun oluştu. Referans: <errorId>` satırıyla değiştirir;
+  kullanıcıya exception message, stack veya component stack gösterilmez.
 - `page-analytics` sinyali gelmezse inline EventQueue 5 saniyede fail-open olur. Bu süreyi sınırsız
   beklemeye çevirme; analytics temel client lifecycle'ını kilitlememelidir.
 

@@ -8,17 +8,17 @@ otomatik algılar; `--pm pnpm|npm|yarn` ile geçici override yapılabilir. Yarn 
 
 ## Ne üretiliyor?
 
-| Komut | Çıktı |
-| ----- | ----- |
-| `pnpm run sbom` / `npm run sbom` / `yarn run sbom` | `artifacts/sbom/bom.cdx.json` — full envanter |
-| `... sbom:prod` | `artifacts/sbom/bom.production.cdx.json` — yalnız runtime bağımlılıkları |
+| Komut                                              | Çıktı                                                                    |
+| -------------------------------------------------- | ------------------------------------------------------------------------ |
+| `pnpm run sbom` / `npm run sbom` / `yarn run sbom` | `artifacts/sbom/bom.cdx.json` — full envanter                            |
+| `... sbom:prod`                                    | `artifacts/sbom/bom.production.cdx.json` — yalnız runtime bağımlılıkları |
 
 Her iki script de `@originloom/tooling` içindeki `origin-sbom` CLI'sini çağırır:
 
-| PM | Üretici |
-| -- | ------- |
-| pnpm | Yerleşik `pnpm sbom` (CycloneDX 1.6) |
-| npm | `@cyclonedx/cyclonedx-npm` (lockfile-only) |
+| PM   | Üretici                                     |
+| ---- | ------------------------------------------- |
+| pnpm | Yerleşik `pnpm sbom` (CycloneDX 1.6)        |
+| npm  | `@cyclonedx/cyclonedx-npm` (lockfile-only)  |
 | yarn | `yarn dlx @cyclonedx/yarn-plugin-cyclonedx` |
 
 Çıktı CycloneDX 1.6 JSON'dur. Dependency-Track 4.14 ve 5.x ile uyumluluk için 1.6 sabitlenmiştir.

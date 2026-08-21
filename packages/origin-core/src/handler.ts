@@ -10,25 +10,19 @@ import { errorResponse } from "./error.js";
 import { logError } from "./logger.js";
 import type { PreparedRequest } from "./middleware/prepared-request.js";
 import { rethrowRequestDeadline } from "./ssr/context.js";
-import { resolveSsrRequest, type ResolvedSsrRequest } from "./ssr/request-resolution.js";
+import { type ResolvedSsrRequest, resolveSsrRequest } from "./ssr/request-resolution.js";
 import { logRequest } from "./ssr/response.js";
-import { serveRoute, tryServeCachedRoute, type ServeRouteOptions } from "./ssr/serve-route.js";
+import { serveRoute, type ServeRouteOptions, tryServeCachedRoute } from "./ssr/serve-route.js";
 import type { HandleContext } from "./ssr/types.js";
 
 export { drainRevalidations } from "./cache/revalidation.js";
-export {
-  handleHead,
-  renderHeadRoute,
-  resolveHeadRoute,
-  tryServeCachedHead,
-} from "./ssr/head.js";
-export type { HandleContext } from "./ssr/types.js";
+export { handleHead, renderHeadRoute, resolveHeadRoute, tryServeCachedHead } from "./ssr/head.js";
 export type { ServeRouteOptions } from "./ssr/serve-route.js";
 export { tryServeCachedRoute } from "./ssr/serve-route.js";
+export type { HandleContext } from "./ssr/types.js";
 
 export type ResolvedHandleRequest =
-  | { kind: "response"; response: Response }
-  | { kind: "route"; serveOptions: ServeRouteOptions };
+  { kind: "response"; response: Response } | { kind: "route"; serveOptions: ServeRouteOptions };
 
 /** Resolves a GET request to either a terminal response or route serve options. */
 export async function resolveHandleRequest(
@@ -66,9 +60,7 @@ export async function resolveHandleRequest(
 }
 
 /** Serves a cached GET response when one exists. */
-export async function tryCachedHandle(
-  serveOptions: ServeRouteOptions,
-): Promise<Response | null> {
+export async function tryCachedHandle(serveOptions: ServeRouteOptions): Promise<Response | null> {
   return tryServeCachedRoute(serveOptions);
 }
 
@@ -121,7 +113,9 @@ export async function handle(
     if (resolved.kind === "response") return resolved.response;
     const cached = await tryCachedHandle(resolved.serveOptions);
     if (cached) return cached;
-    return renderHandle(resolved.serveOptions);
+    // Await inside the try so a renderer or route-boundary rejection reaches
+    // the global error page instead of escaping the request handler.
+    return await renderHandle(resolved.serveOptions);
   } catch (err) {
     rethrowRequestDeadline(request, err);
     const errorId = randomUUID();

@@ -16,11 +16,11 @@ Platform geliştirme ve N-1→N provası (Nexus öncesi yerel Verdaccio dahil):
 
 ## Semver (fixed group)
 
-| Adım | Ne zaman | Zorunlu ekler |
-| ---- | -------- | ------------- |
-| **Patch** | Bugfix, internal refactor, Tier 1 API değişmez | Migration çoğunlukla no-op; yine de doctor/migrate test et |
-| **Minor** | Yeni Tier 1 export, otomatik migration, geriye uyumlu özellik | `docs/migrations/`, `upgrade:verify` (yerel registry) |
-| **Major** | Tier 1 kaldırma, breaking kontrat | Migration + manuel adımlar + compatibility satırı |
+| Adım      | Ne zaman                                                      | Zorunlu ekler                                              |
+| --------- | ------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Patch** | Bugfix, internal refactor, Tier 1 API değişmez                | Migration çoğunlukla no-op; yine de doctor/migrate test et |
+| **Minor** | Yeni Tier 1 export, otomatik migration, geriye uyumlu özellik | `docs/migrations/`, `upgrade:verify` (yerel registry)      |
+| **Major** | Tier 1 kaldırma, breaking kontrat                             | Migration + manuel adımlar + compatibility satırı          |
 
 `0.x` serisinde bile breaking değişiklik migration belgesi olmadan ship edilmez.
 

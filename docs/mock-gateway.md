@@ -18,13 +18,13 @@ kontratlarını temsil eder.
 Showroom, platform paketlerinin nasıl kullanılacağını gösteren referans üründür. Mock gateway burada
 kalır; `origin-create-app` şablonuna taşınmaz.
 
-| | |
-| --- | --- |
-| **Konum** | `apps/showroom/tests/fixtures/gateway/` |
-| **Giriş** | `server.js` ve route modülleri |
-| **Başlatma** | Repo kökünden `pnpm mock-gw` veya `pnpm --filter showroom mock-gw` |
-| **Varsayılan port** | `4002` (`.env.development` içindeki `GATEWAY_URL`) |
-| **Dev stack** | `pnpm dev` mock gateway'i otomatik başlatır |
+|                     |                                                                    |
+| ------------------- | ------------------------------------------------------------------ |
+| **Konum**           | `apps/showroom/tests/fixtures/gateway/`                            |
+| **Giriş**           | `server.js` ve route modülleri                                     |
+| **Başlatma**        | Repo kökünden `pnpm mock-gw` veya `pnpm --filter showroom mock-gw` |
+| **Varsayılan port** | `4002` (`.env.development` içindeki `GATEWAY_URL`)                 |
+| **Dev stack**       | `pnpm dev` mock gateway'i otomatik başlatır                        |
 
 Showroom fixture'ı finans domain'ine özgü geniş bir kontrat seti taşır (menü, kredi kartları, konut
 kredisi, piyasa, bilgi merkezi, referral, bot analytics vb.). Bu kasıtlıdır: showroom bir demo
@@ -36,12 +36,12 @@ katalogudur, üretilen uygulama iskeleti değildir.
 
 Ürün ekiplerinin Nexus/registry'den kurduğu standalone repolar bu yapıyı kullanır.
 
-| | |
-| --- | --- |
-| **Konum** | `mock-gateway/server.mjs` (uygulama kökünde) |
-| **Başlatma** | `pnpm dev` (birlikte), `pnpm dev:mock`, `pnpm mock-gw` (yalnız gateway) |
-| **Smoke / CI** | `origin-smoke --gateway mock-gateway/server.mjs` |
-| **Varsayılan port** | `4002` |
+|                     |                                                                         |
+| ------------------- | ----------------------------------------------------------------------- |
+| **Konum**           | `mock-gateway/server.mjs` (uygulama kökünde)                            |
+| **Başlatma**        | `pnpm dev` (birlikte), `pnpm dev:mock`, `pnpm mock-gw` (yalnız gateway) |
+| **Smoke / CI**      | `origin-smoke --gateway mock-gateway/server.mjs`                        |
+| **Varsayılan port** | `4002`                                                                  |
 
 Şablon mock gateway'i daha ince bir örnek kontrat setiyle gelir; gerçek gateway payload'larına
 uyarlamak ekiplerin ilk görevlerinden biridir (generated `README.md` kontrol listesi).

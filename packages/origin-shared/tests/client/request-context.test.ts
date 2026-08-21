@@ -20,7 +20,7 @@ describe("embedded request context", () => {
               }),
             }
           : null,
-    } as Document;
+    } as unknown as Document;
 
     expect(readEmbeddedRequestContext(doc)).toEqual({
       publicPath: "/catalog",
@@ -40,7 +40,7 @@ describe("embedded request context", () => {
           pageRequestId: "bad id",
         }),
       }),
-    } as Document;
+    } as unknown as Document;
 
     expect(readEmbeddedRequestContext(doc).pageRequestId).toBeUndefined();
     expect(isSafePageRequestId("bad id")).toBe(false);

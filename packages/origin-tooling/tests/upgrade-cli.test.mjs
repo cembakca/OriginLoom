@@ -100,6 +100,7 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.15-navigation-paint");
     expect(metadata.appliedMigrations).toContain("0.7.16-ssr-capacity");
     expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
+    expect(metadata.appliedMigrations).toContain("0.7.18-dev-experience-source-patches");
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.plugins).toEqual([]);
     expect(existsSync(join(root, "public/README.md"))).toBe(true);
@@ -264,13 +265,84 @@ describe("origin-migrate", () => {
 
     const result = run(MIGRATE, ["--cwd", root, "--apply"]);
     expect(result.status).toBe(0);
-    expect(readFileSync(join(root, "src/styles/globals.css"), "utf8")).toContain("@view-transition");
+    expect(readFileSync(join(root, "src/styles/globals.css"), "utf8")).toContain(
+      "@view-transition",
+    );
 
     const metadata = JSON.parse(readFileSync(join(root, ".originloom/project.json"), "utf8"));
     expect(metadata.appliedMigrations).toContain("0.7.15-navigation-paint");
     expect(metadata.appliedMigrations).toContain("0.7.16-ssr-capacity");
     expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
+    expect(metadata.appliedMigrations).toContain("0.7.18-dev-experience-source-patches");
     expect(metadata.templateVersion).toBe(TOOLING_VERSION);
+  });
+
+  it("patches known 0.7.17 dev-experience files and stays idempotent", () => {
+    const root = project({ version: "0.7.17", metadata: true });
+    const metadataPath = join(root, ".originloom/project.json");
+    const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    metadata.appliedMigrations.push("0.7.17-dev-experience");
+    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n");
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(
+      join(root, ".svgrrc.cjs"),
+      `module.exports = {
+  svgoConfig: {
+    plugins: [
+      { name: "preset-default" },
+      {
+        name: "convertColors",
+        params: { currentColor: true },
+      },
+    ],
+  },
+};
+`,
+    );
+    writeFileSync(
+      join(root, "src/entry.client.tsx"),
+      `import { reportClientError } from "@originloom/shared/lib/client/error-telemetry";
+import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
+import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
+
+installReloadButtons();
+runIslandBootstrap(() => reportClientError("island-bootstrap", new Error("failed")));
+`,
+    );
+    writeFileSync(
+      join(root, "vite.config.ts"),
+      `import { resolve } from "node:path";
+
+export default {
+  entry: resolve(__dirname, "src/entry.client.tsx"),
+  alias: { "~": resolve(__dirname, "src") },
+};
+`,
+    );
+
+    const applied = run(MIGRATE, ["--cwd", root, "--apply"]);
+    expect(applied.status).toBe(0);
+    expect(readFileSync(join(root, ".svgrrc.cjs"), "utf8")).toContain(
+      '{ name: "convertStyleToAttrs" }',
+    );
+    const clientEntry = readFileSync(join(root, "src/entry.client.tsx"), "utf8");
+    expect(clientEntry).toContain("logPageRequestIdInDev,");
+    expect(clientEntry).toContain("logPageRequestIdInDev();");
+    const viteConfig = readFileSync(join(root, "vite.config.ts"), "utf8");
+    expect(viteConfig).not.toContain("__dirname");
+    expect(viteConfig).toContain("import.meta.dirname");
+
+    const snapshots = [".svgrrc.cjs", "src/entry.client.tsx", "vite.config.ts"].map((path) =>
+      readFileSync(join(root, path), "utf8"),
+    );
+    const second = run(MIGRATE, ["--cwd", root]);
+    expect(second.status).toBe(0);
+    expect(second.stdout).toContain("Uygulanacak değişiklik yok");
+    expect(
+      [".svgrrc.cjs", "src/entry.client.tsx", "vite.config.ts"].map((path) =>
+        readFileSync(join(root, path), "utf8"),
+      ),
+    ).toEqual(snapshots);
   });
 });
 
@@ -341,6 +413,7 @@ function project({ version, metadata }) {
                   "0.7.15-navigation-paint",
                   "0.7.16-ssr-capacity",
                   "0.7.17-dev-experience",
+                  "0.7.18-dev-experience-source-patches",
                 ]
               : []),
           ],

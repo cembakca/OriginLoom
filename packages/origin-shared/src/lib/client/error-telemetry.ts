@@ -1,6 +1,4 @@
-import {
-  readEmbeddedRequestContext,
-} from "./request-context.js";
+import { readEmbeddedRequestContext } from "./request-context.js";
 
 export type ClientErrorSource =
   | "island-bootstrap"
@@ -94,10 +92,10 @@ function normalizeError(error: unknown): { message: string; stack?: string } {
 }
 
 function createErrorId(): string {
-  return (
-    globalThis.crypto?.randomUUID?.() ??
-    `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
-  );
+  const randomId = globalThis.crypto?.randomUUID?.();
+  return randomId
+    ? `client-${randomId}`
+    : `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function truncate(value: string, max: number): string {

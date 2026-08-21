@@ -127,8 +127,7 @@ export function resolvePackageManager(cwd, options = {}) {
   const declared =
     (typeof options.metadata?.packageManager === "string"
       ? options.metadata.packageManager
-      : undefined) ??
-    parsePackageManagerField(options.packageJson?.packageManager);
+      : undefined) ?? parsePackageManagerField(options.packageJson?.packageManager);
   const detected = detectPackageManager(cwd, options.override);
   return declared ?? detected ?? "pnpm";
 }
@@ -141,7 +140,9 @@ export function lockfileFor(pm) {
 /** @param {string} pm */
 export function assertKnownPackageManager(pm) {
   if (!PACKAGE_MANAGERS.includes(/** @type {PackageManager} */ (pm))) {
-    throw new Error(`Unknown package manager: ${pm}. Expected one of ${PACKAGE_MANAGERS.join(", ")}`);
+    throw new Error(
+      `Unknown package manager: ${pm}. Expected one of ${PACKAGE_MANAGERS.join(", ")}`,
+    );
   }
 }
 
@@ -273,7 +274,7 @@ export function validateCycloneDxDocument(bom, outputPath) {
     bom === null ||
     /** @type {{ bomFormat?: string }} */ (bom).bomFormat !== "CycloneDX" ||
     /** @type {{ specVersion?: string }} */ (bom).specVersion !== "1.6" ||
-    !/** @type {{ metadata?: { component?: unknown } }} */ (bom).metadata?.component ||
+    !(/** @type {{ metadata?: { component?: unknown } }} */ (bom).metadata?.component) ||
     !Array.isArray(/** @type {{ components?: unknown }} */ (bom).components)
   ) {
     throw new Error(`Generated an invalid or unexpected CycloneDX document: ${outputPath}`);

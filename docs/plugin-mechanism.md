@@ -14,11 +14,11 @@ Ekosistem tartışma zeminı: [ecosystem-backlog.md](./ecosystem-backlog.md).
 
 ## Üç entegrasyon şekli
 
-| Şekil | Ne zaman | Örnek |
-| ----- | -------- | ----- |
-| **Platform primitive** | İki ürün aynı güvenlik/cache hatasını yapar | `guardWebhook`, cache purge mount |
-| **Create-app eklentisi** | Opt-in wiring + üretilen app kodu | `--with-ops` |
-| **Rehber** | Seçim ürüne özgü, platform taahhüdü yok | Design system bağlama |
+| Şekil                    | Ne zaman                                    | Örnek                             |
+| ------------------------ | ------------------------------------------- | --------------------------------- |
+| **Platform primitive**   | İki ürün aynı güvenlik/cache hatasını yapar | `guardWebhook`, cache purge mount |
+| **Create-app eklentisi** | Opt-in wiring + üretilen app kodu           | `--with-ops`                      |
+| **Rehber**               | Seçim ürüne özgü, platform taahhüdü yok     | Design system bağlama             |
 
 Eklentiler **üretilen uygulamaya kod yazar** — upgrade sonrası dosyalar app-owned kalır.
 Platform paketinde kalması gereken mantık eklenti değil, `@originloom/*` primitive'idir.
@@ -60,13 +60,13 @@ packages/origin-tooling/bin/create-app/plugins/
 
 Her eklenti `manifest.mjs` export eder:
 
-| Alan | Zorunlu | Açıklama |
-| ---- | ------- | -------- |
-| `id` | evet | Benzersiz kimlik (`with-ops`) |
-| `flags` | hayır | CLI bayrakları (`--with-ops`) |
-| `files(ctx)` | hayır | `Record<path, string>` ek dosyalar |
-| `packageJsonPatches` | hayır | `scripts` / `dependencies` merge |
-| `textPatches` | hayır | Anchor tabanlı metin patch'leri |
+| Alan                 | Zorunlu | Açıklama                           |
+| -------------------- | ------- | ---------------------------------- |
+| `id`                 | evet    | Benzersiz kimlik (`with-ops`)      |
+| `flags`              | hayır   | CLI bayrakları (`--with-ops`)      |
+| `files(ctx)`         | hayır   | `Record<path, string>` ek dosyalar |
+| `packageJsonPatches` | hayır   | `scripts` / `dependencies` merge   |
+| `textPatches`        | hayır   | Anchor tabanlı metin patch'leri    |
 
 Yeni eklenti (yalnızca onaylı talep sonrası): `plugins/<id>/manifest.mjs` ekleyin,
 `registry.mjs` içinde kaydedin, test yazın — bkz. [plugins/README.md](../packages/origin-tooling/bin/create-app/plugins/README.md).
@@ -77,19 +77,19 @@ Yeni eklenti (yalnızca onaylı talep sonrası): `plugins/<id>/manifest.mjs` ekl
 
 Base template'te sabit anchor'lar:
 
-| Anchor | Dosya | Amaç |
-| ------ | ----- | ---- |
-| `// @originloom:hook middleware-exports` | `server/middleware/index.ts` | Middleware listesi |
-| `// @originloom:hook package-json-scripts` | `templates.mjs` (kaynak) | Script merge referansı |
-| `<!-- @originloom:hook readme-ops-table -->` | `README.md` | Ops komut tablosu |
+| Anchor                                       | Dosya                        | Amaç                   |
+| -------------------------------------------- | ---------------------------- | ---------------------- |
+| `// @originloom:hook middleware-exports`     | `server/middleware/index.ts` | Middleware listesi     |
+| `// @originloom:hook package-json-scripts`   | `templates.mjs` (kaynak)     | Script merge referansı |
+| `<!-- @originloom:hook readme-ops-table -->` | `README.md`                  | Ops komut tablosu      |
 
 Patch tipleri (`apply.mjs`):
 
-| Tip | Kullanım |
-| --- | -------- |
-| `insertAfter` | Anchor sonrasına satır ekle |
-| `insertBefore` | Anchor öncesine satır ekle |
-| `replaceBlock` | Anchor'ı değiştir |
+| Tip                | Kullanım                               |
+| ------------------ | -------------------------------------- |
+| `insertAfter`      | Anchor sonrasına satır ekle            |
+| `insertBefore`     | Anchor öncesine satır ekle             |
+| `replaceBlock`     | Anchor'ı değiştir                      |
 | `mergePackageJson` | `package.json` script/dependency merge |
 
 Anchor yoksa veya çift patch varsa üretim **hata verir** (sessiz skip yok).

@@ -1,4 +1,9 @@
-import { defaultContractKey, defaultGatewayPropertyKey, defaultSchemaName, inferSchemaFromSample } from "./infer-schema.mjs";
+import {
+  defaultContractKey,
+  defaultGatewayPropertyKey,
+  defaultSchemaName,
+  inferSchemaFromSample,
+} from "./infer-schema.mjs";
 
 /**
  * @typedef {object} InferredSchema
@@ -136,7 +141,8 @@ function renderTsType(node, depth) {
   if (!node.fields?.length) return "Record<string, unknown>";
   const indent = "  ".repeat(depth + 1);
   const lines = node.fields.map((field) => {
-    const required = Array.isArray(node.schema.required) && node.schema.required.includes(field.key);
+    const required =
+      Array.isArray(node.schema.required) && node.schema.required.includes(field.key);
     const optional = required ? "" : "?";
     return `${indent}${field.key}${optional}: ${renderTsType(field, depth + 1)};`;
   });
@@ -171,9 +177,7 @@ function renderGuardBody(node, varName, names) {
       if (!node.fields?.length) return `isRecord(${varName})`;
       return (
         `isRecord(${varName}) && ` +
-        node.fields
-          .map((field) => `${names.get(field)}(${varName}.${field.key})`)
-          .join(" && ")
+        node.fields.map((field) => `${names.get(field)}(${varName}.${field.key})`).join(" && ")
       );
     default:
       return "true";

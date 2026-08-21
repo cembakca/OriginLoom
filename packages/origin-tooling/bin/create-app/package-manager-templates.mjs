@@ -273,7 +273,8 @@ export function readmeInstallBlock(pm, standalone, name) {
   const lockfile = lockfileFor(pm);
 
   if (!standalone) {
-    const filterPrefix = pm === "pnpm" ? `pnpm --filter ${name} ` : pm === "npm" ? "npm run " : "yarn run ";
+    const filterPrefix =
+      pm === "pnpm" ? `pnpm --filter ${name} ` : pm === "npm" ? "npm run " : "yarn run ";
     return `Bu uygulama OriginLoom monorepo içindeki \`apps/${name}\` workspace'idir. Komutları repository
 kökünden çalıştırın:
 

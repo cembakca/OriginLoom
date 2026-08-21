@@ -6,8 +6,8 @@ talebi) için hazır tutuluyor.
 
 ## Kayıtlı eklenti
 
-| id | CLI | Amaç |
-| -- | --- | ---- |
+| id         | CLI          | Amaç                                         |
+| ---------- | ------------ | -------------------------------------------- |
 | `with-ops` | `--with-ops` | Compose, k8s, load/stress, pentest readiness |
 
 Başka `--with-*` bayrağı yok; bilinmeyen bayrak CLI tarafından reddedilir.
@@ -23,10 +23,10 @@ gerektiğinde.
 
 ## Dosyalar
 
-| Dosya | Rol |
-| ----- | --- |
+| Dosya          | Rol                                  |
+| -------------- | ------------------------------------ |
 | `registry.mjs` | Eklenti listesi ve CLI flag eşlemesi |
-| `apply.mjs` | Patch motoru ve dosya birleştirme |
-| `with-ops/` | Referans implementasyon |
+| `apply.mjs`    | Patch motoru ve dosya birleştirme    |
+| `with-ops/`    | Referans implementasyon              |
 
 Sözleşme: [docs/plugin-mechanism.md](../../../../../docs/plugin-mechanism.md).

@@ -10,14 +10,14 @@ Bu belge, şablonda değişiklik yapan platform geliştiricileri için PR checkl
 
 ## Hangi dosyalar şablon?
 
-| Dosya / klasör | Rol |
-| -------------- | --- |
-| `bin/create-app/templates.mjs` | Ana uygulama iskeleti (route, server, package.json, CI, …) |
-| `bin/create-app/plugins/` | Create-app eklenti registry, patch motoru ve manifest'ler |
+| Dosya / klasör                     | Rol                                                                         |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| `bin/create-app/templates.mjs`     | Ana uygulama iskeleti (route, server, package.json, CI, …)                  |
+| `bin/create-app/plugins/`          | Create-app eklenti registry, patch motoru ve manifest'ler                   |
 | `bin/create-app/templates-ops.mjs` | `--with-ops` deployment varlıkları (plugin `with-ops` tarafından tüketilir) |
-| `bin/create-app/skills/` | Generated app Claude Code skill'leri |
-| `bin/create-app/assets/docs/` | Generated app rehberleri |
-| `bin/create-app/assets/load-test/` | Kapasite ve karşılaştırma script'leri |
+| `bin/create-app/skills/`           | Generated app Claude Code skill'leri                                        |
+| `bin/create-app/assets/docs/`      | Generated app rehberleri                                                    |
+| `bin/create-app/assets/load-test/` | Kapasite ve karşılaştırma script'leri                                       |
 
 Showroom (`apps/showroom/`) yalnızca yeni platform yeteneğinin **referans implementasyonu** olarak
 kullanılır; şablona taşınacak parça bilinçli seçilir. Platform paket değişiklikleri için
@@ -60,14 +60,14 @@ Her şablon PR'ında aşağıdakileri doğrulayın:
 
 ## Test katmanları
 
-| Katman | Ne doğrular |
-| ------ | ----------- |
-| `create-app-templates.test.mjs` | `renderTemplates()` çıktısı — dosya varlığı, import sırası, ops envanteri |
-| `create-app-plugins.test.mjs` | Eklenti kapalı/açık davranışı, patch motoru |
-| `export-surface.test.mjs` | Şablon `@originloom/*` import'ları ↔ dondurulmuş manifest, blocked core yollar |
-| `create-app-cli.test.mjs` | CLI bayrakları, dizin oluşturma, workspace uyarıları |
-| Kök `release-verify` | Registry'den kurulum, build, smoke, E2e, bundle bütçesi |
-| `upgrade-verify` | N-1 scaffold → migrate → güncel `pnpm ci` |
+| Katman                          | Ne doğrular                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------ |
+| `create-app-templates.test.mjs` | `renderTemplates()` çıktısı — dosya varlığı, import sırası, ops envanteri      |
+| `create-app-plugins.test.mjs`   | Eklenti kapalı/açık davranışı, patch motoru                                    |
+| `export-surface.test.mjs`       | Şablon `@originloom/*` import'ları ↔ dondurulmuş manifest, blocked core yollar |
+| `create-app-cli.test.mjs`       | CLI bayrakları, dizin oluşturma, workspace uyarıları                           |
+| Kök `release-verify`            | Registry'den kurulum, build, smoke, E2e, bundle bütçesi                        |
+| `upgrade-verify`                | N-1 scaffold → migrate → güncel `pnpm ci`                                      |
 
 Şablon string olduğu için bu repo'nun ESLint'i `templates.mjs` içeriğine bakmaz; regresyonları
 yalnız üretilen app testleri ve `release-verify` yakalar.

@@ -115,7 +115,12 @@ describe("scaffold-gateway infer + generate", () => {
 describe("scaffold-gateway apply", () => {
   it("patches gateway-contracts before the closing brace", () => {
     const line = '  financeWidgets: defineGatewayContract("finance_widgets", 65536),';
-    const updated = patchGatewayContracts(gatewayContractsSource, line, "finance_widgets", "financeWidgets");
+    const updated = patchGatewayContracts(
+      gatewayContractsSource,
+      line,
+      "finance_widgets",
+      "financeWidgets",
+    );
     expect(updated.changed).toBe(true);
     expect(updated.content).toContain(line);
     expect(updated.content).toContain("} as const;");
@@ -149,7 +154,9 @@ describe("scaffold-gateway apply", () => {
       "financeWidgets: defineGatewayContract",
     );
 
-    const manifest = JSON.parse(readFileSync(join(root, "contracts/gateway-contracts.json"), "utf8"));
+    const manifest = JSON.parse(
+      readFileSync(join(root, "contracts/gateway-contracts.json"), "utf8"),
+    );
     expect(manifest.contracts).toHaveLength(1);
     expect(manifest.contracts[0].id).toBe("finance-widgets");
 
@@ -178,7 +185,9 @@ describe("scaffold-gateway apply", () => {
 
     const skipped = applyScaffold(root, artifacts, { consumerContracts: false });
     expect(skipped.skipped).toContain("server/services/finance-widgets.ts");
-    expect(readFileSync(join(root, "server/services/finance-widgets.ts"), "utf8")).toBe("existing\n");
+    expect(readFileSync(join(root, "server/services/finance-widgets.ts"), "utf8")).toBe(
+      "existing\n",
+    );
 
     const forced = applyScaffold(root, artifacts, { consumerContracts: false, force: true });
     expect(forced.written).toContain("server/services/finance-widgets.ts");

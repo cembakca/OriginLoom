@@ -1,11 +1,10 @@
 /** @jsxRuntime automatic */ /** @jsxImportSource react */
-import { createContext, type ReactNode, useContext } from "react";
-
 import {
   type EmbeddedRequestContext,
   readEmbeddedRequestContext,
   REQUEST_CONTEXT_ELEMENT_ID,
 } from "@originloom/shared/lib/client/request-context";
+import { createContext, type ReactNode, useContext } from "react";
 
 export type RequestContextValue = EmbeddedRequestContext;
 

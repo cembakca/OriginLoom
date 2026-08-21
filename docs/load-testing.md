@@ -69,7 +69,7 @@ Senaryolar `load-test/scenarios.mjs` içinde sıralıdır; cache HIT ölçümler
 | Shared cache  | `cache-miss-home`, `cache-hit-home`, `cache-hit-bank`, `cache-short-bist` | `x-cache`, p99, HIT oranı                                               |
 | Fragmentation | `cache-miss-housing-catalog`, `mixed-catalog`                             | Query key cardinality                                                   |
 | BYPASS        | `cache-bypass-calculator`, `cache-bypass-account`                         | SSR yükü, gateway çağrıları                                             |
-| Kapasite      | `capacity-ramp`                                                           | `503`, `504`, `ssr_render_rejections_total`                         |
+| Kapasite      | `capacity-ramp`                                                           | `503`, `504`, `ssr_render_rejections_total`                             |
 | BFF           | `referral-post`                                                           | Same-origin guard; başarılı yanıt **303** (autocannon'da hata sayılmaz) |
 
 ## Referans kapasite (tek pod, 2 vCPU / 4 GiB, mock-gw)

@@ -81,9 +81,9 @@ function generate(label, script) {
 }
 
 const hasSvgSources = existsSync(resolve(root, "src/assets/svg"));
+const hasMediaConfig = existsSync(resolve(root, "server/media.config.json"));
 if (hasSvgSources) await generate("icons", "./generate-icons.mjs");
-if (existsSync(resolve(root, "server/media.config.json")))
-  await generate("media", "./build-media.mjs");
+if (hasMediaConfig) await generate("media", "./build-media.mjs");
 
 /**
  * Refuse to start on a port something else already holds.
@@ -176,6 +176,9 @@ if (gatewayEntry) {
 
 if (hasSvgSources) {
   start("icons:watch", [new URL("./watch-icons.mjs", import.meta.url).pathname]);
+}
+if (hasMediaConfig) {
+  start("media:watch", [new URL("./watch-media.mjs", import.meta.url).pathname]);
 }
 start(
   "vite",

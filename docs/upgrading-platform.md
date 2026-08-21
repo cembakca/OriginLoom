@@ -11,11 +11,11 @@ içindedir. Nexus go-live ayrı adımdır — [releasing.md](./releasing.md) §5
 
 ## İki farklı upgrade senaryosu
 
-| Senaryo | Kim | Registry | Araçlar |
-| ------- | --- | -------- | ------- |
-| **Platform geliştirme** | Bu repo | `workspace:*` (symlink) | `pnpm ci`, migration unit testleri |
-| **Tüketici simülasyonu** | Platform QA / release öncesi | Yerel Verdaccio (bugün) veya Nexus (sonra) | `release:verify`, `upgrade:verify` |
-| **Gerçek ürün reposu** | Ürün ekibi | Nexus (hedef) | `origin:doctor`, `origin:migrate`, `pnpm ci` |
+| Senaryo                  | Kim                          | Registry                                   | Araçlar                                      |
+| ------------------------ | ---------------------------- | ------------------------------------------ | -------------------------------------------- |
+| **Platform geliştirme**  | Bu repo                      | `workspace:*` (symlink)                    | `pnpm ci`, migration unit testleri           |
+| **Tüketici simülasyonu** | Platform QA / release öncesi | Yerel Verdaccio (bugün) veya Nexus (sonra) | `release:verify`, `upgrade:verify`           |
+| **Gerçek ürün reposu**   | Ürün ekibi                   | Nexus (hedef)                              | `origin:doctor`, `origin:migrate`, `pnpm ci` |
 
 Showroom `workspace:*` kullanır; **showroom yeşil ≠ registry tüketicisi yeşil**. Platform değişikliği
 tüketiciyi etkiliyorsa `release-verify` ve (sürüm atlarken) `upgrade-verify` koşulmalıdır.
@@ -27,11 +27,11 @@ tüketiciyi etkiliyorsa `release-verify` ve (sürüm atlarken) `upgrade-verify` 
 Dört paket aynı sürümde yayınlanır: `@originloom/shared`, `@originloom/core`, `@originloom/react`,
 `@originloom/tooling`.
 
-| Değişiklik türü | Sürüm adımı | Örnek |
-| --------------- | ----------- | ----- |
-| Bugfix, davranış düzeltmesi, Tier 1 API aynı | **Patch** | 0.7.10 → 0.7.11 |
-| Yeni Tier 1 export, yeni migration (otomatik), geriye uyumlu özellik | **Minor** | 0.7.x → 0.8.0 |
-| Tier 1 kaldırma, breaking migration, major kontrat değişikliği | **Major** | 0.x → 1.0.0 |
+| Değişiklik türü                                                      | Sürüm adımı | Örnek           |
+| -------------------------------------------------------------------- | ----------- | --------------- |
+| Bugfix, davranış düzeltmesi, Tier 1 API aynı                         | **Patch**   | 0.7.10 → 0.7.11 |
+| Yeni Tier 1 export, yeni migration (otomatik), geriye uyumlu özellik | **Minor**   | 0.7.x → 0.8.0   |
+| Tier 1 kaldırma, breaking migration, major kontrat değişikliği       | **Major**   | 0.x → 1.0.0     |
 
 `0.x` iken minor da breaking olabilir — yine de **migration belgesi + upgrade-verify** zorunludur.
 
@@ -138,11 +138,11 @@ Platform ekibi yeni sürümü Nexus'a publish etmeden önce yerel Verdaccio'da 3
 
 ## Üç prova — birbirinin yerine geçmez
 
-| Prova | Ne kanıtlar | Ne zaman |
-| ----- | ----------- | -------- |
-| `pnpm ci` | Workspace kaynak + showroom | Her PR |
-| `pnpm release:verify` | Published `dist`, create-app, tüketici `pnpm ci` | Her PR (CI) |
-| `pnpm upgrade:verify` | N-1 scaffold → migrate → N tüketici `pnpm ci` | Sürüm bump PR'ları, migration değişiklikleri |
+| Prova                 | Ne kanıtlar                                      | Ne zaman                                     |
+| --------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `pnpm ci`             | Workspace kaynak + showroom                      | Her PR                                       |
+| `pnpm release:verify` | Published `dist`, create-app, tüketici `pnpm ci` | Her PR (CI)                                  |
+| `pnpm upgrade:verify` | N-1 scaffold → migrate → N tüketici `pnpm ci`    | Sürüm bump PR'ları, migration değişiklikleri |
 
 Nexus go-live sonrası `upgrade:verify` için `--registry` Nexus URL'si yeterli; akış aynı kalır.
 
@@ -161,12 +161,12 @@ Nexus go-live sonrası `upgrade:verify` için `--registry` Nexus URL'si yeterli;
 
 ## Sık sorunlar
 
-| Belirti | Olası neden |
-| ------- | ----------- |
-| `upgrade:verify` — önceki sürüm bulunamadı | Registry'de yalnızca tek patch var; önce N-1 publish edin veya `--from` verin |
-| `pnpm store` eski tarball | Yerel registry'de aynı sürümü yeniden publish ettiniz; `pnpm store prune` |
-| Doctor pending migration yok ama bekleniyordu | Tooling workspace link; standalone registry projesinde deneyin |
-| Showroom geçti, release-verify kırıldı | `publishConfig.exports` veya `dist` uyumsuz |
+| Belirti                                       | Olası neden                                                                   |
+| --------------------------------------------- | ----------------------------------------------------------------------------- |
+| `upgrade:verify` — önceki sürüm bulunamadı    | Registry'de yalnızca tek patch var; önce N-1 publish edin veya `--from` verin |
+| `pnpm store` eski tarball                     | Yerel registry'de aynı sürümü yeniden publish ettiniz; `pnpm store prune`     |
+| Doctor pending migration yok ama bekleniyordu | Tooling workspace link; standalone registry projesinde deneyin                |
+| Showroom geçti, release-verify kırıldı        | `publishConfig.exports` veya `dist` uyumsuz                                   |
 
 ---
 

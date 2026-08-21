@@ -25,19 +25,19 @@ sıfıra yakın olmalıdır (`docs/load-testing.md`).
 
 İlk bakılacak metrikler:
 
-| Metrik | Ne söyler |
-| --- | --- |
+| Metrik                                | Ne söyler                                                                   |
+| ------------------------------------- | --------------------------------------------------------------------------- |
 | `ssr_render_rejections_total{reason}` | Shed edilen SSR istekleri (`queue_full`, `wait_timeout`, `request_aborted`) |
-| `ssr_render_in_flight` | Aktif render slot kullanımı |
-| `ssr_render_queue_depth` | Kuyrukta bekleyen istek sayısı |
+| `ssr_render_in_flight`                | Aktif render slot kullanımı                                                 |
+| `ssr_render_queue_depth`              | Kuyrukta bekleyen istek sayısı                                              |
 
 Reason → aksiyon:
 
-| `reason` | Olası neden | İlk adım |
-| --- | --- | --- |
-| `queue_full` | Concurrency + queue dolu; çoğunlukla `cache=BYPASS` rotalar slot tüketiyor | `SSR_MAX_CONCURRENCY` / `SSR_MAX_QUEUE` artır; cache HIT oranını ve BYPASS route payını kontrol et |
-| `wait_timeout` | Render veya gateway yavaş; kuyruk bekleme bütçesi bitti | Gateway/loader süresi, `SSR_QUEUE_WAIT_MS`, `SSR_REQUEST_TIMEOUT_MS` |
-| `request_aborted` | Client veya LB isteği erken kesti | Ingress/LB timeout ile SSR bütçelerini hizala |
+| `reason`          | Olası neden                                                                | İlk adım                                                                                           |
+| ----------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `queue_full`      | Concurrency + queue dolu; çoğunlukla `cache=BYPASS` rotalar slot tüketiyor | `SSR_MAX_CONCURRENCY` / `SSR_MAX_QUEUE` artır; cache HIT oranını ve BYPASS route payını kontrol et |
+| `wait_timeout`    | Render veya gateway yavaş; kuyruk bekleme bütçesi bitti                    | Gateway/loader süresi, `SSR_QUEUE_WAIT_MS`, `SSR_REQUEST_TIMEOUT_MS`                               |
+| `request_aborted` | Client veya LB isteği erken kesti                                          | Ingress/LB timeout ile SSR bütçelerini hizala                                                      |
 
 503 yanıtları `Retry-After` ve `x-ssr-rejection` header'ları taşır; LB retry politikası buna göre
 ayarlanabilir.

@@ -23,9 +23,7 @@ export const HOOKS = {
 export function insertAfter(content, anchor, insertion, context) {
   const index = content.indexOf(anchor);
   if (index === -1) {
-    throw new PatchError(
-      `[${context.pluginId}] anchor not found in ${context.path}: ${anchor}`,
-    );
+    throw new PatchError(`[${context.pluginId}] anchor not found in ${context.path}: ${anchor}`);
   }
   const after = index + anchor.length;
   const trimmed = insertion.trim();
@@ -44,9 +42,7 @@ export function insertAfter(content, anchor, insertion, context) {
 export function insertBefore(content, anchor, insertion, context) {
   const index = content.indexOf(anchor);
   if (index === -1) {
-    throw new PatchError(
-      `[${context.pluginId}] anchor not found in ${context.path}: ${anchor}`,
-    );
+    throw new PatchError(`[${context.pluginId}] anchor not found in ${context.path}: ${anchor}`);
   }
   const trimmed = insertion.trim();
   if (trimmed && content.includes(trimmed)) {
@@ -64,9 +60,7 @@ export function insertBefore(content, anchor, insertion, context) {
 export function replaceBlock(content, anchor, replacement, context) {
   const index = content.indexOf(anchor);
   if (index === -1) {
-    throw new PatchError(
-      `[${context.pluginId}] anchor not found in ${context.path}: ${anchor}`,
-    );
+    throw new PatchError(`[${context.pluginId}] anchor not found in ${context.path}: ${anchor}`);
   }
   return content.slice(0, index) + replacement + content.slice(index + anchor.length);
 }

@@ -16,11 +16,12 @@ const packageJson = readPackageJson(cwd);
 const metadata = readProjectMetadata(cwd);
 const pm = resolvePackageManager(cwd, { override, metadata, packageJson });
 
-const commandLine = pm === "pnpm"
-  ? ["pnpm", "audit", "--prod", "--audit-level=high"]
-  : pm === "npm"
-    ? ["npm", "audit", "--omit=dev", "--audit-level=high"]
-    : ["yarn", "npm", "audit", "--environment", "production", "--severity", "high"];
+const commandLine =
+  pm === "pnpm"
+    ? ["pnpm", "audit", "--prod", "--audit-level=high"]
+    : pm === "npm"
+      ? ["npm", "audit", "--omit=dev", "--audit-level=high"]
+      : ["yarn", "npm", "audit", "--environment", "production", "--severity", "high"];
 
 const result = spawnSync(commandLine[0], commandLine.slice(1), {
   cwd,

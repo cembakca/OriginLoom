@@ -101,9 +101,9 @@ describe("origin-create-app CLI — standalone", () => {
       readFileSync(join(target, "npm-web/.originloom/project.json"), "utf8"),
     );
     expect(metadata.packageManager).toBe("npm");
-    expect(JSON.parse(readFileSync(join(target, "npm-web/package.json"), "utf8")).packageManager).toBe(
-      "npm@11.18.0",
-    );
+    expect(
+      JSON.parse(readFileSync(join(target, "npm-web/package.json"), "utf8")).packageManager,
+    ).toBe("npm@11.18.0");
   });
 
   it("prompts for name and title over piped stdin when flags are omitted", () => {
@@ -284,14 +284,7 @@ describe("origin-create-app CLI — private registry", () => {
   });
 
   it("rejects unknown plugin flags", () => {
-    const bad = run([
-      "shop-web",
-      "--title",
-      "Shop",
-      "--with-search",
-      "--target-dir",
-      scratch(),
-    ]);
+    const bad = run(["shop-web", "--title", "Shop", "--with-search", "--target-dir", scratch()]);
     expect(bad.status).not.toBe(0);
     expect(bad.stderr).toContain("Unknown option: --with-search");
     expect(bad.stderr).toContain("--with-ops");

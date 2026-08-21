@@ -24,6 +24,7 @@ export const SCAFFOLD_GATEWAY_MIGRATION = "0.7.14-scaffold-gateway";
 export const NAVIGATION_PAINT_MIGRATION = "0.7.15-navigation-paint";
 export const SSR_CAPACITY_MIGRATION = "0.7.16-ssr-capacity";
 export const DEV_EXPERIENCE_MIGRATION = "0.7.17-dev-experience";
+export const DEV_EXPERIENCE_SOURCE_PATCHES_MIGRATION = "0.7.18-dev-experience-source-patches";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -33,7 +34,10 @@ const VIEW_TRANSITION_CSS = `
 `;
 
 function migrationAsset(name) {
-  return readFileSync(fileURLToPath(new URL(`../create-app/assets/${name}`, import.meta.url)), "utf8");
+  return readFileSync(
+    fileURLToPath(new URL(`../create-app/assets/${name}`, import.meta.url)),
+    "utf8",
+  );
 }
 
 export const migrations = [
@@ -226,9 +230,94 @@ export const migrations = [
     id: DEV_EXPERIENCE_MIGRATION,
     introducedIn: "0.7.17",
     description:
-      "Dev pretty logs, client error pageRequestId correlation, SVG icon watch during dev, and SVGO convertStyleToAttrs in the icon pipeline.",
+      "Dev pretty logs, client error pageRequestId correlation, SVG/media watch during dev, and SVGO convertStyleToAttrs in the icon pipeline.",
+  },
+  {
+    id: DEV_EXPERIENCE_SOURCE_PATCHES_MIGRATION,
+    introducedIn: "0.7.18",
+    description:
+      "Known 0.7.17 app source patterns adopt SVGO normalization, page request logging, and import.meta.dirname automatically.",
+    migrateProject(root, changes, fileWrites) {
+      patchProjectFile(root, changes, fileWrites, ".svgrrc.cjs", patchSvgrConfig);
+      patchProjectFile(root, changes, fileWrites, "src/entry.client.tsx", patchClientEntry);
+      patchProjectFile(root, changes, fileWrites, "vite.config.ts", patchViteConfig);
+    },
   },
 ];
+
+function patchProjectFile(root, changes, fileWrites, relativePath, patch) {
+  const path = join(root, relativePath);
+  if (!existsSync(path)) return;
+  const source = readFileSync(path, "utf8");
+  const next = patch(source);
+  if (next === source) return;
+  fileWrites[relativePath] = next;
+  changes.push({
+    file: relativePath,
+    kind: "patch",
+    detail: "0.7.17 dev deneyimi kalıbına güvenli biçimde hizalandı.",
+  });
+}
+
+function patchSvgrConfig(source) {
+  if (
+    source.includes('name: "convertStyleToAttrs"') ||
+    source.includes("name: 'convertStyleToAttrs'")
+  ) {
+    return source;
+  }
+
+  const match = /^(\s*)(?:\{\s*)?name:\s*["']convertColors["']/m.exec(source);
+  if (!match || match.index === undefined) return source;
+
+  let insertAt = match.index;
+  let indent = match[1];
+  const previousLineEnd = insertAt > 0 ? insertAt - 1 : 0;
+  const previousLineStart = source.lastIndexOf("\n", previousLineEnd - 1) + 1;
+  if (source.slice(previousLineStart, previousLineEnd).trim() === "{") {
+    insertAt = previousLineStart;
+    indent = /^\s*/.exec(source.slice(previousLineStart))?.[0] ?? indent;
+  }
+
+  const addition =
+    `${indent}// Figma exports often bake colours into style="" — normalize before convertColors.\n` +
+    `${indent}{ name: "convertStyleToAttrs" },\n`;
+  return source.slice(0, insertAt) + addition + source.slice(insertAt);
+}
+
+function patchClientEntry(source) {
+  const importPattern =
+    /import\s*\{([\s\S]*?)\}\s*from\s*(["'])@originloom\/shared\/lib\/client\/error-telemetry\2;/;
+  const importMatch = importPattern.exec(source);
+  if (!importMatch) return source;
+
+  let next = source;
+  if (!/\blogPageRequestIdInDev\b/.test(importMatch[1])) {
+    const bindings = importMatch[1]
+      .split(",")
+      .map((binding) => binding.trim())
+      .filter(Boolean);
+    const replacement = `import {\n  logPageRequestIdInDev,\n  ${bindings.join(",\n  ")},\n} from ${importMatch[2]}@originloom/shared/lib/client/error-telemetry${importMatch[2]};`;
+    next = next.replace(importPattern, replacement);
+  }
+
+  if (/\blogPageRequestIdInDev\s*\(/.test(next)) return next;
+  const installCall = "installReloadButtons();";
+  if (next.includes(installCall)) {
+    return next.replace(installCall, `${installCall}\nlogPageRequestIdInDev();`);
+  }
+  const bootstrapCall = "runIslandBootstrap(";
+  if (next.includes(bootstrapCall)) {
+    return next.replace(bootstrapCall, `logPageRequestIdInDev();\n\n${bootstrapCall}`);
+  }
+  return source;
+}
+
+function patchViteConfig(source) {
+  return source.includes("__dirname")
+    ? source.replaceAll("__dirname", "import.meta.dirname")
+    : source;
+}
 
 function setDependency(manifest, changes, section, name, expected) {
   const previous = manifest[section][name];

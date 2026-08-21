@@ -62,10 +62,7 @@ function formatFieldValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function formatRequestLine(
-  fields: LogFields,
-  color: boolean,
-): string {
+function formatRequestLine(fields: LogFields, color: boolean): string {
   const path = typeof fields.path === "string" ? fields.path : "/";
   const status = typeof fields.status === "number" ? fields.status : 0;
   const cache = typeof fields.cache === "string" ? fields.cache : "—";
@@ -98,8 +95,12 @@ export function formatPrettyLog(
 ): string {
   const color = process.stdout.isTTY === true;
   const clock = paint(
-    time.toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) +
-      `.${String(time.getMilliseconds()).padStart(3, "0")}`,
+    time.toLocaleTimeString("en-GB", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }) + `.${String(time.getMilliseconds()).padStart(3, "0")}`,
     ANSI.dim,
     color,
   );
@@ -115,12 +116,22 @@ export function formatPrettyLog(
         ? paint(`errorId=${fields.errorId}`, ANSI.bold, color)
         : undefined,
       typeof fields.pageRequestId === "string"
-        ? paint(`page=${shortRequestId(fields.pageRequestId) ?? fields.pageRequestId}`, ANSI.cyan, color)
+        ? paint(
+            `page=${shortRequestId(fields.pageRequestId) ?? fields.pageRequestId}`,
+            ANSI.cyan,
+            color,
+          )
         : undefined,
       typeof fields.requestId === "string"
-        ? paint(`telemetry=${shortRequestId(fields.requestId) ?? fields.requestId}`, ANSI.gray, color)
+        ? paint(
+            `telemetry=${shortRequestId(fields.requestId) ?? fields.requestId}`,
+            ANSI.gray,
+            color,
+          )
         : undefined,
-      typeof fields.source === "string" ? paint(String(fields.source), ANSI.yellow, color) : undefined,
+      typeof fields.source === "string"
+        ? paint(String(fields.source), ANSI.yellow, color)
+        : undefined,
       typeof fields.path === "string" ? paint(String(fields.path), ANSI.bold, color) : undefined,
     ].filter(Boolean);
     return `${clock} ${levelStyle(level, color)} ${headline} ${parts.join(" ")}`;

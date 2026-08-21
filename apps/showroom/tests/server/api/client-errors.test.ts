@@ -38,9 +38,14 @@ describe("client error telemetry API", () => {
 
     expect(res.status).toBe(204);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"errorId":"client-123"'));
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"requestId":"telemetry-request"'));
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"path":"/bilgi-merkezi"'));
+    const logged = JSON.parse(String(warn.mock.calls[0]?.[0])) as Record<string, unknown>;
+    expect(logged).toMatchObject({
+      msg: "client runtime error",
+      errorId: "client-123",
+      requestId: "telemetry-request",
+      path: "/bilgi-merkezi",
+      pageRequestId: null,
+    });
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("attacker-controlled"));
   });
 
@@ -59,9 +64,11 @@ describe("client error telemetry API", () => {
     });
 
     expect(res.status).toBe(204);
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('"pageRequestId":"1ee4a9e7-4502-436c-8518-40cdbe1b1171"'),
-    );
+    expect(JSON.parse(String(warn.mock.calls[0]?.[0]))).toMatchObject({
+      errorId: "client-page-correlation",
+      pageRequestId: "1ee4a9e7-4502-436c-8518-40cdbe1b1171",
+      requestId: "telemetry-request",
+    });
   });
 
   it("accepts Web Vitals bootstrap failures from the performance telemetry source", async () => {

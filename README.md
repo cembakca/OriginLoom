@@ -355,6 +355,8 @@ Ingress/WAF sınırı ile stack retention/RBAC zorunlulukları
 `pnpm media`, `apps/showroom/server/media.config.json` içindeki yerel görselleri build-time Sharp ile responsive
 AVIF, WebP ve JPEG varyantlarına dönüştürür. Çıktılar içerik hash'li olarak
 `dist/client/assets/media/` altına, boyut/format bilgisi ise `asset-pipeline.json` manifest'ine yazılır.
+`pnpm dev`, config ve config'te referanslanan yerel kaynakları izleyip pipeline'ı otomatik yeniden
+çalıştırır; OG/favicon değişiklikleri için ayrıca `pnpm media` çalıştırmak gerekmez.
 `ResponsiveImage` intrinsic `width`/`height` ve `sizes` olmadan kullanılamaz; normal görseller lazy,
 LCP görselleri eager/high priority yüklenir. Route'un `preloadImages` callback'i LCP adayını document
 head'e `imagesrcset`/`imagesizes` preload olarak taşır.

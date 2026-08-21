@@ -37,9 +37,7 @@ export type ServeRouteOptions = {
 };
 
 /** Serves a cached GET body without acquiring render admission. */
-export async function tryServeCachedRoute(
-  options: ServeRouteOptions,
-): Promise<Response | null> {
+export async function tryServeCachedRoute(options: ServeRouteOptions): Promise<Response | null> {
   if (!options.cacheKey || options.request.method !== "GET") return null;
   const hit = await cache.read(options.cacheKey);
   if (!hit) return null;

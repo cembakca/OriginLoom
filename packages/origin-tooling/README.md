@@ -105,18 +105,18 @@ CI veya script kullanımında prompt oluşmaması için hem proje adını hem `-
 
 ## Create seçenekleri
 
-| Flag                 | Açıklama                                                                |
-| -------------------- | ----------------------------------------------------------------------- |
-| `--title <text>`     | README ve metadata için görünen ürün adı                                |
-| `--workspace`        | `apps/<name>` altında `workspace:*` bağımlılıklarıyla üretir            |
-| `--renderer react`   | React renderer; varsayılan                                              |
-| `--port <n>`         | Uygulama portu; metrics `n + 6000`, Vite varsayılanı `n + 2000`         |
-| `--vite-port <n>`    | Vite dev-server portunu ayrıca belirler                                 |
-| `--target-dir <dir>` | Standalone projenin yazılacağı üst klasör                               |
-| `--version <range>`  | Standalone proje için `@originloom/*` semver aralığı                    |
-| `--registry <url>`   | Generated `.npmrc` içindeki `@originloom` registry adresi               |
+| Flag                 | Açıklama                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `--title <text>`     | README ve metadata için görünen ürün adı                                                |
+| `--workspace`        | `apps/<name>` altında `workspace:*` bağımlılıklarıyla üretir                            |
+| `--renderer react`   | React renderer; varsayılan                                                              |
+| `--port <n>`         | Uygulama portu; metrics `n + 6000`, Vite varsayılanı `n + 2000`                         |
+| `--vite-port <n>`    | Vite dev-server portunu ayrıca belirler                                                 |
+| `--target-dir <dir>` | Standalone projenin yazılacağı üst klasör                                               |
+| `--version <range>`  | Standalone proje için `@originloom/*` semver aralığı                                    |
+| `--registry <url>`   | Generated `.npmrc` içindeki `@originloom` registry adresi                               |
 | `--with-ops`         | Compose, Kubernetes, Prometheus, load/stress ve pentest readiness (tek kayıtlı eklenti) |
-| `--package-manager`  | `pnpm` (varsayılan), `npm` veya `yarn` — lockfile, CI ve Docker PM'e göre üretilir   |
+| `--package-manager`  | `pnpm` (varsayılan), `npm` veya `yarn` — lockfile, CI ve Docker PM'e göre üretilir      |
 
 `--with-ops` create-app eklenti yükleyicisi üzerinden uygulanır. **Yeni `--with-*` eklentisi
 planlanmıyor** — mekanizma gelecekteki opt-in ihtiyaçlar için korunuyor. Ayrıntı:
@@ -190,24 +190,24 @@ oluşturur, sonra güncel fixed group'a migrate eder ve generated pnpm ci kapıs
 
 ## Binaries
 
-| Komut                   | Görevi                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `origin-create-app`     | Standalone veya workspace uygulaması üretir                                          |
-| `origin-dev`            | Vite, SSR ve isteğe bağlı mock gateway'i birlikte çalıştırır                         |
-| `origin-dev-local`      | Local cache/Redis geliştirme topolojisini başlatır                                   |
-| `origin-build`          | Bundle, registry tabanlı route/cache özeti ve `dist/originloom-manifest.json` üretir |
-| `origin-build-media`    | Image/font manifest pipeline'ını çalıştırır                                          |
-| `origin-generate-icons` | SVG kaynaklarından typed React icon component'leri üretir                            |
-| `origin-smoke`          | Built server'ı ve isteğe bağlı gateway'i başlatıp probe eder                         |
-| `origin-check-cycles`   | Import cycle, package layering ve renderer sınırlarını denetler                      |
-| `origin-run-with-env`   | Komutu `.env.<app-env>` yükleyerek çalıştırır                                        |
-| `origin-run-local`      | Production bundle'ı local cache seçenekleriyle çalıştırır                            |
-| `origin-start-memory`   | Uygulamayı memory cache topolojisiyle başlatır                                       |
-| `origin-local-redis`    | Local Redis yardımcısını çalıştırır                                                  |
-| `origin-compose-up`     | Generated Docker Compose stack'ini başlatır                                          |
-| `origin-docker-clean`   | Generated local Compose kaynaklarını temizler                                        |
-| `origin-doctor`         | Template, fixed-group ve migration sağlığını read-only denetler                      |
-| `origin-migrate`        | Upgrade planını dry-run gösterir ve güvenli biçimde uygular                          |
-| `origin-sbom`           | CycloneDX 1.6 SBOM üretir (pnpm / npm / Yarn Berry lockfile)                         |
-| `origin-audit`          | Production dependency audit'ini package manager'a göre çalıştırır                    |
-| `origin-dependency-track` | SBOM upload, analiz bekleme ve Dependency-Track güvenlik kapısı                    |
+| Komut                     | Görevi                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `origin-create-app`       | Standalone veya workspace uygulaması üretir                                          |
+| `origin-dev`              | Vite, SSR ve isteğe bağlı mock gateway'i birlikte çalıştırır                         |
+| `origin-dev-local`        | Local cache/Redis geliştirme topolojisini başlatır                                   |
+| `origin-build`            | Bundle, registry tabanlı route/cache özeti ve `dist/originloom-manifest.json` üretir |
+| `origin-build-media`      | Image/font manifest pipeline'ını çalıştırır                                          |
+| `origin-generate-icons`   | SVG kaynaklarından typed React icon component'leri üretir                            |
+| `origin-smoke`            | Built server'ı ve isteğe bağlı gateway'i başlatıp probe eder                         |
+| `origin-check-cycles`     | Import cycle, package layering ve renderer sınırlarını denetler                      |
+| `origin-run-with-env`     | Komutu `.env.<app-env>` yükleyerek çalıştırır                                        |
+| `origin-run-local`        | Production bundle'ı local cache seçenekleriyle çalıştırır                            |
+| `origin-start-memory`     | Uygulamayı memory cache topolojisiyle başlatır                                       |
+| `origin-local-redis`      | Local Redis yardımcısını çalıştırır                                                  |
+| `origin-compose-up`       | Generated Docker Compose stack'ini başlatır                                          |
+| `origin-docker-clean`     | Generated local Compose kaynaklarını temizler                                        |
+| `origin-doctor`           | Template, fixed-group ve migration sağlığını read-only denetler                      |
+| `origin-migrate`          | Upgrade planını dry-run gösterir ve güvenli biçimde uygular                          |
+| `origin-sbom`             | CycloneDX 1.6 SBOM üretir (pnpm / npm / Yarn Berry lockfile)                         |
+| `origin-audit`            | Production dependency audit'ini package manager'a göre çalıştırır                    |
+| `origin-dependency-track` | SBOM upload, analiz bekleme ve Dependency-Track güvenlik kapısı                      |

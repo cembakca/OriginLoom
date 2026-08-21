@@ -22,7 +22,8 @@ export function readEmbeddedRequestContext(doc: Document = document): EmbeddedRe
   try {
     const parsed: unknown = JSON.parse(element.textContent);
     if (typeof parsed !== "object" || parsed === null) return EMPTY;
-    const { publicPath, search, siteUrl, pageRequestId } = parsed as Partial<EmbeddedRequestContext>;
+    const { publicPath, search, siteUrl, pageRequestId } =
+      parsed as Partial<EmbeddedRequestContext>;
     return {
       publicPath: typeof publicPath === "string" ? publicPath : "",
       search: typeof search === "string" ? search : "",

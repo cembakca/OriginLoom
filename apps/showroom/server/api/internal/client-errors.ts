@@ -80,6 +80,8 @@ export function mountClientErrorApi(
       requestId: c.get("requestId"),
       releaseId: config.releaseId,
       ...sanitized,
+      // Stable top-level Loki field, including when the page correlation is unavailable.
+      pageRequestId: sanitized.pageRequestId ?? null,
     });
     return c.body(null, 204, { "cache-control": "private, no-store" });
   });

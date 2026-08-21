@@ -19,7 +19,7 @@ Repo bir pnpm workspace'idir. Amaç, aynı SSR altyapısını birden fazla ürü
 | `packages/origin-core` (`@originloom/core`)       | Platform sunucu runtime'ı: `createApp`, handler, SSR pipeline, cache (L1/L2/tiered/cold-fill/SWR/purge/fragment mekanizması), middleware, security, config + validation, metrik primitifleri, document orkestrasyonu, assets/manifest çözümü. **React bağımlılığı yok** |
 | `packages/origin-react` (`@originloom/react`)     | React adaptörü: island runtime (`Island`, mounter, bootstrap), `@originloom/react/server` render adaptörü (`createReactRenderer`), client query katmanı, Vite preset                                                                                                    |
 | `packages/origin-tooling` (`@originloom/tooling`) | build/dev/env/compose/smoke/cycle-check bin'leri (`origin-*`)                                                                                                                                                                                                           |
-| `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s; mock gateway `tests/fixtures/gateway/` altında |
+| `apps/showroom`                                   | Referans ürün: route tablosu, BFF'ler, domain servisleri, feature/island/component ağacı, cache-key registry, routing **rules**, env/Docker/k8s; mock gateway `tests/fixtures/gateway/` altında                                                                         |
 
 Bağımlılık yönü tek yönlüdür — `showroom → {core, renderer} → shared`. `core`, `react` ve
 `react` birbirini **import etmez**: ikisi de `@originloom/shared`'daki kontratlara yaslanır. Ters yöndeki bir import
@@ -650,10 +650,10 @@ Mock gateway uygulama process'ine gömülmez; ayrı bir Node servisi olarak HTTP
 Konum uygulama türüne göre değişir — ayrı bir `tools/mock-gw/` paketi yoktur
 ([docs/mock-gateway.md](docs/mock-gateway.md)):
 
-| Bağlam | Konum | Başlatma |
-| ------ | ----- | -------- |
-| Showroom (referans) | `apps/showroom/tests/fixtures/gateway/` | `pnpm mock-gw` (showroom dizininden veya kök `pnpm --filter showroom mock-gw`) |
-| `origin-create-app` çıktısı | `mock-gateway/server.mjs` | `pnpm dev`, `pnpm mock-gw` veya smoke `--gateway mock-gateway/server.mjs` |
+| Bağlam                      | Konum                                   | Başlatma                                                                       |
+| --------------------------- | --------------------------------------- | ------------------------------------------------------------------------------ |
+| Showroom (referans)         | `apps/showroom/tests/fixtures/gateway/` | `pnpm mock-gw` (showroom dizininden veya kök `pnpm --filter showroom mock-gw`) |
+| `origin-create-app` çıktısı | `mock-gateway/server.mjs`               | `pnpm dev`, `pnpm mock-gw` veya smoke `--gateway mock-gateway/server.mjs`      |
 
 Showroom fixture'ı menü, sayfa/SEO, redirect, finansal ürünler, Bilgi Merkezi, piyasa verileri,
 profil, hesap özeti, token refresh ve bot analytics kontratlarını taşır. Üretilen uygulamanın mock
