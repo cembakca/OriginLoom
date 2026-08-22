@@ -46,6 +46,7 @@ const l1CacheEvictions: CounterMap = new Map();
 const l1CacheRejections: CounterMap = new Map();
 const l1CacheBytes = new Map<string, number>();
 const l1CacheEntries = new Map<string, number>();
+const cacheFastPathReads: CounterMap = new Map();
 const cachedResourceAccesses: CounterMap = new Map();
 const cachedResourceCoalescing: CounterMap = new Map();
 const cachedResourceDegradations: CounterMap = new Map();
@@ -315,15 +316,35 @@ export function observeL1CacheRejection(namespace: string, reason: string): void
   );
 }
 
+export type CachedResourceAccessState = "fresh" | "stale" | "miss";
+export type CachedResourceAccessResult = "value" | "not-found" | "no-content" | "error";
+
+/** Single source of truth for the label shape, shared by the per-call and precomputed paths. */
+export function buildCachedResourceAccessLabel(
+  resource: string,
+  state: CachedResourceAccessState,
+  result: CachedResourceAccessResult,
+): string {
+  return `resource="${escapeLabel(resource)}",state="${state}",result="${result}"`;
+}
+
 export function observeCachedResourceAccess(
   resource: string,
-  state: "fresh" | "stale" | "miss",
-  result: "value" | "not-found" | "no-content" | "error",
+  state: CachedResourceAccessState,
+  result: CachedResourceAccessResult,
 ): void {
-  increment(
-    cachedResourceAccesses,
-    `resource="${escapeLabel(resource)}",state="${state}",result="${result}"`,
-  );
+  increment(cachedResourceAccesses, buildCachedResourceAccessLabel(resource, state, result));
+}
+
+/**
+ * Same counter and label shape as `observeCachedResourceAccess`, but takes an
+ * already-built label string. `defineCachedResource()` precomputes the label
+ * for every (state, result) combination once per resource — via
+ * `buildCachedResourceAccessLabel` — instead of template-building and
+ * escaping a string on every single access. See `cache/resource.ts`.
+ */
+export function observeCachedResourceAccessPrecomputed(label: string): void {
+  increment(cachedResourceAccesses, label);
 }
 
 export function observeCachedResourceCoalescing(
@@ -385,6 +406,40 @@ export function observeFragmentFallback(fragment: string, reason: "timeout" | "e
  * can be non-fatal to readiness (CACHE_REQUIRED=false) while still needing to be visible. */
 export function setCacheL2Health(healthy: boolean): void {
   cacheL2Healthy = healthy;
+}
+
+/**
+ * The untraced L1-fresh-hit fast path (see `cache/index.ts` `read()`) skips
+ * `observeCacheOperation`'s span + duration histogram entirely — that's most
+ * of what makes it fast. Both labels below are precomputed: the backend is
+ * already one of three fixed literals, so neither escaping nor templating is
+ * needed on the request path.
+ *
+ * Two counters are incremented, not one:
+ *   - `ssr_cache_operations_total{...,operation="read",outcome="success"}` —
+ *     the *same* series a traced read produces, so that counter does not
+ *     silently collapse to near-zero once the cache is warm and every existing
+ *     dashboard/alert built on cache read volume keeps working.
+ *   - `ssr_cache_fast_path_reads_total` — the numerator for "what fraction of
+ *     reads skipped tracing", which is the only thing that is genuinely new.
+ *
+ * The duration histogram is intentionally not fed here; see `tryFastRead`.
+ */
+const CACHE_FAST_PATH_LABELS = {
+  memory: 'backend="memory"',
+  redis: 'backend="redis"',
+  "memory+redis": 'backend="memory+redis"',
+} as const;
+
+const CACHE_FAST_PATH_OPERATION_LABELS = {
+  memory: 'backend="memory",operation="read",outcome="success"',
+  redis: 'backend="redis",operation="read",outcome="success"',
+  "memory+redis": 'backend="memory+redis",operation="read",outcome="success"',
+} as const;
+
+export function observeCacheFastPathRead(backend: "memory" | "redis" | "memory+redis"): void {
+  increment(cacheFastPathReads, CACHE_FAST_PATH_LABELS[backend]);
+  increment(cacheOperations, CACHE_FAST_PATH_OPERATION_LABELS[backend]);
 }
 
 export function observeCacheOperation(
@@ -607,6 +662,11 @@ export function renderMetrics(): string {
       "Gateway request duration",
     ),
     ...counterLines("ssr_cache_operations_total", "Cache operations by backend", cacheOperations),
+    ...counterLines(
+      "ssr_cache_fast_path_reads_total",
+      "Untraced L1-fresh-hit reads that bypassed the span/histogram path",
+      cacheFastPathReads,
+    ),
     ...counterLines(
       "ssr_cache_promotion_total",
       "L2 cache hits promoted into local L1",

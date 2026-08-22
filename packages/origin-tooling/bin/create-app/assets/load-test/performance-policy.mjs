@@ -88,7 +88,7 @@ export function createPerformanceBaseline(report) {
       route: group.route.id,
       connections: group.connections,
       rpsMedian: group.rpsMedian,
-      latencyP95Median: group.latencyP95Median,
+      latencyP97_5Median: group.latencyP97_5Median,
       latencyP99Median: group.latencyP99Median,
       rssPeakBytes: group.resource.rssPeakBytes,
       eventLoopP99PeakMs: group.resource.eventLoopP99PeakMs,
@@ -158,10 +158,10 @@ export function comparePerformance(report, baseline, policy) {
       results,
       current.route.id,
       current.connections,
-      "latencyP95Median",
-      previous.latencyP95Median,
-      current.latencyP95Median,
-      regression.latencyP95IncreasePercent,
+      "latencyP97_5Median",
+      previous.latencyP97_5Median,
+      current.latencyP97_5Median,
+      regression.latencyP97_5IncreasePercent,
       "increase",
     );
     addRegression(

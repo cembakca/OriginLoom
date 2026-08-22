@@ -1,6 +1,6 @@
 {
   "name": "@originloom/core",
-  "version": "0.7.23",
+  "version": "0.7.24",
   "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics — with no UI framework of its own.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -48,6 +48,7 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
+    "bench": "vitest bench --run",
     "build": "tsc -p tsconfig.build.json",
     "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit"

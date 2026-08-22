@@ -8854,7 +8854,7 @@ const performancePolicy = () =>
       },
       regression: {
         rpsMedianDropPercent: 10,
-        latencyP95IncreasePercent: 20,
+        latencyP97_5IncreasePercent: 20,
         latencyP99IncreasePercent: 25,
         rssPeakIncreasePercent: 20,
         eventLoopP99IncreasePercent: 25,

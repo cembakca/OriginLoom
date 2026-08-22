@@ -89,7 +89,7 @@ function summarizeGroup(group) {
     rpsCvPercent: coefficientOfVariation(rps),
     latencyAverageMedian: median(group.runs.map((run) => run.latency.average)),
     latencyP50Median: median(group.runs.map((run) => run.latency.p50)),
-    latencyP95Median: median(group.runs.map((run) => run.latency.p95)),
+    latencyP97_5Median: median(group.runs.map((run) => run.latency.p97_5)),
     latencyP99Median: median(group.runs.map((run) => run.latency.p99)),
     latencyMax: Math.max(...group.runs.map((run) => run.latency.max)),
     errors: sum(group.runs.map((run) => run.errors)),
@@ -174,11 +174,11 @@ function renderMarkdown(report) {
     "",
     "## Ayrıntılı matris",
     "",
-    "| Route | Conn | RPS median | CV | Avg | p95 | p99 | Render p95 | App CPU | Gen CPU | EL p99 | RSS | Hata |",
+    "| Route | Conn | RPS median | CV | Avg | p97.5 | p99 | Render p95 | App CPU | Gen CPU | EL p99 | RSS | Hata |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...report.aggregates.map(
       (group) =>
-        `| ${escapeCell(group.route.title)} | ${group.connections} | ${number(group.rpsMedian)} | %${number(group.rpsCvPercent)} | ${number(group.latencyAverageMedian)} | ${number(group.latencyP95Median)} | ${number(group.latencyP99Median)} | ${number(group.documentRenderP95Median)} ms | %${number(group.appCpuPercentMedian)} | %${number(group.generatorCpuPercentMedian)} | ${number(group.resource.eventLoopP99PeakMs)} ms | ${mib(group.resource.rssPeakBytes)} MiB | ${group.valid ? "0" : "VAR"} |`,
+        `| ${escapeCell(group.route.title)} | ${group.connections} | ${number(group.rpsMedian)} | %${number(group.rpsCvPercent)} | ${number(group.latencyAverageMedian)} | ${number(group.latencyP97_5Median)} | ${number(group.latencyP99Median)} | ${number(group.documentRenderP95Median)} ms | %${number(group.appCpuPercentMedian)} | %${number(group.generatorCpuPercentMedian)} | ${number(group.resource.eventLoopP99PeakMs)} ms | ${mib(group.resource.rssPeakBytes)} MiB | ${group.valid ? "0" : "VAR"} |`,
     ),
     "",
     "## Cache ve gateway deneyleri",

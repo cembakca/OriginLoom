@@ -76,6 +76,19 @@ export function cacheEntryFragmentMarkers(entry: CacheEntry): readonly SsrFragme
 
 export interface CacheStore {
   read(key: string): Promise<CacheReadResult | null>;
+  /**
+   * Synchronous, untraced, in-process-only lookup. Optional: a store that
+   * cannot offer an in-memory fast path (e.g. Redis-only) simply omits it, and
+   * every caller falls back to the fully-traced `read()`. Never checks L2 — a
+   * null here means "not cheaply servable", never "not cached".
+   *
+   * Deliberately NOT named `peek`: this is a real read with a real read's side
+   * effects. It moves the entry to MRU, and it evicts (and reports an
+   * `expired` eviction for) an entry past `staleUntil`. Anything that wants to
+   * inspect the cache without disturbing it — a debug endpoint, an
+   * "is this cached?" probe — must not use this method.
+   */
+  readSync?(key: string): CacheReadResult | null;
   write(
     key: string,
     body: string,
