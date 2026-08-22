@@ -1,6 +1,6 @@
 {
   "name": "@originloom/shared",
-  "version": "0.7.24",
+  "version": "0.7.25",
   "description": "Framework-neutral base for OriginLoom: route and request types, the routing engine, the metadata engine and the OriginRenderer contract.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -33,9 +33,9 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^22.20.1",
+    "@types/node": "^26.2.0",
     "typescript": "^5.9.3",
-    "vite": "^8.1.5"
+    "vite": "^8.2.2"
   },
   "publishConfig": {
     "registry": "http://localhost:4873",

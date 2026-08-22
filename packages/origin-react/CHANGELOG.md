@@ -1,5 +1,11 @@
 # @originloom/react
 
+## 0.7.25
+
+### Patch Changes
+
+- @originloom/shared@0.7.25
+
 ## 0.7.24
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @originloom/core
 
+## 0.7.25
+
+### Patch Changes
+
+- Refresh dependencies: `ioredis` 5.11, `undici` 8.10, and `@cyclonedx/cyclonedx-npm` 6 for the
+  tooling SBOM generator. Toolchain moves to ESLint 10 with `@eslint-react/eslint-plugin` replacing
+  the unmaintained-for-React-19 `eslint-plugin-react`, and the showroom's Radix wrappers drop
+  `forwardRef` in favour of React 19 ref-as-prop. No public API changes.
+- @originloom/shared@0.7.25
+
 ## 0.7.24
 
 ### Patch Changes

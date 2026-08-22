@@ -7,6 +7,11 @@ import { parseMarketQuoteBatch } from "~/lib/market-stream";
 
 type Props = { initialStocks: Stock[]; initialAsOf: string; delayedByMinutes: number };
 
+// This island is an imperative EventSource controller: connection status is the
+// state it exists to publish, and every listener it attaches lives on a source
+// that the cleanup closes (closing an EventSource detaches its listeners), so the
+// two heuristics below both misread the teardown here.
+/* eslint-disable @eslint-react/set-state-in-effect, @eslint-react/web-api-no-leaked-event-listener */
 export default function MarketLive({ initialStocks, initialAsOf, delayedByMinutes }: Props) {
   const [stocks, setStocks] = useState(initialStocks);
   const [asOf, setAsOf] = useState(initialAsOf);
@@ -102,6 +107,7 @@ export default function MarketLive({ initialStocks, initialAsOf, delayedByMinute
     />
   );
 }
+/* eslint-enable @eslint-react/set-state-in-effect, @eslint-react/web-api-no-leaked-event-listener */
 
 function parseEvent(event: Event): MarketQuoteBatch | null {
   if (!(event instanceof MessageEvent) || typeof event.data !== "string") return null;

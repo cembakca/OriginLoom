@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.2"
   },
   "scripts": {
     "audit:prod": "pnpm audit --prod --audit-level=high",
@@ -39,23 +39,23 @@
     "version:set": "node scripts/set-version.mjs"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
-    "@eslint/js": "^9.39.5",
-    "@types/node": "^22.20.1",
-    "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^9.39.5",
+    "@changesets/cli": "^3.0.1",
+    "@eslint-react/eslint-plugin": "^5.18.6",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.9.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import-x": "^4.17.1",
-    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.3",
+    "eslint-plugin-react-refresh": "^0.5.4",
     "eslint-plugin-simple-import-sort": "^14.0.0",
-    "globals": "^17.8.0",
-    "jsdom": "^29.1.1",
+    "globals": "^17.11.0",
+    "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.65.0",
-    "verdaccio": "^6.9.0",
-    "vitest": "^4.1.10"
+    "typescript-eslint": "^8.67.0",
+    "verdaccio": "^6.10.0",
+    "vitest": "^4.1.11"
   }
 }

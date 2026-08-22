@@ -1,5 +1,7 @@
 # @originloom/shared
 
+## 0.7.25
+
 ## 0.7.24
 
 ### Patch Changes

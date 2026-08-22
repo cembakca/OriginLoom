@@ -64,6 +64,9 @@ j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNo
 `.trim();
 }
 
+// GTM can only be bootstrapped through inline scripts; every payload here is
+// built from constants or an escaped container id and is served under a CSP nonce.
+/* eslint-disable @eslint-react/dom-no-dangerously-set-innerhtml */
 export function GtmBootstrap({ containerId, isBot, nonce }: GtmBootstrapProps) {
   if (!containerId) return null;
 
@@ -90,6 +93,7 @@ export function GtmBootstrap({ containerId, isBot, nonce }: GtmBootstrapProps) {
     </>
   );
 }
+/* eslint-enable @eslint-react/dom-no-dangerously-set-innerhtml */
 
 export function isBotRequest(request: Request): boolean {
   const ua = request.headers.get("user-agent") ?? "";

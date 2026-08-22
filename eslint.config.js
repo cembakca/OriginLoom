@@ -1,7 +1,7 @@
+import eslintReact from "@eslint-react/eslint-plugin";
 import eslint from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import importX from "eslint-plugin-import-x";
-import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
@@ -44,7 +44,7 @@ export default tseslint.config(
       "import-x": importX,
     },
     settings: {
-      react: { version: "detect" },
+      "react-x": { version: "detect" },
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
@@ -208,15 +208,14 @@ export default tseslint.config(
   },
   {
     files: ["apps/showroom/src/**/*.tsx", "apps/showroom/server/routes/**/*.tsx"],
-    plugins: { react, "react-hooks": reactHooks },
+    extends: [eslintReact.configs["recommended-typescript"]],
+    // eslint-plugin-react-hooks stays the authority on hook rules; @eslint-react
+    // covers the React-19-aware JSX/DOM rules that eslint-plugin-react no longer does.
+    plugins: { "react-hooks": reactHooks },
     rules: {
-      ...react.configs.recommended.rules,
-      ...react.configs["jsx-runtime"].rules,
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
-      "react/jsx-key": "error",
-      "react/no-array-index-key": "warn",
-      "react/prop-types": "off",
+      "@eslint-react/no-array-index-key": "warn",
       "no-restricted-syntax": [
         "error",
         {

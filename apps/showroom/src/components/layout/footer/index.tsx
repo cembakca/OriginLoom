@@ -18,6 +18,9 @@ const footerViews = new WeakMap<IMenuItems, Map<DeviceType, FooterView>>();
 export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: DeviceType }) {
   const view = footerView(menu, deviceType);
   const isMobile = view.shell === "mobile";
+  // Server-rendered once per cache fill; the copyright year is stamped at render time.
+  // eslint-disable-next-line @eslint-react/purity
+  const year = new Date().getFullYear();
 
   return (
     <footer className="mt-auto border-t border-slate-200 bg-white" data-shell={view.shell}>
@@ -60,7 +63,7 @@ export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: Dev
         )}
 
         <p className="mt-8 border-t border-slate-200 pt-6 text-center text-xs text-slate-500">
-          © {new Date().getFullYear()} Hangikredi — Bilgilendirme amaçlıdır.
+          © {year} Hangikredi — Bilgilendirme amaçlıdır.
         </p>
       </Container>
     </footer>
