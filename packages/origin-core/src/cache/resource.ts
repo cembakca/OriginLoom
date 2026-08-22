@@ -3,7 +3,10 @@ import type { CachePolicy } from "@originloom/shared/lib/types";
 import { config } from "../config.js";
 import { logError } from "../logger.js";
 import {
-  observeCachedResourceAccess,
+  buildCachedResourceAccessLabel,
+  type CachedResourceAccessResult,
+  type CachedResourceAccessState,
+  observeCachedResourceAccessPrecomputed,
   observeCachedResourceCoalescing,
   observeCachedResourceDegradation,
   observeCachedResourceRefresh,
@@ -60,6 +63,12 @@ export type CachedResource<T> = {
   invalidate(parts: readonly CachedResourceKeyPart[]): Promise<boolean>;
 };
 
+/** `accessLabels[state][result]` — every label this resource can ever emit, built once. */
+type AccessLabelTable = Record<
+  CachedResourceAccessState,
+  Record<CachedResourceAccessResult, string>
+>;
+
 type ResourceDefinition<T> = {
   namespace: string;
   version: string;
@@ -71,7 +80,28 @@ type ResourceDefinition<T> = {
   tags: readonly string[];
   parse: (value: unknown) => T;
   serialize: (value: T) => unknown;
+  accessLabels: AccessLabelTable;
 };
+
+const ACCESS_STATES: readonly CachedResourceAccessState[] = ["fresh", "stale", "miss"];
+const ACCESS_RESULTS: readonly CachedResourceAccessResult[] = [
+  "value",
+  "not-found",
+  "no-content",
+  "error",
+];
+
+function buildAccessLabels(namespace: string): AccessLabelTable {
+  const table = {} as AccessLabelTable;
+  for (const state of ACCESS_STATES) {
+    const row = {} as Record<CachedResourceAccessResult, string>;
+    for (const result of ACCESS_RESULTS) {
+      row[result] = buildCachedResourceAccessLabel(namespace, state, result);
+    }
+    table[state] = row;
+  }
+  return table;
+}
 
 type ResourcePhase = "fresh" | "swr" | "stale-if-error" | "expired";
 type ResourceOperation = "fill" | "refresh";
@@ -95,17 +125,53 @@ export function cachedResourceNoContent(): CachedResourceLoadResult<never> {
   return { kind: "no-content" };
 }
 
+/**
+ * Bounds the per-resource dynamic-key memo below. A resource with a genuinely
+ * unbounded key space (e.g. keyed by free-text input) would otherwise grow
+ * this map forever; capping it and resetting on overflow trades a rare extra
+ * `resourceKey()` recompute for a hard memory ceiling — never a correctness
+ * issue, since a memo miss just falls back to computing the key normally.
+ */
+const MAX_RESOURCE_DYNAMIC_KEY_CACHE_ENTRIES = 512;
+
 export function defineCachedResource<T>(
   options: DefineCachedResourceOptions<T>,
 ): CachedResource<T> {
   const definition = normalizeDefinition(options);
-
-  const key = (parts: readonly CachedResourceKeyPart[]) => resourceKey(definition, parts);
+  const key = createResourceKeyFn(definition);
   return {
     key,
     get: (parts, load, getOptions) =>
       getCachedResource(definition, key(parts), load, getOptions?.signal),
     invalidate: async (parts) => cache.deleteKey(key(parts)),
+  };
+}
+
+/**
+ * `parts: []` is the common case (every "one shared snapshot" page-data
+ * resource calls `.get([], ...)`) and is deterministic per resource, so it is
+ * computed exactly once, eagerly, at definition time. Non-empty parts are
+ * memoized by their JSON shape — cheap to build, and `JSON.stringify`
+ * naturally keeps differently-typed-but-same-printed parts distinct (e.g.
+ * `["1"]` vs `[1]`) so the memo can never collide two different key spaces.
+ * A memo miss always falls back to the exact same `resourceKey()` computation
+ * that ran before this change, so this is strictly an optimization: the
+ * resulting cache key is byte-for-byte identical either way.
+ */
+function createResourceKeyFn<T>(
+  definition: ResourceDefinition<T>,
+): (parts: readonly CachedResourceKeyPart[]) => string {
+  const staticKey = resourceKey(definition, []);
+  const dynamicKeyCache = new Map<string, string>();
+  return (parts: readonly CachedResourceKeyPart[]): string => {
+    if (parts.length === 0) return staticKey;
+    const memoId = JSON.stringify(parts);
+    const cached = dynamicKeyCache.get(memoId);
+    if (cached !== undefined) return cached;
+    const computed = resourceKey(definition, parts);
+    if (dynamicKeyCache.size >= MAX_RESOURCE_DYNAMIC_KEY_CACHE_ENTRIES) dynamicKeyCache.clear();
+    dynamicKeyCache.set(memoId, computed);
+    return computed;
   };
 }
 
@@ -136,11 +202,11 @@ async function getCachedResource<T>(
   if (cached) {
     const phase = resourcePhase(cached);
     if (phase === "fresh") {
-      observeCachedResourceAccess(definition.namespace, "fresh", cached.result.kind);
+      observeCachedResourceAccessPrecomputed(definition.accessLabels.fresh[cached.result.kind]);
       return publicResult(cached.result, "fresh");
     }
     if (phase === "swr") {
-      observeCachedResourceAccess(definition.namespace, "stale", cached.result.kind);
+      observeCachedResourceAccessPrecomputed(definition.accessLabels.stale[cached.result.kind]);
       scheduleRefresh(definition, key, cached, load);
       return publicResult(cached.result, "stale");
     }
@@ -156,7 +222,7 @@ async function getCachedResource<T>(
         if (callerSignal?.aborted) throw abortReason(callerSignal);
         if (Date.now() >= cached.staleUntil) throw error;
         observeCachedResourceDegradation(definition.namespace, "stale_if_error");
-        observeCachedResourceAccess(definition.namespace, "stale", cached.result.kind);
+        observeCachedResourceAccessPrecomputed(definition.accessLabels.stale[cached.result.kind]);
         return publicResult(cached.result, "stale", true);
       }
     }
@@ -171,7 +237,7 @@ async function getCachedResource<T>(
     filled = await waitForSignal(operation.pending, callerSignal);
   } catch (error) {
     if (!callerSignal?.aborted) {
-      observeCachedResourceAccess(definition.namespace, "miss", "error");
+      observeCachedResourceAccessPrecomputed(definition.accessLabels.miss.error);
     }
     throw error;
   }
@@ -184,12 +250,14 @@ function operationPublicResult<T>(
   operation: Exclude<OperationResult<T>, { kind: "skipped" }>,
 ): CachedResourceResult<T> {
   if (operation.kind === "loaded") {
-    observeCachedResourceAccess(definition.namespace, "miss", operation.result.kind);
+    observeCachedResourceAccessPrecomputed(definition.accessLabels.miss[operation.result.kind]);
     return publicResult(operation.result, "miss");
   }
   const phase = resourcePhase(operation.entry);
   const state = phase === "fresh" ? "fresh" : "stale";
-  observeCachedResourceAccess(definition.namespace, state, operation.entry.result.kind);
+  observeCachedResourceAccessPrecomputed(
+    definition.accessLabels[state][operation.entry.result.kind],
+  );
   return publicResult(operation.entry.result, state);
 }
 
@@ -570,6 +638,7 @@ function normalizeDefinition<T>(options: DefineCachedResourceOptions<T>): Resour
     tags: normalizeDependencyTags(options.tags),
     parse: options.parse,
     serialize: options.serialize ?? ((value) => value),
+    accessLabels: buildAccessLabels(options.namespace),
   };
 }
 

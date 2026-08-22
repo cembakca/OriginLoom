@@ -2,7 +2,15 @@ import { seedUserInfo } from "../stores/user-info-store.js";
 
 const REFRESH_PATH = "/api/internal/refresh";
 
-/** Client island'lardan BFF / public API çağrıları — cookie oturumu taşır. */
+/**
+ * Client island'lardan BFF / public API çağrıları — cookie oturumu taşır.
+ *
+ * `credentials: "same-origin"`, not `"include"`: this is documented (docs/auth.md)
+ * as a same-origin-only BFF client, and `"same-origin"` makes the browser itself
+ * enforce that — the session cookie is never attached if `path` is ever a
+ * cross-origin URL, instead of relying on every caller to only ever pass a
+ * same-origin relative path.
+ */
 export async function clientApiFetch<T>(
   path: string,
   init: RequestInit = {},
@@ -16,7 +24,7 @@ export async function clientApiFetch<T>(
   const res = await fetch(path, {
     ...init,
     headers,
-    credentials: "include",
+    credentials: "same-origin",
   });
 
   if (
@@ -27,7 +35,7 @@ export async function clientApiFetch<T>(
   ) {
     const refreshed = await fetch(REFRESH_PATH, {
       method: "POST",
-      credentials: "include",
+      credentials: "same-origin",
     });
     if (refreshed.ok) {
       return clientApiFetch<T>(path, init, { retried: true });

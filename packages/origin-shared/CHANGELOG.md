@@ -1,5 +1,11 @@
 # @originloom/shared
 
+## 0.7.24
+
+### Patch Changes
+
+- No functional change; released in step with the fixed `@originloom/*` group for 0.7.24.
+
 ## 0.7.19
 
 ### Patch Changes

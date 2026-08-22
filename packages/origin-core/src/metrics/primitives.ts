@@ -7,21 +7,29 @@ export class Histogram {
 
   observe(labels: string, value: number): void {
     const safeValue = Number.isFinite(value) && value >= 0 ? value : 0;
-    const current = this.values.get(labels) ?? {
-      count: 0,
-      sum: 0,
-      buckets: this.boundaries.map(() => 0),
-    };
+    let current = this.values.get(labels);
+    if (current === undefined) {
+      current = { count: 0, sum: 0, buckets: new Array<number>(this.boundaries.length).fill(0) };
+      // Only a new label needs a map write; an existing entry is mutated in
+      // place, so re-setting it was pure overhead on every observation.
+      this.values.set(labels, current);
+    }
     current.count++;
     current.sum += safeValue;
     // Keep non-cumulative buckets on the request path: one increment instead
     // of one per matching Prometheus boundary. Cumulative values are expanded
     // only when /metrics is scraped.
-    const bucket = this.boundaries.findIndex((boundary) => safeValue <= boundary);
-    if (bucket >= 0) {
-      current.buckets[bucket] = (current.buckets[bucket] ?? 0) + 1;
+    //
+    // A plain loop rather than `findIndex(cb)`: the callback closes over
+    // `safeValue`, so the closure had to be allocated on every observation,
+    // and there are several observations per request.
+    const boundaries = this.boundaries;
+    for (let index = 0; index < boundaries.length; index++) {
+      if (safeValue <= boundaries[index]!) {
+        current.buckets[index] = (current.buckets[index] ?? 0) + 1;
+        break;
+      }
     }
-    this.values.set(labels, current);
   }
 
   lines(name: string, help: string): string[] {

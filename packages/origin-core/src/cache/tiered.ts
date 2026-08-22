@@ -41,6 +41,15 @@ export class TieredStore implements CacheStore {
     return this.l2 !== null;
   }
 
+  /**
+   * L1-only, synchronous — never touches L2/Redis. A miss here is not a real
+   * miss, just "not cheaply servable"; the caller must fall back to `read()`.
+   * Carries L1's MRU/eviction side effects — see `CacheStore.readSync`.
+   */
+  readSync(key: string): CacheReadResult | null {
+    return this.l1.readSync(key);
+  }
+
   async read(key: string): Promise<CacheReadResult | null> {
     const l1Hit = await this.l1.read(key);
     if (l1Hit) return l1Hit;

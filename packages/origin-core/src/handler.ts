@@ -32,7 +32,11 @@ export async function resolveHandleRequest(
   ctx: HandleContext = {},
 ): Promise<ResolvedHandleRequest> {
   const started = Date.now();
-  const url = new URL(request.url);
+  // `prepareRequest` (middleware/prepared-request.ts) already parsed this URL
+  // once for the whole request, and `resolveSsrRequest` below reuses it too.
+  // Re-parsing here was a third full `new URL()` per request whose only use is
+  // the `url.pathname` that error/outcome logging reads.
+  const url = ctx.preparedRequest?.url ?? new URL(request.url);
   const pendingResolution = resolveSsrRequest({
     request,
     routes,

@@ -510,7 +510,12 @@ function runCannon({ url, route, connections, duration, amount }) {
           latency: {
             average: result.latency.average ?? result.latency.mean ?? 0,
             p50: result.latency.p50 ?? 0,
-            p95: result.latency.p95 ?? result.latency.p97_5 ?? 0,
+            // autocannon has no p95: its percentile set (hdr-histogram-
+            // percentiles-obj) goes 90 -> 97.5. `result.latency.p95` was
+            // always undefined and silently fell through to p97_5, so every
+            // number reported and gated as "p95" was really p97.5. Report the
+            // percentile that actually exists, under its real name.
+            p97_5: result.latency.p97_5 ?? 0,
             p99: result.latency.p99 ?? 0,
             max: result.latency.max ?? 0,
           },

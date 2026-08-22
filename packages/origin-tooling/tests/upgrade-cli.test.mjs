@@ -606,6 +606,7 @@ function project({ version, metadata }) {
                   "0.7.22-ssr-error-reference",
                   "0.7.20-hono-4.13",
                   "0.7.23-cache-performance-acceptance",
+                  "0.7.24-warm-path-performance",
                 ]
               : []),
           ],

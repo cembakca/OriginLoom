@@ -57,7 +57,7 @@ vi.mock("ioredis", () => ({
   },
 }));
 
-import { closeCache, initCache, invalidateTags, write } from "../src/cache/index.js";
+import { closeCache, getCache, initCache, invalidateTags, write } from "../src/cache/index.js";
 import {
   cachedResourceNoContent,
   cachedResourceNotFound,
@@ -454,4 +454,75 @@ describe("typed cached resources", () => {
       'ssr_cached_resource_degradation_total{resource="codec-recovery",reason="codec_version"}',
     );
   });
+
+  it("precomputes the static parts:[] key once and reuses it for every call", async () => {
+    const resource = defineCachedResource<Snapshot>({
+      namespace: "static-key",
+      version: 1,
+      ttl: 60,
+      parse: parseSnapshot,
+    });
+    const first = resource.key([]);
+    expect(resource.key([])).toBe(first);
+    expect(resource.key([])).not.toBe(resource.key(["not-empty"]));
+
+    let loads = 0;
+    const load = async () => cachedResourceValue({ value: ++loads });
+    await resource.get([], load);
+    await resource.get([], load);
+    expect(loads).toBe(1); // second call must land on the exact same cache key as the first
+  });
+
+  it("routes a warm fresh hit through the untraced fast path, not the spanned slow path", async () => {
+    const resource = defineCachedResource<Snapshot>({
+      namespace: "fast-path-resource",
+      version: 1,
+      ttl: 60,
+      parse: parseSnapshot,
+    });
+    await resource.get([], async () => cachedResourceValue({ value: 1 })); // cold fill: slow path
+    const before = fastPathCount("memory");
+    await expect(
+      resource.get([], async () => cachedResourceValue({ value: 99 })),
+    ).resolves.toMatchObject({ value: { value: 1 }, cacheState: "fresh" });
+    expect(fastPathCount("memory")).toBe(before + 1);
+  });
+
+  it("never serves an L2-only entry through the fast path — only a promoted L1 hit qualifies", async () => {
+    await useBackend("redis");
+    const resource = defineCachedResource<Snapshot>({
+      namespace: "l1-l2-safety",
+      version: 1,
+      ttl: 60,
+      parse: parseSnapshot,
+    });
+    let loads = 0;
+    const load = async () => cachedResourceValue({ value: ++loads });
+
+    await resource.get([], load); // cold fill: writes L1 + L2
+    // Simulate a fresh pod / an L1 eviction: the value still lives in L2, but
+    // this process no longer has it in memory.
+    (getCache() as unknown as { flushL1(): number }).flushL1();
+
+    const beforeFastPath = fastPathCount("memory+redis");
+    await expect(resource.get([], load)).resolves.toMatchObject({
+      value: { value: 1 },
+      cacheState: "fresh",
+    });
+    expect(loads).toBe(1); // served from L2, not reloaded from the origin
+    expect(fastPathCount("memory+redis")).toBe(beforeFastPath); // L2 promotion is not a fast-path hit
+
+    // Now that the read above promoted it back into L1, the next read is fast again.
+    const afterPromotion = fastPathCount("memory+redis");
+    await resource.get([], load);
+    expect(fastPathCount("memory+redis")).toBe(afterPromotion + 1);
+  });
 });
+
+function fastPathCount(backend: "memory" | "memory+redis"): number {
+  const escaped = backend.replace("+", "\\+");
+  const match = new RegExp(`ssr_cache_fast_path_reads_total\\{backend="${escaped}"\\} (\\d+)`).exec(
+    renderMetrics(),
+  );
+  return match ? Number(match[1]) : 0;
+}

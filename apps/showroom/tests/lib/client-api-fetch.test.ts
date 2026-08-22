@@ -19,10 +19,18 @@ describe("client API fetch", () => {
     await expect(clientApiFetch<{ value: string }>("/api/internal/example")).resolves.toEqual({
       value: "verified",
     });
+    // "same-origin", not "include": the browser itself must refuse to attach
+    // the session cookie if `path` were ever a cross-origin URL, rather than
+    // relying on every caller to only ever pass a same-origin relative path.
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/internal/example",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "/api/internal/refresh",
-      expect.objectContaining({ method: "POST", credentials: "include" }),
+      expect.objectContaining({ method: "POST", credentials: "same-origin" }),
     );
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });

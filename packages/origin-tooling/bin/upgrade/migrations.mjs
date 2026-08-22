@@ -31,6 +31,7 @@ export const CLIENT_ENTRY_TELEMETRY_IMPORT_FIX_MIGRATION =
   "0.7.21-client-entry-telemetry-import-fix";
 export const SSR_ERROR_REFERENCE_MIGRATION = "0.7.22-ssr-error-reference";
 export const CACHE_PERFORMANCE_ACCEPTANCE_MIGRATION = "0.7.23-cache-performance-acceptance";
+export const WARM_PATH_PERFORMANCE_MIGRATION = "0.7.24-warm-path-performance";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -357,6 +358,21 @@ export const migrations = [
       }
     },
   },
+  {
+    id: WARM_PATH_PERFORMANCE_MIGRATION,
+    introducedIn: "0.7.24",
+    description:
+      "Kapasite/performans gate'i autocannon'ın gerçekten ürettiği p97.5 percentile'ını kullanır (p95 hiç var olmamıştı) ve warm-path cache okuması span/histogram yerine ucuz sayaç kullanır.",
+    migrateProject(root, changes, fileWrites) {
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "performance-policy.json",
+        patchPerformancePolicy,
+      );
+    },
+  },
 ];
 
 // `patch` may return either a plain string (legacy contract: unchanged output means
@@ -523,6 +539,50 @@ function patchDevReloadConfig(source) {
   const generatedAllowlist =
     /^(\s*)reload:\s*\{\s*\n\s*shouldReload:\s*\(file\)\s*=>\s*\n(?:\s*file\.(?:includes|endsWith)\([^\n]+\),?(?:\s*\|\|)?\s*\n)+\1\},/m;
   return source.replace(generatedAllowlist, "$1reload: {},");
+}
+
+/**
+ * autocannon reports the hdr-histogram-percentiles-obj set, which goes
+ * 90 -> 97.5 with no p95 at all. Every generated app's capacity gate read
+ * `result.latency.p95`, got `undefined`, and fell through to p97_5 — so the
+ * threshold named `latencyP95IncreasePercent` has always been applied to a
+ * p97.5 measurement. Renaming the key is what makes the policy file say what
+ * the gate actually does; the numeric value is deliberately preserved, so the
+ * gate's strictness does not change, only its honesty.
+ *
+ * Idempotent: an already-renamed policy is left untouched, and a policy
+ * carrying neither key is not ours to rewrite.
+ */
+function patchPerformancePolicy(source) {
+  let policy;
+  try {
+    policy = JSON.parse(source);
+  } catch {
+    return {
+      status: "manual-required",
+      detail:
+        "performance-policy.json parse edilemedi; `regression.latencyP95IncreasePercent` " +
+        "anahtarını elle `latencyP97_5IncreasePercent` olarak yeniden adlandırın.",
+    };
+  }
+  const regression = policy?.regression;
+  if (!regression || typeof regression !== "object") return { status: "already-applied" };
+  if (!("latencyP95IncreasePercent" in regression)) return { status: "already-applied" };
+
+  // Rebuild the object so the renamed key keeps its original position rather
+  // than being appended, which keeps the diff to a single line.
+  policy.regression = Object.fromEntries(
+    Object.entries(regression).map(([key, value]) =>
+      key === "latencyP95IncreasePercent" ? ["latencyP97_5IncreasePercent", value] : [key, value],
+    ),
+  );
+  return {
+    status: "patched",
+    source: `${JSON.stringify(policy, null, 2)}\n`,
+    detail:
+      "regression.latencyP95IncreasePercent → latencyP97_5IncreasePercent (eşik değeri korunur; " +
+      "autocannon p95 üretmez, ölçüm baştan beri p97.5 idi).",
+  };
 }
 
 function setDependency(manifest, changes, section, name, expected) {

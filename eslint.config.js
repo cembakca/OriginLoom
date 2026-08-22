@@ -16,7 +16,15 @@ const browserRestrictedGlobals = {
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", "eslint.config.js"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/coverage/**",
+      "eslint.config.js",
+      // A consumer app cloned inside this repo for local verification owns its
+      // own eslint config; linting it from here reports its rules as our failures.
+      "OriginLoomSigorta/**",
+    ],
   },
   eslint.configs.recommended,
   eslintConfigPrettier,

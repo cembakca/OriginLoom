@@ -107,7 +107,7 @@ metric_count{kind="document_render"} 13
       },
       regression: {
         rpsMedianDropPercent: 10,
-        latencyP95IncreasePercent: 20,
+        latencyP97_5IncreasePercent: 20,
         latencyP99IncreasePercent: 25,
         rssPeakIncreasePercent: 20,
         eventLoopP99IncreasePercent: 25,
@@ -182,7 +182,7 @@ function reportFixture() {
         rpsCvPercent: 0,
         generatorCpuPercentMedian: 30,
         rpsMedian: 1_000,
-        latencyP95Median: 10,
+        latencyP97_5Median: 10,
         latencyP99Median: 15,
         documentRenderP95Median: 5,
         gatewayJsonParseP95Median: 1,
@@ -209,7 +209,7 @@ function reportFixture() {
       },
       regression: {
         rpsMedianDropPercent: 10,
-        latencyP95IncreasePercent: 20,
+        latencyP97_5IncreasePercent: 20,
         latencyP99IncreasePercent: 25,
         rssPeakIncreasePercent: 20,
         eventLoopP99IncreasePercent: 25,

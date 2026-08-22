@@ -84,6 +84,20 @@ export class MemoryStore implements CacheStore {
   }
 
   async read(key: string): Promise<CacheReadResult | null> {
+    return this.readSync(key);
+  }
+
+  /**
+   * Sync twin of `read()` — identical eviction/MRU/shape semantics, no
+   * `async` function wrapper. This is the hot-path entry point: `cache.read()`
+   * calls it directly (no span, no Promise microtask) for a fresh hit, and
+   * only falls through to the fully-traced path otherwise. See
+   * `CacheStore.readSync` and `cache/index.ts`.
+   *
+   * This is a read, not an inspection: it reorders MRU and evicts an expired
+   * entry, exactly as `read()` always has.
+   */
+  readSync(key: string): CacheReadResult | null {
     const entry = this.store.get(key);
     if (!entry) return null;
 
@@ -97,14 +111,19 @@ export class MemoryStore implements CacheStore {
     this.store.delete(key);
     this.store.set(key, entry);
     const fragmentMarkers = cacheEntryFragmentMarkers(entry);
-    return {
+    // Built by assignment rather than conditional spread: `...(c ? {} : {x})`
+    // allocates a throwaway literal for *both* arms on every read, and this
+    // runs once per cache consumer per request. The resulting object is the
+    // same shape either way.
+    const result: CacheReadResult = {
       body: entry.body,
       state: now < entry.freshUntil ? "fresh" : "stale",
       hasFragments: fragmentMarkers.length > 0,
       fragmentMarkers,
-      ...(entry.memoryValue === undefined ? {} : { memoryValue: entry.memoryValue }),
-      ...(entry.tags?.length ? { tags: entry.tags } : {}),
     };
+    if (entry.memoryValue !== undefined) result.memoryValue = entry.memoryValue;
+    if (entry.tags?.length) result.tags = entry.tags;
+    return result;
   }
 
   async write(
