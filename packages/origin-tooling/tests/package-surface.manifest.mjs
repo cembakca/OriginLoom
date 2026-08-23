@@ -60,6 +60,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
   "lib/stores/session-store",
   "lib/stores/user-info-store",
   "lib/strip-undefined",
+  "lib/taint",
   "lib/types",
   "render",
   "routing",
@@ -74,6 +75,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
 ];
 
 export const CORE_PUBLIC_SUBPATHS = [
+  "after",
   "adapters/gateway",
   "adapters/gateway-identity",
   "api/cache-purge",

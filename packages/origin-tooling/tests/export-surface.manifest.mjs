@@ -83,6 +83,7 @@ export const SHARED_TEMPLATE_SUBPATHS = [
   "lib/metadata/types",
   "lib/request",
   "lib/runtime-schema",
+  "lib/stores/user-info-store",
   "lib/strip-undefined",
   "lib/types",
   "routing",

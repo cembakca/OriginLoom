@@ -156,7 +156,7 @@ kısmını zaten veriyor. Maliyet/fayda tutmuyor.
 
 Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesinde en ucuz olanı.
 
-### 4.1 Hono RPC — el yazması BFF sözleşmesinin sonu **[P1]**
+### 4.1 Hono RPC — el yazması BFF sözleşmesinin sonu **[P1]** **[YAPILDI — 0.7.28]**
 
 - **Ne**: Hono'nun `hc<AppType>` istemcisi. Sunucudaki route zincirinin tipini export ediyorsun,
   istemci girdileri ve çıktıları tip güvenli görüyor. `zValidator` ile birleşince doğrulama ve tip
@@ -220,7 +220,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
   `dangerouslySetInnerHTML`'i politika ister. Aşamalı: önce report-only, ihlalleri topla, sonra
   enforce.
 
-### 5.2 Kirletme (taint) — kişisel verinin paylaşılan HTML'e sızmasını runtime'da engelle **[P1]**
+### 5.2 Kirletme (taint) — kişisel verinin paylaşılan HTML'e sızmasını runtime'da engelle **[P1]** **[YAPILDI — 0.7.28]**
 
 - **Ne**: React'in `experimental_taintObjectReference` / `taintUniqueValue`'su. Bir nesneyi ya da
   değeri işaretliyorsun; istemciye geçmeye çalışırsa React hata veriyor.
@@ -376,7 +376,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
 
 ## 8. Production olgunluğu
 
-### 8.1 `after()` / `waitUntil` — yanıttan sonra iş **[P1]**
+### 8.1 `after()` / `waitUntil` — yanıttan sonra iş **[P1]** **[YAPILDI — 0.7.28]**
 
 - **Ne**: Next'in `after()`'ı, edge runtime'ların `waitUntil`'i. Yanıt gönderildikten sonra çalışacak
   işi kaydediyorsun; runtime süreci o iş bitene kadar kapatmıyor.
@@ -482,20 +482,23 @@ Değer/maliyet oranına göre, mimarimize uygunluk sırasıyla:
 
 ### İlk dalga — yüksek değer, düşük/orta maliyet
 
-| #   | Madde                        | Neden ilk                                                                   |
-| --- | ---------------------------- | --------------------------------------------------------------------------- |
-| 4.1 | Hono RPC ile tip güvenli BFF | Hono'yu zaten kullanıyoruz; bedava duran özellik                            |
-| 8.1 | `after()` / `waitUntil`      | Mevcut `void promise` deseni sessiz veri kaybı üretiyor                     |
-| 5.2 | Taint / sızma koruması       | Mimarimizin en yüksek etkili hata sınıfı, bugün sadece test koruyor         |
-| 3.4 | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
-| 2.1 | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
-| 6.1 | Speculation Rules            | Cache mimarimiz prerender'ı olağandışı ucuz kılıyor                         |
-| 5.1 | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
-| 7.1 | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |
-| 7.3 | Tip güvenli env şeması       | Doğrulama var, tip ve public/secret sınırı yok                              |
-| 3.1 | İsimli cache profilleri      | Ham TTL sayıları okunabilirliği ve denetimi zorlaştırıyor                   |
-| 9.1 | `using` ile kaynak yönetimi  | `releaseGatewayResponse` unutma sınıfını dile devreder                      |
-| 4.2 | Form actions                 | JS'siz form; a11y ve dayanıklılık                                           |
+✅ işaretli satırlar 0.7.28'de yapıldı; ayrıntı ilgili maddenin başlığındaki
+**[YAPILDI]** notunda ve `CHANGELOG`'da.
+
+| #      | Madde                        | Neden ilk                                                                   |
+| ------ | ---------------------------- | --------------------------------------------------------------------------- |
+| 4.1 ✅ | Hono RPC ile tip güvenli BFF | Hono'yu zaten kullanıyoruz; bedava duran özellik                            |
+| 8.1 ✅ | `after()` / `waitUntil`      | Mevcut `void promise` deseni sessiz veri kaybı üretiyor                     |
+| 5.2 ✅ | Taint / sızma koruması       | Mimarimizin en yüksek etkili hata sınıfı, bugün sadece test koruyor         |
+| 3.4    | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
+| 2.1    | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
+| 6.1    | Speculation Rules            | Cache mimarimiz prerender'ı olağandışı ucuz kılıyor                         |
+| 5.1    | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
+| 7.1    | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |
+| 7.3    | Tip güvenli env şeması       | Doğrulama var, tip ve public/secret sınırı yok                              |
+| 3.1    | İsimli cache profilleri      | Ham TTL sayıları okunabilirliği ve denetimi zorlaştırıyor                   |
+| 9.1    | `using` ile kaynak yönetimi  | `releaseGatewayResponse` unutma sınıfını dile devreder                      |
+| 4.2    | Form actions                 | JS'siz form; a11y ve dayanıklılık                                           |
 
 ### İkinci dalga
 

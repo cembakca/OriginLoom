@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { cookie } from "@originloom/shared/lib/request";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
+import { taintValueIfPossible } from "@originloom/shared/lib/taint";
 
 import { gatewayFetch, releaseGatewayResponse } from "../../../adapters/gateway.js";
 import {
@@ -64,10 +65,19 @@ export function displayNameFromAccess(access: string): string {
 }
 
 export function readTokens(request: Request): { access?: string; refresh?: string } {
-  return stripUndefined({
+  const tokens = stripUndefined({
     access: cookie(request, Cookie.accessToken),
     refresh: cookie(request, Cookie.refreshToken),
   });
+
+  // Marked here rather than at each call site, because this is the one door the
+  // tokens come through. If either ever reaches island props or JSON-LD, the
+  // serializer refuses instead of shipping a credential inside shared HTML.
+  // The marks are scoped to `tokens`, so they are forgotten with it.
+  if (tokens.access) taintValueIfPossible("access token", tokens, tokens.access);
+  if (tokens.refresh) taintValueIfPossible("refresh token", tokens, tokens.refresh);
+
+  return tokens;
 }
 
 /** Heuristic: treat malformed or expired JWT as needing refresh. */

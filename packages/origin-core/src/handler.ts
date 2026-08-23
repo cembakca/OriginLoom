@@ -15,6 +15,7 @@ import { logRequest } from "./ssr/response.js";
 import { serveRoute, type ServeRouteOptions, tryServeCachedRoute } from "./ssr/serve-route.js";
 import type { HandleContext } from "./ssr/types.js";
 
+export { after, afterTasksInFlight, drainAfterTasks } from "./after.js";
 export { drainRevalidations } from "./cache/revalidation.js";
 export { handleHead, renderHeadRoute, resolveHeadRoute, tryServeCachedHead } from "./ssr/head.js";
 export type { ServeRouteOptions } from "./ssr/serve-route.js";

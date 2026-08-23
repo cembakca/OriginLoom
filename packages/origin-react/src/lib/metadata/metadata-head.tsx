@@ -116,10 +116,13 @@ function StructuredDataHead({
       type="application/ld+json"
       nonce={nonce}
       dangerouslySetInnerHTML={{
-        __html: serializeEmbeddedJson({
-          "@context": "https://schema.org",
-          "@graph": meta.structuredData,
-        }),
+        __html: serializeEmbeddedJson(
+          {
+            "@context": "https://schema.org",
+            "@graph": meta.structuredData,
+          },
+          "JSON-LD structured data",
+        ),
       }}
     />
   );

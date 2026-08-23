@@ -1,5 +1,34 @@
 # @originloom/core
 
+## 0.7.28
+
+### Patch Changes
+
+- Three items from `docs/framework-research-2026.md`.
+
+  - **`after()` (8.1)** — post-response work that survives a deploy. The pattern it
+    replaces is `void doIt()`, which is invisible to shutdown and whose rejection
+    surfaces as an unhandled rejection with no request attached. Tasks park on the
+    request, start once the handler has produced its response, are drained on
+    shutdown against a budget, and log their own failures. Bounded in flight, so a
+    runaway scheduler is refused loudly instead of growing until the pod dies.
+  - **Taint (5.2)** — a runtime guard for the rule the cache architecture rests on:
+    shared HTML must not carry one visitor's data. `taintObject` and `taintValue`
+    mark server-only data, and `serializeEmbeddedJson` refuses to write it into
+    island props or JSON-LD. The check rides on the walk `JSON.stringify` already
+    does and is not installed at all when nothing is marked. Access and refresh
+    tokens are marked automatically where they are read, so no app has to
+    remember. Registry entries are released with their lifetime object and capped,
+    so a leak guard cannot become a leak.
+  - **Hono RPC (4.1)** — the generated app's BFF is now typed from its own routes.
+    Route groups are chained and exported as `AppType`; `src/lib/api-client.ts`
+    builds an `hc` client from it. The hand-written `SessionResponse` this replaces
+    had already drifted — it was missing `signedIn`. Short-circuits go through
+    `halt()`, because one bare `Response` branch collapses Hono's inferred body to
+    `{}` and silently untypes every call site; a type-level test guards that.
+
+- @originloom/shared@0.7.27
+
 ## 0.7.26
 
 ### Patch Changes

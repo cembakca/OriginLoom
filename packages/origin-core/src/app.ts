@@ -9,6 +9,7 @@ import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { compress } from "hono/compress";
 import { HTTPException } from "hono/http-exception";
 
+import { flushAfterTasks } from "./after.js";
 import { type Capacity, createSsrDispatch } from "./app/ssr-dispatch.js";
 import type { Assets } from "./assets.js";
 import { pingCache } from "./cache/index.js";
@@ -140,10 +141,17 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   );
   app.use("*", async (c, next) => {
     await withRequestSpan(contextRequest(c), c.get("requestId"), async (span) => {
-      await next();
-      span.setAttribute("http.response.status_code", c.res.status);
-      span.setAttribute("ssr.cache.state", c.res.headers.get("x-cache") ?? "NONE");
-      if (c.res.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
+      try {
+        await next();
+        span.setAttribute("http.response.status_code", c.res.status);
+        span.setAttribute("ssr.cache.state", c.res.headers.get("x-cache") ?? "NONE");
+        if (c.res.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
+      } finally {
+        // Deliberately not awaited: `after()` exists so this work stays off the
+        // response path. In `finally` because a failed request still has to
+        // release what it parked — otherwise the tasks leak with the context.
+        flushAfterTasks();
+      }
     });
   });
   app.use("*", createSecurityMiddleware(options.csp));

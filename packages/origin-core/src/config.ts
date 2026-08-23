@@ -81,6 +81,9 @@ export const config = {
   appEnv: process.env.APP_ENV ?? nodeEnv,
   isProduction: nodeEnv === "production",
   shutdownTimeoutMs: numberEnv("SHUTDOWN_TIMEOUT_MS", 10_000),
+  /** Ceiling on concurrently running `after()` tasks; past it they are refused, not queued. */
+  afterTaskMaxInFlight: numberEnv("AFTER_TASK_MAX_IN_FLIGHT", 1_000),
+  afterTaskDrainTimeoutMs: numberEnv("AFTER_TASK_DRAIN_TIMEOUT_MS", 2_000),
   ssrRequestTimeoutMs,
   apiRequestTimeoutMs: numberEnv("API_REQUEST_TIMEOUT_MS", 12_000),
   proxyRequestTimeoutMs: numberEnv("PROXY_REQUEST_TIMEOUT_MS", 8_000),

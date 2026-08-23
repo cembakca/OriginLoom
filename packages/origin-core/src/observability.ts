@@ -17,7 +17,12 @@ const REQUEST_ID_BAGGAGE_KEY = "ssr.request_id";
 type RequestState = {
   requestId: string;
   memo: Map<string, Promise<unknown>>;
+  /** Work parked by `after()`, started once the response exists. */
+  after: AfterTask[];
 };
+
+/** Structural type; the runnable half lives in after.ts. */
+type AfterTask = { name: string; run: () => unknown };
 
 const requestStorage = new AsyncLocalStorage<RequestState>();
 
@@ -65,7 +70,7 @@ export async function withRequestSpan<T>(
   const parent = propagation.setBaggage(extracted, baggage);
   const url = new URL(request.url);
 
-  return requestStorage.run({ requestId, memo: new Map() }, () =>
+  return requestStorage.run({ requestId, memo: new Map(), after: [] }, () =>
     withSpan(
       `${request.method} ${url.pathname}`,
       {
@@ -113,6 +118,24 @@ export function memoizeRequestValue<T>(key: string, load: () => Promise<T>): Pro
   });
   state.memo.set(key, pending);
   return pending;
+}
+
+/**
+ * Parks a task on the active request. Returns false when there is no request in
+ * scope, which tells the caller to run the task itself.
+ */
+export function queueAfterTask(task: AfterTask): boolean {
+  const state = requestStorage.getStore();
+  if (!state) return false;
+  state.after.push(task);
+  return true;
+}
+
+/** Hands over everything the active request parked, leaving the queue empty. */
+export function takeAfterTasks(): AfterTask[] {
+  const state = requestStorage.getStore();
+  if (!state || state.after.length === 0) return [];
+  return state.after.splice(0);
 }
 
 export function activeTraceFields(): { traceId?: string; spanId?: string } {

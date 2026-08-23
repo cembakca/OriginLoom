@@ -283,6 +283,7 @@ export function renderTemplates({
     "src/features/live/live-page.tsx": livePage(),
     "src/components/layout/root-layout.tsx": rootLayout(title),
     "src/components/ui/responsive-image.tsx": responsiveImageComponent(),
+    "src/lib/api-client.ts": apiClientLib(),
     "src/lib/shell-data.ts": libShellData(),
     "src/lib/shell-context.tsx": shellContext(),
     "src/lib/device-shell.ts": deviceShellLib(),
@@ -316,6 +317,7 @@ export function renderTemplates({
     "tests/bot-analytics.test.ts": botAnalyticsTest(),
     "tests/cache-key-codec.test.ts": cacheKeyCodecTest(),
     "tests/routing-rules.test.ts": routingRulesTest(),
+    "tests/api-contract.test.ts": apiContractTest(),
     "tests/session-api.test.ts": sessionApiTest(),
     "tests/enquiries-api.test.ts": enquiryApiTest(),
     "tests/no-cache.test.ts": noCacheTest(),
@@ -1356,7 +1358,7 @@ import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
 import { closeGatewayTransport } from "@originloom/core/gateway-transport";
-import { drainRevalidations } from "@originloom/core/handler";
+import { drainAfterTasks, drainRevalidations } from "@originloom/core/handler";
 import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
 import { logError, logger } from "@originloom/core/logger";
 import { createMetricsApp } from "@originloom/core/metrics-server";
@@ -1473,6 +1475,7 @@ ${liveStream ? "    stopLiveStreams();\n" : ""}
           closeServer(httpServer),
           closeServer(metricsServer),
           drainRevalidations(config.revalidationDrainTimeoutMs),
+          drainAfter(),
 ${botAnalytics ? "          drainBotAnalytics(),\n" : ""}        ]);
         // Drain work may issue gateway requests; close its shared pool last.
         await closeGatewayTransport();
@@ -1491,6 +1494,16 @@ ${botAnalytics ? "          drainBotAnalytics(),\n" : ""}        ]);
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
+/**
+ * Post-response work registered with \`after()\`. Draining it is what separates
+ * this from a floating promise: a deploy that rolls the pod finishes the beacon
+ * it started, or says out loud that it could not.
+ */
+async function drainAfter(): Promise<void> {
+  if (await drainAfterTasks(config.afterTaskDrainTimeoutMs)) return;
+  logger.warn("after tasks did not drain before the shutdown budget expired");
 }
 
 function closeServer(server: ServerType | null): Promise<void> {
@@ -3144,7 +3157,7 @@ describe("BFF client refresh contract", () => {
 
 const sessionApiTest =
   () => `import type { AppVariables } from "@originloom/core/middleware/request-id";
-import { mountSessionApi } from "@server/api/session";
+import { sessionApi } from "@server/api/session";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 
@@ -3158,7 +3171,7 @@ describe("session BFF routes", () => {
       c.set("clientIp", "127.0.0.1");
       await next();
     });
-    mountSessionApi(app);
+    app.route("/", sessionApi);
 
     const response = await app.request(path, { method });
     expect(response.status).not.toBe(404);
@@ -3550,17 +3563,135 @@ function isLiveMessage(value: unknown): value is LiveMessage {
 }
 `;
 
+const apiContractTest = () => `import type { InferResponseType } from "hono/client";
+import { describe, expect, expectTypeOf, it } from "vitest";
+
+import { api } from "~/lib/api-client";
+
+type SessionResponse = InferResponseType<typeof api.api.session.$get>;
+type CalculatorResponse = InferResponseType<typeof api.api.calculator.$get>;
+
+/**
+ * The client's types come from the route handlers, so this guards the wiring
+ * that makes that true rather than the shapes themselves.
+ *
+ * The failure it exists to catch is silent: break the route chain, return a
+ * bare \`Response\` from one branch, and Hono widens the body to \`{}\`. Everything
+ * still compiles and every call site quietly becomes untyped. \`{}\` accepts
+ * anything, so asserting a real field is what makes that visible.
+ */
+describe("API contract", () => {
+  it("infers the session body from the route, not from a hand-written copy", () => {
+    expectTypeOf<SessionResponse>().toHaveProperty("signedIn");
+    expectTypeOf<SessionResponse>().toHaveProperty("profile");
+    expectTypeOf<SessionResponse["profile"]>().toHaveProperty("displayName");
+  });
+
+  it("infers the calculator body from the route", () => {
+    expectTypeOf<CalculatorResponse>().toHaveProperty("monthlyPayment");
+  });
+
+  /** \`{}\` is what a collapsed contract looks like; anything assigns to it. */
+  it("has not collapsed to an empty body type", () => {
+    expectTypeOf<SessionResponse>().not.toEqualTypeOf<Record<string, never>>();
+    expectTypeOf<CalculatorResponse>().not.toEqualTypeOf<Record<string, never>>();
+  });
+
+  it("exposes the routes the browser actually calls", () => {
+    expect(typeof api.api.session.$get).toBe("function");
+    expect(typeof api.api.calculator.$get).toBe("function");
+    expect(typeof api.api.internal.refresh.$post).toBe("function");
+  });
+});
+`;
+
+const apiClientLib =
+  () => `import { sessionAwareFetch } from "@originloom/shared/lib/client/api-fetch";
+import { seedUserInfo } from "@originloom/shared/lib/stores/user-info-store";
+import type { AppType } from "@server/api";
+import { hc } from "hono/client";
+
+/**
+ * The browser's view of this app's own API, typed from the routes themselves.
+ *
+ * The import is \`import type\`, so nothing from \`server/\` reaches the client
+ * bundle — only the shape does. That is the whole trick: one definition on the
+ * server, and the call sites below stop compiling the moment it changes.
+ *
+ * What this replaces is a hand-kept copy of every response shape. A copy is
+ * right on the day it is written and silently wrong afterwards, because
+ * nothing fails when the server changes and the copy does not.
+ *
+ * Cookies are HttpOnly, so credentials ride along with the request without any
+ * script — including this one — ever seeing them.
+ */
+export const api = hc<AppType>("/", {
+  // The transport, not plain \`fetch\`: an expired access token answers 401, and
+  // this gives the refresh endpoint one chance to mint a new one before the
+  // call is retried. Typing the client is no reason to lose that — an earlier
+  // draft of this file did, and the e2e that walks a challenged session caught
+  // it.
+  fetch: sessionAwareFetch,
+});
+
+/** A failed call, carrying the status so a caller can tell 401 from 503. */
+export class ApiError extends Error {
+  constructor(readonly status: number) {
+    super(\`API request failed with \${status}\`);
+    this.name = "ApiError";
+  }
+}
+
+/**
+ * Awaits a typed call and hands back its body, or throws with the status.
+ *
+ * \`hc\` returns a promise of a response whose \`json()\` is typed. Checking that
+ * it succeeded is still the caller's job, and skipping that check is how a 401
+ * body ends up rendered as if it were a profile — so this does both in one
+ * place and leaves no version of the call that forgets.
+ */
+export async function unwrap<T>(
+  call: Promise<{ ok: boolean; status: number; json: () => Promise<T> }>,
+): Promise<T> {
+  const response = await call;
+  if (!response.ok) {
+    // A 401 that survived the refresh retry is the real answer: the visitor is
+    // signed out, and the header should stop showing them as signed in.
+    if (response.status === 401) seedUserInfo({ isSignedIn: false });
+    throw new ApiError(response.status);
+  }
+  return response.json();
+}
+`;
+
 const apiIndex = () => `import { mountClientErrorApi } from "@originloom/core/api/client-errors";
 import { mountClientMetricApi } from "@originloom/core/api/client-metrics";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
-import { mountCalculatorApi } from "@server/api/calculator";
+import { calculatorApi } from "@server/api/calculator";
 import { mountEnquiryApi } from "@server/api/enquiries";
 import { mountPublicItemsApi } from "@server/api/items";
 import { mountLiveStreamApi } from "@server/api/live-stream";
 import { mountReferralApi } from "@server/api/referrals";
-import { mountSessionApi } from "@server/api/session";
+import { sessionApi } from "@server/api/session";
 import { mountWebhookApi } from "@server/api/webhooks";
-import type { Hono } from "hono";
+import { Hono } from "hono";
+
+/**
+ * The routes a browser calls with a typed client.
+ *
+ * Only routes whose shape a client actually consumes belong here — a form POST
+ * or a webhook has no typed caller, so listing it would grow the client's
+ * surface for nothing. Chained, because the chain is what carries the types.
+ */
+const typedApi = new Hono<{ Variables: AppVariables }>()
+  .route("/", sessionApi)
+  .route("/", calculatorApi);
+
+/**
+ * The contract \`src/lib/api-client.ts\` builds on. Derived, never written by
+ * hand: change a handler's response and every call site stops compiling.
+ */
+export type AppType = typeof typedApi;
 
 /**
  * Product BFF / API routes. Mounted before SSR dispatch, so anything under /api/*
@@ -3578,9 +3709,9 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   // it is a POST, not a link — see docs/referrals.md.
   mountReferralApi(app);
 
-  // The tool page renders its first result from this same endpoint, so the
-  // island refines a plan instead of computing a second one.
-  mountCalculatorApi(app);
+  // Typed routes mount as one group, so what is served and what AppType
+  // describes cannot drift apart.
+  app.route("/", typedApi);
 
   // The provider writing back to us. Signed, time-bounded and idempotent —
   // see docs/webhooks.md before changing any of the three.
@@ -3590,8 +3721,6 @@ export function mountApi(app: Hono<{ Variables: AppVariables }>): void {
   // and rate limited — see docs/mutations.md.
   mountEnquiryApi(app);
 
-  // "Who am I", answered from HttpOnly cookies. The account island calls it.
-  mountSessionApi(app);
   mountLiveStreamApi(app);
 }
 `;
@@ -4131,19 +4260,18 @@ const queryKeys = () => `export const queryKeys = {
 } as const;
 `;
 
-const sessionQueryHook =
-  () => `import { ClientApiError, clientApiFetch } from "@originloom/shared/lib/client/api-fetch";
-import { useQuery } from "@tanstack/react-query";
+const sessionQueryHook = () => `import { useQuery } from "@tanstack/react-query";
 
+import { api, ApiError, unwrap } from "~/lib/api-client";
 import { queryKeys } from "~/lib/query/keys";
 
-export interface SessionResponse {
-  profile: { displayName: string; initials: string };
-}
-
-export function fetchSession(signal: AbortSignal): Promise<SessionResponse> {
-  // Cookies are HttpOnly; clientApiFetch includes them without exposing tokens to JavaScript.
-  return clientApiFetch<SessionResponse>("/api/session", { signal });
+/**
+ * The response shape is not declared here on purpose — it comes from the route
+ * in \`server/api/session.ts\`. Writing it out again is how the two drift: the
+ * copy this replaced had dropped \`signedIn\` entirely and nothing complained.
+ */
+export function fetchSession(signal: AbortSignal) {
+  return unwrap(api.api.session.$get({}, { init: { signal } }));
 }
 
 export function useSessionQuery() {
@@ -4151,7 +4279,8 @@ export function useSessionQuery() {
     queryKey: queryKeys.session.current(),
     queryFn: ({ signal }) => fetchSession(signal),
     retry: (failureCount, error) => {
-      if (error instanceof ClientApiError && error.status === 401) return false;
+      // A signed-out visitor is an answer, not a failure worth retrying.
+      if (error instanceof ApiError && error.status === 401) return false;
       return failureCount < 1;
     },
   });
@@ -5468,8 +5597,9 @@ const calculatorApi =
   () => `import { contextRequest } from "@originloom/core/middleware/request-deadline";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
+import { halt } from "@server/lib/bff-http";
 import { getPaymentPlan } from "@server/services/calculator";
-import type { Hono } from "hono";
+import { Hono } from "hono";
 
 import { calculatorSearch } from "~/lib/calculator-query";
 
@@ -5487,11 +5617,11 @@ const CALCULATOR_POLICY: PublicApiPolicy = {
   requireSameOriginMutation: true,
 };
 
-export function mountCalculatorApi(app: Hono<{ Variables: AppVariables }>): void {
-  app.get("/api/calculator", async (c) => {
+export const calculatorApi = new Hono<{ Variables: AppVariables }>()
+  .get("/api/calculator", async (c) => {
     const request = contextRequest(c);
     const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", CALCULATOR_POLICY);
-    if (denied) return denied;
+    if (denied) halt(denied);
 
     // Normalized with the same contract the page uses, so a URL that renders one
     // plan cannot fetch a different one.
@@ -5502,7 +5632,8 @@ export function mountCalculatorApi(app: Hono<{ Variables: AppVariables }>): void
       "cache-control": "public, max-age=60, stale-while-revalidate=300",
     });
   });
-}
+
+export type CalculatorApi = typeof calculatorApi;
 `;
 
 const calculatorQueryLib = () => `/**
@@ -5627,6 +5758,7 @@ export function CalculatorPage({ children }: { children: ReactNode }) {
 
 const calculatorIsland = () => `import { useState } from "react";
 
+import { api, unwrap } from "~/lib/api-client";
 import {
   CALCULATOR_TERMS,
   calculatorNormalizers,
@@ -5671,11 +5803,15 @@ export default function LoanCalculator({ initial }: { initial: PaymentPlan }) {
       rate: calculatorNormalizers.rate!(rate),
     });
     try {
-      const response = await fetch(\`/api/calculator?\${search}\`, {
-        headers: { accept: "application/json" },
-      });
-      if (!response.ok) throw new Error(String(response.status));
-      setPlan((await response.json()) as PaymentPlan);
+      // Typed from the route: no cast, and a changed response shape is a
+      // compile error here rather than a runtime surprise.
+      setPlan(
+        await unwrap(
+          api.api.calculator.$get({
+            query: Object.fromEntries(search) as Record<string, string>,
+          }),
+        ),
+      );
       // The URL follows the state, so the result stays shareable and the back
       // button returns to the previous plan instead of leaving the page.
       window.history.replaceState(null, "", \`/calculator?\${search}\`);
@@ -6729,6 +6865,8 @@ export const analyticsSequence = sequencedScript(
 
 const bffHttpLib = () => `import { withBffAuthCookies } from "@originloom/core/auth/bff";
 import type { CookieJar } from "@originloom/core/middleware/cookie-jar";
+import { HTTPException } from "hono/http-exception";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 /**
  * The three responses every BFF route ends in, written once.
@@ -6739,6 +6877,16 @@ import type { CookieJar } from "@originloom/core/middleware/cookie-jar";
  * easy to forget on the fourth endpoint, and forgetting either is a leak: a
  * cached per-user payload, or a session that silently stops refreshing.
  */
+/**
+ * The header pair every BFF answer carries. Exported so a handler can use
+ * \`c.json(body, status, BFF_HEADERS)\` — which keeps RPC's type inference —
+ * without restating the caching contract at each endpoint.
+ */
+export const BFF_HEADERS = {
+  "content-type": "application/json; charset=utf-8",
+  "cache-control": "private, no-store",
+} as const;
+
 export function bffJson(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -6764,8 +6912,31 @@ export function bffSessionUnavailable(cookies: CookieJar): Response {
   return withBffAuthCookies(bffJson({ error: "Oturum servisi kullanılamıyor" }, 503), cookies);
 }
 
-export function withBffCookies(response: Response, cookies: CookieJar): Response {
-  return withBffAuthCookies(response, cookies);
+/**
+ * Attaches the auth cookies without erasing what the response is.
+ *
+ * The generic matters for RPC: Hono infers the client's types from what a
+ * handler returns, so widening a \`c.json()\` result to \`Response\` here would
+ * hand the client an untyped body. \`applyCookies\` builds a new Response with
+ * the same body and status, so preserving the type is accurate — the cast only
+ * tells TypeScript what the runtime already guarantees.
+ */
+/**
+ * Ends the request with this exact response.
+ *
+ * Returning a bare \`Response\` from a handler would work at runtime and quietly
+ * break the type contract: Hono infers the client's types from what handlers
+ * return, and one untyped branch collapses the whole route's body type to
+ * \`{}\`. Throwing keeps the happy path the only \`return\`, so the shape stays
+ * inferable — and \`app.onError\` hands this response back untouched, headers,
+ * cookies and all.
+ */
+export function halt(response: Response): never {
+  throw new HTTPException(response.status as ContentfulStatusCode, { res: response });
+}
+
+export function withBffCookies<T extends Response>(response: T, cookies: CookieJar): T {
+  return withBffAuthCookies(response, cookies) as T;
 }
 `;
 
@@ -9863,15 +10034,20 @@ const sessionApi = () => `import {
   challengeBffSession,
   confirmBffSession,
   forceTokenRefresh,
-  withBffAuthCookies,
 } from "@originloom/core/auth/bff";
 import { contextRequest } from "@originloom/core/middleware/request-deadline";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
 import { requireBffAuth } from "@server/lib/bff-auth";
-import { bffJson, bffSessionUnavailable, bffSignedOut } from "@server/lib/bff-http";
+import {
+  BFF_HEADERS,
+  bffSessionUnavailable,
+  bffSignedOut,
+  halt,
+  withBffCookies,
+} from "@server/lib/bff-http";
 import { fetchUserProfile } from "@server/services/profile";
-import type { Hono } from "hono";
+import { Hono } from "hono";
 
 /**
  * The session BFF: the browser asks "who am I", never "here is my token".
@@ -9889,41 +10065,56 @@ const SESSION_POLICY: PublicApiPolicy = {
   requireSameOriginMutation: true,
 };
 
-export function mountSessionApi(app: Hono<{ Variables: AppVariables }>): void {
-  app.get("/api/session", async (c) => {
+/**
+ * Routes are chained rather than mounted one statement at a time, because the
+ * chain *is* the contract: \`typeof sessionApi\` carries every path, method and
+ * response body, and \`hc<AppType>\` reads them straight off it. Break the chain
+ * and the client silently goes back to \`any\`.
+ */
+export const sessionApi = new Hono<{ Variables: AppVariables }>()
+  .get("/api/session", async (c) => {
     const request = contextRequest(c);
     const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", SESSION_POLICY);
-    if (denied) return denied;
+    if (denied) halt(denied);
 
     const auth = await requireBffAuth(request);
-    if (!auth.ok) return auth.response;
+    if (!auth.ok) halt(auth.response);
 
     const result = await fetchUserProfile(auth.gatewayRequest);
     // The gateway is the authority: it rejected the token, so the UI hints go
     // too — but the refresh token stays, so the next call can recover.
     if (result.kind === "unauthorized") {
       challengeBffSession(auth.cookies);
-      return bffSignedOut(auth.cookies);
+      halt(bffSignedOut(auth.cookies));
     }
-    if (result.kind === "unavailable") return bffSessionUnavailable(auth.cookies);
+    if (result.kind === "unavailable") halt(bffSessionUnavailable(auth.cookies));
 
     confirmBffSession(auth.cookies, result.profile);
-    return withBffAuthCookies(bffJson({ signedIn: true, profile: result.profile }), auth.cookies);
-  });
-
+    // \`c.json\` rather than a bare Response: this is the shape the client reads
+    // its types from, and \`withBffCookies\` carries it through unchanged.
+    return withBffCookies(
+      c.json({ signedIn: true as const, profile: result.profile }, 200, BFF_HEADERS),
+      auth.cookies,
+    );
+  })
   // Called after a client-side 401: mints a new access token from the refresh
   // token so the browser can retry, without ever seeing either.
-  app.post("/api/internal/refresh", async (c) => {
+  .post("/api/internal/refresh", async (c) => {
     const request = contextRequest(c);
     const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", SESSION_POLICY);
-    if (denied) return denied;
+    if (denied) halt(denied);
 
     const refreshed = await forceTokenRefresh(request);
-    if (refreshed.kind === "unavailable") return bffSessionUnavailable(refreshed.cookies);
-    if (refreshed.kind === "unauthorized") return bffSignedOut(refreshed.cookies);
-    return withBffAuthCookies(bffJson({ signedIn: true }), refreshed.cookies);
+    if (refreshed.kind === "unavailable") halt(bffSessionUnavailable(refreshed.cookies));
+    if (refreshed.kind === "unauthorized") halt(bffSignedOut(refreshed.cookies));
+    return withBffCookies(
+      c.json({ signedIn: true as const }, 200, BFF_HEADERS),
+      refreshed.cookies,
+    );
   });
-}
+
+/** The client reads this; it is never written by hand. */
+export type SessionApi = typeof sessionApi;
 `;
 
 const seoRoutes = () => `import { config } from "@originloom/core/config";

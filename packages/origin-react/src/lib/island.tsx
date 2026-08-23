@@ -32,7 +32,9 @@ export function Island({
       data-island={name}
       data-mode={mode}
       data-eager={eager ? "" : undefined}
-      data-props={props === undefined ? undefined : serializeEmbeddedJson(props)}
+      data-props={
+        props === undefined ? undefined : serializeEmbeddedJson(props, `island "${name}" props`)
+      }
     >
       {mode === "hydrate" ? children : <div data-fallback="">{children}</div>}
     </div>

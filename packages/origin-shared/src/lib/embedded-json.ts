@@ -1,3 +1,5 @@
+import { assertNodeUntainted, hasTaintedData } from "./taint.js";
+
 const EMBEDDED_JSON_ESCAPE_PATTERN = /[<>&/\u2028\u2029]/g;
 
 /**
@@ -8,8 +10,17 @@ const EMBEDDED_JSON_ESCAPE_PATTERN = /[<>&/\u2028\u2029]/g;
  * safe if it is later moved from a data attribute into an inline JSON/script
  * container. All escapes are standard JSON and are restored by JSON.parse.
  */
-export function serializeEmbeddedJson(value: unknown): string {
-  const json = JSON.stringify(value);
+export function serializeEmbeddedJson(value: unknown, where = "embedded JSON"): string {
+  // The taint check rides along on the walk `JSON.stringify` is doing anyway,
+  // so a marked value is caught without a second traversal. With nothing marked
+  // the replacer is not installed at all and this is the plain path.
+  const json = hasTaintedData()
+    ? JSON.stringify(value, (_key, node: unknown) => {
+        assertNodeUntainted(node, where);
+        return node;
+      })
+    : JSON.stringify(value);
+
   if (json === undefined) {
     throw new TypeError("Embedded JSON value must be JSON-serializable");
   }

@@ -34,6 +34,7 @@ const requests: CounterMap = new Map();
 const gatewayRequests: CounterMap = new Map();
 const cacheOperations: CounterMap = new Map();
 const revalidations: CounterMap = new Map();
+const afterTasks: CounterMap = new Map();
 const cacheCardinalityOverflows: CounterMap = new Map();
 const invalidGatewayPayloads: CounterMap = new Map();
 const shellDegradations: CounterMap = new Map();
@@ -453,6 +454,31 @@ export function observeCacheOperation(
   cacheDurations.observe(labels, durationMs);
 }
 
+/**
+ * Task names come from calling code, so they cannot be trusted to be a closed
+ * set — an unbounded label is how a metrics backend falls over. The first
+ * `MAX_AFTER_TASK_LABELS` distinct names are kept and everything after that
+ * collapses to `other`, which is visible in the output rather than silent.
+ */
+const MAX_AFTER_TASK_LABELS = 32;
+const afterTaskLabels = new Set<string>();
+
+function afterTaskLabel(name: string): string {
+  const cleaned = name.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 48) || "unnamed";
+  if (afterTaskLabels.has(cleaned)) return cleaned;
+  if (afterTaskLabels.size >= MAX_AFTER_TASK_LABELS) return "other";
+  afterTaskLabels.add(cleaned);
+  return cleaned;
+}
+
+/**
+ * Outcomes of `after()` work. `rejected` means the in-flight bound refused the
+ * task — a capacity signal, not a task failure, and worth alerting on.
+ */
+export function observeAfterTask(name: string, outcome: "ok" | "failed" | "rejected"): void {
+  increment(afterTasks, `task="${afterTaskLabel(name)}",outcome="${outcome}"`);
+}
+
 export function observeRevalidation(
   outcome: "success" | "error" | "lock_miss",
   durationMs: number,
@@ -741,6 +767,7 @@ export function renderMetrics(): string {
       "Cache operation duration",
     ),
     ...counterLines("ssr_cache_revalidations_total", "SWR revalidations", revalidations),
+    ...counterLines("ssr_after_tasks_total", "Post-response task outcomes", afterTasks),
     ...revalidationDurations.lines(
       "ssr_cache_revalidation_duration_milliseconds",
       "SWR revalidation duration",

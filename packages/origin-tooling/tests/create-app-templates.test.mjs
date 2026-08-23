@@ -1088,11 +1088,14 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files["docs/upgrading.md"]).toContain("origin:migrate --apply");
   });
 
-  it("aligns the BFF refresh endpoint with the query-backed clientApiFetch hook", () => {
+  it("aligns the BFF refresh endpoint with the query-backed typed client", () => {
     const files = standalone();
     expect(files["server/api/session.ts"]).toContain('"/api/internal/refresh"');
     expect(files["src/islands/account-panel.tsx"]).toContain("useSessionQuery");
-    expect(files["src/lib/query/hooks/use-session.ts"]).toContain("clientApiFetch");
+    // The hook reads its types off the route rather than restating them, so
+    // what it must contain is the client — not a hand-written response type.
+    expect(files["src/lib/query/hooks/use-session.ts"]).toContain("api.api.session.$get");
+    expect(files["src/lib/query/hooks/use-session.ts"]).not.toContain("interface SessionResponse");
     expect(files["tests/auth-client.test.ts"]).toContain('"/api/internal/refresh"');
   });
 
@@ -1277,7 +1280,9 @@ describe("renderTemplates — production reference coverage", () => {
     // the markup is how a hydration mismatch starts (React #418).
     expect(files["server/routes/calculator.tsx"]).toContain("<LoanCalculator initial={data} />");
     // One implementation of the arithmetic: the island calls the same endpoint.
-    expect(files["src/islands/loan-calculator.tsx"]).toContain("/api/calculator?");
+    // The island reaches the same endpoint through the typed client, so the
+    // path is no longer a string it builds — the route contract supplies it.
+    expect(files["src/islands/loan-calculator.tsx"]).toContain("api.api.calculator.$get");
     expect(files["server/api/calculator.ts"]).toContain("guardPublicApi");
   });
 
