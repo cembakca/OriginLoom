@@ -30,7 +30,7 @@ export const GatewayContracts = {
 
 ```ts
 // server/services/housing-loans.ts
-import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { gatewayFetch } from "@server/diagnostics/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 
 const INVALID = "Housing loans gateway returned an invalid payload";

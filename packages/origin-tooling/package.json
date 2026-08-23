@@ -1,6 +1,6 @@
 {
   "name": "@originloom/tooling",
-  "version": "0.7.25",
+  "version": "0.7.26",
   "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -18,7 +18,7 @@
   ],
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.18.1"
   },
   "bin": {
     "origin-build": "./bin/build.mjs",

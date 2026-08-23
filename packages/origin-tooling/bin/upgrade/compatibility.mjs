@@ -16,7 +16,7 @@ export const COMPATIBILITY = [
     template: "0.7.x",
     platform: "0.7.x",
     tooling: "0.7.x",
-    node: ">=22.19.0",
+    node: ">=24.18.1",
     automaticMigrationFrom: "0.5.12",
     status: "supported",
   },

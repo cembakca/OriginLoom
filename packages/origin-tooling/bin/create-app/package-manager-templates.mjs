@@ -18,17 +18,17 @@ export function workflowSetupSteps(pm) {
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
           cache: pnpm`;
     case "npm":
       return `      - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm`;
     case "yarn":
       return `      - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
           cache: yarn
 
       - name: Enable Corepack
@@ -172,7 +172,7 @@ export function standaloneDockerfile(name, port, pm) {
     case "pnpm":
       return `# Build context is this app's root:
 #   docker build -t ${name} .
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 RUN corepack enable
 
@@ -188,7 +188,7 @@ ${dockerfileRunner(name, port, "/app/dist")}`;
     case "npm":
       return `# Build context is this app's root:
 #   docker build -t ${name} .
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -202,7 +202,7 @@ ${dockerfileRunner(name, port, "/app/dist")}`;
     case "yarn":
       return `# Build context is this app's root:
 #   docker build -t ${name} .
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 RUN corepack enable
 
@@ -220,7 +220,7 @@ ${dockerfileRunner(name, port, "/app/dist")}`;
 
 /** @param {string} name @param {number} port @param {string} distPath */
 export function dockerfileRunner(name, port, distPath) {
-  return `FROM node:22-alpine AS runner
+  return `FROM node:24-alpine AS runner
 
 WORKDIR /app
 

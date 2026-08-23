@@ -1,6 +1,6 @@
 {
   "name": "@originloom/react",
-  "version": "0.7.25",
+  "version": "0.7.26",
   "description": "React renderer adapter for OriginLoom: island runtime, document rendering and the Vite preset.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -18,7 +18,7 @@
   ],
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.18.1"
   },
   "exports": {
     "./lib/island": "./src/lib/island.tsx",
@@ -44,6 +44,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.101.4",
+    "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",

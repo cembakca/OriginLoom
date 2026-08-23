@@ -490,7 +490,9 @@ describe("renderTemplates — project features", () => {
     expect(pkg.scripts.lint).toBe("eslint .");
     expect(pkg.scripts.test).toBe("vitest run tests");
     expect(pkg.scripts.format).toBe("prettier --write .");
-    expect(pkg.engines.node).toBe(">=22.19.0");
+    // Node 24 is the Active LTS; the floor is its newest security release, not a
+    // convenient older one.
+    expect(pkg.engines.node).toBe(">=24.18.1");
     expect(pkg.devDependencies["@eslint/js"]).toBe("^10.0.1");
     expect(pkg.devDependencies.eslint).toBe("^10.8.0");
     expect(pkg.devDependencies).toHaveProperty("typescript-eslint");
@@ -1195,8 +1197,17 @@ describe("renderTemplates — production reference coverage", () => {
     expect(files["server/services/shell-data.ts"]).toContain(
       "getMenu(ctx.request, base.deviceType)",
     );
-    expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.headerItems");
-    expect(files["src/components/layout/root-layout.tsx"]).toContain("shell.menu.footerItems");
+    // The layout consumes the same header/hamburger/footer contract, through a
+    // projection that sorts it once per menu snapshot instead of per render.
+    expect(files["src/components/layout/root-layout.tsx"]).toContain(
+      "projectMenu(shell.menu, shell.deviceShell)",
+    );
+    expect(files["src/lib/menu.ts"]).toContain(
+      "headerItems: sortRecursive(menu.headerItems, shell)",
+    );
+    expect(files["src/lib/menu.ts"]).toContain(
+      "footerItems: sortRecursive(menu.footerItems, shell)",
+    );
     // A submenu that only opens on hover cannot be reached with a keyboard.
     expect(files["src/components/layout/root-layout.tsx"]).toContain("group-focus-within");
     expect(files["tests/menu-cache.test.ts"]).toContain("one entry per device");

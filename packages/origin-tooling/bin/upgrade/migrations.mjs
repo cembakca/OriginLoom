@@ -32,6 +32,7 @@ export const CLIENT_ENTRY_TELEMETRY_IMPORT_FIX_MIGRATION =
 export const SSR_ERROR_REFERENCE_MIGRATION = "0.7.22-ssr-error-reference";
 export const CACHE_PERFORMANCE_ACCEPTANCE_MIGRATION = "0.7.23-cache-performance-acceptance";
 export const WARM_PATH_PERFORMANCE_MIGRATION = "0.7.24-warm-path-performance";
+export const NODE_24_MIGRATION = "0.7.26-node-24";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -355,6 +356,19 @@ export const migrations = [
           kind: "add",
           detail: "Cache performance acceptance asset'i eklendi; mevcut kapasite dosyası korunur.",
         });
+      }
+    },
+  },
+  {
+    id: NODE_24_MIGRATION,
+    introducedIn: "0.7.26",
+    description:
+      "Node 24 (Active LTS, 2028-04-30'a kadar destekli) tabana alınır; taban 24.18.1 — Node 24'ün en güncel güvenlik sürümü. Node 22 2025-10-21'den beri maintenance'ta, yani yalnız kritik düzeltme alıyor. `@types/node` da 24'e çekilir: tipler runtime'ın önünde olduğunda, o runtime'da bulunmayan bir API temiz derlenip çalışma anında patlar.",
+    migratePackage(manifest, changes) {
+      manifest.engines ??= {};
+      setDependency(manifest, changes, "engines", "node", ">=24.18.1");
+      if (typeof manifest.devDependencies?.["@types/node"] === "string") {
+        setDependency(manifest, changes, "devDependencies", "@types/node", "^24.13.3");
       }
     },
   },

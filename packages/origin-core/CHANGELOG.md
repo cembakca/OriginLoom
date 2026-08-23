@@ -1,5 +1,32 @@
 # @originloom/core
 
+## 0.7.26
+
+### Patch Changes
+
+- Security review fixes across the request trust boundary.
+
+  - **`gatewayFetch` no longer follows upstream redirects** (`redirect: "manual"`). It did, so anything
+    answering a gateway call could steer that _server-side_ request at a host the app never named —
+    cloud metadata, an internal service — using the pod's network position, and hand the body back to
+    a caller that may write it into shared HTML. `proxyRequest` already did this; the path every
+    service actually uses did not. A 3xx is now surfaced so `requireGatewayOk` rejects it.
+  - **`resolveTrustedClientIp` distrusts a malformed `X-Forwarded-For` again.** The guard that was
+    meant to discard a header containing an unparseable entry could never fire: the entries were
+    filtered to valid addresses first, so the check ran against a list that by construction had none.
+    A forged chain was silently repaired and then had its hops counted.
+  - **`CookieJar` validates cookie names and paths.** The value was percent-encoded but the name and
+    path were written verbatim, so either could append attributes — a `Domain=` that widens the
+    cookie, or a second `Path=` — to a cookie the app believed it had scoped. Invalid input now
+    throws instead of emitting an unsafe `Set-Cookie`.
+  - **`displayNameFromAccess` no longer falls back to a slice of the access token.** That value is
+    written to `account_text`, which is script-readable by design, so the fallback put credential
+    material on the far side of the HttpOnly boundary the module exists to hold.
+
+  Each fix ships with a regression test.
+
+- @originloom/shared@0.7.26
+
 ## 0.7.25
 
 ### Patch Changes

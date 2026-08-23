@@ -118,9 +118,12 @@ export function renderTemplates({
     ...(standalone && packageManager === "yarn" ? { ".yarnrc.yml": yarnrcYaml() } : {}),
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
+    "eslint-rules/no-direct-gateway-import.mjs": noDirectGatewayImportRule(),
+    "eslint-rules/no-direct-gateway-import.d.mts": noDirectGatewayImportTypes(),
     ".prettierrc.json": asset("prettierrc.json"),
     ".prettierignore": prettierIgnore(),
     "vite.config.ts": viteConfig(vitePort),
+    "tailwind.config.js": tailwindConfig(),
     "vite.server.config.ts": viteServerConfig(),
     "public/README.md": asset("public/README.md"),
     "public/test.img": asset("public/test.img"),
@@ -178,6 +181,10 @@ export function renderTemplates({
     "load-test/profile-target.mjs": asset("load-test/profile-target.mjs"),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
+    "server/diagnostics/ssr-diagnostics.ts": ssrDiagnostics(),
+    "server/diagnostics/gateway.ts": gatewayDiagnostics(),
+    "server/lib/bff-http.ts": bffHttpLib(),
+    "server/lib/bff-auth.ts": bffAuthLib(),
     "server/middleware/index.ts": middlewareIndex(),
     "server/middleware/experiments.ts": experimentsMiddleware(),
     "server/middleware/maintenance.ts": maintenanceMiddlewareFile(),
@@ -190,6 +197,7 @@ export function renderTemplates({
     "server/metrics/catalog.ts": productMetrics(),
     "server/metrics/live-stream.ts": liveStreamMetrics(),
     "server/product/config.ts": productConfigFile(true),
+    "server/product/csp.ts": productCspFile(),
     "server/product/analytics.ts": productAnalytics(),
     "server/api/items.ts": publicItemsApi(),
     "server/api/referrals.ts": referralApi(),
@@ -276,6 +284,8 @@ export function renderTemplates({
     "src/components/layout/root-layout.tsx": rootLayout(title),
     "src/components/ui/responsive-image.tsx": responsiveImageComponent(),
     "src/lib/shell-data.ts": libShellData(),
+    "src/lib/shell-context.tsx": shellContext(),
+    "src/lib/device-shell.ts": deviceShellLib(),
     "src/lib/cache-keys.ts": cacheKeys(),
     "src/lib/pagination.ts": paginationLib(),
     "src/lib/catalog-query.ts": catalogQueryLib(),
@@ -300,6 +310,7 @@ export function renderTemplates({
     "tests/live-stream-api.test.ts": liveStreamApiTest(),
     "tests/live-message-service.test.ts": liveMessageServiceTest(),
     "tests/menu-cache.test.ts": menuCacheTest(),
+    "tests/menu-projection.test.ts": menuProjectionTest(),
     "tests/featured-items-cache.test.ts": featuredItemsCacheTest(),
     "tests/pagination.test.ts": paginationTest(),
     "tests/bot-analytics.test.ts": botAnalyticsTest(),
@@ -309,6 +320,7 @@ export function renderTemplates({
     "tests/enquiries-api.test.ts": enquiryApiTest(),
     "tests/no-cache.test.ts": noCacheTest(),
     "tests/gateway-identity.test.ts": gatewayIdentityCoverageTest(),
+    "tests/eslint-gateway-import.test.ts": gatewayImportRuleTest(),
     "tests/catalog-query.test.ts": catalogQueryTest(),
     "tests/quote-query.test.ts": quoteQueryTest(),
     "tests/referrals.test.ts": referralApiTest(),
@@ -391,7 +403,7 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
       private: true,
       type: "module",
       packageManager: packageManagerFieldValue(packageManager),
-      engines: { node: ">=22.19.0" },
+      engines: { node: ">=24.18.1" },
       ...dependencyOverrideField(packageManager),
       ...nativeBuildPolicy(packageManager),
       scripts: {
@@ -467,7 +479,7 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
         // wasm-runtime 1.2.x's incompatible @emnapi 2 alpha peer contract.
         "@napi-rs/wasm-runtime": "1.1.6",
         "@originloom/tooling": originloom,
-        "@types/node": "^22.20.1",
+        "@types/node": "^24.13.3",
         "@axe-core/playwright": "^4.12.1",
         "@playwright/test": "^1.62.0",
         "@types/react": "^19.2.17",
@@ -579,6 +591,8 @@ import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+import { noDirectGatewayImport } from "./eslint-rules/no-direct-gateway-import.mjs";
+
 export default tseslint.config(
   { ignores: ["dist/**", "node_modules/**", "playwright-report/**", "test-results/**"] },
   js.configs.recommended,
@@ -595,10 +609,16 @@ export default tseslint.config(
   },
   {
     files: ["**/*.{ts,tsx}"],
-    plugins: { "simple-import-sort": simpleImportSort },
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+      // App-owned rules. Add one when a convention this app depends on cannot
+      // otherwise fail loudly — see eslint-rules/ for what each guards.
+      local: { rules: { "no-direct-gateway-import": noDirectGatewayImport } },
+    },
     rules: {
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
+      "local/no-direct-gateway-import": "error",
       // Ambient module augmentation (e.g. the ssr-fragment JSX typing) needs a namespace.
       "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }],
       "@typescript-eslint/no-unused-vars": [
@@ -1346,9 +1366,9 @@ import { validateRoutingRules } from "@originloom/shared/routing/validate";
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
 import { mountApi } from "./api";
-${liveStream ? 'import { stopLiveStreams } from "./api/live-stream";\n' : ""}import { productMiddleware } from "./middleware";
-import { analyticsCsp } from "./product/analytics";
+${liveStream ? 'import { stopLiveStreams } from "./api/live-stream";\n' : ""}import { logSsrOutcome } from "./diagnostics/ssr-diagnostics";\nimport { productMiddleware } from "./middleware";
 import { validateProductConfig } from "./product/config";
+import { productCsp } from "./product/csp";
 import { installProductRuntime } from "./product/runtime";
 import { routes } from "./routes";
 import { mountSeo } from "./seo";
@@ -1389,11 +1409,35 @@ ${
 `
     : ""
 }    // Origins the document reaches that are not this app's own.
-    csp: analyticsCsp,
+    csp: productCsp,
     isShuttingDown: () => shuttingDown,
   });
 
-  httpServer = serve({ fetch: app.fetch, port: config.port }, (info) => {
+  /**
+   * Diagnostics need the finished response, and no middleware phase has it —
+   * the platform pipeline runs before the render, not after it. Wrapping the
+   * fetch is the one place the request and its final status exist together.
+   * \`logSsrOutcome\` returns immediately unless SSR_DIAGNOSTICS is on, and it
+   * is what releases the per-request trace, so this stays wired even when the
+   * mode is off.
+   */
+  const fetchWithDiagnostics: typeof app.fetch = async (request, env, executionCtx) => {
+    try {
+      const response = await app.fetch(request, env, executionCtx);
+      logSsrOutcome({ request, response, pageStatus: response.status });
+      return response;
+    } catch (error) {
+      logSsrOutcome({
+        request,
+        pageStatus: 500,
+        errorType: "UNHANDLED",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  };
+
+  httpServer = serve({ fetch: fetchWithDiagnostics, port: config.port }, (info) => {
     logger.info("server started", {
       port: info.port,
       cacheTopology: cacheTopology(),
@@ -1466,12 +1510,12 @@ main().catch(async (err) => {
 `;
 
 const redirectRulesMiddlewareFile =
-  () => `import { gatewayFetch, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
-import { readGatewayJson } from "@originloom/core/gateway-payload";
+  () => `import { readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isRecord } from "@originloom/shared/lib/runtime-schema";
+import { gatewayFetch, releaseGatewayResponse } from "@server/diagnostics/gateway";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 
 /**
@@ -3163,16 +3207,16 @@ describe("operations cache key codec", () => {
 });
 `;
 
-const itemsService = () => `import {
-  gatewayFetchWithIdentity,
-  releaseGatewayResponse,
-  requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
-import { config } from "@originloom/core/config";
+const itemsService = () => `import { config } from "@originloom/core/config";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
 import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import {
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -3470,12 +3514,13 @@ function isFeaturedItemsSnapshot(value: unknown): value is FeaturedItemsSnapshot
 
 `;
 
-const liveMessageService = () => `import {
+const liveMessageService =
+  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import {
   gatewayFetchWithIdentity,
   requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
-import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -4571,13 +4616,14 @@ export default function LiveTicks() {
 }
 `;
 
-const sitemapService = () => `import {
+const sitemapService =
+  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isRecord } from "@originloom/shared/lib/runtime-schema";
+import {
   gatewayFetch,
   gatewayFetchWithIdentity,
   requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
-import { isRecord } from "@originloom/shared/lib/runtime-schema";
+} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -4704,11 +4750,10 @@ describe("the sitemap source", () => {
 });
 `;
 
-const routeDomainsService =
-  () => `import { gatewayFetch, gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
-import * as cache from "@originloom/core/cache";
+const routeDomainsService = () => `import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
+import { gatewayFetch, gatewayFetchWithIdentity, requireGatewayOk } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -4912,16 +4957,16 @@ describe("route params validated against the gateway", () => {
 });
 `;
 
-const guidesService = () => `import {
-  gatewayFetchWithIdentity,
-  releaseGatewayResponse,
-  requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
-import { config } from "@originloom/core/config";
+const guidesService = () => `import { config } from "@originloom/core/config";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
 import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import {
+  gatewayFetchWithIdentity,
+  releaseGatewayResponse,
+  requireGatewayOk,
+} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -5355,9 +5400,9 @@ describe("an editorial page", () => {
 `;
 
 const calculatorService =
-  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedArray, isRecord } from "@originloom/shared/lib/runtime-schema";
+import { gatewayFetchWithIdentity, requireGatewayOk } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -5970,6 +6015,7 @@ export function normalizePageParam(value: string | null): string {
 
 const serverShellData = () => `import type { ShellDependencyPlan } from "@originloom/core/runtime";
 import type { Ctx } from "@originloom/react/lib/types";
+import { bindRequestPath } from "@server/diagnostics/ssr-diagnostics";
 import { getMenu } from "@server/services/menu";
 
 import { EMPTY_MENU } from "~/lib/menu";
@@ -6006,7 +6052,12 @@ export const shellDependencyPlan: ShellDependencyPlan<
   TargetedShell,
   RequestOverlay
 > = {
-  requestFacts: (ctx, options) => buildShellRequestFacts(ctx, options),
+  requestFacts: (ctx, options) => {
+    // The first hook that sees both the request and its route: names the
+    // request for SSR_DIAGNOSTICS so its trace reads as a page, not an id.
+    bindRequestPath(ctx.publicPath ?? ctx.url.pathname);
+    return buildShellRequestFacts(ctx, options);
+  },
   loadPublicShellSnapshot: async (facts, { ctx }) => ({
     menu: facts.minimalChrome ? EMPTY_MENU : await getMenu(ctx.request, facts.deviceType),
   }),
@@ -6020,9 +6071,7 @@ export const shellDependencyPlan: ShellDependencyPlan<
 };
 `;
 
-const menuService =
-  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
-import * as cache from "@originloom/core/cache";
+const menuService = () => `import * as cache from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
 import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
@@ -6034,6 +6083,7 @@ import {
 } from "@originloom/shared/lib/content-url";
 import type { DeviceType } from "@originloom/shared/lib/device";
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
+import { gatewayFetch, requireGatewayOk } from "@server/diagnostics/gateway";
 import { productConfig } from "@server/product/config";
 
 import { CacheTag, menuCacheKey } from "~/lib/cache-keys";
@@ -6304,12 +6354,57 @@ export function drawerLabel(item: MenuItem): string {
   return item.hamburgerName ?? item.name;
 }
 
+export type ProjectedMenu = {
+  headerItems: MenuItem[];
+  hamburgerItems: MenuItem[];
+  footerItems: MenuItem[];
+};
+
+function sortRecursive(items: readonly MenuItem[], shell: "desktop" | "mobile"): MenuItem[] {
+  return orderedFor(items, shell).map((item) =>
+    item.subMenuItemList
+      ? { ...item, subMenuItemList: sortRecursive(item.subMenuItemList, shell) }
+      : item,
+  );
+}
+
+/**
+ * Sorting the whole menu — every list and every nested submenu — kept per menu
+ * snapshot instead of redone on every render.
+ *
+ * The cache is keyed on the menu object itself, and a fresh \`IMenuItems\` only
+ * exists once per menu fetch (server/services/menu.ts freezes and reuses one),
+ * so a new snapshot invalidates this naturally. A \`WeakMap\` because the entry
+ * must not outlive the snapshot it describes.
+ */
+const projectionCache = new WeakMap<
+  IMenuItems,
+  Partial<Record<"desktop" | "mobile", ProjectedMenu>>
+>();
+
+export function projectMenu(menu: IMenuItems, shell: "desktop" | "mobile"): ProjectedMenu {
+  let byShell = projectionCache.get(menu);
+  if (!byShell) {
+    byShell = {};
+    projectionCache.set(menu, byShell);
+  }
+  const cached = byShell[shell];
+  if (cached) return cached;
+
+  const projected: ProjectedMenu = {
+    headerItems: sortRecursive(menu.headerItems, shell),
+    hamburgerItems: sortRecursive(menu.hamburgerItems, shell),
+    footerItems: sortRecursive(menu.footerItems, shell),
+  };
+  byShell[shell] = projected;
+  return projected;
+}
+
 `;
 
-const botAnalyticsService =
-  () => `import { gatewayFetch, releaseGatewayResponse, requireGatewayOk } from "@originloom/core/adapters/gateway";
-import { logger } from "@originloom/core/logger";
+const botAnalyticsService = () => `import { logger } from "@originloom/core/logger";
 import type { BotVisit } from "@originloom/core/runtime";
+import { gatewayFetch, releaseGatewayResponse, requireGatewayOk } from "@server/diagnostics/gateway";
 import { productConfig } from "@server/product/config";
 
 type Sender = (events: BotVisit[], signal: AbortSignal) => Promise<void>;
@@ -6528,7 +6623,6 @@ htmlLang: "tr",
 
 const productAnalytics = () => `import { config } from "@originloom/core/config";
 import { logger } from "@originloom/core/logger";
-import type { CspSources } from "@originloom/core/middleware/security";
 import { sequencedScript } from "@originloom/shared/head-scripts";
 import {
   eventQueueScript,
@@ -6631,14 +6725,768 @@ export const analyticsSequence = sequencedScript(
   { timeoutMs: 4_000 },
 );
 
-/** The origins the sequence reaches. Without these the browser refuses to load them. */
-export const analyticsCsp: CspSources = {
-  scriptSrc: [
-    ...(efilliUrl ? [new URL(efilliUrl).origin] : []),
-    ...(gtmContainerId ? ["https://www.googletagmanager.com"] : []),
-  ],
+`;
+
+const bffHttpLib = () => `import { withBffAuthCookies } from "@originloom/core/auth/bff";
+import type { CookieJar } from "@originloom/core/middleware/cookie-jar";
+
+/**
+ * The three responses every BFF route ends in, written once.
+ *
+ * A BFF endpoint answers on behalf of a signed-in visitor, so its response is
+ * private by definition — \`no-store\`, never a shared cache entry — and it has
+ * to carry back whatever cookie changes the auth exchange produced. Both are
+ * easy to forget on the fourth endpoint, and forgetting either is a leak: a
+ * cached per-user payload, or a session that silently stops refreshing.
+ */
+export function bffJson(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    // Per-user and never shared: no cache may keep this, at any layer.
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "private, no-store",
+    },
+  });
+}
+
+/** No usable session: 401 plus the cleared UI-hint cookies. */
+export function bffSignedOut(cookies: CookieJar): Response {
+  return withBffAuthCookies(bffJson({ signedIn: false }, 401), cookies);
+}
+
+/**
+ * The session service itself is down. 503, not 401 — the visitor may well be
+ * signed in, and answering "signed out" would sign them out of the UI over a
+ * transient upstream failure.
+ */
+export function bffSessionUnavailable(cookies: CookieJar): Response {
+  return withBffAuthCookies(bffJson({ error: "Oturum servisi kullanılamıyor" }, 503), cookies);
+}
+
+export function withBffCookies(response: Response, cookies: CookieJar): Response {
+  return withBffAuthCookies(response, cookies);
+}
+`;
+
+const bffAuthLib = () => `import {
+  authenticateBffRequest,
+  challengeBffSession,
+  rejectBffSession,
+} from "@originloom/core/auth/bff";
+import type { CookieJar } from "@originloom/core/middleware/cookie-jar";
+
+import { bffJson, bffSessionUnavailable, bffSignedOut, withBffCookies } from "./bff-http";
+
+export type BffGatewayContext = {
+  gatewayRequest: Request;
+  cookies: CookieJar;
+  wasAuthorized: boolean;
 };
 
+/**
+ * Read the request body *before* calling either helper below.
+ *
+ * Both rebuild the request to attach \`Authorization\`, and rebuilding consumes
+ * the original body — a later \`c.req.json()\` on the incoming request fails
+ * with "Body is unusable". Parse first, then authenticate, then send
+ * \`gatewayRequest\` upstream.
+ */
+
+/**
+ * A gateway-bound request for an endpoint that works signed in *or* out.
+ *
+ * Access is refreshed when the cookies allow it; when they do not, the original
+ * request goes through unauthenticated rather than failing. Use this for public
+ * data that is merely richer for a signed-in visitor.
+ */
+export async function resolveBffGatewayContext(request: Request): Promise<BffGatewayContext> {
+  const auth = await authenticateBffRequest(request);
+  if (auth.kind === "authorized") {
+    return { gatewayRequest: auth.request, cookies: auth.cookies, wasAuthorized: true };
+  }
+  return { gatewayRequest: request, cookies: auth.cookies, wasAuthorized: false };
+}
+
+export type RequiredBffAuth =
+  | { ok: true; gatewayRequest: Request; cookies: CookieJar }
+  | { ok: false; response: Response };
+
+/**
+ * A protected endpoint: no valid session means no answer.
+ *
+ * The three outcomes are distinct on purpose — \`unavailable\` is a 503 that
+ * keeps the session, \`unauthorized\` clears the UI hints and returns 401.
+ */
+export async function requireBffAuth(request: Request): Promise<RequiredBffAuth> {
+  const auth = await authenticateBffRequest(request);
+  if (auth.kind === "unavailable") {
+    return { ok: false, response: bffSessionUnavailable(auth.cookies) };
+  }
+  if (auth.kind === "unauthorized") {
+    rejectBffSession(auth.cookies);
+    return { ok: false, response: bffSignedOut(auth.cookies) };
+  }
+  return { ok: true, gatewayRequest: auth.request, cookies: auth.cookies };
+}
+
+/**
+ * The gateway rejected a bearer this app believed was valid.
+ *
+ * The UI hints go, but the refresh token stays: the next call can still mint a
+ * new access token, so this is a challenge, not a sign-out.
+ */
+export function bffGatewayUnauthorized(
+  cookies: CookieJar,
+  body: Record<string, unknown> = {},
+): Response {
+  challengeBffSession(cookies);
+  return withBffCookies(bffJson({ signedIn: false, ...body }, 401), cookies);
+}
+`;
+
+const ssrDiagnostics = () => `import { logger } from "@originloom/core/logger";
+import { activeRequestId } from "@originloom/core/observability";
+
+/**
+ * Opt-in request tracing for the times a page is slow or failing in an
+ * environment you cannot attach a debugger to.
+ *
+ * Off unless \`SSR_DIAGNOSTICS=1\`, and when off every function here returns
+ * before doing any work — the tracking map stays empty, so this costs nothing
+ * in production until the day you turn it on.
+ */
+export const SSR_DIAGNOSTICS_ENABLED =
+  process.env.SSR_DIAGNOSTICS === "1" || process.env.SSR_DIAGNOSTICS === "true";
+
+const SLOW_REQUEST_MS = Number(process.env.SSR_DIAGNOSTICS_SLOW_MS ?? 750);
+/** A request that never reports an outcome must not pin its entry forever. */
+const MAX_TRACKED_REQUESTS = 2_048;
+
+export type UpstreamCallRecord = {
+  url: string;
+  method: string;
+  status: number;
+  durationMs: number;
+  cached?: boolean;
+  error?: string;
+};
+
+type TrackedRequest = {
+  pagePath?: string;
+  startedAt: number;
+  upstream: UpstreamCallRecord[];
+};
+
+const tracked = new Map<string, TrackedRequest>();
+
+/**
+ * The id the platform assigned this request, from the async context it keeps
+ * for the duration of the request.
+ *
+ * Reading the inbound \`x-request-id\` header instead would only work behind a
+ * proxy that sets one: the platform mints its own when the header is absent,
+ * which is every local run and most deployments. That mistake is silent —
+ * nothing is ever tracked, and the trace comes out empty rather than missing.
+ */
+function currentRequestId(): string | undefined {
+  return activeRequestId();
+}
+
+function ensureTracked(requestId: string): TrackedRequest {
+  let entry = tracked.get(requestId);
+  if (!entry) {
+    if (tracked.size >= MAX_TRACKED_REQUESTS) {
+      const oldest = tracked.keys().next().value;
+      if (oldest !== undefined) tracked.delete(oldest);
+    }
+    entry = { startedAt: performance.now(), upstream: [] };
+    tracked.set(requestId, entry);
+  }
+  return entry;
+}
+
+/** Names the page a request id belongs to, so the log line is readable. */
+export function bindRequestPath(pagePath: string): void {
+  if (!SSR_DIAGNOSTICS_ENABLED) return;
+  const requestId = currentRequestId();
+  if (!requestId) return;
+  ensureTracked(requestId).pagePath = pagePath;
+}
+
+export function recordUpstreamCall(record: UpstreamCallRecord): void {
+  if (!SSR_DIAGNOSTICS_ENABLED) return;
+  const requestId = currentRequestId();
+  if (!requestId) return;
+  ensureTracked(requestId).upstream.push(record);
+}
+
+/**
+ * Closes out a request. Only failures and slow requests are logged — a healthy
+ * fast page would otherwise bury them — and the entry is dropped either way.
+ *
+ * The id comes off the response, not the async context: this runs after the
+ * request has finished, where that context is already gone. The platform's
+ * request-id middleware stamps \`x-request-id\` on the way out, which is what
+ * ties the outcome back to the calls recorded during the render.
+ */
+export function logSsrOutcome(opts: {
+  request: Request;
+  response?: Response | undefined;
+  pageStatus: number;
+  errorType?: string | undefined;
+  errorMessage?: string | undefined;
+}): void {
+  if (!SSR_DIAGNOSTICS_ENABLED) return;
+
+  const requestId =
+    opts.response?.headers.get("x-request-id") ??
+    opts.request.headers.get("x-request-id") ??
+    undefined;
+  const entry = requestId ? tracked.get(requestId) : undefined;
+  const durationMs = entry ? performance.now() - entry.startedAt : undefined;
+  const pagePath = entry?.pagePath ?? new URL(opts.request.url).pathname;
+  const isFailure = opts.pageStatus >= 400;
+  const isSlow = durationMs !== undefined && durationMs >= SLOW_REQUEST_MS;
+
+  if (requestId) tracked.delete(requestId);
+  if (!isFailure && !isSlow) return;
+
+  const upstream = entry?.upstream ?? [];
+  const payload = {
+    page: pagePath,
+    pageStatus: opts.pageStatus,
+    requestId: requestId ?? "unknown",
+    durationMs: durationMs === undefined ? undefined : Math.round(durationMs),
+    errorType: opts.errorType,
+    errorMessage: opts.errorMessage,
+    upstreamCount: upstream.length,
+    upstream: upstream.length
+      ? upstream.map(
+          (call) =>
+            \`\${call.method} \${call.url} => \${call.status}\${call.cached ? " (cached)" : ""} / \${call.durationMs.toFixed(0)}ms\${call.error ? \` err=\${call.error}\` : ""}\`,
+        )
+      : undefined,
+  };
+
+  if (isFailure) logger.error("ssr request failed", payload);
+  else logger.warn("ssr request slow", payload);
+}
+
+/** Turns an upstream status into a stable, greppable label. */
+export function classifyGatewayError(status: number): string {
+  if (status === 429) return "UPSTREAM_RATE_LIMIT";
+  if (status === 503) return "UPSTREAM_UNAVAILABLE";
+  if (status === 502) return "UPSTREAM_BAD_GATEWAY";
+  if (status === 504) return "UPSTREAM_TIMEOUT";
+  if (status >= 500) return "UPSTREAM_5XX";
+  if (status >= 400) return "UPSTREAM_4XX";
+  return "UPSTREAM_ERROR";
+}
+`;
+
+const noDirectGatewayImportRule = () => `/**
+ * Every upstream call goes through \`@server/diagnostics/gateway\`.
+ *
+ * That module is a transparent pass-through to the platform adapter which, when
+ * \`SSR_DIAGNOSTICS=1\`, times each call and attributes it to the request that
+ * made it. A service that imports \`@originloom/core/adapters/gateway\` directly
+ * still works — which is exactly the problem: it silently drops out of every
+ * trace, and nothing fails until someone is debugging a slow page at 3am and
+ * finds a gap where the call should be.
+ *
+ * The adapter itself is the one file allowed to reach for core.
+ */
+const CORE_ADAPTER = "@originloom/core/adapters/gateway";
+const APP_ADAPTER = "@server/diagnostics/gateway";
+const ADAPTER_FILE = /(^|\\/)server\\/diagnostics\\/gateway\\.ts$/;
+
+/** @type {import("eslint").Rule.RuleModule} */
+export const noDirectGatewayImport = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "Import the gateway from the app adapter so diagnostics can see the call.",
+    },
+    messages: {
+      direct: \`Import the gateway from "\${APP_ADAPTER}", not "\${CORE_ADAPTER}" — a direct import is invisible to SSR_DIAGNOSTICS.\`,
+    },
+    fixable: "code",
+    schema: [],
+  },
+
+  create(context) {
+    // Posix-normalized so the exemption also matches on Windows checkouts.
+    const filename = (context.filename ?? "").replaceAll("\\\\", "/");
+    if (ADAPTER_FILE.test(filename)) return {};
+
+    /** @param {{ value: unknown }} source */
+    const check = (source) => {
+      if (!source || source.value !== CORE_ADAPTER) return;
+      context.report({
+        node: source,
+        messageId: "direct",
+        fix: (fixer) => fixer.replaceText(source, JSON.stringify(APP_ADAPTER)),
+      });
+    };
+
+    return {
+      // \`import … from\`, \`export … from\`, \`export * from\` and \`await import()\`
+      // all reach the same module; a rule that only knew the first would be a
+      // rule anyone could route around by accident.
+      ImportDeclaration: (node) => check(node.source),
+      ExportNamedDeclaration: (node) => check(node.source),
+      ExportAllDeclaration: (node) => check(node.source),
+      ImportExpression: (node) => check(node.source),
+    };
+  },
+};
+`;
+
+const noDirectGatewayImportTypes = () => `import type { Rule } from "eslint";
+
+/**
+ * Declared here because \`eslint.config.js\` has to load the rule as plain
+ * JavaScript — ESLint reads its config without a TypeScript loader — while the
+ * rule's test imports it as a typed module.
+ */
+export declare const noDirectGatewayImport: Rule.RuleModule;
+`;
+
+const menuProjectionTest =
+  () => `import type { IMenuItems, MenuItem } from "@originloom/shared/lib/menu/types";
+import { describe, expect, it } from "vitest";
+
+import { projectMenu } from "~/lib/menu";
+
+function item(over: Partial<MenuItem> = {}): MenuItem {
+  return {
+    id: 1,
+    name: "Item",
+    url: "/",
+    displayOrder: 1,
+    mobileDisplayOrder: 1,
+    ...over,
+  } as MenuItem;
+}
+
+/** Deliberately stored out of order, and ordered differently per shell. */
+function menu(): IMenuItems {
+  return {
+    headerItems: [
+      item({ id: 1, name: "B", displayOrder: 2, mobileDisplayOrder: 1 }),
+      item({
+        id: 2,
+        name: "A",
+        displayOrder: 1,
+        mobileDisplayOrder: 2,
+        subMenuItemList: [
+          item({ id: 21, name: "sub-b", displayOrder: 2, mobileDisplayOrder: 1 }),
+          item({ id: 22, name: "sub-a", displayOrder: 1, mobileDisplayOrder: 2 }),
+        ],
+      }),
+    ],
+    hamburgerItems: [],
+    footerItems: [],
+  };
+}
+
+/**
+ * Sorting the menu is per-snapshot work, not per-request work: the projection
+ * is memoized on the menu object itself, so a cached menu is sorted once and
+ * reused by every render that receives it.
+ */
+describe("projectMenu", () => {
+  it("orders items by the display order of the given shell", () => {
+    expect(projectMenu(menu(), "desktop").headerItems.map((entry) => entry.name)).toEqual([
+      "A",
+      "B",
+    ]);
+  });
+
+  it("orders nested submenus too, not just the top level", () => {
+    const parent = projectMenu(menu(), "desktop").headerItems.find((entry) => entry.name === "A");
+
+    expect(parent?.subMenuItemList?.map((entry) => entry.name)).toEqual(["sub-a", "sub-b"]);
+  });
+
+  it("orders desktop and mobile independently from one source menu", () => {
+    const source = menu();
+
+    expect(projectMenu(source, "desktop").headerItems.map((entry) => entry.name)).toEqual([
+      "A",
+      "B",
+    ]);
+    expect(projectMenu(source, "mobile").headerItems.map((entry) => entry.name)).toEqual([
+      "B",
+      "A",
+    ]);
+  });
+
+  it("reuses one projection for the same menu and shell", () => {
+    const source = menu();
+
+    expect(projectMenu(source, "desktop")).toBe(projectMenu(source, "desktop"));
+  });
+
+  it("projects again once the underlying menu object changes", () => {
+    const first = projectMenu(menu(), "desktop");
+    const second = projectMenu(menu(), "desktop");
+
+    // A new snapshot must not serve the previous one's projection — equal in
+    // value, but a different object, which is what makes the cache safe.
+    expect(second).not.toBe(first);
+    expect(second).toEqual(first);
+  });
+
+  it("leaves the source menu untouched", () => {
+    const source = menu();
+    projectMenu(source, "desktop");
+
+    expect(source.headerItems.map((entry) => entry.name)).toEqual(["B", "A"]);
+  });
+});
+`;
+
+const gatewayImportRuleTest = () => `import { Linter } from "eslint";
+import { describe, expect, it } from "vitest";
+
+import { noDirectGatewayImport } from "../eslint-rules/no-direct-gateway-import.mjs";
+
+const linter = new Linter();
+
+const config = [
+  {
+    // Flat config only lints the extensions a block claims. Without this the
+    // linter answers "no matching configuration" for a .ts filename and the
+    // rule never runs — a green test that checked nothing.
+    files: ["**/*.ts"],
+    plugins: { local: { rules: { "no-direct-gateway-import": noDirectGatewayImport } } },
+    rules: { "local/no-direct-gateway-import": "error" },
+    languageOptions: { ecmaVersion: 2023, sourceType: "module" },
+  },
+] as unknown as Linter.Config[];
+
+function lint(code: string, filename = "server/services/items.ts") {
+  return linter.verify(code, config, filename);
+}
+
+function fix(code: string, filename = "server/services/items.ts") {
+  return linter.verifyAndFix(code, config, filename).output;
+}
+
+describe("no-direct-gateway-import", () => {
+  it("has a working harness — the linter must actually apply the config", () => {
+    // Every assertion below is "no messages" or "this message"; a harness that
+    // silently stopped linting would make half of them pass for free.
+    expect(lint("const ok = 1;").map((message) => message.message)).toEqual([]);
+  });
+
+  it("flags a direct import of the platform adapter", () => {
+    const [message, ...rest] = lint(
+      'import { gatewayFetch } from "@originloom/core/adapters/gateway";',
+    );
+
+    expect(rest).toEqual([]);
+    expect(message?.messageId).toBe("direct");
+  });
+
+  it("rewrites the specifier to the app adapter", () => {
+    expect(fix('import { gatewayFetch } from "@originloom/core/adapters/gateway";')).toBe(
+      'import { gatewayFetch } from "@server/diagnostics/gateway";',
+    );
+  });
+
+  // A rule that only knew \`import … from\` would be one anyone could route
+  // around without noticing, so each spelling is covered.
+  it.each([
+    ['export { gatewayFetch } from "@originloom/core/adapters/gateway";', "re-export"],
+    ['export * from "@originloom/core/adapters/gateway";', "star re-export"],
+    ['const m = await import("@originloom/core/adapters/gateway");', "dynamic import"],
+  ])("flags a %s", (code) => {
+    expect(lint(code).map((message) => message.messageId)).toEqual(["direct"]);
+  });
+
+  it("allows the app adapter itself to reach for core", () => {
+    expect(
+      lint(
+        'import * as coreGateway from "@originloom/core/adapters/gateway";',
+        "server/diagnostics/gateway.ts",
+      ),
+    ).toEqual([]);
+  });
+
+  it("leaves the app adapter and unrelated platform modules alone", () => {
+    expect(
+      lint(
+        'import { gatewayFetch } from "@server/diagnostics/gateway";\\n' +
+          'import { logger } from "@originloom/core/logger";',
+      ),
+    ).toEqual([]);
+  });
+
+  it("matches the specifier exactly, not by prefix", () => {
+    // A neighbouring module whose name merely starts the same way is a
+    // different module, and flagging it would send someone to an import that
+    // does not exist.
+    expect(lint('import { x } from "@server/diagnostics/gateway-identity";')).toEqual([]);
+  });
+
+  it("does not flag the module name in a vi.mock call", () => {
+    expect(lint('vi.mock("@originloom/core/adapters/gateway", () => ({}));')).toEqual([]);
+  });
+});
+`;
+
+const gatewayDiagnostics = () => `/**
+ * The gateway adapter every service imports.
+ *
+ * It is a thin pass-through to \`@originloom/core/adapters/gateway\` that, when
+ * \`SSR_DIAGNOSTICS=1\`, records how long each upstream call took and what it
+ * answered. Services import from here rather than from core so that turning
+ * diagnostics on is an environment variable, not a code change across the app.
+ *
+ * With diagnostics off each function forwards directly, so this costs one extra
+ * call frame and nothing else.
+ *
+ * Every function below takes \`...args\` and forwards them untouched. That is
+ * deliberate: a wrapper that normalized \`init\` to \`{}\` would change the arity
+ * core sees, which is invisible in production and breaks every test that
+ * asserts on how the gateway was called. A pass-through must be invisible.
+ */
+import * as coreGateway from "@originloom/core/adapters/gateway";
+
+import {
+  classifyGatewayError,
+  recordUpstreamCall,
+  SSR_DIAGNOSTICS_ENABLED,
+} from "./ssr-diagnostics";
+
+/**
+ * Times one upstream call and records it under the request that made it, which
+ * the diagnostics module resolves from the platform's async request context —
+ * so a call with no \`Request\` in hand is attributed just as well as one with.
+ *
+ * A thrown error is recorded as status 0 and rethrown untouched — a transport
+ * failure is exactly the case the trace exists for, so swallowing it here would
+ * defeat the purpose.
+ */
+async function instrument(
+  path: string,
+  method: string,
+  call: () => Promise<Response>,
+): Promise<Response> {
+  if (!SSR_DIAGNOSTICS_ENABLED) return call();
+
+  const started = performance.now();
+  try {
+    const response = await call();
+    recordUpstreamCall({
+      url: path,
+      method,
+      status: response.status,
+      durationMs: performance.now() - started,
+    });
+    return response;
+  } catch (error) {
+    recordUpstreamCall({
+      url: path,
+      method,
+      status: 0,
+      durationMs: performance.now() - started,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+export function gatewayFetch(
+  ...args: Parameters<typeof coreGateway.gatewayFetch>
+): Promise<Response> {
+  const [path, init] = args;
+  return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetch(...args));
+}
+
+export function gatewayFetchWithIdentity(
+  ...args: Parameters<typeof coreGateway.gatewayFetchWithIdentity>
+): Promise<Response> {
+  const [, path, init] = args;
+  return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetchWithIdentity(...args));
+}
+
+export function gatewayFetchForRequest(
+  ...args: Parameters<typeof coreGateway.gatewayFetchForRequest>
+): Promise<Response> {
+  const [, path, init] = args;
+  return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetchForRequest(...args));
+}
+
+/**
+ * Forwarded at call time rather than re-exported by value: a test that mocks
+ * the core module partially would otherwise fail at import, because binding the
+ * export here reads a property the mock never defined.
+ */
+export function releaseGatewayResponse(
+  ...args: Parameters<typeof coreGateway.releaseGatewayResponse>
+): Promise<void> {
+  return coreGateway.releaseGatewayResponse(...args);
+}
+
+/** Records the failing status before core turns it into a thrown error. */
+export function requireGatewayOk(
+  ...args: Parameters<typeof coreGateway.requireGatewayOk>
+): Promise<void> {
+  const [response] = args;
+  if (!response.ok && SSR_DIAGNOSTICS_ENABLED) {
+    recordUpstreamCall({
+      url: "(requireGatewayOk)",
+      method: "CHECK",
+      status: response.status,
+      durationMs: 0,
+      error: classifyGatewayError(response.status),
+    });
+  }
+  return coreGateway.requireGatewayOk(...args);
+}
+`;
+
+const shellContext = () => `import { createContext, type ReactNode, useContext } from "react";
+
+import type { ShellData } from "~/lib/shell-data";
+
+/**
+ * Shell data for anything rendered *inside* the layout.
+ *
+ * \`RootLayout\` receives the shell as a prop and uses it directly; page content
+ * arrives as \`children\`, so without a context every component that wants the
+ * device shell or the menu has to be threaded a prop through each level it
+ * happens to sit under. This is that thread, made once.
+ *
+ * It carries the same shared, cacheable shell the document was built from —
+ * never per-visitor data. Anything personal belongs in a \`defer\` island.
+ */
+const ShellContext = createContext<ShellData | null>(null);
+
+export function ShellProvider({ shell, children }: { shell: ShellData; children: ReactNode }) {
+  return <ShellContext.Provider value={shell}>{children}</ShellContext.Provider>;
+}
+
+export function useShell(): ShellData {
+  const shell = useContext(ShellContext);
+  if (!shell) {
+    throw new Error("useShell must be used within ShellProvider");
+  }
+  return shell;
+}
+`;
+
+const deviceShellLib = () => `import type { ShellData } from "~/lib/shell-data";
+
+/**
+ * The rendered chrome variant — the one shell field a presentational component
+ * usually needs. Named here so components take \`DeviceShell\` rather than
+ * restating the union and drifting from it.
+ */
+export type DeviceShell = ShellData["deviceShell"];
+`;
+
+const tailwindConfig = () => `/** @type {import('tailwindcss').Config} */
+export default {
+  // Tailwind v4 reads its configuration from CSS (\`@theme\` in
+  // src/styles/globals.css) and needs no config file to run. This one exists
+  // for the parts that are still JavaScript: design tokens shared with code,
+  // and any plugin that expects a config object.
+  //
+  // Keep brand tokens here or in \`@theme\` — but not in both, or they drift.
+  theme: {
+    extend: {},
+  },
+};
+`;
+
+const productCspFile = () => `import { config } from "@originloom/core/config";
+import type { CspSources } from "@originloom/core/middleware/security";
+
+/**
+ * Every origin this document reaches beyond the platform defaults, in one place.
+ *
+ * This is deliberately its own module rather than an export of analytics.ts: a
+ * content security policy is a property of the whole document — vendor scripts,
+ * image hosts, XHR targets — and once each module contributes its own fragment
+ * there is no single place left to audit what the page is allowed to talk to.
+ *
+ * Add an origin here the same day you add the code that reaches it. A blocked
+ * request fails in the browser, not in CI, so a missing entry is found by users.
+ */
+
+/**
+ * A misconfigured environment variable must not take the process down at import
+ * time — an unparseable URL means "no origin", not "crash on boot".
+ */
+function tryOrigin(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function unique(values: Array<string | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
+}
+
+const efilliUrl =
+  process.env.EFILLI_SCRIPT_URL?.trim() ||
+  (config.isProduction ? undefined : \`\${config.gatewayUrl}/vendor/consent.js\`);
+const gtmContainerId = process.env.GTM_CONTAINER_ID?.trim();
+const imageCdnOrigin = tryOrigin(process.env.IMAGE_CDN_URL?.trim());
+
+/** The consent tool talks to its own API once loaded. */
+const EFILLI_CONNECT = [
+  "https://gateway.efilli.com",
+  "https://riza.efilli.com",
+  "https://bundles.efilli.com",
+];
+
+/**
+ * GTM is never just googletagmanager.com. The container loads tags that beacon
+ * to the analytics and ads endpoints below, and a policy that lists only the
+ * script host silently drops every measurement the container was installed for.
+ */
+const GOOGLE_SCRIPT = [
+  "https://www.googletagmanager.com",
+  "https://www.google-analytics.com",
+  "https://googleads.g.doubleclick.net",
+];
+
+const GOOGLE_CONNECT = [
+  "https://www.google-analytics.com",
+  "https://analytics.google.com",
+  "https://stats.g.doubleclick.net",
+  "https://www.googletagmanager.com",
+];
+
+const GOOGLE_IMG = [
+  "https://www.googletagmanager.com",
+  "https://www.google-analytics.com",
+  "https://googleads.g.doubleclick.net",
+];
+
+export const productCsp: CspSources = {
+  scriptSrc: unique([tryOrigin(efilliUrl), ...(gtmContainerId ? GOOGLE_SCRIPT : [])]),
+  connectSrc: unique([
+    // The script's own origin, which in a development checkout is the mock
+    // gateway rather than the vendor. Without it the consent tool loads and
+    // then cannot call home, which looks like a vendor outage instead of a
+    // policy that only ever described production.
+    tryOrigin(efilliUrl),
+    ...(efilliUrl ? EFILLI_CONNECT : []),
+    ...(gtmContainerId ? GOOGLE_CONNECT : []),
+  ]),
+  imgSrc: unique([imageCdnOrigin, ...(gtmContainerId ? GOOGLE_IMG : [])]),
+};
 `;
 
 const productRenderer =
@@ -6922,7 +7770,8 @@ import { Link } from "@originloom/react/lib/link";
 import type { PageAnalyticsMeta } from "@originloom/shared/lib/analytics/types";
 import type { ReactNode } from "react";
 
-import { drawerLabel, type MenuItem, orderedFor } from "~/lib/menu";
+import { drawerLabel, type MenuItem, projectMenu } from "~/lib/menu";
+import { ShellProvider } from "~/lib/shell-context";
 import type { ShellData } from "~/lib/shell-data";
 
 export type RootLayoutProps = {
@@ -6936,9 +7785,12 @@ const SITE_NAME = "${title}";
 
 /** Application shell. Header/footer that need their own cache lifetime belong in fragments. */
 export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
-  const header = orderedFor(shell.menu.headerItems, shell.deviceShell);
-  const drawer = orderedFor(shell.menu.hamburgerItems, shell.deviceShell);
-  const footer = orderedFor(shell.menu.footerItems, shell.deviceShell);
+  // Sorted once per menu snapshot, not once per request.
+  const {
+    headerItems: header,
+    hamburgerItems: drawer,
+    footerItems: footer,
+  } = projectMenu(shell.menu, shell.deviceShell);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -6958,7 +7810,7 @@ export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
                       // Hover *and* focus-within: a submenu that only opens on
                       // hover cannot be reached with a keyboard at all.
                       <ul className="invisible absolute left-0 top-full z-10 min-w-52 rounded-lg border border-slate-200 bg-white p-2 opacity-0 shadow-lg transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-                        {orderedFor(item.subMenuItemList, shell.deviceShell).map((child) => (
+                        {item.subMenuItemList.map((child) => (
                           <li key={child.id}>
                             <Link
                               className="block rounded px-2 py-1 hover:bg-slate-50 hover:text-slate-950"
@@ -6991,7 +7843,7 @@ export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
                       </Link>
                       {item.subMenuItemList?.length ? (
                         <ul className="mt-1 space-y-1 pl-4 text-slate-600">
-                          {orderedFor(item.subMenuItemList, shell.deviceShell).map((child) => (
+                          {item.subMenuItemList.map((child) => (
                             <li key={child.id}>
                               <Link className="hover:underline" href={child.url}>
                                 {drawerLabel(child)}
@@ -7010,7 +7862,12 @@ export function RootLayout({ shell, pageMeta, children }: RootLayoutProps) {
       )}
 
       <main id="page-main" className="flex-1 py-10">
-        <div className="mx-auto max-w-5xl px-4">{children}</div>
+        <div className="mx-auto max-w-5xl px-4">
+          {/* Page content is \`children\`, so it cannot be handed the shell as a
+              prop. The provider makes the same shared shell the chrome above
+              renders from available to it via \`useShell()\`. */}
+          <ShellProvider shell={shell}>{children}</ShellProvider>
+        </div>
       </main>
 
       {/* Renders nothing; it exists to push the page view. \`eager\` because the
@@ -7538,7 +8395,7 @@ const dockerfile = (name, port, standalone, packageManager = "pnpm") =>
 
 const workspaceDockerfile = (name, port) => `# Build context is the repository root:
 #   docker build -f apps/${name}/Dockerfile -t ${name} .
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 RUN corepack enable
 
@@ -7573,7 +8430,7 @@ sahiplenir.
 
 ## Gereksinimler
 
-- Node.js 22.19 veya üzeri
+- Node.js 24.18.1 veya üzeri
 ${packageManagerRequirements(packageManager)}
 ${standalone ? "- `@originloom/*` paketlerinin bulunduğu registry'ye erişim" : "- OriginLoom monorepo kökünde çalışmak"}
 
@@ -8926,7 +9783,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
-          node-version: 22.19.0
+          node-version: 24.18.1
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Verify ${name} consumer contracts against staging
@@ -8934,10 +9791,10 @@ jobs:
 `;
 
 const profileService =
-  () => `import { gatewayFetchForRequest, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import { gatewayFetchForRequest, releaseGatewayResponse } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -9003,16 +9860,16 @@ function isProfilePayload(
 `;
 
 const sessionApi = () => `import {
-  authenticateBffRequest,
   challengeBffSession,
   confirmBffSession,
   forceTokenRefresh,
-  rejectBffSession,
   withBffAuthCookies,
 } from "@originloom/core/auth/bff";
 import { contextRequest } from "@originloom/core/middleware/request-deadline";
 import type { AppVariables } from "@originloom/core/middleware/request-id";
 import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/public-api-guard";
+import { requireBffAuth } from "@server/lib/bff-auth";
+import { bffJson, bffSessionUnavailable, bffSignedOut } from "@server/lib/bff-http";
 import { fetchUserProfile } from "@server/services/profile";
 import type { Hono } from "hono";
 
@@ -9038,24 +9895,20 @@ export function mountSessionApi(app: Hono<{ Variables: AppVariables }>): void {
     const denied = await guardPublicApi(request, c.get("clientIp") ?? "unresolved", SESSION_POLICY);
     if (denied) return denied;
 
-    const auth = await authenticateBffRequest(request);
-    if (auth.kind === "unavailable") return sessionUnavailable(auth.cookies);
-    if (auth.kind === "unauthorized") {
-      rejectBffSession(auth.cookies);
-      return signedOut(auth.cookies);
-    }
+    const auth = await requireBffAuth(request);
+    if (!auth.ok) return auth.response;
 
-    const result = await fetchUserProfile(auth.request);
+    const result = await fetchUserProfile(auth.gatewayRequest);
     // The gateway is the authority: it rejected the token, so the UI hints go
     // too — but the refresh token stays, so the next call can recover.
     if (result.kind === "unauthorized") {
       challengeBffSession(auth.cookies);
-      return signedOut(auth.cookies);
+      return bffSignedOut(auth.cookies);
     }
-    if (result.kind === "unavailable") return sessionUnavailable(auth.cookies);
+    if (result.kind === "unavailable") return bffSessionUnavailable(auth.cookies);
 
     confirmBffSession(auth.cookies, result.profile);
-    return withBffAuthCookies(json({ signedIn: true, profile: result.profile }), auth.cookies);
+    return withBffAuthCookies(bffJson({ signedIn: true, profile: result.profile }), auth.cookies);
   });
 
   // Called after a client-side 401: mints a new access token from the refresh
@@ -9066,26 +9919,10 @@ export function mountSessionApi(app: Hono<{ Variables: AppVariables }>): void {
     if (denied) return denied;
 
     const refreshed = await forceTokenRefresh(request);
-    if (refreshed.kind === "unavailable") return sessionUnavailable(refreshed.cookies);
-    if (refreshed.kind === "unauthorized") return signedOut(refreshed.cookies);
-    return withBffAuthCookies(json({ signedIn: true }), refreshed.cookies);
+    if (refreshed.kind === "unavailable") return bffSessionUnavailable(refreshed.cookies);
+    if (refreshed.kind === "unauthorized") return bffSignedOut(refreshed.cookies);
+    return withBffAuthCookies(bffJson({ signedIn: true }), refreshed.cookies);
   });
-}
-
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    // Per-user and never shared: no cache may keep this, at any layer.
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store" },
-  });
-}
-
-function signedOut(cookies: Parameters<typeof withBffAuthCookies>[1]): Response {
-  return withBffAuthCookies(json({ signedIn: false }, 401), cookies);
-}
-
-function sessionUnavailable(cookies: Parameters<typeof withBffAuthCookies>[1]): Response {
-  return withBffAuthCookies(json({ error: "Oturum servisi kullanılamıyor" }, 503), cookies);
 }
 `;
 
@@ -9661,13 +10498,14 @@ describe("the provider webhook", () => {
 });
 `;
 
-const referralService = () => `import {
+const referralService =
+  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import {
   gatewayFetchWithIdentity,
   releaseGatewayResponse,
   requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
-import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -10070,12 +10908,13 @@ function seeOther(path: string, status: "sent" | "invalid" | "failed"): Response
 }
 `;
 
-const enquiryService = () => `import {
+const enquiryService =
+  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+import {
   gatewayFetchWithIdentity,
   requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
-import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
-import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
+} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -10794,6 +11633,8 @@ const IDENTITY_LESS_BY_DESIGN: Record<string, string> = {
   "services/route-domains.ts":
     "falls back to a bare call only when the snapshot is refreshed outside a request",
   "services/sitemap.ts": "falls back to a bare call only when built outside a request",
+  "diagnostics/gateway.ts":
+    "the adapter itself — it wraps every core call, including the anonymous one, and adds no identity of its own",
 };
 
 function sourceFiles(directory: string): string[] {

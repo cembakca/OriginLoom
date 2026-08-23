@@ -17,13 +17,18 @@ export function resolveTrustedClientIp(
   if (!options.enabled || !remote || !isTrustedProxy(remote, options.cidrs)) return remoteAddress;
 
   const rawForwarded = headers.get("x-forwarded-for") ?? headers.get("x-real-ip") ?? "";
-  const forwarded = rawForwarded
+  const entries = rawForwarded
     .split(",")
-    .map((value) => normalizeIp(value.trim()))
-    .filter((value): value is string => Boolean(value));
-  if (forwarded.some((value) => isIP(value) === 0)) return remoteAddress;
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  const forwarded = entries.map((value) => normalizeIp(value));
+  // A header we cannot fully parse is not a header we trust. Dropping the
+  // unparseable entries instead would silently repair a forged chain and then
+  // count positions in it — so the hop count would be measured against a list
+  // the caller shaped. One bad entry discards the whole header.
+  if (forwarded.some((value) => value === null)) return remoteAddress;
 
-  const chain = [...forwarded, remote];
+  const chain = [...(forwarded as string[]), remote];
   if (chain.length <= options.hops) return remoteAddress;
   return chain[chain.length - 1 - options.hops] ?? remoteAddress;
 }

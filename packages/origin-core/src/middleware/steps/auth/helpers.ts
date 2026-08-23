@@ -52,11 +52,15 @@ export function displayNameFromAccess(access: string): string {
     if (payload.name) return payload.name;
     if (payload.sub) return `User ${String(payload.sub).slice(-4)}`;
   } catch {
-    // opaque token
+    // Opaque token: nothing here is a name, and that is fine.
   }
 
-  const suffix = access.replace(/^Bearer\s+/i, "").slice(-4);
-  return suffix ? `User ${suffix}` : "Hesabım";
+  // Deliberately not derived from the token. This value lands in `account_text`,
+  // which is readable by scripts by design — the header island reads it — so a
+  // slice of the access token would put credential material on the far side of
+  // the HttpOnly boundary this whole module exists to hold. A generic label
+  // costs nothing: the real name arrives from the profile endpoint.
+  return "Hesabım";
 }
 
 export function readTokens(request: Request): { access?: string; refresh?: string } {

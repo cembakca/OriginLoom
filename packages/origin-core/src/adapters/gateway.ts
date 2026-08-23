@@ -38,7 +38,19 @@ export async function gatewayFetch(path: string, init: RequestInit = {}): Promis
       if (requestId && !headers.has("correlationid")) headers.set("correlationid", requestId);
 
       try {
-        const response = await gatewayTransportFetch(url, { ...init, headers, signal });
+        const response = await gatewayTransportFetch(url, {
+          ...init,
+          headers,
+          signal,
+          // Never follow an upstream redirect. Following one lets whatever
+          // answered this call steer a *server-side* request at a host the app
+          // never named — cloud metadata, an internal admin service — and hand
+          // the body back to a caller that may write it into shared HTML.
+          // `requireGatewayOk` turns the 3xx into a visible failure instead.
+          // `proxyRequest` has always done this; this is the same rule for the
+          // path every service actually uses.
+          redirect: "manual",
+        });
         const outcome =
           response.status >= 500
             ? "server_error"

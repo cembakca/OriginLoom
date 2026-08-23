@@ -80,7 +80,7 @@ describe("origin-migrate", () => {
     expect(migratedPackage.scripts.ci).toContain("origin:doctor --strict");
     expect(migratedPackage.dependencies["@originloom/core"]).toBe("^" + TOOLING_VERSION);
     expect(migratedPackage.devDependencies["@originloom/tooling"]).toBe("^" + TOOLING_VERSION);
-    expect(migratedPackage.engines.node).toBe(">=22.13.0");
+    expect(migratedPackage.engines.node).toBe(">=24.18.1");
     expect(migratedPackage.devDependencies["@eslint/js"]).toBe("^10.0.1");
     expect(migratedPackage.devDependencies.eslint).toBe("^10.8.0");
     expect(migratedPackage.scripts.test).toBe("vitest run tests");
@@ -140,7 +140,7 @@ describe("origin-migrate", () => {
     const result = run(MIGRATE, ["--cwd", root, "--apply"]);
     expect(result.status).toBe(0);
     const migrated = JSON.parse(readFileSync(manifestPath, "utf8"));
-    expect(migrated.engines.node).toBe(">=22.19.0");
+    expect(migrated.engines.node).toBe(">=24.18.1");
     expect(migrated.devDependencies.lighthouse).toBe("^13.4.1");
     expect(migrated.pnpm.overrides).toEqual({ "autocannon>hyperid": "^4.0.0" });
   });
@@ -607,6 +607,7 @@ function project({ version, metadata }) {
                   "0.7.20-hono-4.13",
                   "0.7.23-cache-performance-acceptance",
                   "0.7.24-warm-path-performance",
+                  "0.7.26-node-24",
                 ]
               : []),
           ],

@@ -32,7 +32,8 @@ describe("server Vite config", () => {
   it("inlines the workspace packages so the bundle is self-contained", () => {
     const config = createServerViteConfig({ entry: "/app/server/index.ts" });
     expect(config.ssr?.noExternal).toEqual([/^@originloom\//]);
-    expect(config.build?.target).toBe("node22");
+    // Tracks the engines floor — see packages/origin-shared/src/vite.ts.
+    expect(config.build?.target).toBe("node24");
     expect(config.build?.minify).toBe("esbuild");
     expect(config.esbuild).toMatchObject({ keepNames: true });
   });

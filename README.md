@@ -154,7 +154,7 @@ public GET route'u üzerinden çalışır.
 
 ## Geliştirme
 
-Node.js 22.12 veya daha yeni bir sürüm gerekir.
+Node.js 24.18.1 veya daha yeni bir sürüm gerekir (Node 24 Active LTS; Node 22 2025-10 itibarıyla maintenance).
 
 Ortam yapılandırması `.env.development`, `.env.staging` ve `.env.production` dosyalarıyla
 yönetilir. Kişisel override'lar için `.env.local` (veya `.env.<ortam>.local`) kullanın; shell

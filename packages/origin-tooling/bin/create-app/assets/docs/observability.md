@@ -17,6 +17,17 @@ payload hata metadata'sına eklenmemelidir.
 Operations listener `/metrics`, readiness ve purge içindir. Kubernetes network policy/Service ile
 yalnız monitoring ve operations ağlarına açın; public ingress'e bağlamayın.
 
+## SSR teşhis modu
+
+Metrikler bir sayfanın yavaş ya da hatalı olduğunu söyler; hangi upstream çağrının sebep olduğunu
+söylemez. `SSR_DIAGNOSTICS=1` bunu açar: servislerin kullandığı `@server/diagnostics/gateway`
+adaptörü her gateway çağrısını süresi, metodu ve durumuyla kaydeder, istek kapanırken **yalnız**
+başarısız ya da yavaş istekler için tek bir log satırına dökülür. Eşik `SSR_DIAGNOSTICS_SLOW_MS`
+(varsayılan 750 ms).
+
+Kapalıyken kayıt yolu hiç çalışmaz — üretimde açana kadar maliyeti yoktur. Bir olayı incelerken
+açın, sonra kapatın: her istek için bellekte bir kayıt tutar ve log hacmini artırır.
+
 ## 503 / render admission
 
 503 yanıtları çoğu zaman **bilinçli kapasite korumasıdır** — pod çökmek yerine istek shed edilir.

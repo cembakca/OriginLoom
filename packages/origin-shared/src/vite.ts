@@ -112,7 +112,9 @@ export function createServerViteConfig(options: ServerViteConfigOptions): UserCo
       emptyOutDir: false,
       // SSR builds are not minified by Vite unless explicitly requested. A
       // self-contained server otherwise pays a large parse/cold-start cost.
-      target: "node22",
+      // Matches the engines floor: down-levelling syntax the supported runtime
+      // runs natively costs bundle size and cold start for nothing.
+      target: "node24",
       minify: "esbuild",
       sourcemap: true,
       rollupOptions: {

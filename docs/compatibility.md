@@ -5,7 +5,7 @@ Machine-readable kaynak packages/origin-tooling/bin/upgrade/compatibility.mjs do
 
 | Template | Platform fixed group | Tooling | Node      | Otomatik migration | Durum         |
 | -------- | -------------------- | ------- | --------- | ------------------ | ------------- |
-| 0.7.x    | 0.7.x                | 0.7.x   | >=22.19.0 | 0.5.12 ve sonrası  | Destekleniyor |
+| 0.7.x    | 0.7.x                | 0.7.x   | >=24.18.1 | 0.5.12 ve sonrası  | Destekleniyor |
 | 0.6.x    | 0.6.x                | 0.6.x   | >=22.19.0 | 0.5.12 ve sonrası  | Destekleniyor |
 | 0.5.x    | 0.5.x                | 0.5.x   | >=22.13.0 | 0.5.12 ve sonrası  | Destekleniyor |
 

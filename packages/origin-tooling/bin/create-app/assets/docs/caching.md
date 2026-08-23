@@ -441,7 +441,9 @@ yapın. `tests/tracking-id-leak.test.ts` bu kuralın kırıldığını yakalar.
 
 ## Üç gateway çağrısı, üç farklı anlam
 
-`@originloom/core/adapters/gateway` üç fonksiyon verir; fark, isteğin kimliğini ne kadar taşıdığıdır:
+Servisler gateway'e `@server/diagnostics/gateway` üzerinden ulaşır — çekirdeğin adaptörünü aynen
+geçiren, `SSR_DIAGNOSTICS=1` iken her upstream çağrıyı süresi ve sonucuyla kaydeden ince bir sarmalayıcı.
+Üç fonksiyon verir; fark, isteğin kimliğini ne kadar taşıdığıdır:
 
 | Fonksiyon                                 | Kimlik | `Authorization` | Nerede                              |
 | ----------------------------------------- | ------ | --------------- | ----------------------------------- |
