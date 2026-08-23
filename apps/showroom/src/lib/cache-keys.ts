@@ -43,6 +43,8 @@ export const PageCacheId = {
   knowledgeArticle: "knowledge-article",
   bist100: "bist100",
   financeReferral: "finance-referral",
+  serverIsland: "server-island",
+  previewDemo: "preview-demo",
 } as const;
 
 export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
@@ -116,6 +118,26 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     path: "/hesabim",
     strategy: "never",
     buildKey: () => [],
+  },
+  [PageCacheId.serverIsland]: {
+    id: PageCacheId.serverIsland,
+    description: "Server island demosu — kabuk paylaşılan cache'ten, delik istek başına",
+    path: "/server-island",
+    strategy: "shared",
+    ttl: 3600,
+    tags: SHARED_SHELL_TAGS,
+    // No visitor dimension in the key on purpose: the personal part is not in
+    // this HTML at all, so one cached entry serves everyone.
+    buildKey: (ctx) => ["server-island", locale(ctx.request), layoutCacheFragment(ctx)],
+  },
+  [PageCacheId.previewDemo]: {
+    id: PageCacheId.previewDemo,
+    description: "Draft/preview demosu — preview oturumunda cache tamamen atlanır",
+    path: "/preview-demo",
+    strategy: "shared",
+    ttl: 3600,
+    tags: SHARED_SHELL_TAGS,
+    buildKey: (ctx) => ["preview-demo", locale(ctx.request), layoutCacheFragment(ctx)],
   },
   [PageCacheId.mediaPipeline]: {
     id: PageCacheId.mediaPipeline,

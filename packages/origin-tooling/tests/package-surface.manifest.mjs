@@ -35,6 +35,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
   "lib/client/island-runtime",
   "lib/client/performance-telemetry",
   "lib/client/reload-button",
+  "lib/client/server-island-fill",
   "lib/client/request-context",
   "lib/content-url",
   "lib/content-values",
@@ -75,9 +76,13 @@ export const SHARED_PUBLIC_SUBPATHS = [
 ];
 
 export const CORE_PUBLIC_SUBPATHS = [
+  "server-island",
+  "preview",
   "after",
   "adapters/gateway",
   "adapters/gateway-identity",
+  "api/server-island",
+  "api/preview",
   "api/cache-purge",
   "api/client-errors",
   "api/client-errors-contract",
@@ -159,6 +164,7 @@ export const REACT_PUBLIC_SUBPATHS = [
   "lib/query/client",
   "lib/query/provider",
   "lib/request-context",
+  "lib/server-island",
   "lib/types",
   "lib/utils",
   "server",

@@ -1,6 +1,6 @@
 {
   "name": "@originloom/react",
-  "version": "0.7.28",
+  "version": "0.7.29",
   "description": "React renderer adapter for OriginLoom: island runtime, document rendering and the Vite preset.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -27,6 +27,7 @@
     "./lib/query/provider": "./src/lib/query/provider.tsx",
     "./lib/client/island-mount": "./src/lib/client/island-mount.tsx",
     "./lib/metadata/metadata-head": "./src/lib/metadata/metadata-head.tsx",
+    "./lib/server-island": "./src/lib/server-island.tsx",
     "./lib/*": "./src/lib/*.ts",
     "./server": "./src/server/index.ts",
     "./vite": "./src/vite/preset.ts"
@@ -85,6 +86,10 @@
       "./lib/metadata/metadata-head": {
         "types": "./dist/lib/metadata/metadata-head.d.ts",
         "default": "./dist/lib/metadata/metadata-head.js"
+      },
+      "./lib/server-island": {
+        "types": "./dist/lib/server-island.d.ts",
+        "default": "./dist/lib/server-island.js"
       },
       "./lib/*": {
         "types": "./dist/lib/*.d.ts",

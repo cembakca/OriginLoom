@@ -14,12 +14,16 @@ import knowledgeArticle from "./knowledge-article";
 import knowledgeCenter from "./knowledge-center";
 import loanCalculator from "./loan-calculator";
 import mediaPipeline from "./media-pipeline";
+import previewDemo from "./preview-demo";
 import recourseRedirect from "./recourse-redirect";
 import remoteCustomerObtain from "./remote-customer-obtain";
+import serverIsland from "./server-island";
 
 /** The route table. Order matters: first match wins. */
 export const routes: Route[] = [
   home,
+  serverIsland,
+  previewDemo,
   housingLoans,
   housingLoanDetail,
   creditCards,

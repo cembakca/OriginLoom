@@ -45,7 +45,7 @@ Bu tablo öneri listesindeki "bizde" satırlarının dayanağı.
 
 ## 2. Render ve kişiselleştirme
 
-### 2.1 Server Islands — sunucuda ertelenmiş, cache'lenebilir kişiselleştirme **[P1]**
+### 2.1 Server Islands — sunucuda ertelenmiş, cache'lenebilir kişiselleştirme **[P1]** **[YAPILDI — 0.7.29]**
 
 - **Ne**: Astro 5'in `server:defer` direktifi. Sayfanın tamamı statik/cache'li HTML olarak CDN'den
   anında gider; kişisel parça bir placeholder olarak render edilir ve ayrı bir sunucu isteğiyle
@@ -128,7 +128,7 @@ kısmını zaten veriyor. Maliyet/fayda tutmuyor.
   (tag, cold-fill lock, negative cache) onun modelinden zengin. Muhtemelen **kendi ince arayüzümüz**
   daha doğru; unstorage'dan alınacak olan fikir ve driver sınırı, kodu değil.
 
-### 3.4 Draft / preview mode **[P1]**
+### 3.4 Draft / preview mode **[P1]** **[YAPILDI — 0.7.29]**
 
 - **Ne**: Next.js Draft Mode, Nuxt/Astro'da preview adapter'ları. İmzalı bir çerezle o oturum için
   cache tamamen bypass edilir ve CMS'in yayınlanmamış içeriği render edilir.
@@ -482,16 +482,17 @@ Değer/maliyet oranına göre, mimarimize uygunluk sırasıyla:
 
 ### İlk dalga — yüksek değer, düşük/orta maliyet
 
-✅ işaretli satırlar 0.7.28'de yapıldı; ayrıntı ilgili maddenin başlığındaki
-**[YAPILDI]** notunda ve `CHANGELOG`'da.
+✅ işaretli satırlar yapıldı; ayrıntı ilgili maddenin başlığındaki **[YAPILDI]**
+notunda ve `CHANGELOG`'da. Server island ve draft preview'in çalışan örneği
+showroom'da: `/server-island` ve `/preview-demo`.
 
 | #      | Madde                        | Neden ilk                                                                   |
 | ------ | ---------------------------- | --------------------------------------------------------------------------- |
 | 4.1 ✅ | Hono RPC ile tip güvenli BFF | Hono'yu zaten kullanıyoruz; bedava duran özellik                            |
 | 8.1 ✅ | `after()` / `waitUntil`      | Mevcut `void promise` deseni sessiz veri kaybı üretiyor                     |
 | 5.2 ✅ | Taint / sızma koruması       | Mimarimizin en yüksek etkili hata sınıfı, bugün sadece test koruyor         |
-| 3.4    | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
-| 2.1    | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
+| 3.4 ✅ | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
+| 2.1 ✅ | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
 | 6.1    | Speculation Rules            | Cache mimarimiz prerender'ı olağandışı ucuz kılıyor                         |
 | 5.1    | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
 | 7.1    | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |

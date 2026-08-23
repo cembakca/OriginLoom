@@ -1,5 +1,32 @@
 # @originloom/core
 
+## 0.7.29
+
+### Patch Changes
+
+- Draft preview (3.4) and server islands (2.1) from `docs/framework-research-2026.md`.
+
+  **Draft preview.** An editor exchanges a shared secret once for a short-lived signed cookie, and
+  their session renders unpublished content. The dangerous part of this feature is not showing a
+  draft — it is showing it to everyone, so the bypass lives in the platform rather than in each route:
+  `previewCachePolicy` downgrades the policy to `none` before a cache key can exist, which stops the
+  read, the write and the background revalidation together. The cookie carries an expiry and a
+  signature over it, never the secret, and the return path is restricted to a same-site absolute path
+  because the enable link gets pasted into chat. Unset `PREVIEW_SECRET` disables the feature and the
+  endpoints answer 404 rather than advertising that a preview mechanism exists.
+
+  **Server islands.** A hole in cached HTML that the server fills per request. The shell is served from
+  the shared cache untouched; the placeholder carries signed props, and `/api/_island` renders the
+  island and returns markup that the client runtime swaps in. Unlike a `defer` island, the personal
+  markup is produced on the server, so the component's JavaScript never reaches the browser. Props are
+  baked into HTML every visitor receives, so they describe the hole and never the person — identity is
+  read from the request at render time. They are signed because the endpoint would otherwise render
+  any registered island with any input a caller invented.
+
+  Both are demonstrated in the showroom at `/server-island` and `/preview-demo`.
+
+- @originloom/shared@0.7.29
+
 ## 0.7.28
 
 ### Patch Changes

@@ -154,6 +154,19 @@ export const config = {
    */
   publicDir: process.env.PUBLIC_DIR?.replace(/\/$/, "") || "public",
   gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),
+  /**
+   * Shared secret an editor presents to start a draft-preview session. Unset
+   * means the feature is off: with no way to tell an editor from anyone else,
+   * refusing is the only safe answer.
+   */
+  previewSecret: process.env.PREVIEW_SECRET?.trim() || undefined,
+  /**
+   * Signs server-island placeholders. It must be the same across every pod:
+   * the placeholder is baked into shared cached HTML by one process and
+   * verified by whichever process answers the fill request.
+   */
+  serverIslandSecret: process.env.SERVER_ISLAND_SECRET?.trim() || undefined,
+  previewTtlMs: numberEnv("PREVIEW_TTL_MS", 3_600_000),
   cspEnforce: booleanEnv("CSP_ENFORCE", nodeEnv === "production"),
   cspReportUri: process.env.CSP_REPORT_URI?.trim() || undefined,
 } as const;

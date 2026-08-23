@@ -7,6 +7,11 @@ export default async function setup() {
   // Vitest runs from the workspace root; point the runtime at the app's client build.
   process.env.CLIENT_DIST_DIR = `${appRoot}/dist/client`;
   await import("@originloom/tooling/bin/build-media.mjs");
+  // Draft preview and server islands are off unless their secrets are set —
+  // that is the production default. The demo routes exercise both, so the
+  // test run configures them the way .env.development does.
+  process.env.PREVIEW_SECRET ??= "dev-preview-secret";
+  process.env.SERVER_ISLAND_SECRET ??= "dev-server-island-secret";
   process.env.MOCK_GW_QUIET = "1";
   const { createMockGatewayServer } = await import("./fixtures/gateway/server.js");
   const server = createMockGatewayServer();

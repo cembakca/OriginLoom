@@ -6,6 +6,7 @@ import type { Assets } from "../assets.js";
 import * as cache from "../cache/index.js";
 import { config } from "../config.js";
 import { setActiveHttpRoute, SpanKind, withSpan } from "../observability.js";
+import { previewCachePolicy } from "../preview.js";
 import { proxyRequest } from "../proxy.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url.js";
 import { renderNotFoundDocument } from "../route-boundary.js";
@@ -115,7 +116,10 @@ async function resolveValidatedRoute(
 
 function resolvedRoute(route: Route, routeCtx: Ctx, context: HandleContext): ResolvedSsrRequest {
   const declared = route.cache?.(routeCtx) ?? { kind: "none" as const };
-  const policy = applyMiddlewareCacheVary(declared, context);
+  // Preview downgrades the policy before the key exists, so a draft render has
+  // nothing to read from and nothing to write to. Doing it here rather than in
+  // each route is the point: a route cannot forget.
+  const policy = previewCachePolicy(applyMiddlewareCacheVary(declared, context), routeCtx.request);
   return { kind: "route", route, routeCtx, policy, cacheKey: cache.cacheKey(policy) };
 }
 

@@ -11,7 +11,8 @@ export type ClientErrorSource =
   | "performance-telemetry"
   | "react-caught"
   | "react-recoverable"
-  | "react-uncaught";
+  | "react-uncaught"
+  | "server-island";
 
 export type ClientErrorContext = {
   island?: string;
