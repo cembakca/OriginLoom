@@ -1,5 +1,38 @@
 # @originloom/core
 
+## 0.7.31
+
+### Patch Changes
+
+- Four more items from `docs/framework-research-2026.md`.
+
+  **Trusted Types (5.1).** `require-trusted-types-for 'script'` closes the half of XSS that `script-src`
+  cannot see: a nonce says which scripts may run and says nothing about markup assembled at runtime
+  and assigned to `innerHTML`. It rolls out in stages — `TRUSTED_TYPES=report` (the production default)
+  carries the directives on a second, report-only header while the main policy stays enforced, so the
+  sinks that would break surface before anything does. One policy name is allow-listed, and the client
+  runtime routes its only markup sink through it.
+
+  **DevTools panel (7.1).** Every fact was already produced — cache state, request id, island markers,
+  server-island placeholders — with nowhere to see them together. The panel reads the document and
+  Navigation Timing, never asks the server anything, and builds nodes with `textContent` because it
+  prints values that came from the page. Cache state comes from `Server-Timing`, not the HTML: a cache
+  HIT reuses a body rendered during a MISS, so anything baked into the document describes the wrong
+  request. Dev-only, behind `import.meta.env.DEV`, and verified absent from the production bundle.
+
+  **Typed env schema (7.3).** Startup validation already refused to boot on a missing `GATEWAY_URL`;
+  what it lacked was a type and a boundary. A declared schema yields parsed values instead of
+  `string | undefined`, collects every problem into one message rather than one restart per mistake,
+  and makes the public/secret split something the compiler can check — `publicEnv` derives the
+  browser-bound object from the schema, so a secret cannot be added to it by writing one more line.
+
+  **Named cache profiles (3.1).** `ttl: 14_400` is a number somebody chose once. Profiles carry the
+  intent and put the numbers in one reviewable table; raw pairs still work for the genuinely unusual
+  route. Every profile has a stale-while-revalidate window, because without one the request that finds
+  an expired entry pays for the refill — and that request arrives exactly when a cold burst does.
+
+- @originloom/shared@0.7.30
+
 ## 0.7.29
 
 ### Patch Changes

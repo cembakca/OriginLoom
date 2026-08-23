@@ -17,6 +17,9 @@
  */
 
 export const SHARED_PUBLIC_SUBPATHS = [
+  "lib/client/trusted-types",
+  "lib/client/devtools",
+  "lib/cache-profiles",
   "assets",
   "dev-client",
   "fragment-markup",
@@ -76,6 +79,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
 ];
 
 export const CORE_PUBLIC_SUBPATHS = [
+  "env-schema",
   "server-island",
   "preview",
   "after",

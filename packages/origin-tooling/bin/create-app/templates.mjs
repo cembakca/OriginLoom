@@ -802,7 +802,14 @@ test.describe("SSR and island critical paths", () => {
     expect(response?.status()).toBe(200);
     let headers = response?.headers() ?? {};
     expect(headers["content-security-policy"]).toContain("script-src");
-    expect(headers["content-security-policy-report-only"]).toBeUndefined();
+    // The policy is enforced, not merely reported. A report-only header may
+    // still be present — Trusted Types roll out through one — but it must carry
+    // only those directives, never a second copy of the policy.
+    const reportOnly = headers["content-security-policy-report-only"];
+    if (reportOnly !== undefined) {
+      expect(reportOnly).toContain("require-trusted-types-for");
+      expect(reportOnly).not.toContain("script-src");
+    }
     expect(headers["x-content-type-options"]).toBe("nosniff");
 
     // The first anonymous response establishes tracking state, the next fills

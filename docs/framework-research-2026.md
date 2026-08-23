@@ -89,7 +89,7 @@ kısmını zaten veriyor. Maliyet/fayda tutmuyor.
 
 ## 3. Cache
 
-### 3.1 İsimli cache profilleri (`cacheLife`) **[P1]**
+### 3.1 İsimli cache profilleri (`cacheLife`) **[P1]** **[YAPILDI — 0.7.31]**
 
 - **Ne**: Next 16'da `cacheLife("hours")` gibi isimli profiller — her profil `stale` / `revalidate` /
   `expire` üçlüsünü taşır. Ham sayı yerine niyet yazılıyor.
@@ -205,7 +205,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
 
 ## 5. Güvenlik
 
-### 5.1 Trusted Types **[P1]**
+### 5.1 Trusted Types **[P1]** **[YAPILDI — 0.7.31]**
 
 - **Ne**: `Content-Security-Policy: require-trusted-types-for 'script'` + `trusted-types` direktifi.
   `innerHTML` gibi DOM XSS sink'leri ham string kabul etmiyor, sadece politika üretimi tiplenmiş
@@ -326,7 +326,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
 
 ## 7. Geliştirici deneyimi
 
-### 7.1 DevTools paneli **[P1]**
+### 7.1 DevTools paneli **[P1]** **[YAPILDI — 0.7.31]**
 
 - **Ne**: Nuxt DevTools — tarayıcı içinde route'lar, bileşen ağacı, sunucu route'ları, payload,
   timeline, açık modüller.
@@ -353,7 +353,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
 - **Maliyet/risk**: Yüksek. Çözünürlük sırası, tip birleştirme, override semantiği zor problemler.
   Ama bu ıraksama sorununu başka türlü çözmek de zor.
 
-### 7.3 Tip güvenli env şeması (`astro:env`) **[P1]**
+### 7.3 Tip güvenli env şeması (`astro:env`) **[P1]** **[YAPILDI — 0.7.31]**
 
 - **Ne**: Astro'nun `astro:env`'i — her env değişkeni şema seviyesinde tanımlı, tipli, doğrulanmış
   ve **public/secret ayrımı** açık. Secret'ın istemci bundle'ına sızması derleme hatası.
@@ -494,10 +494,10 @@ showroom'da: `/server-island` ve `/preview-demo`.
 | 3.4 ✅ | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
 | 2.1 ✅ | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
 | 6.1    | Speculation Rules            | Cache mimarimiz prerender'ı olağandışı ucuz kılıyor                         |
-| 5.1    | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
-| 7.1    | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |
-| 7.3    | Tip güvenli env şeması       | Doğrulama var, tip ve public/secret sınırı yok                              |
-| 3.1    | İsimli cache profilleri      | Ham TTL sayıları okunabilirliği ve denetimi zorlaştırıyor                   |
+| 5.1 ✅ | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
+| 7.1 ✅ | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |
+| 7.3 ✅ | Tip güvenli env şeması       | Doğrulama var, tip ve public/secret sınırı yok                              |
+| 3.1 ✅ | İsimli cache profilleri      | Ham TTL sayıları okunabilirliği ve denetimi zorlaştırıyor                   |
 | 9.1    | `using` ile kaynak yönetimi  | `releaseGatewayResponse` unutma sınıfını dile devreder                      |
 | 4.2    | Form actions                 | JS'siz form; a11y ve dayanıklılık                                           |
 

@@ -10,6 +10,8 @@
  * server already rendered. Degrading to the fallback is the designed outcome,
  * not an error path.
  */
+import { trustedServerHtml } from "./trusted-types.js";
+
 const ENDPOINT = "/api/_island";
 const ATTRIBUTE = "data-server-island";
 
@@ -55,13 +57,12 @@ async function fillOne(element: HTMLElement, options: ServerIslandFillOptions): 
     // where the island renders an account summary. The fallback stays.
     if (html.trim().length === 0) return;
 
-    // `innerHTML` with markup from our own origin, produced by the island
-    // renderer on the server. The renderer escapes what it interpolates
-    // (`renderToStaticMarkup` does), so the trust boundary is the island's own
-    // code — the same boundary as any other server-rendered markup on the page.
-    // It is still a DOM sink: when Trusted Types lands (docs/framework-research
-    // -2026.md §5.1) this assignment is one of the places that needs a policy.
-    element.innerHTML = html;
+    // Markup from our own origin, produced by the island renderer on the
+    // server, which escapes what it interpolates. `trustedServerHtml` is what
+    // lets that claim survive `require-trusted-types-for 'script'`: the DOM
+    // rejects plain strings at this sink, and accepts only what the policy
+    // produced. Where the browser has no Trusted Types it is the same string.
+    element.innerHTML = trustedServerHtml(html);
     element.setAttribute("data-filled", "");
   } catch (error) {
     options.onError?.(name, error);

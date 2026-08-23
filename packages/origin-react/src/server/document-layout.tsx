@@ -52,6 +52,14 @@ export function DocumentLayout<Shell>({ input, config }: DocumentLayoutProps<She
         <meta name="color-scheme" content={paint.colorScheme} />
         <meta name="theme-color" content={paint.themeColor} />
         <style>{criticalPaintCss(config.criticalPaint)}</style>
+        {/* Development only: the devtools panel reads these. The request id is
+            already in every log line, and the cache state is already on the
+            response — this just puts them where a browser can see them. They
+            are never emitted in production, so nothing about a live page
+            changes. */}
+        {assets.development && input.pageRequestId ? (
+          <meta name="originloom:request-id" content={input.pageRequestId} />
+        ) : null}
         {config.renderHeadStart({ seo, cspNonce })}
         {assets.fonts.map((font) =>
           font.preload ? (

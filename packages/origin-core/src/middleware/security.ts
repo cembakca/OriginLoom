@@ -78,6 +78,24 @@ export type CspSources = {
 };
 
 /**
+ * Folds the Trusted Types directives into a policy when they belong there.
+ *
+ * `enforce` mode adds them to the enforced header. When the whole CSP is
+ * already report-only there is nothing to stage, so `report` adds them there
+ * too rather than emitting a second header saying the same thing.
+ */
+function withTrustedTypes<T extends object>(
+  directives: T,
+  header: "enforce" | "report-only",
+): T & Partial<{ requireTrustedTypesFor: string[]; trustedTypes: string[] }> {
+  const wanted =
+    config.trustedTypes === "enforce" ||
+    (config.trustedTypes === "report" && header === "report-only");
+  if (!wanted) return directives;
+  return { ...directives, requireTrustedTypesFor: ["'script'"], trustedTypes: ["originloom"] };
+}
+
+/**
  * Built once per app rather than per request: the directive lists are fixed at
  * startup, and only the nonce changes.
  */
@@ -119,6 +137,24 @@ export function createSecurityMiddleware(
   };
   // secureHeaders compiles directive names, fixed values and all other header
   // strings here. The only request-time callback substitutes the nonce.
+  /**
+   * Trusted Types ship on their own schedule.
+   *
+   * `require-trusted-types-for` breaks every DOM sink that has not been routed
+   * through a policy yet, so it rolls out separately from the rest of the CSP:
+   * in `report` mode the directives ride a second, report-only header while the
+   * main policy stays enforced. Report-only never blocks, so the sinks that
+   * would break show up before anything does.
+   */
+  const trustedTypeDirectives = {
+    requireTrustedTypesFor: ["'script'"],
+    // Only the app's own policy may be created. Without this any script could
+    // mint a policy and hand itself the trust the directive was meant to gate.
+    trustedTypes: ["originloom"],
+  };
+  const trustedTypesReportOnly =
+    config.trustedTypes === "report" && config.cspEnforce ? trustedTypeDirectives : undefined;
+
   const securityHeaders = secureHeaders({
     xContentTypeOptions: "nosniff",
     xFrameOptions: "DENY",
@@ -129,8 +165,11 @@ export function createSecurityMiddleware(
       geolocation: [],
     },
     ...(config.cspEnforce
-      ? { contentSecurityPolicy: cspDirectives }
-      : { contentSecurityPolicyReportOnly: cspDirectives }),
+      ? { contentSecurityPolicy: withTrustedTypes(cspDirectives, "enforce") }
+      : { contentSecurityPolicyReportOnly: withTrustedTypes(cspDirectives, "report-only") }),
+    ...(trustedTypesReportOnly
+      ? { contentSecurityPolicyReportOnly: { ...trustedTypesReportOnly } }
+      : {}),
   });
 
   return async (c, next) => {

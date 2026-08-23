@@ -24,6 +24,11 @@ export function htmlResponse(
     "x-cache": state,
   };
   if (requestId) headers["x-request-id"] = requestId;
+  // Development only. `x-cache` is already on the response, but a script cannot
+  // read its own document's headers — and a meta tag would be wrong, because a
+  // cache HIT reuses a body that was rendered on a MISS. `Server-Timing` is a
+  // header the browser does expose to JS, so it is fresh on every response.
+  if (!config.isProduction) headers["server-timing"] = `cache;desc="${state}"`;
   if (isStream) headers["transfer-encoding"] = "chunked";
 
   return new Response(body, { status, headers });

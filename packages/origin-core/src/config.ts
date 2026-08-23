@@ -20,6 +20,12 @@ export function booleanEnv(name: string, fallback: boolean): boolean {
   return value === "1" || value.toLowerCase() === "true";
 }
 
+/** Reads one of a closed set, falling back rather than booting on a typo's meaning. */
+export function enumEnv<T extends string>(name: string, values: readonly T[], fallback: T): T {
+  const value = process.env[name]?.trim();
+  return value && (values as readonly string[]).includes(value) ? (value as T) : fallback;
+}
+
 export function publicHttpUrlEnv(name: string): string | undefined {
   const value = process.env[name]?.trim().replace(/\/$/, "");
   if (!value) return undefined;
@@ -168,6 +174,19 @@ export const config = {
   serverIslandSecret: process.env.SERVER_ISLAND_SECRET?.trim() || undefined,
   previewTtlMs: numberEnv("PREVIEW_TTL_MS", 3_600_000),
   cspEnforce: booleanEnv("CSP_ENFORCE", nodeEnv === "production"),
+  /**
+   * Trusted Types rollout: `off`, `report` or `enforce`.
+   *
+   * Defaults to `report` in production — report-only never blocks, so it
+   * surfaces the sinks that would break before anything does. Off in
+   * development, where the dev server assigns markup the policy has no
+   * reason to bless.
+   */
+  trustedTypes: enumEnv(
+    "TRUSTED_TYPES",
+    ["off", "report", "enforce"] as const,
+    nodeEnv === "production" ? "report" : "off",
+  ),
   cspReportUri: process.env.CSP_REPORT_URI?.trim() || undefined,
 } as const;
 
