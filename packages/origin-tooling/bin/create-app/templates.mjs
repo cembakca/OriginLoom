@@ -119,8 +119,6 @@ export function renderTemplates({
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
     "tests/helpers/gateway.ts": gatewayTestHelper(),
-    "eslint-rules/no-direct-gateway-import.mjs": noDirectGatewayImportRule(),
-    "eslint-rules/no-direct-gateway-import.d.mts": noDirectGatewayImportTypes(),
     ".prettierrc.json": asset("prettierrc.json"),
     ".prettierignore": prettierIgnore(),
     "vite.config.ts": viteConfig(vitePort),
@@ -323,7 +321,6 @@ export function renderTemplates({
     "tests/enquiries-api.test.ts": enquiryApiTest(),
     "tests/no-cache.test.ts": noCacheTest(),
     "tests/gateway-identity.test.ts": gatewayIdentityCoverageTest(),
-    "tests/eslint-gateway-import.test.ts": gatewayImportRuleTest(),
     "tests/catalog-query.test.ts": catalogQueryTest(),
     "tests/quote-query.test.ts": quoteQueryTest(),
     "tests/referrals.test.ts": referralApiTest(),
@@ -588,56 +585,27 @@ ${options}
 `;
 };
 
-const eslintConfig = () => `import js from "@eslint/js";
-import prettier from "eslint-config-prettier";
-import simpleImportSort from "eslint-plugin-simple-import-sort";
-import globals from "globals";
+const eslintConfig = () => `import globals from "globals";
 import tseslint from "typescript-eslint";
 
-import { noDirectGatewayImport } from "./eslint-rules/no-direct-gateway-import.mjs";
+import { originLoomEslintConfig } from "@originloom/tooling/eslint";
 
+/**
+ * The shared rules come from the platform, not from a copy in this file.
+ *
+ * A generated config is a copy and a copy diverges — the reference app grows a
+ * rule the product app never gets, and a rule that is absent fails nothing, so
+ * nobody notices. Everything below the preset is genuinely this app's: which
+ * directories are ignored, which globals a fixture script gets.
+ */
 export default tseslint.config(
   { ignores: ["dist/**", "node_modules/**", "playwright-report/**", "test-results/**"] },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...originLoomEslintConfig(),
   {
     // Dev fixtures and scripts run in plain Node, not in the browser.
     files: ["mock-gateway/**/*.mjs", "scripts/**/*.mjs", "load-test/**/*.mjs"],
     languageOptions: { globals: globals.node },
   },
-  {
-    // Tool configs that have to stay CommonJS (SVGR reads .cjs with require).
-    files: ["**/*.cjs"],
-    languageOptions: { sourceType: "commonjs", globals: globals.node },
-  },
-  {
-    files: ["**/*.{ts,tsx}"],
-    plugins: {
-      "simple-import-sort": simpleImportSort,
-      // App-owned rules. Add one when a convention this app depends on cannot
-      // otherwise fail loudly — see eslint-rules/ for what each guards.
-      local: { rules: { "no-direct-gateway-import": noDirectGatewayImport } },
-    },
-    rules: {
-      "simple-import-sort/imports": "error",
-      "simple-import-sort/exports": "error",
-      "local/no-direct-gateway-import": "error",
-      // Ambient module augmentation (e.g. the ssr-fragment JSX typing) needs a namespace.
-      "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }],
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
-      ],
-    },
-  },
-  {
-    // The gateway seam exists so SSR_DIAGNOSTICS sees every upstream call — a
-    // runtime concern. A test that replaces the core module has to name it, and
-    // no test serves traffic, so the rule has nothing to protect here.
-    files: ["tests/**/*.{ts,tsx}"],
-    rules: { "local/no-direct-gateway-import": "off" },
-  },
-  prettier,
 );
 `;
 
@@ -7193,75 +7161,6 @@ export function classifyGatewayError(status: number): string {
 }
 `;
 
-const noDirectGatewayImportRule = () => `/**
- * Every upstream call goes through \`@server/diagnostics/gateway\`.
- *
- * That module is a transparent pass-through to the platform adapter which, when
- * \`SSR_DIAGNOSTICS=1\`, times each call and attributes it to the request that
- * made it. A service that imports \`@originloom/core/adapters/gateway\` directly
- * still works — which is exactly the problem: it silently drops out of every
- * trace, and nothing fails until someone is debugging a slow page at 3am and
- * finds a gap where the call should be.
- *
- * The adapter itself is the one file allowed to reach for core.
- */
-const CORE_ADAPTER = "@originloom/core/adapters/gateway";
-const APP_ADAPTER = "@server/diagnostics/gateway";
-const ADAPTER_FILE = /(^|\\/)server\\/diagnostics\\/gateway\\.ts$/;
-
-/** @type {import("eslint").Rule.RuleModule} */
-export const noDirectGatewayImport = {
-  meta: {
-    type: "problem",
-    docs: {
-      description:
-        "Import the gateway from the app adapter so diagnostics can see the call.",
-    },
-    messages: {
-      direct: \`Import the gateway from "\${APP_ADAPTER}", not "\${CORE_ADAPTER}" — a direct import is invisible to SSR_DIAGNOSTICS.\`,
-    },
-    fixable: "code",
-    schema: [],
-  },
-
-  create(context) {
-    // Posix-normalized so the exemption also matches on Windows checkouts.
-    const filename = (context.filename ?? "").replaceAll("\\\\", "/");
-    if (ADAPTER_FILE.test(filename)) return {};
-
-    /** @param {{ value: unknown }} source */
-    const check = (source) => {
-      if (!source || source.value !== CORE_ADAPTER) return;
-      context.report({
-        node: source,
-        messageId: "direct",
-        fix: (fixer) => fixer.replaceText(source, JSON.stringify(APP_ADAPTER)),
-      });
-    };
-
-    return {
-      // \`import … from\`, \`export … from\`, \`export * from\` and \`await import()\`
-      // all reach the same module; a rule that only knew the first would be a
-      // rule anyone could route around by accident.
-      ImportDeclaration: (node) => check(node.source),
-      ExportNamedDeclaration: (node) => check(node.source),
-      ExportAllDeclaration: (node) => check(node.source),
-      ImportExpression: (node) => check(node.source),
-    };
-  },
-};
-`;
-
-const noDirectGatewayImportTypes = () => `import type { Rule } from "eslint";
-
-/**
- * Declared here because \`eslint.config.js\` has to load the rule as plain
- * JavaScript — ESLint reads its config without a TypeScript loader — while the
- * rule's test imports it as a typed module.
- */
-export declare const noDirectGatewayImport: Rule.RuleModule;
-`;
-
 const menuProjectionTest =
   () => `import type { IMenuItems, MenuItem } from "@originloom/shared/lib/menu/types";
 import { describe, expect, it } from "vitest";
@@ -7353,96 +7252,6 @@ describe("projectMenu", () => {
     projectMenu(source, "desktop");
 
     expect(source.headerItems.map((entry) => entry.name)).toEqual(["B", "A"]);
-  });
-});
-`;
-
-const gatewayImportRuleTest = () => `import { Linter } from "eslint";
-import { describe, expect, it } from "vitest";
-
-import { noDirectGatewayImport } from "../eslint-rules/no-direct-gateway-import.mjs";
-
-const linter = new Linter();
-
-const config = [
-  {
-    // Flat config only lints the extensions a block claims. Without this the
-    // linter answers "no matching configuration" for a .ts filename and the
-    // rule never runs — a green test that checked nothing.
-    files: ["**/*.ts"],
-    plugins: { local: { rules: { "no-direct-gateway-import": noDirectGatewayImport } } },
-    rules: { "local/no-direct-gateway-import": "error" },
-    languageOptions: { ecmaVersion: 2023, sourceType: "module" },
-  },
-] as unknown as Linter.Config[];
-
-function lint(code: string, filename = "server/services/items.ts") {
-  return linter.verify(code, config, filename);
-}
-
-function fix(code: string, filename = "server/services/items.ts") {
-  return linter.verifyAndFix(code, config, filename).output;
-}
-
-describe("no-direct-gateway-import", () => {
-  it("has a working harness — the linter must actually apply the config", () => {
-    // Every assertion below is "no messages" or "this message"; a harness that
-    // silently stopped linting would make half of them pass for free.
-    expect(lint("const ok = 1;").map((message) => message.message)).toEqual([]);
-  });
-
-  it("flags a direct import of the platform adapter", () => {
-    const [message, ...rest] = lint(
-      'import { gatewayFetch } from "@originloom/core/adapters/gateway";',
-    );
-
-    expect(rest).toEqual([]);
-    expect(message?.messageId).toBe("direct");
-  });
-
-  it("rewrites the specifier to the app adapter", () => {
-    expect(fix('import { gatewayFetch } from "@originloom/core/adapters/gateway";')).toBe(
-      'import { gatewayFetch } from "@server/diagnostics/gateway";',
-    );
-  });
-
-  // A rule that only knew \`import … from\` would be one anyone could route
-  // around without noticing, so each spelling is covered.
-  it.each([
-    ['export { gatewayFetch } from "@originloom/core/adapters/gateway";', "re-export"],
-    ['export * from "@originloom/core/adapters/gateway";', "star re-export"],
-    ['const m = await import("@originloom/core/adapters/gateway");', "dynamic import"],
-  ])("flags a %s", (code) => {
-    expect(lint(code).map((message) => message.messageId)).toEqual(["direct"]);
-  });
-
-  it("allows the app adapter itself to reach for core", () => {
-    expect(
-      lint(
-        'import * as coreGateway from "@originloom/core/adapters/gateway";',
-        "server/diagnostics/gateway.ts",
-      ),
-    ).toEqual([]);
-  });
-
-  it("leaves the app adapter and unrelated platform modules alone", () => {
-    expect(
-      lint(
-        'import { gatewayFetch } from "@server/diagnostics/gateway";\\n' +
-          'import { logger } from "@originloom/core/logger";',
-      ),
-    ).toEqual([]);
-  });
-
-  it("matches the specifier exactly, not by prefix", () => {
-    // A neighbouring module whose name merely starts the same way is a
-    // different module, and flagging it would send someone to an import that
-    // does not exist.
-    expect(lint('import { x } from "@server/diagnostics/gateway-identity";')).toEqual([]);
-  });
-
-  it("does not flag the module name in a vi.mock call", () => {
-    expect(lint('vi.mock("@originloom/core/adapters/gateway", () => ({}));')).toEqual([]);
   });
 });
 `;

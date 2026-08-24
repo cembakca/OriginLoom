@@ -266,6 +266,9 @@ importers:
       '@cyclonedx/cyclonedx-npm':
         specifier: ^6.0.1
         version: 6.0.1
+      '@eslint/js':
+        specifier: ^10.0.0
+        version: 10.0.1(eslint@10.9.0(jiti@2.7.0))
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
@@ -281,6 +284,18 @@ importers:
       ajv:
         specifier: ^8.20.0
         version: 8.20.0
+      eslint:
+        specifier: ^10.0.0
+        version: 10.9.0(jiti@2.7.0)
+      eslint-config-prettier:
+        specifier: ^10.0.0
+        version: 10.1.8(eslint@10.9.0(jiti@2.7.0))
+      eslint-plugin-simple-import-sort:
+        specifier: ^14.0.0
+        version: 14.0.0(eslint@10.9.0(jiti@2.7.0))
+      globals:
+        specifier: ^17.0.0
+        version: 17.11.0
       prettier:
         specifier: ^3.9.6
         version: 3.9.6
@@ -290,6 +305,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.0.0
+        version: 8.67.0(eslint@10.9.0(jiti@2.7.0))(typescript@5.9.3)
 
 packages:
 

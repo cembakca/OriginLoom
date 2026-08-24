@@ -1,6 +1,6 @@
 {
   "name": "@originloom/tooling",
-  "version": "0.7.53",
+  "version": "0.7.54",
   "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -48,7 +48,8 @@
   },
   "exports": {
     "./bin/*.mjs": "./bin/*.mjs",
-    "./bin/*": "./bin/*.mjs"
+    "./bin/*": "./bin/*.mjs",
+    "./eslint": "./eslint/index.mjs"
   },
   "dependencies": {
     "@cyclonedx/cyclonedx-npm": "^6.0.1",
@@ -62,9 +63,38 @@
     "typescript": "^5.9.3"
   },
   "files": [
-    "bin"
+    "bin",
+    "eslint"
   ],
   "publishConfig": {
     "registry": "http://localhost:4873"
+  },
+  "peerDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "globals": "^17.0.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@eslint/js": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    },
+    "eslint-config-prettier": {
+      "optional": true
+    },
+    "eslint-plugin-simple-import-sort": {
+      "optional": true
+    },
+    "globals": {
+      "optional": true
+    },
+    "typescript-eslint": {
+      "optional": true
+    }
   }
 }
