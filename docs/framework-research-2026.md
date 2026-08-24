@@ -265,7 +265,7 @@ kapalıyken blok dekorasyondu. Detay: `docs/migrations/0.7.41.md`.
   sabit sürümlü vendor script'lerinde uygulanabilir. Kısmi fayda — dürüst olmak gerekirse GTM
   senaryosunda uygulanamaz.
 
-### 5.4 COOP / COEP / Origin-Agent-Cluster **[P2]**
+### 5.4 COOP / COEP / Origin-Agent-Cluster **[P2]** **[YAPILDI — 0.7.43]**
 
 - **Ne**: Cross-origin izolasyon başlıkları. `SharedArrayBuffer`/yüksek çözünürlüklü timer erişimi
   ve Spectre sınıfı savunma için.
@@ -273,6 +273,17 @@ kapalıyken blok dekorasyondu. Detay: `docs/migrations/0.7.41.md`.
 - **Değer**: Orta. COOP (`same-origin`) ucuz ve tek başına da değerli (popup tabanlı saldırı
   yüzeyini kapatıyor). COEP pahalı — tüm üçüncü taraf kaynakların CORP başlığı göndermesi gerekir,
   GTM ile çatışır. **Öneri: COOP evet, COEP hayır.**
+
+**Ne yapıldı (0.7.43).** COOP (`same-origin`) ve `Origin-Agent-Cluster: ?1` zaten her yanıttaydı —
+ama Hono `secureHeaders` **varsayılanı** olarak. Aynı byte'lar, farklı şey: miras alınan bir
+varsayılan, bağımlılık fikrini değiştirdiği gün sessizce değişir ve kimse o değişikliği review
+etmez. İkisi de artık `security.ts`'te açıkça yazılı, gerekçeleriyle, ve bir test ikisini de
+pinliyor.
+
+Aynı test **COEP'in yokluğunu** da pinliyor. Bu, birinin "seti tamamlamasını" engellemek için:
+COEP her üçüncü taraf alt kaynağın CORP göndermesini ister, ve bu sitenin vazgeçemeyeceği üçüncü
+taraf GTM. Açmak, burada kimsenin kullanmadığı cross-origin isolation'ı almak için tag manager'ı
+kırmak olurdu. COEP kalıcı hayır.
 
 ### 5.5 Node permission model **[P3]**
 
@@ -361,7 +372,7 @@ ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
 - **Maliyet/risk**: Hono + Node HTTP/1.1 üzerinde 103 göndermek doğrudan desteklenmiyor; ters proxy
   (nginx/CDN) katmanı gerekebilir. Altyapıya bağımlı.
 
-### 6.3 View Transitions (cross-document) **[P2]**
+### 6.3 View Transitions (cross-document) **[P2]** **[YAPILDI — 0.7.43]**
 
 - **Ne**: `@view-transition { navigation: auto }` ile MPA'da sayfalar arası yumuşak geçiş.
 - **Bizde**: `0.7.15-navigation-paint` migration'ında bu CSS zaten enjekte ediliyor — yani
@@ -369,6 +380,19 @@ ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
   morph'lama.
 - **Değer**: Speculation Rules ile birleştiğinde etkileyici: hedef sayfa zaten prerender edilmişse
   geçiş animasyonu ilk kareden itibaren akıcı çalışıyor. İkisi birlikte alınmalı.
+
+**Ne yapıldı (0.7.43).** İki eksik de kapandı.
+
+**İsimli geçişler.** Chrome bir öğeyi belgeler arasında ancak iki tarafta da aynı adı taşıyorsa
+morph eder. Kabuk zaten değişmeyen kısımdır: `data-view-transition="header" | "footer" | "main"`
+taşıyan öğeler critical paint CSS'inde bir ada bağlanıyor, böylece navigasyon "site değişti" değil
+"sayfa değişti" gibi okunuyor. Ad belge başına tekil olmak zorunda — iki öğe aynı adı taşırsa
+tarayıcı geçişin tamamını atlar, yani bugünkü davranışa düşer, kırılmaz. Bu yüzden rol başına tek
+değer.
+
+**Reduced-motion.** Root cross-fade bu koruma olmadan çıkmıştı, yani "reduce" diyen kullanıcı da
+animasyon alıyordu. Animasyonsuz bir view transition anlık bir takastır — tercihin istediği şey tam
+olarak budur.
 
 ### 6.4 bfcache uyumluluğu **[P2]**
 
@@ -424,7 +448,7 @@ ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
   secret'ın istemciye sızması bugün bizde sadece dikkatle engelleniyor.
 - **Maliyet/risk**: Düşük. Mevcut `validateConfig` altyapısının üstüne şema.
 
-### 7.4 `instrumentation.register` / `onRequestError` **[P2]**
+### 7.4 `instrumentation.register` / `onRequestError` **[P2]** **[YAPILDI — 0.7.43]**
 
 - **Ne**: Next'in tek dosyalık gözlemlenebilirlik giriş noktası: `register()` sunucu ayağa kalkarken
   bir kez, `onRequestError()` server component/route handler/action'daki yakalanmamış hatalar için.
@@ -433,6 +457,22 @@ ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
 - **Değer**: Orta. Bizde zaten yapılandırılmış log ve OTel var; bu daha çok düzen kazancı.
 
 ---
+
+**Ne yapıldı (0.7.43).** `OriginRuntime.onRequestError` kancası: her beklenmedik sunucu hatası, bir
+kez, ziyaretçiye gösterilen referansla birlikte. Uygulama Sentry'yi buraya bağlar — her giriş
+noktasını sarmalamak yerine bir kez.
+
+Öncesinde raporlama, her catch bloğunun ne çağırdıysa oydu: beş `logError` çağrısı, beş farklı alan
+kümesi, ve platformu yamamadan bir reporter takılacak yer yok. Beşi de tek bir `reportRequestError`
+çağrısına birleşti.
+
+**Log satırları bilerek aynı kaldı.** `msg` rapor tipinde bir alan, `phase`'ten türetilmiyor —
+çünkü "route execution failed" gibi etiketlerin okuyucusu var ve bir faz adı o sorguları sessizce
+eşleşmez hale getirirdi. (Bunu ilk denemede kaybettim; testleri kırdığı için yakalandı.)
+
+Kanca senkron çağrılıyor ve hatası yutuluyor: zaten başarısız olan bir yolda çalışıyor, ve fırlatan
+bir reporter render edilmiş bir hata sayfasını hiç sayfa olmayana çeviremez. Fırlatırsa kendi
+başarısızlığı olarak bir kez loglanıyor — özyinelemeyi önlemek için bu fonksiyona geri girmeden.
 
 ## 8. Production olgunluğu
 
@@ -496,7 +536,7 @@ gateway'de dispose edilecek bir şey yok ve hata servisin hata yoluna düşüyor
 `0.7.34-disposable-gateway-response` migration'ı tsconfig `lib` listesine `ESNext.Disposable`
 ekliyor ve uygulamanın kendi gateway adapter'ının tipi silmesini engelliyor.
 
-### 9.2 `AsyncContextFrame` — AsyncLocalStorage'ın ucuzlaması **[P1, bedava]**
+### 9.2 `AsyncContextFrame` — AsyncLocalStorage'ın ucuzlaması **[P1, bedava]** **[ÖLÇÜLDÜ — 0.7.43]**
 
 - **Ne**: Node 24'te `AsyncLocalStorage` varsayılan olarak `AsyncContextFrame` kullanıyor; artık her
   async işlem için async_hooks altyapısına dayanmıyor.
@@ -504,6 +544,21 @@ ekliyor ve uygulamanın kendi gateway adapter'ının tipi silmesini engelliyor.
   Yani bu iyileştirme **Node 24 geçişiyle birlikte zaten kazanıldı** — ölçmeye değer.
 - **Değer**: Ölçüm dışında iş yok. Kapasite testlerimizi Node 22 vs 24 karşılaştırmasıyla bir kez
   koşup baseline'ı güncellemek yeterli.
+
+**Ölçüldü (0.7.43).** `scripts/als-benchmark.mjs`, iki runtime'da da koşturulup karşılaştırılır.
+Kasıtlı olarak mikrobenchmark: kapasite koşusu "saniyede kaç istek" sorusunu cevaplar ve o gateway'e,
+cache topolojisine ve makineye bağlıdır; buradaki soru bir store yazımının ve bir store okumasının
+maliyeti — ki Node sürümünün tek başına değiştirebileceği kısım da bu.
+
+| İşlem                    | Node 22.22 | Node 24.19 |     Fark |
+| ------------------------ | ---------: | ---------: | -------: |
+| `run` + `get` (düz)      |     349 ns |     310 ns |     −11% |
+| `run` + 10 await + `get` |    1554 ns |     701 ns | **2.2×** |
+| `get`, store yok         |     134 ns |      48 ns | **2.8×** |
+
+Kazanç tam olarak bizim kodumuzun durduğu yerde: düz çağrıda kayda değer bir şey yok, ama bir SSR
+render'ı derin bir await zinciridir ve `memoizeRequestValue` / `activeRequestId` / `after()` aynı
+store'u tekrar tekrar okur. § 9.2'nin "zaten kazanıldı" iddiası doğruymuş — ve artık sayısı var.
 
 ### 9.3 WinterTC / Minimum Common API **[P2]**
 
@@ -581,21 +636,21 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 
 `◐` = bir kısmı var, eksik olan yazıyor. `—` = hiç yok.
 
-| #    | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                            |
-| ---- | --------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 9.2  | `AsyncContextFrame`         | ◐     | Node 24 geçişiyle (0.7.26) **zaten kazanıldı**; eksik olan iş değil **ölçüm** — Node 22 vs 24 kapasite karşılaştırması hiç koşulmadı                                   |
-| 5.4  | COOP / Origin-Agent-Cluster | ◐     | Hono `secureHeaders` varsayılanıyla ikisi de yanıtta. Karar verilmiş değil, miras alınmış — doğrulanıp bilinçli hale getirilmeli. COEP hayır                           |
-| 6.3  | View Transitions            | ◐     | `@view-transition{navigation:auto}` critical paint'te var. Eksik: isimli geçişler (`view-transition-name`). 6.1 ile birlikte alınma gerekçesi 6.1 kapandığı için düştü |
-| 7.4  | instrumentation kancaları   | ◐     | `register()` / `shutdownInstrumentation()` var. Eksik: `onRequestError` eşleniği — bugün hata raporlama `logError` çağrılarına dağılmış                                |
-| 6.4  | bfcache ölçümü              | —     | **En yüksek öncelikli olan bu.** Tuzak #4 hâlâ açık: `applyCookies`'in `private, no-store` kuralı bfcache'i bozuyor olabilir ve bunu ölçmedik                          |
-| 5.6  | Idempotency key'leri        | —     | 4.2 form action'ları geldi, yani çift gönderim yüzeyi **büyüdü**. PRG çifte POST'u kapatıyor ama ağ tekrarını kapatmıyor                                               |
-| 6.2  | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş                                                        |
-| 3.2  | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                                                                                 |
-| 3.3  | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                                                                           |
-| 4.4  | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                                                                      |
-| 7.2  | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                                                                      |
-| 9.3  | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                                                                      |
-| 10.1 | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                                                                             |
+| #      | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                   |
+| ------ | --------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9.2 ✅ | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.4×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                                                   |
+| 5.4 ✅ | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                                                |
+| 6.3 ✅ | View Transitions            | ✅    | İsimli geçişler (`data-view-transition`: header/footer/main) ve reduced-motion boşluğu kapandı                                                |
+| 7.4 ✅ | instrumentation kancaları   | ✅    | `onRequestError` runtime kancası; beş dağınık `logError` tek rapora birleşti, log satırları aynen                                             |
+| 6.4    | bfcache ölçümü              | —     | **En yüksek öncelikli olan bu.** Tuzak #4 hâlâ açık: `applyCookies`'in `private, no-store` kuralı bfcache'i bozuyor olabilir ve bunu ölçmedik |
+| 5.6    | Idempotency key'leri        | —     | 4.2 form action'ları geldi, yani çift gönderim yüzeyi **büyüdü**. PRG çifte POST'u kapatıyor ama ağ tekrarını kapatmıyor                      |
+| 6.2    | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş                               |
+| 3.2    | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                                                        |
+| 3.3    | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                                                  |
+| 4.4    | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                                             |
+| 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                                             |
+| 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                                             |
+| 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                                                    |
 
 ### Üçüncü dalga — fikir olarak dursun
 

@@ -60,6 +60,14 @@ describe("DocumentLayout", () => {
     expect(html).toContain('meta name="theme-color" content="#f8fafc"');
     expect(html).toContain("background-color:#f8fafc");
     expect(html).toContain("@view-transition{navigation:auto}");
+    // The chrome is the part that did not change, so it is named rather than
+    // cross-faded with the content.
+    expect(html).toContain("[data-view-transition='header']{view-transition-name:ol-header}");
+    expect(html).toContain("[data-view-transition='main']{view-transition-name:ol-main}");
+    // A transition with no animation is an instant swap, which is what the
+    // preference asks for — the root cross-fade shipped without this guard.
+    expect(html).toContain("@media(prefers-reduced-motion:reduce)");
+    expect(html).toContain("::view-transition-group(*)");
     expect(html.indexOf("<style>")).toBeLessThan(html.indexOf('rel="stylesheet"'));
   });
 

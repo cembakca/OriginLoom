@@ -159,6 +159,22 @@ export function createSecurityMiddleware(
     xContentTypeOptions: "nosniff",
     xFrameOptions: "DENY",
     referrerPolicy: "strict-origin-when-cross-origin",
+    // Stated rather than inherited. Both of these were already on every response
+    // as `secureHeaders` defaults, which is the same bytes and a different
+    // thing: an inherited default changes when the dependency changes its mind,
+    // and nobody reviews that. Written down, they are ours.
+    //
+    // COOP severs the `window.opener` link, so a page this site opens — or one
+    // that opens it — cannot reach into its window. Origin-Agent-Cluster asks
+    // the browser for an isolated agent cluster, which is what makes
+    // `document.domain` inert and lets the process be separated.
+    crossOriginOpenerPolicy: "same-origin",
+    originAgentCluster: "?1",
+    // COEP is deliberately absent, and this is the note that keeps someone from
+    // "completing the set": it requires every third-party subresource to send
+    // CORP, and the third party this site cannot drop is GTM. Turning it on
+    // would break the tag manager to buy cross-origin isolation nothing here
+    // uses. See docs/framework-research-2026.md § 5.4.
     permissionsPolicy: {
       camera: [],
       microphone: [],

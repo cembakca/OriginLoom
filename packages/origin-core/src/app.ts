@@ -17,7 +17,6 @@ import { resolveTrustedClientIp } from "./client-ip.js";
 import { config } from "./config.js";
 import { errorResponse } from "./error.js";
 import { handle, handleHead } from "./handler.js";
-import { logError } from "./logger.js";
 import { observeRequest } from "./metrics.js";
 import { createPipeline } from "./middleware/pipeline.js";
 import type { OriginMiddleware } from "./middleware/product.js";
@@ -28,6 +27,7 @@ import { createSecurityMiddleware, type CspSources } from "./middleware/security
 import { staticAssetCacheHeaders } from "./middleware/static-assets.js";
 import { SpanStatusCode, withRequestSpan } from "./observability.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url.js";
+import { reportRequestError } from "./request-error.js";
 import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity.js";
 
 export const DEV_SERVER_GENERATION_HEADER = "x-originloom-dev-generation";
@@ -93,11 +93,14 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   app.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
     const errorId = randomUUID();
-    logError(error, {
+    reportRequestError({
+      error,
       msg: "unhandled Hono application error",
+      phase: "request",
       errorId,
       requestId: c.get("requestId"),
       path: new URL(c.req.url).pathname,
+      method: c.req.method,
     });
     const response = errorResponse(options.assets, errorId, {
       pageRequestId: c.get("requestId"),

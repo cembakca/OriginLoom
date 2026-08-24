@@ -13,8 +13,9 @@ import {
 import * as cache from "../cache/index.js";
 import { scheduleRevalidation } from "../cache/revalidation.js";
 import { stitchCachedHtml } from "../cache/stitch-fragments.js";
-import { logError, logger } from "../logger.js";
+import { logger } from "../logger.js";
 import { SpanKind, withSpan } from "../observability.js";
+import { reportRequestError } from "../request-error.js";
 import { renderNotFoundDocument, renderRouteErrorDocument } from "../route-boundary.js";
 import { rethrowRequestDeadline } from "./context.js";
 import { CacheFillTimeoutError, executeRoute, executeRouteWithBudget } from "./execute-route.js";
@@ -259,11 +260,14 @@ async function renderUnexpectedRouteError(
 ): Promise<Response> {
   rethrowRequestDeadline(options.request, error);
   const errorId = randomUUID();
-  logError(error, {
+  reportRequestError({
+    error,
     msg: "route execution failed",
+    phase: "route",
     errorId,
     requestId: options.requestId,
     path: options.url.pathname,
+    method: options.request.method,
     route: options.route.path,
   });
   const rendered = await withSpan(

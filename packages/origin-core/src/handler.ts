@@ -7,8 +7,8 @@ import { resolveRoute } from "@originloom/shared/routing";
 import type { Assets } from "./assets.js";
 import { config } from "./config.js";
 import { errorResponse } from "./error.js";
-import { logError } from "./logger.js";
 import type { PreparedRequest } from "./middleware/prepared-request.js";
+import { reportRequestError } from "./request-error.js";
 import { rethrowRequestDeadline } from "./ssr/context.js";
 import { type ResolvedSsrRequest, resolveSsrRequest } from "./ssr/request-resolution.js";
 import { logRequest } from "./ssr/response.js";
@@ -140,7 +140,15 @@ export async function handle(
   } catch (err) {
     rethrowRequestDeadline(request, err);
     const errorId = randomUUID();
-    logError(err, { msg: "global request failure", errorId, requestId, path: url.pathname });
+    reportRequestError({
+      error: err,
+      msg: "global request failure",
+      phase: "request",
+      errorId,
+      requestId,
+      path: url.pathname,
+      method: request.method,
+    });
     logRequest(requestId, {
       path: url.pathname,
       status: 500,

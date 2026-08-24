@@ -181,6 +181,13 @@ describe("Hono application integration", () => {
     expect(response.headers.get("strict-transport-security")).toContain("max-age=");
     expect(response.headers.get("permissions-policy")).toBeDefined();
     expect(response.headers.get("permissions-policy")).toContain("camera=()");
+    // Pinned because the platform states these rather than inheriting them: an
+    // inherited default changes when the dependency changes its mind.
+    expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin");
+    expect(response.headers.get("origin-agent-cluster")).toBe("?1");
+    // COEP is a deliberate absence — it would require every third-party
+    // subresource, GTM included, to send CORP.
+    expect(response.headers.get("cross-origin-embedder-policy")).toBeNull();
 
     const cspHeader = config.cspEnforce
       ? "content-security-policy"

@@ -6,9 +6,9 @@ import type { Assets } from "../assets.js";
 import { cachedHtmlDynamicValues } from "../cache/dynamic-html.js";
 import { config } from "../config.js";
 import { renderDocument, renderDocumentToStream, streamToString } from "../document.js";
-import { logError } from "../logger.js";
 import { observePayloadSize, observeSerialization } from "../metrics.js";
 import { SpanKind, withSpan } from "../observability.js";
+import { reportRequestError } from "../request-error.js";
 import { getRuntime } from "../runtime.js";
 import { createShellResolution, type ShellResolution } from "../shell-resolution.js";
 import { rethrowRequestDeadline } from "./context.js";
@@ -120,10 +120,14 @@ export async function executeRoute(
       assets,
       { routeCtx: loaderCtx, shellResolution, includeRequestOverlay: phase === "request" },
       (error) => {
-        logError(error, {
-          requestId: routeCtx.trackingId,
+        reportRequestError({
+          error,
           msg: "deferred stream render error",
+          phase: "stream",
+          requestId: routeCtx.pageRequestId,
           path: routeCtx.url.pathname,
+          method: routeCtx.request.method,
+          route: route.path,
         });
       },
     );
@@ -142,11 +146,15 @@ export async function executeRoute(
     shellResolution.abort(error);
     rethrowRequestDeadline(routeCtx.request, error);
     const errorId = randomUUID();
-    logError(error, {
+    reportRequestError({
+      error,
       msg: "stream shell render failed",
+      phase: "render",
       errorId,
       requestId: routeCtx.pageRequestId,
       path: routeCtx.url.pathname,
+      method: routeCtx.request.method,
+      route: route.path,
     });
     return {
       result: {
@@ -225,10 +233,14 @@ export async function runRender<T>(
           includeRequestOverlay: phase === "request",
         },
         (error) => {
-          logError(error, {
-            requestId: routeCtx.trackingId,
+          reportRequestError({
+            error,
             msg: "runRender stream error",
+            phase: "stream",
+            requestId: routeCtx.pageRequestId,
             path: routeCtx.url.pathname,
+            method: routeCtx.request.method,
+            route: route.path,
           });
         },
       );

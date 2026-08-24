@@ -4,6 +4,7 @@ import type { Ctx, Route } from "@originloom/shared/lib/types";
 import type { FrameworkNode, OriginRenderer } from "@originloom/shared/render";
 
 import { normalizeDependencyTags } from "./cache/tags.js";
+import type { RequestErrorReport } from "./request-error.js";
 
 export type BotVisit = { pathname: string; userAgent: string; trackingId: string };
 
@@ -129,6 +130,15 @@ type OriginRuntimeBase<Shell> = {
   document: DocumentShell;
   cacheKeys: { isKnownPageCachePrefix: (prefix: string) => boolean };
   onBotVisit?: (visit: BotVisit) => void;
+  /**
+   * Every unexpected server-side failure, once, with the reference the visitor
+   * was shown. Where an app attaches Sentry — or anything else that wants the
+   * error rather than the log line.
+   *
+   * Called synchronously on a path that is already failing, so it must not
+   * throw and must not block: hand the report to a queue and return.
+   */
+  onRequestError?: (report: RequestErrorReport) => void;
   metricSources?: Array<() => string[]>;
 };
 
