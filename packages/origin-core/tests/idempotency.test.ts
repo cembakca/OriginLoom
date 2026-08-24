@@ -90,7 +90,15 @@ describe("runOnce", () => {
     expect(calls).toBe(2);
   });
 
-  /** Two pods, one key, at the same moment: only one may do the work. */
+  /**
+   * Two concurrent submissions, one key, one store: only one may do the work.
+   *
+   * Deliberately not labelled "two pods" — everything in this file shares a
+   * single `MemoryStore`, which is precisely the scope of the guarantee. Two
+   * real pods on the default memory topology hold two stores and each accepts
+   * the key once; what covers them is a shared L2, and the warning below is how
+   * a deployment that has neither finds out.
+   */
   it("refuses a second attempt while the first is still running", async () => {
     const key = newIdempotencyKey();
     let calls = 0;

@@ -391,7 +391,7 @@ kırmak olurdu. COEP kalıcı hayır.
 - **Maliyet/risk**: Vite dev, kaynak harita okuma, `.nitro`/dist erişimi gibi şeyler izin listesi
   ister. Production-only olarak denenmeli.
 
-### 5.6 Idempotency key'leri **[P2]** **[KISMEN — 0.7.48]**
+### 5.6 Idempotency key'leri **[P2]** **[YAPILDI — 0.7.48, sözleşme 0.7.58'de kapandı]**
 
 - **Ne**: Mutasyon endpoint'lerinde tekrar eden isteğin ikinci kez etki etmemesi.
 - **Bizde**: Yok. Bülten aboneliği, teklif yönlendirme gibi POST'lar çift tıklamada/retry'da iki kez
@@ -437,27 +437,36 @@ bir uyarı herkesin atlamayı öğrendiği uyarıdır.
 Testteki "Two pods" yorumu da düzeltildi: dosyadaki her şey **tek** `MemoryStore` paylaşıyor, yani
 test eşzamanlılığı doğruluyor, dağıtıklığı değil. Sınırın kendisi artık ayrı bir testle pinli.
 
-**Ve sözleşme hâlâ bir adım dar: garanti bir _release'in_ store'u başına.** İki ayrı sınır var,
-ikisi de "paylaşımlı L2 var mı" sorusunun ötesinde:
+**Sözleşme bir tur daha daraldı, sonra genişledi.** İkinci review üç sınır daha buldu; üçü de
+"paylaşımlı L2 var mı" sorusunun ötesindeydi ve üçü de kapandı.
 
-1. **Uyarı, shared olmayan bir driver'ı shared sanabilir.** `warnWhenGuaranteeIsProcessLocal`
-   herhangi bir kayıtlı driver'ı yeterli kabul ediyor, ama `registerCacheDriver()` driver'ın
-   process-local mı paylaşımlı mı olduğunu söylemiyor. Bir test double ya da dosya sistemi driver'ı
-   uyarıyı susturur — ve uyarı, susturulduğu anda korumayı bilmediğimiz bir yalana çevirir.
-2. **Redis namespace'i `RELEASE_ID` taşıyor.** `RedisStore` her anahtarı — `ephemeral:` ve `lock:`
-   dahil — `ssr:<releaseId>:` ile prefix'liyor, ve deployment sözleşmesi yeni deploy'un yeni ve
-   benzersiz bir `RELEASE_ID` almasını şart koşuyor (bkz. generated `docs/caching.md`). Rolling
-   deploy sırasında eski ve yeni pod'lar aynı Redis'te olsalar bile **farklı** idempotency
-   kayıtlarına bakar: aynı anahtar release başına bir kez çalışabilir. Blue/green'in HTML için
-   istediği izolasyon, koordinasyon için tam tersi şey.
+1. **Uyarı, shared olmayan bir driver'ı shared sanıyordu.** `warnWhenGuaranteeIsProcessLocal`
+   herhangi bir kayıtlı driver'ı yeterli sayıyordu, ama `registerCacheDriver()` driver'ın
+   process-local mı paylaşımlı mı olduğunu söylemiyordu; bir test double ya da dosya sistemi
+   driver'ı uyarıyı susturur, ve uyarı susturulduğu anda korumayı bilmediğimiz bir yalana çevirir.
+   `CacheDriver` artık `coordinationScope: "process" | "shared"` beyan ediyor ve **varsayılan
+   `"process"`** — iyimser tahmin pahalı olan taraf, o yüzden driver açıkça söylemeden hiçbir şey
+   onun adına iddia edilmiyor. Soru da doğru yere taşındı: `isCoordinationShared()`.
+2. **Redis namespace'i `RELEASE_ID` taşıyordu.** `RedisStore` her anahtarı — `ephemeral:` ve `lock:`
+   dahil — `ssr:<releaseId>:` ile prefix'liyordu, ve deployment sözleşmesi her deploy'un yeni bir
+   `RELEASE_ID` almasını şart koşuyor. Rolling deploy sırasında eski ve yeni pod'lar aynı Redis'te
+   olsalar bile **farklı** kayıtlara bakıyordu: aynı anahtar release başına bir kez çalışabiliyordu.
+   Blue/green'in HTML için istediği izolasyon, koordinasyon için tam tersi şey. Koordinasyon durumu
+   artık release namespace'inin dışında, sabit bir `ssr:coordination:` altında; cache kilitleri
+   (cold-fill, revalidation) bilerek release'in içinde kaldı, çünkü onlar zaten release'e ait bir
+   şeyi koruyor. Ayrımı taşıyan şey `CacheStore`'daki `acquireCoordinationLock` — `readEphemeral`'ın
+   `read`'den ayrı olmasıyla aynı sebep.
+3. **`in-flight`, "kimse cevap veremedi"yi yutuyordu.** `acquireCacheLock` hem gerçek contention'da
+   hem backend exception'ında `null` döndürüyordu; ikisi de `in-flight` oluyordu. Redis erişilemezse
+   ziyaretçiye "gönderiminiz zaten işleniyor" deniyor, hiçbir şey işlemiyor, ve alarmın izlediği
+   `unavailable` serisi tam da var olma sebebi olan kesinti boyunca düz kalıyordu. `attemptCoordinationLock`
+   üç durumu ayırıyor: `acquired` / `held` / `unavailable`. Kilidi hiç desteklemeyen bir backend
+   dördüncü durum ve o `acquired` — tek process'te dışlanacak başka tutan yok, ve orada reddetmek
+   platformun varsayılan topolojisini kırardı.
 
-Yani bugünkü dürüst sözleşme: **bir release'in paylaşımlı store'u başına en fazla bir kez.**
-Gerçekten site-wide bir garanti için iki şey gerekiyor ve ikisi de bu maddenin dışında kaldı:
-HTML cache'in release namespace'inden **bağımsız**, sabit bir koordinasyon namespace'i; ve driver
-sözleşmesinde açık bir yetenek beyanı (`coordinationScope: "process" | "shared"` gibi) — ki uyarı
-tahmin etmek yerine sorabilsin.
-
-Madde bu yüzden ✅ değil ◐.
+Bugünkü sözleşme: **paylaşımlı bir store başına en fazla bir kez, ve o store paylaşımlıysa deploy
+sınırını da geçiyor.** Paylaşımlı store yoksa garanti tek process kadar — ve bunu ilk guard
+çalıştığında uyarı söylüyor.
 
 **Anahtar bir cache slot'u, gövdeye gömülü bir değer değil — ve bunu bir test yakaladı.** İlk
 uygulamada anahtar shell'e render başına basılıyordu. Ana sayfa paylaşımlı cache'li olduğu için tek
@@ -1127,21 +1136,21 @@ iki yolu ve async bir reporter'ı kaçırıyordu — üçü de düzeltildi ve te
 bfcache'in tablosu bir sonuç değil bir header sözleşmesi, Early Hints yalnız MISS'te değil, storage
 maddesi vaat ettiğinin yarısı. Aşağıdaki satırlar bu turdan sonraki hali.
 
-| #       | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                             |
-| ------- | --------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 9.2 ✅  | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.2×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                                                                             |
-| 5.4 ✅  | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                                                                          |
-| 6.3 ✅  | View Transitions            | ✅    | İsimli geçişler + reduced-motion. 0.7.58: adlar `display:contents` sarmalayıcıdan gerçek `<header>`/`<footer>`'a                                                        |
-| 7.4 ✅  | instrumentation kancaları   | ✅    | `onRequestError`; log satırları aynen. 0.7.58: HEAD + server-island bağlandı, async reporter yakalanıyor, iddia ziyaretçinin yanıtına karar veren hatalarla sınırlandı  |
-| 6.4 ◐   | bfcache                     | ◐     | Ölçüm altyapısı ✅ (`ssr_client_bfcache_total`). Tablo bir **header sözleşmesi**; "restorable" sonucunu söyleyen tek şey telemetri                                      |
-| 5.6 ◐   | Idempotency key'leri        | ◐     | `runOnce` + formun taşıdığı anahtar; JS'siz. Garanti **bir release'in store'u başına**: Redis namespace'i `RELEASE_ID` taşıyor, driver da shared olduğunu beyan etmiyor |
-| 6.2 ✅  | Early Hints (103)           | ✅    | Cache'ten servis edilmeyen her render'da (MISS **ve** BYPASS), render'dan hemen önce; varsayılan kapalı                                                                 |
-| 3.2 ✅  | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; korumalı header'lar + 0.7.58: gerçek rest deseni (`/:path*` artık `/` ve derin yolları da kapsıyor)                                      |
-| 3.3 ◐   | Harici cache driver         | ◐     | `registerCacheDriver` = unstorage'ın (b) yarısı. İsimli genel KV (`useStorage("sessions")`) hâlâ yok — ayrı madde                                                       |
-| 4.4 ⛔  | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı                                                          |
-| 7.2 ✅  | Layers / extends            | ✅    | Üç kopya pakete taşındı, `origin-doctor --drift` ıraksamayı ölçüyor. Runtime kalıtım kasıtlı olarak yok                                                                 |
-| 9.3 ⛔  | WinterTC kısıtı             | ⛔    | **Kasıtlı hayır** — Node bağı yaprakta değil temelde (server, redis, otel). Ölçüm `origin-shared`'ın Node-free sınırını buldu, o korumaya alındı                        |
-| 10.1 ⛔ | Vite Environment API        | ⛔    | **Kasıtlı hayır** — SSR dev'de Vite'tan geçmiyor, başlık özelliği kullanılmıyor. Tek gerçek tekrar olan alias haritası tek kaynağa indi                                 |
+| #       | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                                                                                                           |
+| ------- | --------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9.2 ✅  | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.2×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                                                                                                                                                           |
+| 5.4 ✅  | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                                                                                                                                                        |
+| 6.3 ✅  | View Transitions            | ✅    | İsimli geçişler + reduced-motion. 0.7.58: adlar `display:contents` sarmalayıcıdan gerçek `<header>`/`<footer>`'a                                                                                                                                      |
+| 7.4 ✅  | instrumentation kancaları   | ✅    | `onRequestError`; log satırları aynen. 0.7.58: HEAD + server-island bağlandı, async reporter yakalanıyor, iddia ziyaretçinin yanıtına karar veren hatalarla sınırlandı                                                                                |
+| 6.4 ◐   | bfcache                     | ◐     | Ölçüm altyapısı ✅ (`ssr_client_bfcache_total`). Tablo bir **header sözleşmesi**; "restorable" sonucunu söyleyen tek şey telemetri                                                                                                                    |
+| 5.6 ✅  | Idempotency key'leri        | ✅    | `runOnce` + formun taşıdığı anahtar; JS'siz. Garanti **paylaşımlı store başına** ve deploy sınırını da geçiyor (koordinasyon, release namespace'inin dışında); driver `coordinationScope` beyan ediyor; store arızası `in-flight` değil `unavailable` |
+| 6.2 ✅  | Early Hints (103)           | ✅    | Cache'ten servis edilmeyen her render'da (MISS **ve** BYPASS), render'dan hemen önce; varsayılan kapalı                                                                                                                                               |
+| 3.2 ✅  | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; korumalı header'lar + 0.7.58: gerçek rest deseni (`/:path*` artık `/` ve derin yolları da kapsıyor)                                                                                                                    |
+| 3.3 ◐   | Harici cache driver         | ◐     | `registerCacheDriver` = unstorage'ın (b) yarısı; artık `coordinationScope` da beyan ediyor. İsimli genel KV (`useStorage("sessions")`) hâlâ yok — ayrı madde                                                                                          |
+| 4.4 ⛔  | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı                                                                                                                                        |
+| 7.2 ✅  | Layers / extends            | ✅    | Üç kopya pakete taşındı, `origin-doctor --drift` ıraksamayı ölçüyor. Runtime kalıtım kasıtlı olarak yok                                                                                                                                               |
+| 9.3 ⛔  | WinterTC kısıtı             | ⛔    | **Kasıtlı hayır** — Node bağı yaprakta değil temelde (server, redis, otel). Ölçüm `origin-shared`'ın Node-free sınırını buldu, o korumaya alındı                                                                                                      |
+| 10.1 ⛔ | Vite Environment API        | ⛔    | **Kasıtlı hayır** — SSR dev'de Vite'tan geçmiyor, başlık özelliği kullanılmıyor. Tek gerçek tekrar olan alias haritası tek kaynağa indi                                                                                                               |
 
 ### Üçüncü dalga — fikir olarak dursun
 

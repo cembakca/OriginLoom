@@ -90,4 +90,45 @@ describe("RedisStore", () => {
     await first.releaseLock("cold-fill:home", token!);
     await expect(second.acquireLock("cold-fill:home", 5_000)).resolves.toBeTypeOf("string");
   });
+
+  /**
+   * The bug a rolling deploy hides until it matters. Cache keys are namespaced
+   * by release id — a new release's HTML is not the old one's, so they must not
+   * share an entry. Coordination state is the opposite: mid deploy the two
+   * releases are exactly the two parties that have to agree, and a per-release
+   * namespace gave each of them a private answer. An idempotency key would then
+   * be honoured once *per release* rather than once.
+   */
+  it("keeps coordination state outside the release namespace", async () => {
+    const before = new RedisStore("redis://localhost:6379", "release-1");
+    const after = new RedisStore("redis://localhost:6379", "release-2");
+
+    await before.writeEphemeral("idempotency:recourse:abc", "receipt-7", 60_000);
+
+    expect(await after.readEphemeral("idempotency:recourse:abc")).toBe("receipt-7");
+    expect([...redisData.keys()]).toEqual(["ssr:coordination:ephemeral:idempotency:recourse:abc"]);
+  });
+
+  it("excludes the other release from a coordination lock", async () => {
+    const before = new RedisStore("redis://localhost:6379", "release-1");
+    const after = new RedisStore("redis://localhost:6379", "release-2");
+
+    const held = await before.acquireCoordinationLock("idempotency:recourse:abc", 60_000);
+    const contended = await after.acquireCoordinationLock("idempotency:recourse:abc", 60_000);
+
+    expect(held).not.toBeNull();
+    expect(contended).toBeNull();
+
+    await before.releaseCoordinationLock("idempotency:recourse:abc", held!);
+    expect(await after.acquireCoordinationLock("idempotency:recourse:abc", 60_000)).not.toBeNull();
+  });
+
+  /** A lock over cached data still follows the cache: that namespace is correct there. */
+  it("keeps a cache lock inside the release namespace", async () => {
+    const before = new RedisStore("redis://localhost:6379", "release-1");
+    const after = new RedisStore("redis://localhost:6379", "release-2");
+
+    expect(await before.acquireLock("cold-fill:loan", 60_000)).not.toBeNull();
+    expect(await after.acquireLock("cold-fill:loan", 60_000)).not.toBeNull();
+  });
 });

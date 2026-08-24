@@ -25,6 +25,12 @@ export function criticalPaintCss(config: CriticalPaintConfig = {}): string {
     // A name must be unique per document — two elements sharing one makes the
     // browser skip the whole transition, which degrades to today's behaviour
     // rather than breaking. Hence `data-view-transition`, one value per role.
+    //
+    // The attribute has to sit on the element that draws the box. A
+    // `view-transition-name` on an element with no principal box has no effect,
+    // so putting it on the `display: contents` fragment wrapper — which is where
+    // the header and footer names started — names nothing at all, silently. It
+    // belongs on the `<header>`/`<footer>` inside the wrapper.
     "[data-view-transition='header']{view-transition-name:ol-header}",
     "[data-view-transition='footer']{view-transition-name:ol-footer}",
     "[data-view-transition='main']{view-transition-name:ol-main}",

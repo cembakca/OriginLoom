@@ -71,6 +71,7 @@ return 1`;
 export class RedisStore implements CacheStore {
   private redis: Redis;
   private readonly prefix: string;
+  private readonly coordinationPrefix: string;
   private readonly tagPrefix: string;
 
   constructor(url: string, namespace = "development") {
@@ -84,6 +85,12 @@ export class RedisStore implements CacheStore {
       logger.warn("redis connection error", { error: error.message });
     });
     this.prefix = `ssr:${encodeURIComponent(namespace)}:`;
+    // Deliberately not namespaced by release. Cache entries are: a new release
+    // renders different HTML, so it must not read the old one's. Coordination
+    // state is the opposite — during a rolling deploy the two releases are the
+    // two parties that have to agree, and a per-release namespace would give
+    // each of them its own private answer.
+    this.coordinationPrefix = "ssr:coordination:";
     this.tagPrefix = `ssr-meta:${encodeURIComponent(namespace)}:tag:`;
   }
 
@@ -283,11 +290,11 @@ export class RedisStore implements CacheStore {
   }
 
   async readEphemeral(key: string): Promise<string | null> {
-    return this.redis.get(`${this.prefix}ephemeral:${key}`);
+    return this.redis.get(`${this.coordinationPrefix}ephemeral:${key}`);
   }
 
   async writeEphemeral(key: string, value: string, ttlMs: number): Promise<void> {
-    await this.redis.set(`${this.prefix}ephemeral:${key}`, value, "PX", ttlMs);
+    await this.redis.set(`${this.coordinationPrefix}ephemeral:${key}`, value, "PX", ttlMs);
   }
 
   async takeRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
@@ -313,10 +320,25 @@ export class RedisStore implements CacheStore {
   }
 
   async releaseLock(key: string, token: string): Promise<void> {
+    await this.releaseLockAt(`${this.prefix}lock:${key}`, token);
+  }
+
+  async acquireCoordinationLock(key: string, ttlMs: number): Promise<string | null> {
+    const token = crypto.randomUUID();
+    const redisKey = `${this.coordinationPrefix}lock:${key}`;
+    return (await this.redis.set(redisKey, token, "PX", ttlMs, "NX")) === "OK" ? token : null;
+  }
+
+  async releaseCoordinationLock(key: string, token: string): Promise<void> {
+    await this.releaseLockAt(`${this.coordinationPrefix}lock:${key}`, token);
+  }
+
+  /** Compare-and-delete, so a lock that already expired is not stolen from its next holder. */
+  private async releaseLockAt(redisKey: string, token: string): Promise<void> {
     await this.redis.eval(
       "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
       1,
-      `${this.prefix}lock:${key}`,
+      redisKey,
       token,
     );
   }

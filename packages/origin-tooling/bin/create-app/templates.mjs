@@ -471,17 +471,13 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
       },
       devDependencies: {
         "@eslint/js": "^10.0.1",
-        // Vite 8.1.x pins Rolldown 1.1.x whose WASI binding is compatible with
-        // wasm-runtime 1.1.6. A direct exact dependency keeps pnpm from selecting
-        // wasm-runtime 1.2.x's incompatible @emnapi 2 alpha peer contract.
-        "@napi-rs/wasm-runtime": "1.1.6",
         "@originloom/tooling": originloom,
         "@types/node": "^24.13.3",
         "@axe-core/playwright": "^4.12.1",
         "@playwright/test": "^1.62.0",
         "@types/react": "^19.2.17",
         "@types/react-dom": "^19.2.3",
-        "@vitejs/plugin-react": "^6.0.4",
+        "@vitejs/plugin-react": "^6.1.0",
         autocannon: "^8.0.0",
         lighthouse: "^13.4.1",
         eslint: "^10.8.0",
@@ -491,8 +487,8 @@ const packageJson = (name, { standalone, version, packageManager = "pnpm" }) => 
         prettier: "^3.9.6",
         typescript: "^5.9.3",
         "typescript-eslint": "^8.65.0",
-        vite: "^8.1.5",
-        vitest: "^4.1.10",
+        vite: "^8.2.2",
+        vitest: "^4.1.11",
       },
     },
     null,

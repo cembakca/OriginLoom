@@ -131,12 +131,20 @@ type OriginRuntimeBase<Shell> = {
   cacheKeys: { isKnownPageCachePrefix: (prefix: string) => boolean };
   onBotVisit?: (visit: BotVisit) => void;
   /**
-   * Every unexpected server-side failure, once, with the reference the visitor
-   * was shown. Where an app attaches Sentry — or anything else that wants the
-   * error rather than the log line.
+   * Every unexpected failure that decided what the visitor got — the request,
+   * the route, the render, the stream — once, with the reference they were
+   * shown. Where an app attaches Sentry, or anything else that wants the error
+   * rather than the log line.
+   *
+   * Not every caught error in the platform: a degradation with a designed
+   * fallback (an L2 read that misses, a fragment that renders its fallback, an
+   * `after()` task that fails) stays a log line, because the page the visitor
+   * got is the one the design intended.
    *
    * Called synchronously on a path that is already failing, so it must not
-   * throw and must not block: hand the report to a queue and return.
+   * throw and must not block: hand the report to a queue and return. A reporter
+   * that returns a promise anyway has it caught but not awaited — the response
+   * never waits on a transport.
    */
   onRequestError?: (report: RequestErrorReport) => void;
   metricSources?: Array<() => string[]>;

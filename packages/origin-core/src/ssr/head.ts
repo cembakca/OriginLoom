@@ -6,10 +6,11 @@ import { normalizePublicUrl, resolveRoute } from "@originloom/shared/routing";
 
 import * as cache from "../cache/index.js";
 import { config } from "../config.js";
-import { logError, logger } from "../logger.js";
+import { logger } from "../logger.js";
 import { setActiveHttpRoute } from "../observability.js";
 import { proxyRequest } from "../proxy.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "../public-url.js";
+import { reportRequestError } from "../request-error.js";
 import { applyMiddlewareCacheVary } from "./cache-vary.js";
 import { createRouteContext, rethrowRequestDeadline } from "./context.js";
 import { runLoader } from "./execute-route.js";
@@ -157,7 +158,17 @@ export async function handleHead(
     return renderHeadRoute(resolved, requestId);
   } catch (error) {
     rethrowRequestDeadline(request, error);
-    logError(error, { msg: "HEAD route resolution failed", requestId, path: url.pathname });
+    // Through the same report as every other unexpected failure. What stays
+    // local is the *answer* — a bodyless 500 rather than an error page — which
+    // is a separate decision from who gets told.
+    reportRequestError({
+      error,
+      msg: "HEAD route resolution failed",
+      phase: "route",
+      requestId,
+      path: url.pathname,
+      method: request.method,
+    });
     return headResponse(500, { kind: "none" }, "ERROR", undefined, requestId);
   }
 }

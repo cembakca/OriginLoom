@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  acquireCacheLock,
+  attemptCoordinationLock,
+  isCoordinationShared,
   readCoordinationValue,
-  releaseCacheLock,
+  releaseAttemptedCoordinationLock,
   writeCoordinationValue,
 } from "./cache/index.js";
-import { logError } from "./logger.js";
+import { logError, logger } from "./logger.js";
 import { observeIdempotency } from "./metrics.js";
 
 /**
@@ -39,7 +40,22 @@ export type IdempotentOptions<T> = {
 const DEFAULT_TTL_MS = 10 * 60_000;
 
 /**
- * Runs a mutation at most once per key.
+ * Runs a mutation at most once per key, per shared store.
+ *
+ * "Per shared store" is the whole caveat. Both records live wherever the cache
+ * lives, so with the built-in memory topology — which is what the generated
+ * `.env.production` ships — the guarantee is exactly as wide as one process:
+ * two pods each accept the same key once. Nothing here can detect the other
+ * pod, so the honest thing is to say so the first time a guard runs (below)
+ * rather than let a form promise something the topology cannot keep.
+ *
+ * A shared L2 makes it site-wide *and outlives a deploy*, which took a second
+ * fix: the Redis store namespaces its cache keys by release id, and for cached
+ * HTML that is right. For these two records it was not — mid rolling deploy the
+ * two releases are precisely the two parties that must agree, and each was
+ * looking at its own copy. Coordination state now lives outside the release
+ * namespace. A registered driver has to say `coordinationScope: "shared"` for
+ * any of this to be claimed on its behalf.
  *
  * Post/Redirect/Get already stops a reload from re-posting, which is why forms
  * survived without this — but it does nothing about the submissions PRG never
@@ -54,6 +70,7 @@ const DEFAULT_TTL_MS = 10 * 60_000;
  * outcome that does not exist yet.
  */
 export async function runOnce<T>(options: IdempotentOptions<T>): Promise<IdempotentRun<T>> {
+  warnWhenGuaranteeIsProcessLocal();
   const recordKey = `idempotency:${options.namespace}:${options.key}`;
   const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
 
@@ -65,8 +82,17 @@ export async function runOnce<T>(options: IdempotentOptions<T>): Promise<Idempot
 
   // The lock TTL outlives the record's write, so a crash mid-work expires
   // rather than wedging the key until the record TTL runs out.
-  const token = await acquireCacheLock(`${recordKey}:lock`, ttlMs);
-  if (token === null) {
+  const attempt = await attemptCoordinationLock(`${recordKey}:lock`, ttlMs);
+  if (attempt.kind === "unavailable") {
+    // The store threw. Reporting this as in-flight would be the worst of the
+    // three answers: the caller would tell a visitor their submission is already
+    // being handled when nothing is handling it, and the `unavailable` series —
+    // the one an alarm watches — would never fire during the exact outage it
+    // exists for.
+    observeIdempotency(options.namespace, "unavailable");
+    return { kind: "unavailable", value: await options.work() };
+  }
+  if (attempt.kind === "held") {
     // Someone else holds it. They may have finished between the read above and
     // this line, so look once more before calling it a collision.
     const late = await replayed(recordKey, options.parse);
@@ -77,6 +103,7 @@ export async function runOnce<T>(options: IdempotentOptions<T>): Promise<Idempot
     observeIdempotency(options.namespace, "in_flight");
     return { kind: "in-flight" };
   }
+  const { token } = attempt;
 
   try {
     const value = await options.work();
@@ -91,7 +118,7 @@ export async function runOnce<T>(options: IdempotentOptions<T>): Promise<Idempot
     observeIdempotency(options.namespace, stored ? "fresh" : "unavailable");
     return stored ? { kind: "fresh", value } : { kind: "unavailable", value };
   } finally {
-    await releaseCacheLock(`${recordKey}:lock`, token);
+    await releaseAttemptedCoordinationLock(`${recordKey}:lock`, token);
   }
 }
 
@@ -125,6 +152,29 @@ async function replayed<T>(key: string, parse: (raw: string) => T | null): Promi
     logError(error, { msg: "idempotency record unreadable", key });
     return null;
   }
+}
+
+let warnedProcessLocal = false;
+
+/**
+ * Said once, the first time a guard actually runs.
+ *
+ * Not at startup, because a topology without a shared store is perfectly fine
+ * for an app that never calls this — and a warning nobody's code has earned is
+ * a warning everybody learns to skip. The first submission that relies on the
+ * guarantee is the moment it becomes worth saying.
+ */
+function warnWhenGuaranteeIsProcessLocal(): void {
+  if (warnedProcessLocal) return;
+  if (isCoordinationShared()) return;
+  warnedProcessLocal = true;
+  logger.warn(
+    "idempotency records are process-local; two pods will each accept the same key once",
+    {
+      remedy:
+        'CACHE_BACKEND=redis with REDIS_URL, or registerCacheDriver({ coordinationScope: "shared" })',
+    },
+  );
 }
 
 async function recordOutcome(key: string, value: string, ttlMs: number): Promise<boolean> {

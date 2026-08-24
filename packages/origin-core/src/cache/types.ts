@@ -113,6 +113,22 @@ export interface CacheStore {
   takeRateLimit?(key: string, limit: number, windowMs: number): Promise<RateLimitResult>;
   acquireLock?(key: string, ttlMs: number): Promise<string | null>;
   releaseLock?(key: string, token: string): Promise<void>;
+  /**
+   * A lock over something that is not this release's cache.
+   *
+   * Separate from `acquireLock` for one reason: a store is free to namespace its
+   * cache keys per release — the built-in Redis store does, because a new
+   * release's HTML is not the old release's HTML — and a lock over *cached* data
+   * has to follow that namespace. A lock over an idempotency key must not: two
+   * pods mid rolling deploy are two releases, and a guarantee that resets at the
+   * release boundary is not a guarantee. Same reason `readEphemeral` is not
+   * `read`.
+   *
+   * Optional like the rest: a store without it is asked for `acquireLock`
+   * instead, which is right for a store that never namespaced anything.
+   */
+  acquireCoordinationLock?(key: string, ttlMs: number): Promise<string | null>;
+  releaseCoordinationLock?(key: string, token: string): Promise<void>;
   ping?(): Promise<boolean>;
   close?(): Promise<void>;
 }

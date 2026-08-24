@@ -239,6 +239,16 @@ export class TieredStore implements CacheStore {
     return this.l1.releaseLock(key, token);
   }
 
+  async acquireCoordinationLock(key: string, ttlMs: number): Promise<string | null> {
+    if (this.l2) return this.l2.acquireCoordinationLock(key, ttlMs);
+    return this.l1.acquireCoordinationLock(key, ttlMs);
+  }
+
+  async releaseCoordinationLock(key: string, token: string): Promise<void> {
+    if (this.l2) return this.l2.releaseCoordinationLock(key, token);
+    return this.l1.releaseCoordinationLock(key, token);
+  }
+
   async close(): Promise<void> {
     await this.invalidation?.close();
     await this.l1.close();

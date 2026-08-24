@@ -29,7 +29,12 @@ import { staticAssetCacheHeaders } from "./middleware/static-assets.js";
 import { SpanStatusCode, withRequestSpan } from "./observability.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url.js";
 import { reportRequestError } from "./request-error.js";
-import { applyRouteRules, refusedRuleHeaders, type RouteRule } from "./route-rules.js";
+import {
+  applyRouteRules,
+  invalidRulePatterns,
+  refusedRuleHeaders,
+  type RouteRule,
+} from "./route-rules.js";
 import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity.js";
 
 export const DEV_SERVER_GENERATION_HEADER = "x-originloom-dev-generation";
@@ -174,6 +179,12 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
       // production is the expensive way to learn it.
       logger.warn("route rules cannot set these headers; they are decided per response", {
         headers: refused.join(", "),
+      });
+    }
+    const unreachable = invalidRulePatterns(routeRules);
+    if (unreachable.length > 0) {
+      logger.warn("route rules can never match these paths; a rest parameter must come last", {
+        patterns: unreachable.join(", "),
       });
     }
     app.use("*", async (c, next) => {

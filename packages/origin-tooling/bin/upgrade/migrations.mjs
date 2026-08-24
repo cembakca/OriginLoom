@@ -40,6 +40,7 @@ export const JSON_SCHEMA_CONTRACTS_MIGRATION = "0.7.52-json-schema-contracts";
 export const PLATFORM_PLUMBING_MIGRATION = "0.7.56-platform-plumbing";
 export const MIGRATION_BACKUPS_MIGRATION = "0.7.57-migration-backups";
 export const SHARED_ALIASES_MIGRATION = "0.7.58-shared-aliases";
+export const WASM_RUNTIME_PIN_MIGRATION = "0.7.58-wasm-runtime-pin";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -479,6 +480,25 @@ export const migrations = [
       for (const file of ["vite.config.ts", "vite.server.config.ts", "vitest.config.ts"]) {
         patchProjectFile(root, changes, fileWrites, file, useSharedAliases, manualRequired);
       }
+    },
+  },
+  {
+    id: WASM_RUNTIME_PIN_MIGRATION,
+    introducedIn: "0.7.58",
+    description:
+      "Ölü `@napi-rs/wasm-runtime` pin'i kaldırılır ve vite/vitest/plugin-react zemini platformun test ettiği sürüme çekilir. Pin, wasm-runtime 1.2.0'ın yalnız `@emnapi ^2.0.0-alpha` isteyen peer sözleşmesi içindi; 1.2.1 aralığı `^1.7.1 || ^2.0.0-alpha` diye genişletti, yani caret bir aralık artık kırık sürümü seçemiyor. Üstelik Rolldown 1.2.x wasm32-wasi binding'ini hiç yayınlamıyor: pin'in koruduğu yol ortadan kalktı, paket transitif olarak bile gelmiyor.",
+    migratePackage(manifest, changes) {
+      // Yalnız scaffolder'ın yazdığı tam değer siliniyor. Başka bir sebeple
+      // kendi pin'ini koymuş bir uygulamanın kararı bu migration'ın işi değil.
+      if (manifest.devDependencies?.["@napi-rs/wasm-runtime"] === "1.1.6") {
+        removeDependency(manifest, changes, "devDependencies", "@napi-rs/wasm-runtime");
+      }
+      // Zemin yükseltiliyor, tavan değil: yalnız eski şablon değerini taşıyan
+      // alan taşınıyor, böylece platformdan ileride olan bir uygulama geri
+      // çekilmiyor.
+      raiseFloor(manifest, changes, "@vitejs/plugin-react", "^6.0.4", "^6.1.0");
+      raiseFloor(manifest, changes, "vite", "^8.1.5", "^8.2.2");
+      raiseFloor(manifest, changes, "vitest", "^4.1.10", "^4.1.11");
     },
   },
   {
@@ -1229,6 +1249,26 @@ function setDependency(manifest, changes, section, name, expected) {
     kind: section === "engines" ? "engine" : section === "scripts" ? "script" : "dependency",
     detail: `${section}.${name}: ${previous ?? "yok"} → ${expected}`,
   });
+}
+
+function removeDependency(manifest, changes, section, name) {
+  const previous = manifest[section]?.[name];
+  if (previous === undefined) return;
+  delete manifest[section][name];
+  changes.push({
+    file: "package.json",
+    kind: "dependency",
+    detail: `${section}.${name}: ${previous} → kaldırıldı`,
+  });
+}
+
+/** Taşır yalnızca eski şablon değerini taşıyan alanı; ileride olanı geri çekmez. */
+function raiseFloor(manifest, changes, name, previous, next) {
+  for (const section of ["dependencies", "devDependencies"]) {
+    if (manifest[section]?.[name] === previous) {
+      setDependency(manifest, changes, section, name, next);
+    }
+  }
 }
 
 export function pendingMigrations(metadata, target = TOOLING_VERSION) {

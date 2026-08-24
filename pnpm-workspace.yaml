@@ -21,3 +21,20 @@ overrides:
 peerDependencyRules:
   ignoreMissing:
     - "@napi-rs/wasm-runtime"
+
+# Kötü niyetli bir yayın genelde bir saat içinde fark edilip registry'den
+# kaldırılıyor; bir günlük bekleme onu kurulumun hiç görmediği pencereye alıyor.
+# pnpm 11 bunu varsayılan yaptı ve üretilen uygulamalar (pnpm@11.18.0) korumayı
+# oradan alıyor — bu repo pnpm@10.33.0 pinli, yani varsayılanı 0. Yazılı olması,
+# korumanın paket yöneticisi sürümüne bağlı kalmasından iyi.
+#
+# Sonucu bilerek sert: aralığındaki en yeni sürüm bir günden taze olan bir
+# doğrudan bağımlılık kurulumu ERR_PNPM_NO_MATURE_MATCHING_VERSION ile düşürüyor,
+# sessizce eskisine gerilemiyor. (`minimumReleaseAgeStrict: false` bunu pnpm
+# 10.33'te değiştirmiyor — denendi, davranış aynı kaldı; o yüzden yazılmadı.)
+# Gerçekten bekleyemeyecek bir paket varsa çıkış kapısı minimumReleaseAgeExclude,
+# ve o listeye bir satır eklemek bilinçli bir karar olarak görünür kalıyor.
+#
+# CI'yı etkilemiyor: orada kurulum --frozen-lockfile ile yapılıyor, yani çözüm
+# adımı hiç çalışmıyor.
+minimumReleaseAge: 1440

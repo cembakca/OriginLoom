@@ -344,6 +344,19 @@ export class MemoryStore implements CacheStore {
     }
   }
 
+  /**
+   * The same map. A process-local store has one release and one party, so the
+   * distinction the Redis store draws between cache and coordination keys has
+   * nothing to separate here.
+   */
+  acquireCoordinationLock(key: string, ttlMs: number): Promise<string | null> {
+    return this.acquireLock(`coordination:${key}`, ttlMs);
+  }
+
+  releaseCoordinationLock(key: string, token: string): Promise<void> {
+    return this.releaseLock(`coordination:${key}`, token);
+  }
+
   async close(): Promise<void> {
     if (this.cleanupTimer) clearTimeout(this.cleanupTimer);
     this.cleanupTimer = undefined;

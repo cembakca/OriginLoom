@@ -1,8 +1,8 @@
 import type { Hono } from "hono";
 
-import { logError } from "../logger.js";
 import { contextRequest } from "../middleware/request-deadline.js";
 import type { AppVariables } from "../middleware/request-id.js";
+import { reportRequestError } from "../request-error.js";
 import { guardPublicApi, type PublicApiPolicy } from "../security/public-api-guard.js";
 import {
   isServerIslandConfigured,
@@ -51,13 +51,18 @@ export function mountServerIslandApi(
       });
       return fragment(html, 200);
     } catch (error) {
-      // The page already rendered and the visitor is looking at the fallback.
-      // A 500 here degrades one hole, so it is logged and answered quietly
-      // rather than escalated.
-      logError(error, {
+      // The page already rendered and the visitor is looking at the fallback,
+      // so a 500 here degrades one hole rather than the page — that is why the
+      // *answer* stays quiet. Who hears about it is a separate question, and the
+      // answer to that one is the same as everywhere else: the app's reporter.
+      reportRequestError({
+        error,
         msg: "server island render failed",
-        island: payload.name,
+        phase: "render",
         requestId: c.get("requestId"),
+        path: url.pathname,
+        method: request.method,
+        context: { island: payload.name },
       });
       return fragment("", 500);
     }

@@ -1,4 +1,4 @@
-import { matchesPath } from "@originloom/shared/lib/match";
+import { isUnreachablePattern, matchesPath } from "@originloom/shared/lib/match";
 
 /**
  * Policy that belongs to a path rather than to a page.
@@ -13,7 +13,14 @@ import { matchesPath } from "@originloom/shared/lib/match";
  * and having two sources for one decision is how the split started.
  */
 export type RouteRule = {
-  /** Same pattern language as the route table: `/a/b`, `/a/:id`, `/a/:id?`. */
+  /**
+   * Same pattern language as the route table: `/a/b`, `/a/:id`, `/a/:id?` and
+   * `/a/:rest*`.
+   *
+   * `/:path*` is the one a table almost always opens with — it means this whole
+   * site, `/` included, and it is how a general rule gets written before the
+   * specific ones override it.
+   */
   path: string;
   headers: Record<string, string>;
 };
@@ -73,4 +80,21 @@ export function refusedRuleHeaders(rules: readonly RouteRule[]): string[] {
     }
   }
   return [...refused].sort();
+}
+
+/**
+ * The patterns that can never match, for the same startup warning.
+ *
+ * Both apps opened their table with `/:path*` while the matcher still read it
+ * as an ordinary one-segment parameter, so the general rule applied to exactly
+ * the paths nobody meant and to neither `/` nor anything deeper. Nothing said
+ * so. A rule that cannot fire is as much a mistake in the table as a header
+ * that cannot be set, and it deserves the same noise.
+ */
+export function invalidRulePatterns(rules: readonly RouteRule[]): string[] {
+  const invalid = new Set<string>();
+  for (const rule of rules) {
+    if (isUnreachablePattern(rule.path)) invalid.add(rule.path);
+  }
+  return [...invalid].sort();
 }

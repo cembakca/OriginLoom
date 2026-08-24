@@ -93,6 +93,16 @@ export function isL2Configured(): boolean {
 export type CacheDriver = {
   name: string;
   create: () => CacheStore | Promise<CacheStore>;
+  /**
+   * Whether this store's coordination state is visible to the other pods.
+   *
+   * Declared rather than inferred, and defaulting to `"process"`, because the
+   * platform cannot tell a Redis-backed driver from a test double or a
+   * filesystem one — and the guess that costs something is the optimistic one.
+   * A guard that believes it is site-wide when it is not stays silent while two
+   * pods each accept the same submission once.
+   */
+  coordinationScope?: "process" | "shared";
 };
 
 let driver: CacheDriver | null = null;
@@ -107,6 +117,18 @@ export function registerCacheDriver(next: CacheDriver | null): void {
 /** The topology label a metric or a log line reports. */
 export function registeredCacheDriverName(): string | null {
   return driver?.name ?? null;
+}
+
+/**
+ * Whether a lock or a record taken here is visible to the other pods.
+ *
+ * The one question a cross-pod guarantee actually depends on, and the reason it
+ * is not `isL2Configured()`: a registered driver may or may not be shared, and
+ * only the driver knows.
+ */
+export function isCoordinationShared(): boolean {
+  if (driver) return driver.coordinationScope === "shared";
+  return isL2Configured();
 }
 
 export async function initCache(): Promise<CacheStore> {
@@ -379,15 +401,63 @@ export async function releaseColdMissLock(key: string, token: string): Promise<v
 export type CoordinationLockAttempt =
   { kind: "acquired"; token: string } | { kind: "held" } | { kind: "unavailable" };
 
+/**
+ * A coordination lock for a caller that must tell "someone else holds it" from
+ * "the store could not answer".
+ *
+ * Three outcomes, three different truths, and collapsing any two of them loses
+ * the one thing the caller needs. A backend with no locks at all is the fourth
+ * case and it is `acquired`: there is no other holder in a single process, and
+ * refusing there would break the topology this platform ships by default. What
+ * that topology *cannot* promise is cross-pod exclusion — `isCoordinationShared()`
+ * is the question for that, and it is a separate one on purpose.
+ *
+ * `acquireCoordinationLock` below answers the unsupported case with
+ * `unavailable` instead. That is right for a caller whose whole reason to lock
+ * is cross-pod exclusion, and wrong for one that also does useful work alone.
+ */
+export async function attemptCoordinationLock(
+  key: string,
+  ttlMs: number,
+): Promise<CoordinationLockAttempt> {
+  const cache = getCache();
+  const acquire = cache.acquireCoordinationLock?.bind(cache) ?? cache.acquireLock?.bind(cache);
+  if (!acquire) return { kind: "acquired", token: crypto.randomUUID() };
+  try {
+    const token = await runCacheOperation("coordination_lock.acquire", () =>
+      acquire(`coordination:${key}`, ttlMs),
+    );
+    return token ? { kind: "acquired", token } : { kind: "held" };
+  } catch (error) {
+    logError(error, { msg: "coordination lock failed", key });
+    return { kind: "unavailable" };
+  }
+}
+
+/** Releases whatever `attemptCoordinationLock` took, by the same route. */
+export async function releaseAttemptedCoordinationLock(key: string, token: string): Promise<void> {
+  const cache = getCache();
+  const release = cache.releaseCoordinationLock?.bind(cache) ?? cache.releaseLock?.bind(cache);
+  if (!release) return;
+  try {
+    await runCacheOperation("coordination_lock.release", () =>
+      release(`coordination:${key}`, token),
+    );
+  } catch (error) {
+    logError(error, { msg: "coordination unlock failed", key });
+  }
+}
+
 export async function acquireCoordinationLock(
   key: string,
   ttlMs: number,
 ): Promise<CoordinationLockAttempt> {
   try {
     const cache = getCache();
-    if (!cache.acquireLock) return { kind: "unavailable" };
+    const acquire = cache.acquireCoordinationLock?.bind(cache) ?? cache.acquireLock?.bind(cache);
+    if (!acquire) return { kind: "unavailable" };
     const token = await runCacheOperation("coordination_lock.acquire", () =>
-      cache.acquireLock!(`coordination:${key}`, ttlMs),
+      acquire(`coordination:${key}`, ttlMs),
     );
     return token ? { kind: "acquired", token } : { kind: "held" };
   } catch (error) {
@@ -399,9 +469,10 @@ export async function acquireCoordinationLock(
 export async function releaseCoordinationLock(key: string, token: string): Promise<void> {
   try {
     const cache = getCache();
-    if (!cache.releaseLock) return;
+    const release = cache.releaseCoordinationLock?.bind(cache) ?? cache.releaseLock?.bind(cache);
+    if (!release) return;
     await runCacheOperation("coordination_lock.release", () =>
-      cache.releaseLock!(`coordination:${key}`, token),
+      release(`coordination:${key}`, token),
     );
   } catch (error) {
     logError(error, { msg: "coordination unlock failed", key });

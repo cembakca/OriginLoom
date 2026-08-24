@@ -18,6 +18,8 @@ import {
 } from "@originloom/core/handler";
 import { renderMetrics } from "@originloom/core/metrics";
 import { RequestDeadlineError } from "@originloom/core/middleware/request-deadline";
+import type { RequestErrorReport } from "@originloom/core/request-error";
+import { installRuntime, type OriginRuntime, tryGetRuntime } from "@originloom/core/runtime";
 import account from "@server/routes/account";
 import creditCards from "@server/routes/credit-cards";
 import home from "@server/routes/home";
@@ -169,6 +171,47 @@ describe("handler", () => {
     );
     expect(second.headers.get("x-cache")).toBe("MISS");
     expect(loader).toHaveBeenCalledOnce();
+  });
+
+  /**
+   * A HEAD that blows up answers with a bodyless 500 and nothing else — no
+   * error page to carry a reference, because there is no body to put one in.
+   * That is a decision about the answer; it used to also silently decide that
+   * the app's reporter never heard about the failure.
+   */
+  it("reports a HEAD failure to the app's reporter, and still answers 500", async () => {
+    const reports: RequestErrorReport[] = [];
+    const previous = tryGetRuntime() as OriginRuntime;
+    installRuntime({ ...previous, onRequestError: (report) => reports.push(report) });
+    const route: Route = {
+      path: "/head-explodes",
+      cache: () => {
+        throw new Error("cache policy exploded");
+      },
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "unreachable"),
+    };
+
+    try {
+      const response = await handleHead(
+        new Request("http://localhost/head-explodes", { method: "HEAD" }),
+        [route],
+        { requestId: "head-failure" },
+      );
+
+      expect(response.status).toBe(500);
+      expect(await response.text()).toBe("");
+      expect(reports).toHaveLength(1);
+      expect(reports[0]).toMatchObject({
+        msg: "HEAD route resolution failed",
+        phase: "route",
+        path: "/head-explodes",
+        method: "HEAD",
+        requestId: "head-failure",
+      });
+    } finally {
+      installRuntime(previous);
+    }
   });
 
   it("answers a cached HEAD with GET metadata without running its loader or renderer", async () => {

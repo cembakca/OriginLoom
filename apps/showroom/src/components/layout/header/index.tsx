@@ -16,11 +16,19 @@ type HeaderView = {
 
 const headerViews = new WeakMap<IMenuItems, Map<DeviceType, HeaderView>>();
 
+/**
+ * `data-view-transition` sits here rather than on the stitching wrapper: the
+ * wrapper is `display: contents`, generates no principal box, and a
+ * `view-transition-name` on a box that is not rendered has no effect. Exactly
+ * one of the two headers reaches a document — two would share the name and the
+ * browser would skip the transition entirely.
+ */
 function DesktopHeader({ view }: { view: HeaderView }) {
   return (
     <header
       className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur"
       data-shell="desktop"
+      data-view-transition="header"
     >
       <Container className="flex h-16 items-center gap-4">
         <Logo className="shrink-0" />
@@ -35,7 +43,11 @@ function DesktopHeader({ view }: { view: HeaderView }) {
 
 function MobileHeader({ view }: { view: HeaderView }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white" data-shell="mobile">
+    <header
+      className="sticky top-0 z-40 border-b border-slate-200 bg-white"
+      data-shell="mobile"
+      data-view-transition="header"
+    >
       <Container className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2">
         <MobileMenuSlot items={view.serialized} />
         <Logo />

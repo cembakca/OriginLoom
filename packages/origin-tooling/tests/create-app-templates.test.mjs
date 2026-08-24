@@ -330,7 +330,30 @@ describe("renderTemplates — standalone mode", () => {
       expect(files["pnpm-workspace.yaml"]).toContain(`${selector}: ${version}`);
     }
     expect(pkg.packageManager).toBe("pnpm@11.18.0");
-    expect(pkg.devDependencies["@napi-rs/wasm-runtime"]).toBe("1.1.6");
+  });
+
+  /**
+   * A generated app carried an exact `@napi-rs/wasm-runtime@1.1.6` because
+   * 1.2.0 shipped an `@emnapi ^2.0.0-alpha` only peer contract. 1.2.1 widened
+   * it, so no caret range can reach the broken release any more — and Rolldown
+   * 1.2.x, which Vite 8.2 pins, stopped publishing the wasm32-wasi binding the
+   * pin was guarding. Removing it drops the package from the lockfile entirely
+   * rather than moving it: nothing pulls it, not even transitively.
+   */
+  it("declares no wasm runtime of its own", () => {
+    const pkg = JSON.parse(standalone()["package.json"]);
+
+    expect(pkg.devDependencies["@napi-rs/wasm-runtime"]).toBeUndefined();
+    expect(pkg.dependencies["@napi-rs/wasm-runtime"]).toBeUndefined();
+  });
+
+  /** A new app starts on the versions the platform actually develops against. */
+  it("starts on the toolchain floor the platform tests", () => {
+    const pkg = JSON.parse(standalone()["package.json"]);
+
+    expect(pkg.devDependencies.vite).toBe("^8.2.2");
+    expect(pkg.devDependencies.vitest).toBe("^4.1.11");
+    expect(pkg.devDependencies["@vitejs/plugin-react"]).toBe("^6.1.0");
   });
 
   it("carries the base compiler options inline (no monorepo extends)", () => {

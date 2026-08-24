@@ -23,7 +23,13 @@ export function Footer({ menu, deviceType }: { menu: IMenuItems; deviceType: Dev
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-slate-200 bg-white" data-shell={view.shell}>
+    <footer
+      className="mt-auto border-t border-slate-200 bg-white"
+      data-shell={view.shell}
+      // On the element that draws the box: the `display: contents` stitching
+      // wrapper around it cannot carry a `view-transition-name`.
+      data-view-transition="footer"
+    >
       <Container className="py-10">
         <Logo className="mb-6" />
 

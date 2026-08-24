@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { applyRouteRules, refusedRuleHeaders, type RouteRule } from "../src/route-rules.js";
+import {
+  applyRouteRules,
+  invalidRulePatterns,
+  refusedRuleHeaders,
+  type RouteRule,
+} from "../src/route-rules.js";
 
 function response(headers: Record<string, string> = {}): Response {
   return new Response("<html></html>", { headers: { "content-type": "text/html", ...headers } });
@@ -22,6 +27,19 @@ describe("applyRouteRules", () => {
       "catalog",
     );
     expect(applyRouteRules(response(), "/urun", rules).headers.get("x-section")).toBeNull();
+  });
+
+  /**
+   * The shape every table opens with, and the one that was broken: `/:path*`
+   * read as a one-segment parameter, so the general rule reached `/urun` but
+   * not `/` and not `/urun/kasko`. Asserting the header, not just the status.
+   */
+  it("applies a catch-all rule to the whole site", () => {
+    const rules: RouteRule[] = [{ path: "/:path*", headers: { "x-section": "public" } }];
+
+    for (const path of ["/", "/urun", "/urun/kasko", "/a/b/c/d"]) {
+      expect(applyRouteRules(response(), path, rules).headers.get("x-section")).toBe("public");
+    }
   });
 
   /** Most-general first, like a stylesheet — the opposite of the route table. */
@@ -88,5 +106,18 @@ describe("refusedRuleHeaders", () => {
 
   it("says nothing about a table that only sets its own headers", () => {
     expect(refusedRuleHeaders([{ path: "/a", headers: { "x-section": "home" } }])).toEqual([]);
+  });
+});
+
+describe("invalidRulePatterns", () => {
+  /** A rest parameter takes everything left, so a segment after it never runs. */
+  it("names a rule that can never match", () => {
+    expect(
+      invalidRulePatterns([
+        { path: "/:path*", headers: { "x-a": "1" } },
+        { path: "/:path*/edit", headers: { "x-b": "1" } },
+        { path: "/urun/:slug", headers: { "x-c": "1" } },
+      ]),
+    ).toEqual(["/:path*/edit"]);
   });
 });
