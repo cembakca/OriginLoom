@@ -4,15 +4,29 @@ import { dirname, join, relative, resolve } from "node:path";
 /**
  * @param {string} root
  * @param {ReturnType<import('./generate.mjs').buildScaffoldArtifacts>} artifacts
- * @param {{ consumerContracts?: boolean; force?: boolean }} options
+ * `contractsOnly` is the mirror of `serviceOnly`, and it exists for the case an
+ * app reaches once it has been running for a while: the endpoint is already
+ * read, the service and its `GatewayContracts` entry are written and hand-tuned,
+ * and the only thing missing is the schema that would catch the gateway
+ * renaming a field. Without it the scaffolder would offer a duplicate service
+ * next to the real one and a second contract line, and covering an existing
+ * endpoint would mean hand-writing the schema — which is the thing this command
+ * exists to avoid.
+ *
+ * @param {{ consumerContracts?: boolean; contractsOnly?: boolean; force?: boolean }} options
  */
 export function applyScaffold(root, artifacts, options = {}) {
   const consumerContracts = options.consumerContracts !== false;
+  const contractsOnly = options.contractsOnly === true;
   const written = [];
   const skipped = [];
 
   for (const [relPath, content] of Object.entries(artifacts.files)) {
     if (!consumerContracts && relPath.startsWith("contracts/")) {
+      skipped.push(relPath);
+      continue;
+    }
+    if (contractsOnly && !relPath.startsWith("contracts/")) {
       skipped.push(relPath);
       continue;
     }
@@ -27,7 +41,9 @@ export function applyScaffold(root, artifacts, options = {}) {
   }
 
   const gatewayContractsPath = join(root, "server/services/gateway-contracts.ts");
-  if (existsSync(gatewayContractsPath)) {
+  if (contractsOnly) {
+    skipped.push("server/services/gateway-contracts.ts (contracts-only)");
+  } else if (existsSync(gatewayContractsPath)) {
     const updated = patchGatewayContracts(
       readFileSync(gatewayContractsPath, "utf8"),
       artifacts.patches.gatewayContractLine,

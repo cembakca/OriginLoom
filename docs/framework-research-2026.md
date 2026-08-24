@@ -265,6 +265,16 @@ uçlarımız için OpenAPI üretirdi. O uçların istemcisi bizim kendi island'l
 onlara tipi **kaynaktan** veriyor — üretilmiş bir belgeden kesin olarak daha iyi. Kendi API'miz için
 OpenAPI, ancak birlikte derlemediğimiz bir istemci (mobil uygulama, partner) çıktığında hak eder.
 
+**Ve şema elle yazılmaz — bunu ilk denemede ben yanlış yaptım.** `origin-scaffold-gateway`
+(`contracts:scaffold`) zaten var ve tam bunu yapıyor: gerçek bir gateway cevabını verirsin, fixture,
+JSON Schema, OpenAPI kaydı, manifest girdisi, TypeScript tipi ve servis iskeleti üretir. Ben ilk
+turda iki şemayı testlerdeki yüklerden elle yazdım; doğru yol komutu çalıştırmak.
+
+Komutta bir boşluk vardı ve bu uygulamanın durumu tam da oydu: `--service-only` (contract'sız proje)
+vardı ama tersi yoktu. Servisi ve `GatewayContracts` girdisi zaten olan, yalnız şeması eksik bir uç
+için komut mevcut servisin yanına ikinci bir tane yazmayı öneriyordu. `--contracts-only` bunun için
+eklendi (0.7.51).
+
 **Gerçek risk başkaydı ve daha büyüktü.** Ne showroom ne sigorta bu makineden hiçbirini
 benimsememişti: sigorta on beş gateway ucu okuyor, hepsinin byte bütçesi var, **hiçbirinin şeması,
 fixture'ı ya da drift kapısı yoktu.** Byte bütçesi şekil kontrolü değildir — upstream'in on megabayt

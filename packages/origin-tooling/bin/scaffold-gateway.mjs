@@ -52,6 +52,7 @@ if (options.json) {
 if (options.apply) {
   const result = applyScaffold(layout.root, artifacts, {
     consumerContracts: layout.hasConsumerContracts && !options.serviceOnly,
+    contractsOnly: options.contractsOnly,
     force: options.force,
   });
   console.log("origin-scaffold-gateway apply\n");
@@ -174,6 +175,7 @@ function parseArgs(argv) {
     force: false,
     json: false,
     serviceOnly: false,
+    contractsOnly: false,
   };
 
   for (let index = 0; index < argv.length; index++) {
@@ -193,6 +195,7 @@ function parseArgs(argv) {
     else if (arg === "--force") parsed.force = true;
     else if (arg === "--json") parsed.json = true;
     else if (arg === "--service-only") parsed.serviceOnly = true;
+    else if (arg === "--contracts-only") parsed.contractsOnly = true;
     else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -233,6 +236,8 @@ Options:
   --operation-id a.b.c   Manifest operationId (default: id with dots)
   --fetch identity       identity | auth | plain (default: identity)
   --service-only         Skip contracts/* when consumer manifest is absent
+  --contracts-only       Only write contracts/*: for an endpoint whose
+                         service and GatewayContracts entry already exist
   --apply                Write files instead of printing dry-run output
   --force                Overwrite existing scaffold files
   --json                 Emit machine-readable plan
