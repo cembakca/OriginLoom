@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import type { Plugin, PluginOption, UserConfig, ViteDevServer } from "vite";
 
 /**
@@ -62,6 +64,18 @@ export type ServerViteConfigOptions = {
   noExternal?: true | Array<string | RegExp>;
   dedupe?: string[];
 };
+
+/**
+ * The two path aliases every generated app uses, derived from its root.
+ *
+ * They were written out by hand in three places — `vite.config.ts`,
+ * `vite.server.config.ts` and `vitest.config.ts` — which is three chances for
+ * the test run to resolve a different module than the build does, and no way to
+ * notice. One definition, three callers.
+ */
+export function originLoomAliases(rootDir: string): Record<string, string> {
+  return { "~": join(rootDir, "src"), "@server": join(rootDir, "server") };
+}
 
 /** Client island bundle. The server is plain Node — it never goes through Vite. */
 export function createBaseClientViteConfig(options: BaseClientViteConfigOptions): UserConfig {

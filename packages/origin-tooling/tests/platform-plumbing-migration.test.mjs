@@ -8,6 +8,7 @@ import {
   MIGRATION_BACKUPS_MIGRATION,
   migrations,
   PLATFORM_PLUMBING_MIGRATION,
+  SHARED_ALIASES_MIGRATION,
 } from "../bin/upgrade/migrations.mjs";
 
 const scratch = [];
@@ -189,5 +190,91 @@ export default defineConfig({
 
     expect(fileWrites[".gitignore"]).toBeUndefined();
     expect(fileWrites["vitest.config.ts"]).toBeUndefined();
+  });
+});
+
+describe(SHARED_ALIASES_MIGRATION, () => {
+  const aliasMigration = migrations.find(({ id }) => id === SHARED_ALIASES_MIGRATION);
+
+  it("replaces the hand-written alias map wherever it is written out", () => {
+    const root = projectWith({
+      "vite.config.ts": `import { resolve } from "node:path";
+
+import { createClientViteConfig } from "@originloom/react/vite";
+import { defineConfig } from "vite";
+
+const root = import.meta.dirname;
+
+export default defineConfig(
+  createClientViteConfig({
+    entry: resolve(root, "src/entry.client.tsx"),
+    alias: { "~": resolve(root, "src"), "@server": resolve(root, "server") },
+  }),
+);
+`,
+      "vitest.config.ts": `import { resolve } from "node:path";
+
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      "~": resolve(import.meta.dirname, "src"),
+      "@server": resolve(import.meta.dirname, "server"),
+    },
+  },
+});
+`,
+    });
+
+    const { fileWrites } = run(root, aliasMigration);
+
+    expect(fileWrites["vite.config.ts"]).toContain("alias: originLoomAliases(root)");
+    // `resolve` still has a caller here, so its import has to stay.
+    expect(fileWrites["vite.config.ts"]).toContain('import { resolve } from "node:path";');
+    expect(fileWrites["vite.config.ts"]).toMatch(
+      /import \{ createClientViteConfig \}[^\n]*\nimport \{ originLoomAliases \} from "@originloom\/shared\/vite";\nimport \{ defineConfig \} from "vite";/,
+    );
+
+    expect(fileWrites["vitest.config.ts"]).toContain(
+      "alias: originLoomAliases(import.meta.dirname)",
+    );
+    // Nothing else called it, so the now-unused import goes.
+    expect(fileWrites["vitest.config.ts"]).not.toContain("node:path");
+  });
+
+  it("leaves a config that owns its alias map alone", () => {
+    const root = projectWith({
+      "vitest.config.ts": `import { resolve } from "node:path";
+
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      "~": resolve(import.meta.dirname, "src"),
+      "@server": resolve(import.meta.dirname, "server"),
+      "@design": resolve(import.meta.dirname, "../design-system"),
+    },
+  },
+});
+`,
+    });
+
+    const { fileWrites } = run(root, aliasMigration);
+
+    expect(fileWrites["vitest.config.ts"]).toBeUndefined();
+  });
+
+  it("is idempotent", () => {
+    const root = projectWith({
+      "vite.config.ts": `import { originLoomAliases } from "@originloom/shared/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({ resolve: { alias: originLoomAliases(import.meta.dirname) } });
+`,
+    });
+
+    expect(run(root, aliasMigration).fileWrites).toEqual({});
   });
 });

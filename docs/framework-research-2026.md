@@ -132,7 +132,22 @@ miydi, cookie basıldı mı, preview policy'yi düşürdü mü). Tablo bunları 
 değil bir cache bug'ı gibi görünürdü. Korumalı bir başlık yazmaya çalışan tablo **açılışta**
 uyarı alıyor — üretimde eksik bir header'dan öğrenmek pahalı yol.
 
-### 3.3 Storage abstraction (unstorage) **[P2]** **[YAPILDI — 0.7.49]**
+**Catch-all deseni yoktu, ve kimse söylemedi (0.7.58 düzeltti).** Her iki uygulama da tablosunu
+`/:path*` ile açıyordu; `matchPath` ise `*`'ı hiç bilmiyor, adı `path*` olan sıradan bir parametre
+okuyordu. Sonuç: genel kural tam olarak **tek segmentli** yollara uygulanıyordu — `/urun` alıyor,
+`/` almıyor, `/urun/kasko` almıyordu. `RouteRule.path`'in kendi dokümantasyonu dili doğru sayıyordu
+(`/a/b`, `/a/:id`, `/a/:id?`), yani core yalan söylemiyordu; iki uygulama dilin dışında bir desen
+yazdı ve hiçbir şey itiraz etmedi.
+
+Bu, maddenin kendi ilkesine düşen bir boşluktu: korumalı header yazan tablo açılışta uyarı alıyor,
+hiç eşleşemeyecek desen yazan tablo sessizdi. İki taraf da kapandı — `match` artık gerçek bir rest
+parametresi tanıyor (`:name*`, sıfır segment dahil, yani `/` de kapsanıyor) ve rest'i son segment
+olmayan bir tablo açılışta uyarı alıyor. Testler de düzeldi: eskisi genel kuralı `/:path?` ile
+sınıyordu, yani **uygulamaların kullanmadığı deseni** doğruluyordu; `/:path*` yalnız gövde/status
+testinde ve tek segmentli bir path ile geçiyordu. Şimdi `/`, `/urun`, `/urun/kasko` ve `/a/b/c/d`
+için header'ın kendisi assert ediliyor.
+
+### 3.3 Harici cache driver (unstorage'ın yarısı) **[P2]** **[KISMEN — 0.7.49]**
 
 - **Ne**: Nitro'nun `useStorage()` katmanı — dosya sistemi, bellek, Redis, S3, Cloudflare KV/R2,
   Vercel Blob dahil ~20 driver'ın arkasında tek KV arayüzü. Cache de bu katmanın üstünde duruyor.
@@ -158,6 +173,15 @@ denemesi sessizce yok sayılmıyor, hata veriyor.
 
 Sürücünün adı topology etiketi oluyor, yani `cache initialized` log satırı ve metrikler hangi
 store'un çalıştığını söylüyor.
+
+**Yarısı — ve madde bu yüzden yeniden adlandırıldı.** Yukarıda değer ikiye ayrılmıştı:
+(a) cache dışı KV ihtiyaçları için tek arayüz, (b) Redis bağımlılığını bir driver seçimine indirmek.
+`registerCacheDriver` yalnız (b). (a) için ham malzeme var — `readCoordinationValue` /
+`writeCoordinationValue` / `takeDistributedRateLimit` / `acquireCacheLock` fiilen genel bir KV — ama
+isimli alan (`useStorage("sessions")` gibi) yok, alan başına driver seçimi yok, ve dışarıdan sürücü
+yazmak hâlâ HTML-cache'e özgü zorunlu yüzeyi (`keysByTags`, `deleteByPrefix`, `listKeys`, `flushAll`)
+uygulamayı gerektiriyor. Madde artık yaptığı şeyin adını taşıyor; **isimli genel KV ayrı ve açık bir
+madde olarak duruyor.**
 
 ### 3.4 Draft / preview mode **[P1]** **[YAPILDI — 0.7.29]**
 
@@ -396,6 +420,23 @@ yapmıyor. Bu durumda `runOnce` `unavailable` döndürüyor — kaydı geri okuy
 Hiçbir şey yapmadığı halde koruma sağlıyormuş gibi davranan bir guard, guard'sızlıktan kötüdür;
 `ssr_idempotent_runs_total{outcome="unavailable"}` alarm kurulacak seri.
 
+**Garanti store başına — pod başına değil (0.7.58'de yazıya döküldü).** Yukarıdaki `unavailable`
+cümlesi store'un **yokluğu** hakkında ve o haliyle doğru. Üretimdeki asıl incelik başka: kilit de
+kayıt da cache'in yaşadığı yerde yaşıyor, ve şablonun ürettiği `.env.production` `CACHE_BACKEND=memory`
+ile geliyor. MemoryStore `writeEphemeral`'ı uyguladığı için `unavailable` hiç görünmüyor; guard
+gerçekten çalışıyor, sadece **tek process kadar geniş**. İki pod aynı anahtarı ayrı ayrı bir kez
+kabul eder.
+
+Redis'i zorunlu kılmak yanlış cevap olurdu: tek pod'da guard hâlâ gerçek iş yapıyor — çift tık,
+retry, proxy replay'in üçü de aynı process'e geliyor. Bunun yerine sözleşme daraltıldı ("bir store
+başına en fazla bir kez") ve **ilk guard çalıştığında** bir kez uyarı düşüyor: paylaşımlı L2 ya da
+kayıtlı bir driver yoksa `idempotency records are process-local`. Açılışta değil, ilk kullanımda —
+bu yolu hiç kullanmayan bir uygulama için o topoloji zaten doğru, ve kimsenin kodunun hak etmediği
+bir uyarı herkesin atlamayı öğrendiği uyarıdır.
+
+Testteki "Two pods" yorumu da düzeltildi: dosyadaki her şey **tek** `MemoryStore` paylaşıyor, yani
+test eşzamanlılığı doğruluyor, dağıtıklığı değil. Sınırın kendisi artık ayrı bir testle pinli.
+
 **Anahtar bir cache slot'u, gövdeye gömülü bir değer değil — ve bunu bir test yakaladı.** İlk
 uygulamada anahtar shell'e render başına basılıyordu. Ana sayfa paylaşımlı cache'li olduğu için tek
 bir cache gövdesinden servis edilen iki ziyaretçi **aynı anahtarı** alacaktı: ikincisinin aboneliği
@@ -489,8 +530,13 @@ ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
 
 Kritik olan ne zaman gönderildiği. 103, sunucu upstream'i beklerken soketin boşta durduğu dilimde
 işe yarıyor; cache HIT'te doküman zaten elde ve hint bir milisaniye sonra gerçek yanıtın cevapladığı
-şeyi soruyor — saf maliyet. Bu yüzden blanket middleware değil: `executeSsrRequest` cache'in
-kaçırdığını öğrendiği anda, render'dan hemen önce gönderiyor.
+şeyi soruyor — saf maliyet. Bu yüzden blanket middleware değil: `executeSsrRequest` **cache'ten bir
+yanıt gelmediğini** öğrendiği anda, render'dan hemen önce gönderiyor.
+
+Bu "yalnız MISS" demek değil, ve önceki ifade yanlıştı: cache policy'si olmayan bir render de
+buradan geçiyor ve sonradan `x-cache: BYPASS` oluyor. Davranış doğru — 103'ün kazandırdığı dilim
+tam olarak upstream beklenen dilim, ve BYPASS render'lar zaten en yavaş olanlar. Kapsam dışında
+kalan tek şey, hint'in saf maliyet olduğu yer: cache'ten servis edilen yanıt.
 
 Yalnız ilk boyamanın beklediği şeyler hint ediliyor: stylesheet, entry (`modulepreload` olarak —
 `preload; as=script` farklı bir cache girdisi, yanlışını hint etmek dosyayı iki kez indirtir) ve
@@ -523,6 +569,21 @@ değer.
 animasyon alıyordu. Animasyonsuz bir view transition anlık bir takastır — tercihin istediği şey tam
 olarak budur.
 
+**İsimler yanlış elemandaydı (0.7.58 düzeltti).** `data-view-transition="header"` ve `"footer"`,
+fragment dikişini yapan `ssr-fragment` sarmalayıcısına konmuştu — ve o sarmalayıcı
+`display: contents`. Principal box üretmeyen bir eleman için `view-transition-name` etkisizdir, yani
+pratikte yalnız gerçek `<main>` isimlendirilmişti: maddenin amacı olan "kabuk yerinde kalsın, içerik
+morph etsin" hiç gerçekleşmiyordu.
+
+Sessiz olması asıl kötü kısım. Bu madde tam olarak böyle sessiz bozulmalardan (çift ad → geçiş
+atlanır) endişelenen bir yorumla yazılmıştı ve aynı sınıfa düştü. Test de sessizliğe ortaktı: CSS
+metninin çıktıda bulunduğunu doğruluyordu, ki bu kuralın **hangi elemana** bağlandığı hakkında hiçbir
+şey söylemiyor.
+
+Ad artık kutuyu çizen elemanın üstünde: showroom ve Sigorta'da `<header>` / `<footer>`. Yeni test
+tarayıcı gerektirmeden ikisini ayırt edebilen en ucuz şeyi assert ediyor — adın **hangi etikette**
+durduğunu, her rolün belge başına tam bir kez göründüğünü, ve hiçbir `ssr-fragment`'ın ad taşımadığını.
+
 ### 6.4 bfcache uyumluluğu **[P2]** **[ÖLÇÜLDÜ — 0.7.45]**
 
 - **Ne**: Geri/ileri navigasyonunda sayfanın tamamen canlı olarak geri gelmesi.
@@ -540,14 +601,27 @@ olarak budur.
 Yukarıdaki "muhtemelen bugün çoğu sayfada bfcache devre dışı" tahmini sigorta için **yanlış**.
 `tests/bfcache-eligibility.test.ts` üç durumu sabitliyor:
 
-| Durum                           | `Set-Cookie` | `Cache-Control`                | bfcache            |
-| ------------------------------- | ------------ | ------------------------------ | ------------------ |
-| İlk ziyaret (session basılıyor) | var          | `private, no-store`            | hayır              |
-| Sonraki her ziyaret             | yok          | `private, no-cache, max-age=0` | **evet**           |
-| Form gönderimi (POST)           | —            | `private, no-store`            | hayır (doğrusu bu) |
+| Durum                           | `Set-Cookie` | `Cache-Control`                | bfcache'i engelliyor mu |
+| ------------------------------- | ------------ | ------------------------------ | ----------------------- |
+| İlk ziyaret (session basılıyor) | var          | `private, no-store`            | evet                    |
+| Sonraki her ziyaret             | yok          | `private, no-cache, max-age=0` | **hayır**               |
+| Form gönderimi (POST)           | —            | `private, no-store`            | evet (doğrusu bu)       |
+
+**Tablonun sınırı, ve önceki sürümünün fazla söylediği şey.** Bu tablo bir **header sözleşmesi**;
+test de tam olarak onu pinliyor (`Set-Cookie` ve `Cache-Control`), gerçek bir tarayıcı navigasyonu
+değil. "Sonraki her sayfa restorable" demek bir adım fazlaydı: header engellemiyor olmak, restore
+edilecek demek değil — `unload` dinleyicisi, açık bağlantı, bellek baskısı, ve tarayıcıdan tarayıcıya
+değişen `no-store` politikası hâlâ konuşuyor. Chrome güvenli durumlarda `no-store` sayfaları
+bfcache'e almayı denedi ve cookie değişiminde eviction uyguluyor; yani header → sonuç eşlemesi
+tarayıcılar arasında sabit bile değil.
+
+Somut bir karşı örnek de var: showroom'un `longLivedRoutes` ile işaretlediği market stream'i açık
+bağlantı tutan bir sayfa — header'ları temiz olsa da kapsam dışı kalabilir.
+
+Vaat edilecek şey header davranışı; sonucu söyleyen tek şey `ssr_client_bfcache_total`.
 
 `applyCookies` yalnızca gerçekten `Set-Cookie` taşıyan yanıtı düşürüyor, ve session cookie'leri bir
-kez basılıyor. Yani maliyet ilk ziyarette bir kez ödeniyor, sonra geri tuşu çalışıyor.
+kez basılıyor. Yani engelin maliyeti ilk ziyarette bir kez ödeniyor.
 
 **İlginç kısım:** bu durum bir yan etki. `session-start.ts`'teki `isBot` bayrağı bir zamanlar her
 istekte yeniden türetiliyordu — yani her yanıtta bir `Set-Cookie`, yani her yanıtta `no-store`, yani
@@ -776,6 +850,29 @@ Kanca senkron çağrılıyor ve hatası yutuluyor: zaten başarısız olan bir y
 bir reporter render edilmiş bir hata sayfasını hiç sayfa olmayana çeviremez. Fırlatırsa kendi
 başarısızlığı olarak bir kez loglanıyor — özyinelemeyi önlemek için bu fonksiyona geri girmeden.
 
+**"Her hata" iddiası hem daraltıldı hem genişletildi (0.7.58).** İki gerçek boşluk vardı.
+
+_Async reporter._ Kanca tipi `(report) => void`, ama TypeScript `void` dönüşe her değeri kabul eder;
+`async` bir reporter sorunsuz derleniyor ve reject'i `reportRequestError` döndükten **sonra**, yani
+`try`'ın dışında, unhandled rejection olarak düşüyordu. İlginç olan: bunu paketin kendi lint
+preset'i zaten yakalıyor (`@typescript-eslint/no-misused-promises`), yani ilk savunma hattı vardı.
+Ama başka bir preset ile linleyen ya da reporter'ı `any` üzerinden veren bir uygulama oraya
+ulaşabiliyor — artık dönen değer thenable ise `catch`'i bağlanıyor. **Await edilmiyor**: yanıt yolu
+bir transport'u beklemez.
+
+_Bağlanmamış iki yol._ HEAD hataları ve server-island render hataları hâlâ doğrudan `logError`
+kullanıyordu, yani Sentry'ye bağlanmış bir uygulama render hatalarının hepsini görüyor**du**, bu
+ikisi hariç. İkisi de bağlandı. Gerekçeleri (HEAD gövdesiz 500 döner, island sessizce tek deliği
+düşürür) **yanıt** hakkındaydı; kimin haber alacağı ayrı bir karar ve yanıt davranışı değişmedi.
+Island'ın log satırındaki `island` alanını kaybetmemek için rapora `context` eklendi — bir çağrı
+yerini buraya taşımak log satırına hiçbir şeye mal olmamalı.
+
+_Ve iddia daraltıldı._ "Her beklenmedik sunucu hatası" değil: **ziyaretçinin ne aldığına karar veren**
+her beklenmedik hata (request / route / render / stream). Tasarlanmış bir fallback'i olan degradasyon
+— ıskalayan L2 okuması, fallback'ine düşen fragment, başarısız `after()` görevi — log satırı olarak
+kalıyor, çünkü ziyaretçinin aldığı sayfa tasarımın öngördüğü sayfa. Sınır artık runtime
+sözleşmesinde yazılı.
+
 ## 8. Production olgunluğu
 
 ### 8.1 `after()` / `waitUntil` — yanıttan sonra iş **[P1]** **[YAPILDI — 0.7.28]**
@@ -862,7 +959,7 @@ Kazanç tam olarak bizim kodumuzun durduğu yerde: düz çağrıda kayda değer 
 render'ı derin bir await zinciridir ve `memoizeRequestValue` / `activeRequestId` / `after()` aynı
 store'u tekrar tekrar okur. § 9.2'nin "zaten kazanıldı" iddiası doğruymuş — ve artık sayısı var.
 
-### 9.3 WinterTC / Minimum Common API **[P2]**
+### 9.3 WinterTC / Minimum Common API **[P2]** **[KASITLI HAYIR — 0.7.58]**
 
 - **Ne**: WinterCG artık Ecma TC55 (WinterTC). Minimum Common Web API'nin ilk baskısı **Aralık
   2025'te Genel Kurul tarafından kabul edildi** — sunucu runtime'larının uygulaması beklenen web
@@ -871,9 +968,43 @@ store'u tekrar tekrar okur. § 9.2'nin "zaten kazanıldı" iddiası doğruymuş 
   farkında olmadan bu standarda yakınız.
 - **Değer**: Bir **kısıt** olarak değerli, özellik olarak değil: "platform kodu yalnız Minimum Common
   API + açıkça izin verilen Node API'leri kullanır" kuralı, ileride edge/worker'a taşınabilirliği
-  bedavaya yakın tutar. Bunu bir lint kuralı olarak zorlamak mümkün — bu turda
-  `no-direct-gateway-import` ile aynı desen.
-- **Maliyet/risk**: Düşük. Kural olarak başlar, ihlalleri raporlar.
+  bedavaya yakın tutardı.
+
+---
+
+**Ölçüldü (0.7.58).** Platform kodunda `node:` kullanımı:
+
+| Paket           |  Dosya | Ne                 |
+| --------------- | -----: | ------------------ |
+| `origin-shared` | 0 / 60 | —                  |
+| `origin-core`   | 22/106 | 14'ü `node:crypto` |
+| `origin-react`  | 1 / 17 | `node:stream`      |
+
+`node:crypto`'nun neredeyse tamamı `randomUUID`, `createHash`, `createHmac`, `timingSafeEqual` —
+hepsinin Web Crypto karşılığı Minimum Common API'de. Yani **yaprak dosyalar sanıldığından
+taşınabilir**.
+
+Node bağı orada değil, **temelde**: `@hono/node-server` (HTTP sunucusunun kendisi), `ioredis` (L2
+cache), `@opentelemetry/sdk-node` (tracing), asset manifest'i okuyan `node:fs`. `src/**` üzerine
+kurulacak bir lint kuralı kolay %5'i korur, %95 hakkında hiçbir şey söylemez — ve "taşınabiliriz"
+diye yanlış bir güven üretir. Bu, olmayan bir kuraldan kötüdür. Üstüne, edge/worker hedefi yol
+haritasında yok: on beş ürünün hepsi aynı k8s + Redis deseni. § 8.2 için verilen karar burada da
+aynen geçerli.
+
+**Ama ölçüm gerçek bir sınır buldu.** `@originloom/shared` altmış kaynak dosyasında sıfır `node:`
+import taşıyor ve bu tesadüf değil: o paketin modülleri tarayıcı bundle'ına giriyor — island
+runtime, devtools paneli, client telemetry, data layer. Sınır **korumasızdı**. Oraya girecek bir
+`node:fs` bugün hiçbir şeyi düşürmez; onu ilk import eden island'da, sonra, başka bir üründe patlar.
+Tanıdık desen.
+
+0.7.58'de kök ESLint config'i `packages/origin-shared/src/**` altında `node:*` import'unu reddediyor
+(`src/vite.ts` hariç — build konfigürasyonu, hiçbir tarayıcıya gitmiyor). Kuralın kendisi bir testle
+korunuyor: config'te `packages/**` için genel bir `no-restricted-imports: "off"` bloğu var ve bu
+kural yalnız ondan _sonra_ tanımlandığı için kazanıyor; iki bloğun yeri değişse kural sessizce
+kapanırdı. Bugün sıfır ihlalle geçiyor.
+
+Yani bu maddeden alınan şey portabilite değil, **zaten var olan ve zaten değerli olan bir sınırın
+kanıtlanması**.
 
 ### 9.4 `node:sqlite` — yerleşik gömülü veritabanı **[P3]**
 
@@ -893,9 +1024,32 @@ store'u tekrar tekrar okur. § 9.2'nin "zaten kazanıldı" iddiası doğruymuş 
   Astro 6 bunun üstüne **workerd dev sunucusu** koyup dev/prod paritesi sağladı.
 - **Bizde**: Klasik client + ssr ikilisi, `vite.config.ts` + `vite.server.config.ts` olarak ayrı.
 - **Değer**: Orta vadeli sağlamlık. Bugün dev'de Node, prod'da Node çalıştığımız için parite sorunu
-  yaşamıyoruz — yani acil değil. Ama Vite'ın gideceği yön bu ve `@originloom/shared/vite` preset'imiz
-  er geç uyum sağlamalı.
-- **Maliyet/risk**: Orta, ve büyük kısmı Vite'ın kendi geçiş takvimine bağlı. **İzle, şimdi taşıma.**
+  yaşamıyoruz — yani acil değil.
+- **Maliyet/risk**: Orta.
+
+---
+
+**Ölçüldü (0.7.58).** Dokümandaki "Vite'ın kendi geçiş takvimine bağlı" gerekçesi eskimişti: **zaten
+Vite 8'deyiz**, Environment API olgunlaşma aşamasını çoktan geçti. Gerçek gerekçe başka çıktı.
+
+İki config builder'ın (`createBaseClientViteConfig`, `createServerViteConfig`) paylaştığı tek şey
+`resolve.alias` ve `dedupe`. Geri kalanı gerçekten ayrı: client tarafında dev server, manifest,
+`optimizeDeps`; server tarafında `ssr.noExternal`, `target: node24`, minify, `entryFileNames`.
+
+Environment API'nin asıl vaadi runtime-agnostik modül runner'ları ve workerd dev paritesi — ve bizim
+SSR bundle'ımız **dev'de Vite'tan hiç geçmiyor**, düz Node. Yani başlık özelliği tam olarak
+kullanmadığımız şey. Geriye kalan kazanç iki dosyayı bire indirmek: her ürünün build yolunu, on
+küsur satır için yeniden yazmak.
+
+**Ama ölçüm burada da gerçek bir şey buldu.** Alias haritası her uygulamada **üç dosyada** elle
+yazılıydı: `vite.config.ts`, `vite.server.config.ts`, `vitest.config.ts`. Üçü ayrışırsa testler
+build'in çözdüğünden başka bir modülü çözer ve bunu hiçbir şey raporlamaz — testler geçer, bundle
+başka bir dosya taşır. 0.7.58'de `@originloom/shared/vite`'ın `originLoomAliases(root)` yardımcısı
+üçünü de besliyor; migration mevcut uygulamalarda haritayı çağrıyla değiştiriyor, üçüncü bir alias
+eklemiş bir config'e ise dokunmuyor.
+
+Environment API'ye geçiş, Vite mevcut API'yi deprecate ettiği gün ya da SSR'ı dev'de Vite üzerinden
+çalıştırmayı istediğimiz gün yeniden açılır. İkisi de bugün doğru değil.
 
 ### 10.2 Rolldown **[P3]**
 
@@ -938,21 +1092,28 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 
 `◐` = bir kısmı var, eksik olan yazıyor. `—` = hiç yok.
 
-| #      | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                       |
-| ------ | --------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------- |
-| 9.2 ✅ | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.4×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                       |
-| 5.4 ✅ | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                    |
-| 6.3 ✅ | View Transitions            | ✅    | İsimli geçişler (`data-view-transition`: header/footer/main) ve reduced-motion boşluğu kapandı                    |
-| 7.4 ✅ | instrumentation kancaları   | ✅    | `onRequestError` runtime kancası; beş dağınık `logError` tek rapora birleşti, log satırları aynen                 |
-| 6.4 ✅ | bfcache ölçümü              | ✅    | Ölçüldü: ilk ziyaret hariç her sayfa restorable. `ssr_client_bfcache_total` kalıcı ölçüm; test regresyonu tutuyor |
-| 5.6 ✅ | Idempotency key'leri        | ✅    | `runOnce` + formun taşıdığı anahtar; JS'siz çalışıyor, store yoksa sessizce değil `unavailable` diyor             |
-| 6.2 ✅ | Early Hints (103)           | ✅    | Yalnız cache MISS'te, render'dan hemen önce; varsayılan kapalı, `EARLY_HINTS=true` ile açılıyor                   |
-| 3.2 ✅ | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; `cache-control`/`set-cookie`/`content-type` korumalı ve açılışta uyarıyor          |
-| 3.3 ✅ | Storage soyutlaması         | ✅    | `registerCacheDriver`; `CacheStore` zaten sürücü arayüzüydü, eksik olan dışarıdan girişti                         |
-| 4.4 ⛔ | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı    |
-| 7.2 ✅ | Layers / extends            | ✅    | Üç kopya pakete taşındı, `origin-doctor --drift` ıraksamayı ölçüyor. Runtime kalıtım kasıtlı olarak yok           |
-| 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                 |
-| 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                        |
+**0.7.58 bir review turuydu, yeni madde turu değil.** Bu dalganın "yapıldı" satırları dışarıdan
+okundu ve altısı fazla söylüyordu. Üçü gerçek koddu — `routeRules`'ın catch-all deseni hiç
+eşleşmiyordu, View Transition adları `display: contents` bir sarmalayıcıda etkisizdi, `onRequestError`
+iki yolu ve async bir reporter'ı kaçırıyordu — üçü de düzeltildi ve teste bağlandı. Üçü ifadeydi:
+bfcache'in tablosu bir sonuç değil bir header sözleşmesi, Early Hints yalnız MISS'te değil, storage
+maddesi vaat ettiğinin yarısı. Aşağıdaki satırlar bu turdan sonraki hali.
+
+| #       | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                            |
+| ------- | --------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9.2 ✅  | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.2×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                                                                            |
+| 5.4 ✅  | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                                                                         |
+| 6.3 ✅  | View Transitions            | ✅    | İsimli geçişler + reduced-motion. 0.7.58: adlar `display:contents` sarmalayıcıdan gerçek `<header>`/`<footer>`'a                                                       |
+| 7.4 ✅  | instrumentation kancaları   | ✅    | `onRequestError`; log satırları aynen. 0.7.58: HEAD + server-island bağlandı, async reporter yakalanıyor, iddia ziyaretçinin yanıtına karar veren hatalarla sınırlandı |
+| 6.4 ◐   | bfcache                     | ◐     | Ölçüm altyapısı ✅ (`ssr_client_bfcache_total`). Tablo bir **header sözleşmesi**; "restorable" sonucunu söyleyen tek şey telemetri                                     |
+| 5.6 ✅  | Idempotency key'leri        | ✅    | `runOnce` + formun taşıdığı anahtar; JS'siz. Garanti **store başına**: paylaşımlı L2 yoksa ilk kullanımda uyarı düşüyor                                                |
+| 6.2 ✅  | Early Hints (103)           | ✅    | Cache'ten servis edilmeyen her render'da (MISS **ve** BYPASS), render'dan hemen önce; varsayılan kapalı                                                                |
+| 3.2 ✅  | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; korumalı header'lar + 0.7.58: gerçek rest deseni (`/:path*` artık `/` ve derin yolları da kapsıyor)                                     |
+| 3.3 ◐   | Harici cache driver         | ◐     | `registerCacheDriver` = unstorage'ın (b) yarısı. İsimli genel KV (`useStorage("sessions")`) hâlâ yok — ayrı madde                                                      |
+| 4.4 ⛔  | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı                                                         |
+| 7.2 ✅  | Layers / extends            | ✅    | Üç kopya pakete taşındı, `origin-doctor --drift` ıraksamayı ölçüyor. Runtime kalıtım kasıtlı olarak yok                                                                |
+| 9.3 ⛔  | WinterTC kısıtı             | ⛔    | **Kasıtlı hayır** — Node bağı yaprakta değil temelde (server, redis, otel). Ölçüm `origin-shared`'ın Node-free sınırını buldu, o korumaya alındı                       |
+| 10.1 ⛔ | Vite Environment API        | ⛔    | **Kasıtlı hayır** — SSR dev'de Vite'tan geçmiyor, başlık özelliği kullanılmıyor. Tek gerçek tekrar olan alias haritası tek kaynağa indi                                |
 
 ### Üçüncü dalga — fikir olarak dursun
 
@@ -986,6 +1147,14 @@ o maddeyi tekrar gündeme getirecek olan şey.
   çatışır. COOP alınmalı, COEP alınmamalı.
 - **8.2 preset sistemi (tamamı)** — tek deploy hedefimiz var; portabilite bugün ödemediğimiz bir
   fatura.
+- **9.3 WinterTC kısıtı** — ölçüldü: Node bağı yaprak dosyalarda değil, temelde (`@hono/node-server`,
+  `ioredis`, `@opentelemetry/sdk-node`). `src/**` üzerine kurulacak bir kural kolay %5'i korur ve
+  yanlış bir taşınabilirlik güveni üretir. Ölçümün bulduğu gerçek sınır — `origin-shared`'ın
+  Node-free olması — korumaya alındı. Ayrıntı: § 9.3.
+- **10.1 Vite Environment API** — SSR bundle'ımız dev'de Vite'tan hiç geçmiyor, yani API'nin asıl
+  vaadi (runtime-agnostik runner, workerd paritesi) bizde karşılıksız. İki config'in paylaştığı tek
+  şey alias haritasıydı ve o tek kaynağa indi. Vite mevcut API'yi deprecate ederse yeniden açılır.
+  Ayrıntı: § 10.1.
 
 ---
 

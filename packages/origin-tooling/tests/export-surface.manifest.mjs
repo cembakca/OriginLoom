@@ -95,6 +95,7 @@ export const SHARED_TEMPLATE_SUBPATHS = [
   "routing/resolve",
   "routing/types",
   "routing/validate",
+  "vite",
 ];
 
 /** Blocked @originloom/core subpaths (must stay closed). From package.json exports: null */

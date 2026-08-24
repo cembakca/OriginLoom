@@ -159,6 +159,37 @@ export default tseslint.config(
     },
   },
   {
+    /**
+     * @originloom/shared ships into the browser bundle.
+     *
+     * Islands, the island runtime, the devtools panel, client telemetry and the
+     * data layer all import from it, so a Node built-in reaching this package
+     * does not fail here — it fails later, in whichever island first pulls the
+     * module in, in a product nobody has written yet. The package is Node-free
+     * today across every one of its source files; this is what keeps that a
+     * property rather than a coincidence.
+     *
+     * `src/vite.ts` is the exception and always will be: it is build
+     * configuration, read by Vite and Vitest, and never bundled for a browser.
+     */
+    files: ["packages/origin-shared/src/**/*.{ts,tsx}"],
+    ignores: ["packages/origin-shared/src/vite.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["node:*"],
+              message:
+                "@originloom/shared runs in the browser too. Node built-ins belong in @originloom/core.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     languageOptions: {
       globals: globals.browser,
     },

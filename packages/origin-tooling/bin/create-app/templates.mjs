@@ -627,6 +627,7 @@ pnpm-workspace.yaml
 const viteConfig = (vitePort) => `import { resolve } from "node:path";
 
 import { createClientViteConfig } from "@originloom/react/vite";
+import { originLoomAliases } from "@originloom/shared/vite";
 import { defineConfig } from "vite";
 
 const root = import.meta.dirname;
@@ -634,7 +635,9 @@ const root = import.meta.dirname;
 export default defineConfig(
   createClientViteConfig({
     entry: resolve(root, "src/entry.client.tsx"),
-    alias: { "~": resolve(root, "src"), "@server": resolve(root, "server") },
+    // One definition, read by this config, the server config and the test run —
+    // three files resolving "~" differently is a bug nothing would report.
+    alias: originLoomAliases(root),
     // Every app owns a port, so several can run side by side.
     devServer: { port: ${vitePort} },
     reload: {},
@@ -645,6 +648,7 @@ export default defineConfig(
 const viteServerConfig = () => `import { resolve } from "node:path";
 
 import { createServerViteConfig } from "@originloom/react/vite";
+import { originLoomAliases } from "@originloom/shared/vite";
 import { defineConfig } from "vite";
 
 const root = import.meta.dirname;
@@ -652,26 +656,22 @@ const root = import.meta.dirname;
 export default defineConfig(
   createServerViteConfig({
     entry: resolve(root, "server/index.ts"),
-    alias: { "~": resolve(root, "src"), "@server": resolve(root, "server") },
+    alias: originLoomAliases(root),
     // Self-contained server bundle: the production image ships dist/ only.
     noExternal: true,
   }),
 );
 `;
 
-const vitestConfig = (name) => `import { resolve } from "node:path";
-
+const vitestConfig = (name) => `import { originLoomAliases } from "@originloom/shared/vite";
 import { configDefaults, defineConfig } from "vitest/config";
 
 const root = import.meta.dirname;
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      "~": resolve(root, "src"),
-      "@server": resolve(root, "server"),
-    },
-  },
+  // The same aliases the build uses. Written out separately they were three
+  // chances for the tests to resolve a different module than the bundle does.
+  resolve: { alias: originLoomAliases(root) },
   test: {
     name: "${name}",
     // origin-migrate keeps the previous copy of every file it rewrites under

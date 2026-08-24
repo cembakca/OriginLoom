@@ -39,6 +39,7 @@ export const DISPOSABLE_GATEWAY_MIGRATION = "0.7.34-disposable-gateway-response"
 export const JSON_SCHEMA_CONTRACTS_MIGRATION = "0.7.52-json-schema-contracts";
 export const PLATFORM_PLUMBING_MIGRATION = "0.7.56-platform-plumbing";
 export const MIGRATION_BACKUPS_MIGRATION = "0.7.57-migration-backups";
+export const SHARED_ALIASES_MIGRATION = "0.7.58-shared-aliases";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -467,6 +468,17 @@ export const migrations = [
         excludeMigrationBackups,
         manualRequired,
       );
+    },
+  },
+  {
+    id: SHARED_ALIASES_MIGRATION,
+    introducedIn: "0.7.58",
+    description:
+      "`~` ve `@server` alias'ları tek yerden gelir: vite.config.ts, vite.server.config.ts ve vitest.config.ts artık @originloom/shared/vite'ın originLoomAliases()'ini çağırıyor. Üç dosyada elle yazılmışlardı — testlerin build'den başka bir modül çözmesi, kimsenin raporlamayacağı bir hata.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      for (const file of ["vite.config.ts", "vite.server.config.ts", "vitest.config.ts"]) {
+        patchProjectFile(root, changes, fileWrites, file, useSharedAliases, manualRequired);
+      }
     },
   },
   {
@@ -1136,6 +1148,44 @@ function excludeMigrationBackups(source) {
     };
   }
   return { status: "patched", source: next, detail: "test.exclude .originloom/** eklenir" };
+}
+
+/**
+ * Replaces a hand-written alias map with the shared helper.
+ *
+ * Matched on shape rather than on exact text, because the three configs write
+ * the same two entries three different ways — inline on one line, spread over
+ * four, with a `root` binding or with `import.meta.dirname` inlined.
+ *
+ * A config whose alias map is not exactly those two entries is left untouched
+ * and counts as done. An app that added a third alias owns its map, and the
+ * helper cannot express it — rewriting would drop the extra entry, and
+ * reporting it would leave the migration permanently incomplete over a config
+ * that is already correct.
+ */
+function useSharedAliases(source) {
+  if (source.includes("originLoomAliases")) return { status: "already-applied" };
+
+  const aliasBlock =
+    /alias:\s*\{\s*"~":\s*resolve\(\s*([A-Za-z.]+(?:\.dirname)?)\s*,\s*"src"\s*\),\s*"@server":\s*resolve\(\s*\1\s*,\s*"server"\s*\),?\s*\}/;
+  const match = aliasBlock.exec(source);
+  if (!match) return { status: "already-applied" };
+
+  let next = source.replace(aliasBlock, `alias: originLoomAliases(${match[1]})`);
+  next = next.replace(
+    /^(import .*from "vite(?:st\/config)?";)$/m,
+    (line) => `import { originLoomAliases } from "@originloom/shared/vite";\n${line}`,
+  );
+  // The helper joins the paths now, so `resolve` may have become unused — but
+  // only where nothing else in the file still calls it.
+  if (!/\bresolve\(/.test(next)) {
+    next = next.replace(/^import \{ resolve \} from "node:path";\n\n?/m, "");
+  }
+  return {
+    status: "patched",
+    source: next,
+    detail: "alias haritası originLoomAliases() ile değiştirildi",
+  };
 }
 
 function dropFirstArgument(source, name) {
