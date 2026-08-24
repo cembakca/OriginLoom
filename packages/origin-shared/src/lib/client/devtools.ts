@@ -35,6 +35,9 @@ export type DevtoolsOptions = {
 };
 
 const PANEL_ID = "originloom-devtools";
+const INTRO_CLASS = "ol-intro";
+/** Long enough for the last detail to land (930ms delay + 300ms), and no longer. */
+const MARK_INTRO_MS = 1_300;
 const DETAILS_ID = "originloom-devtools-details";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const mountedPanels = new WeakMap<Document, () => void>();
@@ -83,8 +86,41 @@ const DEVTOOLS_CSS = `
     display: block;
     width: 40px;
     height: 40px;
-    filter: drop-shadow(0 8px 14px rgba(45, 212, 191, .16));
+    overflow: visible;
   }
+  #${PANEL_ID} .ol-orbit { fill: none; stroke-width: 12; stroke-linecap: round; }
+  /*
+   * The mark introduces itself once, on mount, and then holds still. The class
+   * lives on the panel — which a render never replaces — rather than on the SVG,
+   * so a re-render cannot restart the animation under someone who is reading.
+   * Coordinates are viewBox units, which is what transform-origin means here.
+   */
+  #${PANEL_ID}.ol-intro .ol-mark {
+    transform-origin: 80px 80px;
+    animation: ol-mark-in 700ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+  #${PANEL_ID}.ol-intro .ol-orbit {
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    animation: ol-mark-draw 900ms cubic-bezier(.2, .8, .2, 1) forwards;
+  }
+  #${PANEL_ID}.ol-intro .ol-orbit-purple { animation-delay: 120ms; }
+  #${PANEL_ID}.ol-intro .ol-orbit-teal { animation-delay: 240ms; }
+  #${PANEL_ID}.ol-intro .ol-core {
+    transform-origin: 80px 80px;
+    animation: ol-mark-core 550ms cubic-bezier(.16, 1, .3, 1) 180ms both;
+  }
+  #${PANEL_ID}.ol-intro .ol-doc {
+    transform-origin: 80px 80px;
+    animation: ol-mark-doc 500ms cubic-bezier(.16, 1, .3, 1) 550ms both;
+  }
+  #${PANEL_ID}.ol-intro .ol-bar,
+  #${PANEL_ID}.ol-intro .ol-doc-line {
+    animation: ol-mark-detail 300ms ease both;
+  }
+  #${PANEL_ID}.ol-intro .ol-bar-one { animation-delay: 750ms; }
+  #${PANEL_ID}.ol-intro .ol-bar-two { animation-delay: 840ms; }
+  #${PANEL_ID}.ol-intro .ol-doc-line { animation-delay: 930ms; }
   #${PANEL_ID} .ol-brand { min-width: 0; }
   #${PANEL_ID} .ol-name-line {
     display: flex;
@@ -198,9 +234,41 @@ const DEVTOOLS_CSS = `
     from { opacity: 0; transform: translateY(-4px) scale(.99); }
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
+  @keyframes ol-mark-in {
+    from { opacity: 0; transform: scale(.94); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes ol-mark-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes ol-mark-core {
+    from { opacity: 0; transform: scale(.85); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes ol-mark-doc {
+    from { opacity: 0; transform: translateY(4px) scale(.94); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes ol-mark-detail {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
   @media (prefers-reduced-motion: reduce) {
     #${PANEL_ID}, #${PANEL_ID} .ol-toggle, #${PANEL_ID} .ol-chevron { transition: none; }
     #${PANEL_ID} .ol-details.ol-animate { animation: none; }
+    /* The mark still has to arrive drawn, not half-drawn: cancelling the
+       animation alone would leave the orbits at their starting dash offset. */
+    #${PANEL_ID}.ol-intro .ol-mark,
+    #${PANEL_ID}.ol-intro .ol-core,
+    #${PANEL_ID}.ol-intro .ol-doc,
+    #${PANEL_ID}.ol-intro .ol-bar,
+    #${PANEL_ID}.ol-intro .ol-doc-line,
+    #${PANEL_ID}.ol-intro .ol-orbit {
+      animation: none;
+      opacity: 1;
+      transform: none;
+      stroke-dashoffset: 0;
+    }
   }
 `;
 
@@ -434,9 +502,20 @@ export function mountDevtoolsPanel(options: DevtoolsOptions = {}): () => void {
   doc.body.appendChild(panel);
   observer.observe(doc.body, OBSERVED);
 
+  // The mark plays once and then the class goes away, so every later render
+  // draws it static. Dropping the class rather than letting the animation
+  // finish on its own is what makes that true: a `both` fill would otherwise
+  // replay from the top the next time a render replaces the toggle.
+  panel.classList.add(INTRO_CLASS);
+  const introTimer = doc.defaultView?.setTimeout(
+    () => panel.classList.remove(INTRO_CLASS),
+    MARK_INTRO_MS,
+  );
+
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    if (introTimer !== undefined) doc.defaultView?.clearTimeout(introTimer);
     cancelScheduled?.();
     cancelScheduled = undefined;
     queued = false;
@@ -541,97 +620,265 @@ function fillDetails(doc: Document, details: HTMLElement, snapshot: DevtoolsSnap
   }
 }
 
+/**
+ * Every `id` this mark defines, namespaced.
+ *
+ * A gradient or filter id inside an inline SVG is global to the document, and
+ * this SVG is injected into someone else's page — a bare `coreBg` would be
+ * silently reassigned the moment the host app defines one too, and the mark
+ * would render with the wrong paint or none at all.
+ */
+const MARK_ID = (name: string): string => `originloom-devtools-${name}`;
+
+const MARK_STOPS: Record<string, [string, string][]> = {
+  coreBg: [
+    ["0", "#16213A"],
+    ["0.62", "#0F172A"],
+    ["1", "#0B1120"],
+  ],
+  purpleOrbit: [
+    ["0", "#6D28D9"],
+    ["0.52", "#8B5CF6"],
+    ["1", "#C084FC"],
+  ],
+  tealOrbit: [
+    ["0", "#5EEAD4"],
+    ["0.45", "#2DD4BF"],
+    ["1", "#0F766E"],
+  ],
+  docStroke: [
+    ["0", "#FFFFFF"],
+    ["1", "#E5EEF9"],
+  ],
+  purpleBar: [
+    ["0", "#A78BFA"],
+    ["1", "#7C3AED"],
+  ],
+  tealBar: [
+    ["0", "#5EEAD4"],
+    ["1", "#14B8A6"],
+  ],
+};
+
+const MARK_LINEAR: Record<string, [string, string, string, string]> = {
+  purpleOrbit: ["28", "98", "132", "25"],
+  tealOrbit: ["132", "60", "30", "136"],
+  docStroke: ["56", "43", "104", "120"],
+  purpleBar: ["66", "70", "90", "82"],
+  tealBar: ["66", "86", "97", "98"],
+};
+
+const ARROW_HEAD = "M1 1.5L12 7L1 12.5C3.6 9.4 3.6 4.6 1 1.5Z";
+
+/**
+ * Two open strands and the document they orbit: server and client stay
+ * separate, but meet around the same finished page.
+ *
+ * Built node by node rather than parsed from a string. `innerHTML` is what a
+ * Trusted Types policy exists to refuse, and this module is loaded into pages
+ * that enforce one — the panel must not be the reason an app relaxes it.
+ */
 function brandMark(doc: Document): SVGSVGElement {
   const svg = doc.createElementNS(SVG_NS, "svg");
   setSvgAttributes(svg, {
     class: "ol-mark",
-    viewBox: "0 0 40 40",
+    viewBox: "0 0 160 160",
     fill: "none",
     "aria-hidden": "true",
     "data-originloom-mark": "",
   });
-
-  const halo = doc.createElementNS(SVG_NS, "circle");
-  setSvgAttributes(halo, { cx: "20", cy: "20", r: "18.5", fill: "#0b1120" });
-
-  // Two open strands interlock into the OriginLoom "O": server and client
-  // stay separate, but meet around the same full document.
-  const serverThread = doc.createElementNS(SVG_NS, "path");
-  setSvgAttributes(serverThread, {
-    d: "M10.2 29.8C4.8 24.4 5 15.3 10.7 9.8C16.1 4.6 24.7 4.8 30 9.9",
-    stroke: "#8b5cf6",
-    "stroke-width": "4.2",
-    "stroke-linecap": "round",
-  });
-  const clientThread = doc.createElementNS(SVG_NS, "path");
-  setSvgAttributes(clientThread, {
-    d: "M29.8 10.2C35.2 15.6 35 24.7 29.3 30.2C23.9 35.4 15.3 35.2 10 30.1",
-    stroke: "#2dd4bf",
-    "stroke-width": "4.2",
-    "stroke-linecap": "round",
-  });
-
-  const documentShadow = doc.createElementNS(SVG_NS, "path");
-  setSvgAttributes(documentShadow, {
-    d: "M14.5 12.5H22.8L26.5 16.2V27.5H14.5Z",
-    fill: "#0b1120",
-    stroke: "#111827",
-    "stroke-width": "3.5",
-    "stroke-linejoin": "round",
-  });
-  const documentPage = doc.createElementNS(SVG_NS, "path");
-  setSvgAttributes(documentPage, {
-    d: "M14.5 12.5H22.8L26.5 16.2V27.5H14.5Z",
-    fill: "#111827",
-    stroke: "#f8fafc",
-    "stroke-width": "1.25",
-    "stroke-linejoin": "round",
-  });
-  const fold = doc.createElementNS(SVG_NS, "path");
-  setSvgAttributes(fold, {
-    d: "M22.5 12.8V16.5H26.2",
-    stroke: "#f8fafc",
-    "stroke-width": "1.1",
-    "stroke-linejoin": "round",
-  });
-  const serverIsland = doc.createElementNS(SVG_NS, "rect");
-  setSvgAttributes(serverIsland, {
-    x: "17.2",
-    y: "19",
-    width: "3.1",
-    height: "3.1",
-    rx: ".75",
-    fill: "#8b5cf6",
-  });
-  const clientIsland = doc.createElementNS(SVG_NS, "rect");
-  setSvgAttributes(clientIsland, {
-    x: "21.5",
-    y: "19",
-    width: "3.1",
-    height: "3.1",
-    rx: ".75",
-    fill: "#2dd4bf",
-  });
-  const documentLine = doc.createElementNS(SVG_NS, "path");
-  setSvgAttributes(documentLine, {
-    d: "M17.2 24.5H23.8",
-    stroke: "#94a3b8",
-    "stroke-width": "1.15",
-    "stroke-linecap": "round",
-  });
-
-  svg.append(
-    halo,
-    serverThread,
-    clientThread,
-    documentShadow,
-    documentPage,
-    fold,
-    serverIsland,
-    clientIsland,
-    documentLine,
-  );
+  svg.append(markDefs(doc), markBody(doc));
   return svg;
+}
+
+function markDefs(doc: Document): SVGDefsElement {
+  const defs = doc.createElementNS(SVG_NS, "defs");
+
+  const core = doc.createElementNS(SVG_NS, "radialGradient");
+  setSvgAttributes(core, {
+    id: MARK_ID("coreBg"),
+    cx: "0",
+    cy: "0",
+    r: "1",
+    gradientUnits: "userSpaceOnUse",
+    gradientTransform: "translate(64 52) rotate(45) scale(98)",
+  });
+  core.append(...gradientStops(doc, MARK_STOPS.coreBg ?? []));
+  defs.append(core);
+
+  for (const [name, [x1, y1, x2, y2]] of Object.entries(MARK_LINEAR)) {
+    const gradient = doc.createElementNS(SVG_NS, "linearGradient");
+    setSvgAttributes(gradient, {
+      id: MARK_ID(name),
+      x1,
+      y1,
+      x2,
+      y2,
+      gradientUnits: "userSpaceOnUse",
+    });
+    gradient.append(...gradientStops(doc, MARK_STOPS[name] ?? []));
+    defs.append(gradient);
+  }
+
+  const shadow = doc.createElementNS(SVG_NS, "filter");
+  setSvgAttributes(shadow, {
+    id: MARK_ID("shadow"),
+    x: "-30%",
+    y: "-30%",
+    width: "160%",
+    height: "160%",
+  });
+  const drop = doc.createElementNS(SVG_NS, "feDropShadow");
+  setSvgAttributes(drop, {
+    dx: "0",
+    dy: "7",
+    stdDeviation: "8",
+    "flood-color": "#020617",
+    "flood-opacity": "0.38",
+  });
+  shadow.append(drop);
+
+  const glow = doc.createElementNS(SVG_NS, "filter");
+  setSvgAttributes(glow, {
+    id: MARK_ID("softGlow"),
+    x: "-20%",
+    y: "-20%",
+    width: "140%",
+    height: "140%",
+  });
+  const blur = doc.createElementNS(SVG_NS, "feGaussianBlur");
+  setSvgAttributes(blur, { stdDeviation: "1.8" });
+  glow.append(blur);
+  defs.append(shadow, glow);
+
+  for (const [name, fill] of [
+    ["arrowPurple", "#C084FC"],
+    ["arrowTeal", "#5EEAD4"],
+  ] as const) {
+    const marker = doc.createElementNS(SVG_NS, "marker");
+    setSvgAttributes(marker, {
+      id: MARK_ID(name),
+      markerWidth: "14",
+      markerHeight: "14",
+      refX: "11",
+      refY: "7",
+      orient: "auto",
+      markerUnits: "userSpaceOnUse",
+    });
+    const head = doc.createElementNS(SVG_NS, "path");
+    setSvgAttributes(head, { d: ARROW_HEAD, fill });
+    marker.append(head);
+    defs.append(marker);
+  }
+
+  return defs;
+}
+
+function gradientStops(doc: Document, stops: [string, string][]): SVGStopElement[] {
+  return stops.map(([offset, color]) => {
+    const stop = doc.createElementNS(SVG_NS, "stop");
+    setSvgAttributes(stop, { offset, "stop-color": color });
+    return stop;
+  });
+}
+
+function markBody(doc: Document): SVGGElement {
+  const group = doc.createElementNS(SVG_NS, "g");
+
+  const purple = doc.createElementNS(SVG_NS, "path");
+  setSvgAttributes(purple, {
+    class: "ol-orbit ol-orbit-purple",
+    d: "M35 108C18 86 18 52 40 31C60 13 93 12 121 21C126 23 131 25 135 28",
+    stroke: `url(#${MARK_ID("purpleOrbit")})`,
+    "marker-end": `url(#${MARK_ID("arrowPurple")})`,
+    filter: `url(#${MARK_ID("softGlow")})`,
+  });
+
+  const core = doc.createElementNS(SVG_NS, "circle");
+  setSvgAttributes(core, {
+    class: "ol-core",
+    cx: "80",
+    cy: "80",
+    r: "49",
+    fill: `url(#${MARK_ID("coreBg")})`,
+    filter: `url(#${MARK_ID("shadow")})`,
+  });
+
+  const teal = doc.createElementNS(SVG_NS, "path");
+  setSvgAttributes(teal, {
+    class: "ol-orbit ol-orbit-teal",
+    d: "M126 57C144 77 144 110 120 131C98 150 64 150 37 137",
+    stroke: `url(#${MARK_ID("tealOrbit")})`,
+    "marker-end": `url(#${MARK_ID("arrowTeal")})`,
+    filter: `url(#${MARK_ID("softGlow")})`,
+  });
+
+  group.append(purple, core, teal, markDocument(doc));
+  return group;
+}
+
+function markDocument(doc: Document): SVGGElement {
+  const group = doc.createElementNS(SVG_NS, "g");
+  group.setAttribute("class", "ol-doc");
+
+  const page = doc.createElementNS(SVG_NS, "path");
+  setSvgAttributes(page, {
+    d: "M57 47C57 42.6 60.6 39 65 39H90L104 53V112C104 116.4 100.4 120 96 120H65C60.6 120 57 116.4 57 112V47Z",
+    fill: "#0F172A",
+    stroke: `url(#${MARK_ID("docStroke")})`,
+    "stroke-width": "4.6",
+    "stroke-linejoin": "round",
+  });
+
+  const foldEdge = doc.createElementNS(SVG_NS, "path");
+  setSvgAttributes(foldEdge, {
+    d: "M90 39V49.5C90 52 92 54 94.5 54H104",
+    stroke: "#F8FAFC",
+    "stroke-width": "3.2",
+    "stroke-linejoin": "round",
+  });
+
+  const foldFill = doc.createElementNS(SVG_NS, "path");
+  setSvgAttributes(foldFill, {
+    d: "M90 39L104 53H96C92.7 53 90 50.3 90 47V39Z",
+    fill: "#FFFFFF",
+    opacity: ".18",
+  });
+
+  const purpleBar = doc.createElementNS(SVG_NS, "rect");
+  setSvgAttributes(purpleBar, {
+    class: "ol-bar ol-bar-one",
+    x: "66",
+    y: "69",
+    width: "27",
+    height: "10",
+    rx: "5",
+    fill: `url(#${MARK_ID("purpleBar")})`,
+  });
+
+  const tealBar = doc.createElementNS(SVG_NS, "rect");
+  setSvgAttributes(tealBar, {
+    class: "ol-bar ol-bar-two",
+    x: "66",
+    y: "85",
+    width: "33",
+    height: "10",
+    rx: "5",
+    fill: `url(#${MARK_ID("tealBar")})`,
+  });
+
+  const line = doc.createElementNS(SVG_NS, "path");
+  setSvgAttributes(line, {
+    class: "ol-doc-line",
+    d: "M67 103H92",
+    stroke: "#94A3B8",
+    "stroke-width": "3",
+    "stroke-linecap": "round",
+    opacity: ".75",
+  });
+
+  group.append(page, foldEdge, foldFill, purpleBar, tealBar, line);
+  return group;
 }
 
 function chevron(doc: Document): SVGSVGElement {

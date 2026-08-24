@@ -19,6 +19,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  // Not just tidiness: a case that fails before its own cleanup would otherwise
+  // leave fake timers installed for every test after it in this file.
+  vi.useRealTimers();
 });
 
 describe("readDevtoolsSnapshot", () => {
@@ -191,6 +194,48 @@ describe("mountDevtoolsPanel", () => {
     expect(headings).not.toContain("Server");
     expect(headings).toContain("Navigation");
     unmount();
+  });
+
+  /**
+   * The mark defines gradients, filters and markers, and an id inside an inline
+   * SVG is global to the document it lands in. The panel is injected into
+   * someone else's page, so a bare `coreBg` would be reassigned the moment the
+   * host defines one too and the mark would paint wrong or not at all.
+   */
+  it("namespaces every id the mark defines, and references its own", () => {
+    page("");
+
+    const unmount = mountDevtoolsPanel({ document });
+    const mark = document.querySelector("[data-originloom-mark]");
+    const ids = [...(mark?.querySelectorAll("[id]") ?? [])].map((node) => node.id);
+
+    expect(ids.length).toBeGreaterThan(6);
+    expect(ids.every((id) => id.startsWith("originloom-devtools-"))).toBe(true);
+    const references = [...(mark?.querySelectorAll("*") ?? [])].flatMap((node) =>
+      ["fill", "stroke", "filter", "marker-end"]
+        .map((name) => /url\(#([^)]+)\)/.exec(node.getAttribute(name) ?? "")?.[1])
+        .filter((id): id is string => id !== undefined),
+    );
+
+    expect(references.length).toBeGreaterThan(6);
+    for (const reference of references) expect(ids).toContain(reference);
+    unmount();
+  });
+
+  /** Replaying the logo every time an island mounts is not a brand moment. */
+  it("plays the mark's entrance once and then holds still", async () => {
+    vi.useFakeTimers();
+    page("");
+
+    const unmount = mountDevtoolsPanel({ document });
+    const panel = document.getElementById("originloom-devtools");
+    expect(panel?.classList.contains("ol-intro")).toBe(true);
+
+    vi.advanceTimersByTime(1_400);
+    expect(panel?.classList.contains("ol-intro")).toBe(false);
+
+    unmount();
+    vi.useRealTimers();
   });
 
   it("can be disabled from code and closes an existing panel", () => {
