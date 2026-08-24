@@ -1,8 +1,16 @@
 # Gateway contract drift koruması
 
-Bu proje consumer contract'larını `contracts/openapi.json` içindeki OpenAPI 3.1 / JSON Schema
-2020-12 şemalarıyla tanımlar. TypeScript tipleri ve runtime guard'lar kalır; schema bunların backend
-ile paylaşılabilen, CI tarafından çalıştırılabilen karşılığıdır.
+Bu proje consumer contract'larını `contracts/gateway-schemas.json` içindeki **JSON Schema 2020-12**
+tanımlarıyla belirler. TypeScript tipleri ve runtime guard'lar kalır; schema bunların backend ile
+paylaşılabilen, CI tarafından çalıştırılabilen karşılığıdır.
+
+Dosya düz JSON Schema — OpenAPI zarfı yok. Bir zamanlar vardı ve hiçbir şey okumuyordu: kontrol eden
+araç yalnız şema tanımlarına bakıyor, endpoint'in method'u ve path'i de zaten manifest'te duruyor.
+Kimsenin okumadığı bir zarf, aynı bilginin ikinci kez yazıldığı ve zamanla ayrıştığı yerdir.
+
+**Bu dosya bizim API'mizi değil, tükettiğimiz gateway'i tarif eder.** Kendi `/api` uçlarımızın
+istemcisi kendi island'larımız ve tiplerini kaynaktan alıyorlar; onlar için üretilmiş bir belge
+hiçbir şey katmaz.
 
 ## Yerel fixture kapısı
 
@@ -12,7 +20,7 @@ pnpm contracts:fixtures
 
 ## Yeni endpoint scaffold'u
 
-Ham gateway cevabından fixture, OpenAPI şeması, manifest kaydı, TypeScript tipi ve
+Ham gateway cevabından fixture, JSON Schema tanımı, manifest kaydı, TypeScript tipi ve
 `server/services/*` loader iskeleti üretmek için:
 
 ```bash
@@ -39,11 +47,10 @@ ardından `pnpm contracts:fixtures` çalıştırın.
 
 `contracts/gateway-contracts.json` manifest v2 kullanır. Her consumer senaryosunun sabit
 `operationId` değerini, request method/path'ini ve beklenen response status/content-type/schema/
-fixture eşleşmesini taşır. Fixture schema'yı geçmezse CI kırılır. Yeni endpoint eklerken OpenAPI
-schema, manifest kaydı, PII içermeyen fixture ve runtime guard aynı değişiklikte eklenmelidir.
+fixture eşleşmesini taşır. Fixture schema'yı geçmezse CI kırılır. Yeni endpoint eklerken schema, manifest kaydı, PII içermeyen fixture ve runtime guard aynı değişiklikte eklenmelidir.
 
 Örneğin progressive HTML demosundaki `/live/message` çağrısı da yalnız bir mock detayı değildir:
-`LiveMessage` OpenAPI şeması, `live-message` consumer contract'ı, fixture, byte bütçesi ve
+`LiveMessage` JSON Schema tanımı, `live-message` consumer contract'ı, fixture, byte bütçesi ve
 `server/services/live-message.ts` runtime guard'ı birlikte bulunur. Böylece streaming sırasında geç
 gelen veri de normal gateway verisiyle aynı güven sınırından geçer.
 
@@ -176,5 +183,7 @@ cevabı beklenen status'ta olsa bile gövde içerirse kontrol başarısız olur.
 - Büyük payload artışı schema geçse bile endpoint'in `GatewayContracts` byte bütçesini ayrıca gözden
   geçirmeyi gerektirir; bütçe otomatik yükseltilmez.
 
-Provider OpenAPI artifact'ı merkeziyse bu dosyayı CI'da indirin veya kontrollü codegen ile güncelleyin;
-runtime sırasında uzaktaki schema'ya güvenmeyin. Schema değişikliği code review'da görünür kalmalıdır.
+**Backend ekibi bir OpenAPI/Swagger belgesi yayınlıyorsa** şemaları oradan türetin — elle yazmak
+zaten hiçbir zaman doğru yol değil. İki kaynak var ve ikisi de üretim: provider'ın belgesi, ya da
+gerçek bir cevaptan `contracts:scaffold`. Uzaktaki şemaya **runtime'da** güvenmeyin; CI'da indirip
+commit edin ki değişiklik code review'da görünsün.

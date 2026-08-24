@@ -265,7 +265,19 @@ uçlarımız için OpenAPI üretirdi. O uçların istemcisi bizim kendi island'l
 onlara tipi **kaynaktan** veriyor — üretilmiş bir belgeden kesin olarak daha iyi. Kendi API'miz için
 OpenAPI, ancak birlikte derlemediğimiz bir istemci (mobil uygulama, partner) çıktığında hak eder.
 
-**Ve şema elle yazılmaz — bunu ilk denemede ben yanlış yaptım.** `origin-scaffold-gateway`
+**Ve OpenAPI zarfı 0.7.52'de tamamen kaldırıldı.** Soru haklıydı: zarfı hiçbir şey okumuyordu.
+Kontrol eden araç yalnız `components.schemas`'a bakıyordu; `openapi`, `info` ve `paths` bir kez bile
+okunmadı, endpoint'in method'u ve path'i de zaten manifest'te duruyordu. Kimsenin okumadığı bir
+zarf, aynı bilginin ikinci kez yazıldığı ve zamanla ayrıştığı yerdir. Dosya artık
+`contracts/gateway-schemas.json` ve düz JSON Schema 2020-12: bir `$schema` satırı ve `$defs`.
+`0.7.52-json-schema-contracts` migration'ı iki dosyayı birlikte taşıyor — yarım uygulanmış bir
+yeniden adlandırma hiç yapmamaktan kötüdür, çünkü manifest artık var olmayan bir belgeyi gösterir.
+
+Bu, kontrol eden aracı da sadeleştirdi: OpenAPI zarfını Ajv'nin strict mode'una sokabilmek için
+şemaları `$defs` altına taşıyıp pointer'ları yeniden yazan bir dönüşüm katmanı vardı; belge zaten o
+biçimde olduğu için katman silindi.
+
+**Şema yine de elle yazılmaz — bunu ilk denemede ben yanlış yaptım.** `origin-scaffold-gateway`
 (`contracts:scaffold`) zaten var ve tam bunu yapıyor: gerçek bir gateway cevabını verirsin, fixture,
 JSON Schema, OpenAPI kaydı, manifest girdisi, TypeScript tipi ve servis iskeleti üretir. Ben ilk
 turda iki şemayı testlerdeki yüklerden elle yazdım; doğru yol komutu çalıştırmak.

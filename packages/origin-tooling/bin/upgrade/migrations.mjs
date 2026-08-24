@@ -36,6 +36,7 @@ export const NODE_24_MIGRATION = "0.7.26-node-24";
 export const DEVTOOLS_OPTION_MIGRATION = "0.7.32-devtools-client-option";
 export const SHUTDOWN_DRAIN_ORDER_MIGRATION = "0.7.32-shutdown-drain-order";
 export const DISPOSABLE_GATEWAY_MIGRATION = "0.7.34-disposable-gateway-response";
+export const JSON_SCHEMA_CONTRACTS_MIGRATION = "0.7.52-json-schema-contracts";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -431,6 +432,15 @@ export const migrations = [
     },
   },
   {
+    id: JSON_SCHEMA_CONTRACTS_MIGRATION,
+    introducedIn: "0.7.52",
+    description:
+      "Consumer contract şemaları OpenAPI zarfından çıkarılıp düz JSON Schema'ya taşınır: contracts/openapi.json → contracts/gateway-schemas.json, components.schemas → $defs, manifest pointer'ları buna göre yeniden yazılır. Zarfı hiçbir şey okumuyordu — kontrol eden araç yalnız şema tanımlarına bakıyor, endpoint'in method'u ve path'i zaten manifest'te.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      migrateContractSchemas(root, changes, fileWrites, manualRequired);
+    },
+  },
+  {
     id: WARM_PATH_PERFORMANCE_MIGRATION,
     introducedIn: "0.7.24",
     description:
@@ -757,6 +767,94 @@ function patchGatewayAdapterResponseType(source) {
     source: patched,
     detail: "Gateway adapter çekirdeğin GatewayResponse tipini olduğu gibi geçiriyor.",
   };
+}
+
+/**
+ * Moves the contract schemas out of their OpenAPI envelope.
+ *
+ * Two files change together and a half-applied rename is worse than none — the
+ * manifest would point at a document that is no longer there — so this stages
+ * both writes or neither, and says so when it cannot.
+ */
+function migrateContractSchemas(root, changes, fileWrites, manualRequired) {
+  const legacyPath = join(root, "contracts/openapi.json");
+  const manifestPath = join(root, "contracts/gateway-contracts.json");
+  if (!existsSync(legacyPath)) return;
+
+  let legacy;
+  try {
+    legacy = JSON.parse(readFileSync(legacyPath, "utf8"));
+  } catch {
+    manualRequired.push({
+      file: "contracts/openapi.json",
+      detail:
+        "Dosya okunamadı; şemaları elle contracts/gateway-schemas.json içine $defs olarak taşıyın.",
+    });
+    return;
+  }
+
+  const schemas = legacy?.components?.schemas;
+  if (!schemas || Object.keys(schemas).length === 0) {
+    manualRequired.push({
+      file: "contracts/openapi.json",
+      detail:
+        "components.schemas bulunamadı; dönüştürülecek bir şey yok, dosyayı elle gözden geçirin.",
+    });
+    return;
+  }
+
+  const document = {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $defs: rewriteSchemaPointers(schemas),
+  };
+  fileWrites["contracts/gateway-schemas.json"] = `${JSON.stringify(document, null, 2)}\n`;
+  fileWrites["contracts/openapi.json"] = null;
+  changes.push({
+    file: "contracts/gateway-schemas.json",
+    kind: "add",
+    detail: "OpenAPI zarfı kaldırıldı; şemalar $defs altına taşındı.",
+  });
+  changes.push({
+    file: "contracts/openapi.json",
+    kind: "remove",
+    detail: "Zarfı hiçbir şey okumuyordu.",
+  });
+
+  if (!existsSync(manifestPath)) {
+    manualRequired.push({
+      file: "contracts/gateway-contracts.json",
+      detail:
+        "Manifest bulunamadı; schema alanını gateway-schemas.json'a ve pointer'ları #/$defs/ ile başlayacak şekilde elle güncelleyin.",
+    });
+    return;
+  }
+
+  const manifestSource =
+    fileWrites["contracts/gateway-contracts.json"] ?? readFileSync(manifestPath, "utf8");
+  const patched = manifestSource
+    .replaceAll('"openapi.json"', '"gateway-schemas.json"')
+    .replaceAll("#/components/schemas/", "#/$defs/");
+  if (patched !== manifestSource) {
+    fileWrites["contracts/gateway-contracts.json"] = patched;
+    changes.push({
+      file: "contracts/gateway-contracts.json",
+      kind: "patch",
+      detail: "Şema dosyası ve pointer'lar yeni konuma çevrildi.",
+    });
+  }
+}
+
+function rewriteSchemaPointers(value) {
+  if (Array.isArray(value)) return value.map(rewriteSchemaPointers);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      key === "$ref" && typeof entry === "string"
+        ? entry.replace("#/components/schemas/", "#/$defs/")
+        : rewriteSchemaPointers(entry),
+    ]),
+  );
 }
 
 function patchBoundaryErrorReference(source) {

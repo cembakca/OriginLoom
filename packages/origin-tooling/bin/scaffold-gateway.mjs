@@ -82,8 +82,8 @@ console.log(artifacts.patches.gatewayContractLine);
 if (layout.hasConsumerContracts && !options.serviceOnly) {
   console.log("\n--- patch: contracts/gateway-contracts.json ---");
   console.log(JSON.stringify(artifacts.patches.manifestEntry, null, 2));
-  console.log("\n--- patch: contracts/openapi.json ---");
-  console.log(JSON.stringify(artifacts.patches.openApiFragment, null, 2));
+  console.log("\n--- patch: contracts/gateway-schemas.json ---");
+  console.log(JSON.stringify(artifacts.patches.schemaFragment, null, 2));
 }
 console.log("\nChecklist:");
 for (const step of artifacts.checklist) console.log(`  • ${step}`);
@@ -229,7 +229,7 @@ function printHelp() {
 Options:
   --cwd <dir>            Project root (default: cwd)
   --method GET           HTTP method (default: GET)
-  --schema FooBar        OpenAPI schema name (default: derived from --id)
+  --schema FooBar        JSON Schema definition name (default: derived from --id)
   --contract-key foo_bar defineGatewayContract id (default: snake_case id)
   --gateway-key fooBar     GatewayContracts property (default: camelCase id)
   --service foo-bar      Service + contract file stem (default: --id)

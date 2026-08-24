@@ -60,7 +60,7 @@ export function applyScaffold(root, artifacts, options = {}) {
 
   if (consumerContracts) {
     const manifestPath = join(root, "contracts/gateway-contracts.json");
-    const openApiPath = join(root, "contracts/openapi.json");
+    const schemasPath = join(root, "contracts/gateway-schemas.json");
     if (existsSync(manifestPath)) {
       const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
       if (!manifest.contracts.some((entry) => entry.id === artifacts.patches.manifestEntry.id)) {
@@ -72,19 +72,15 @@ export function applyScaffold(root, artifacts, options = {}) {
       skipped.push("contracts/gateway-contracts.json (missing)");
     }
 
-    if (existsSync(openApiPath)) {
-      const openApi = JSON.parse(readFileSync(openApiPath, "utf8"));
-      const { path, method, operation, schemaName, schema } = artifacts.patches.openApiFragment;
-      openApi.paths ??= {};
-      openApi.paths[path] ??= {};
-      openApi.paths[path][method] = operation;
-      openApi.components ??= {};
-      openApi.components.schemas ??= {};
-      openApi.components.schemas[schemaName] = schema;
-      writeFileSync(openApiPath, `${JSON.stringify(openApi, null, 2)}\n`);
-      written.push(relative(root, openApiPath));
+    if (existsSync(schemasPath)) {
+      const document = JSON.parse(readFileSync(schemasPath, "utf8"));
+      const { name, schema } = artifacts.patches.schemaFragment;
+      document.$defs ??= {};
+      document.$defs[name] = schema;
+      writeFileSync(schemasPath, `${JSON.stringify(document, null, 2)}\n`);
+      written.push(relative(root, schemasPath));
     } else {
-      skipped.push("contracts/openapi.json (missing)");
+      skipped.push("contracts/gateway-schemas.json (missing)");
     }
   }
 

@@ -66,26 +66,10 @@ export function buildScaffoldArtifacts(spec) {
     inferredRoot,
   });
 
-  const openApiPath = spec.path.split("?")[0];
-  const openApiFragment = {
-    path: openApiPath,
-    method: spec.method.toLowerCase(),
-    operation: {
-      operationId: spec.operationId,
-      responses: {
-        200: {
-          description: `${spec.schemaName} response`,
-          content: {
-            "application/json": {
-              schema: { $ref: `#/components/schemas/${spec.schemaName}` },
-            },
-          },
-        },
-      },
-    },
-    schemaName: spec.schemaName,
-    schema: inferredRoot.schema,
-  };
+  // Plain JSON Schema, not an OpenAPI operation. Nothing ever read the paths,
+  // the info block or the response envelope — the checker only ever looked at
+  // the schema definitions, so those are all this writes.
+  const schemaFragment = { name: spec.schemaName, schema: inferredRoot.schema };
 
   const manifestEntry = {
     id: spec.id,
@@ -98,7 +82,7 @@ export function buildScaffoldArtifacts(spec) {
       status: 200,
       contentType: "application/json",
       fixture: `fixtures/${spec.id}.json`,
-      schema: `#/components/schemas/${spec.schemaName}`,
+      schema: `#/$defs/${spec.schemaName}`,
     },
   };
 
@@ -123,7 +107,7 @@ export function buildScaffoldArtifacts(spec) {
     patches: {
       gatewayContractLine,
       manifestEntry,
-      openApiFragment,
+      schemaFragment,
     },
     checklist,
   };

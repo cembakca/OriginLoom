@@ -116,11 +116,3 @@ export function defaultContractKey(id) {
 export function defaultGatewayPropertyKey(id) {
   return id.replace(/-([a-z0-9])/g, (_, char) => char.toUpperCase());
 }
-
-/** @param {string} path gateway path */
-export function openApiPathTemplate(path) {
-  return path.replace(/\{[^}]+\}/g, (segment) => {
-    const name = segment.slice(1, -1);
-    return `{${name}}`;
-  });
-}

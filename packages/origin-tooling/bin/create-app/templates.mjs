@@ -245,7 +245,7 @@ export function renderTemplates({
     "server/services/live-message.ts": liveMessageService(),
     "server/services/profile.ts": profileService(),
     "server/services/gateway-contracts.ts": gatewayContracts(true),
-    "contracts/openapi.json": gatewayOpenApi(),
+    "contracts/gateway-schemas.json": gatewaySchemas(),
     "contracts/gateway-contracts.json": gatewayContractConfig(),
     "contracts/fixtures/items-page.json": gatewayItemsPageFixture(),
     "contracts/fixtures/item-reviews.json": gatewayReviewsFixture(),
@@ -9427,305 +9427,243 @@ ${includeStreaming ? '  liveMessage: defineGatewayContract("live_message", 4_096
 } as const;
 `;
 
-const gatewayOpenApi = () =>
-  JSON.stringify(
-    {
-      openapi: "3.1.0",
-      info: { title: "OriginLoom consumer gateway contract", version: "1.0.0" },
-      paths: {
-        "/items": {
-          get: {
-            responses: {
-              200: {
-                description: "Item page",
-                content: {
-                  "application/json": { schema: { $ref: "#/components/schemas/ItemPage" } },
-                },
-              },
-            },
-          },
-        },
-        "/items/{slug}": {
-          get: {
-            responses: {
-              200: {
-                description: "Item detail page",
-                content: {
-                  "application/json": { schema: { $ref: "#/components/schemas/ItemDetail" } },
-                },
-              },
-            },
-          },
-        },
-        "/items/{slug}/reviews": {
-          get: {
-            responses: {
-              200: {
-                description: "Item reviews",
-                content: {
-                  "application/json": { schema: { $ref: "#/components/schemas/ItemReviews" } },
-                },
-              },
-            },
-          },
-        },
-        "/live/message": {
-          get: {
-            responses: {
-              200: {
-                description: "Deferred live message",
-                content: {
-                  "application/json": { schema: { $ref: "#/components/schemas/LiveMessage" } },
-                },
-              },
-            },
-          },
-        },
-        "/pages/menuitem/list": {
-          get: {
-            responses: {
-              200: {
-                description: "CMS navigation",
-                content: { "application/json": { schema: { $ref: "#/components/schemas/Menu" } } },
-              },
-            },
-          },
-        },
+const gatewaySchemas = () => {
+  // Plain JSON Schema 2020-12. There is no OpenAPI envelope here on purpose:
+  // nothing read the paths, the info block or the response wrappers — the
+  // contract checker only ever looked at the definitions, and the manifest
+  // already carries each endpoint's method and path. An envelope nobody reads
+  // is a second place for the same facts to drift.
+  const $defs = {
+    ItemSeo: {
+      type: "object",
+      required: ["title", "description"],
+      properties: {
+        title: { type: "string", maxLength: 200 },
+        description: { type: "string", maxLength: 500 },
       },
-      components: {
-        schemas: {
-          ItemSeo: {
-            type: "object",
-            required: ["title", "description"],
-            properties: {
-              title: { type: "string", maxLength: 200 },
-              description: { type: "string", maxLength: 500 },
-            },
-            additionalProperties: true,
-          },
-          Item: {
-            type: "object",
-            required: [
-              "slug",
-              "name",
-              "blurb",
-              "category",
-              "provider",
-              "interestRate",
-              "minAmount",
-              "maxAmount",
-              "terms",
-              "seo",
-            ],
-            properties: {
-              slug: { type: "string", maxLength: 100 },
-              name: { type: "string", maxLength: 200 },
-              blurb: { type: "string", maxLength: 1000 },
-              category: { type: "string", maxLength: 60 },
-              provider: { type: "string", maxLength: 120 },
-              interestRate: { type: "number", minimum: 0, maximum: 100 },
-              minAmount: { type: "number", minimum: 0 },
-              maxAmount: { type: "number", minimum: 0 },
-              terms: { type: "array", maxItems: 20, items: { type: "integer", minimum: 1 } },
-              seo: { $ref: "#/components/schemas/ItemSeo" },
-            },
-            additionalProperties: true,
-          },
-          ItemQuote: {
-            type: "object",
-            required: ["amount", "term", "monthlyPayment", "totalPayment", "annualCostRate"],
-            properties: {
-              amount: { type: "number", minimum: 0 },
-              term: { type: "integer", minimum: 1 },
-              monthlyPayment: { type: "number", minimum: 0 },
-              totalPayment: { type: "number", minimum: 0 },
-              annualCostRate: { type: "number", minimum: 0, maximum: 100 },
-            },
-            additionalProperties: true,
-          },
-          ItemDetail: {
-            type: "object",
-            required: ["item", "quote", "seoInfo"],
-            properties: {
-              item: { $ref: "#/components/schemas/Item" },
-              quote: { $ref: "#/components/schemas/ItemQuote" },
-              seoInfo: { $ref: "#/components/schemas/SeoInfo" },
-            },
-            additionalProperties: true,
-          },
-          SeoInfo: {
-            type: "object",
-            properties: {
-              title: { type: "string", maxLength: 200 },
-              metaDescription: { type: "string", maxLength: 1000 },
-              headingTitle: { type: "string", maxLength: 200 },
-              image: { type: "string", maxLength: 500 },
-              imageAlt: { type: "string", maxLength: 300 },
-              imageWidth: { type: "integer", minimum: 1, maximum: 10000 },
-              imageHeight: { type: "integer", minimum: 1, maximum: 10000 },
-              friendlyUrl: { type: "string", maxLength: 2048 },
-              noindex: { type: "boolean" },
-              nofollow: { type: "boolean" },
-              openGraphType: { type: "string", enum: ["website", "article", "product"] },
-              publishedTime: { type: "string" },
-              modifiedTime: { type: "string" },
-            },
-            additionalProperties: true,
-          },
-          ItemFacet: {
-            type: "object",
-            required: ["value", "count"],
-            properties: {
-              value: { type: "string", maxLength: 60 },
-              count: { type: "integer", minimum: 0 },
-            },
-            additionalProperties: true,
-          },
-          ItemPage: {
-            type: "object",
-            required: ["items", "total", "page", "totalPages", "facets", "query", "seoInfo"],
-            properties: {
-              items: { type: "array", maxItems: 100, items: { $ref: "#/components/schemas/Item" } },
-              total: { type: "integer", minimum: 0 },
-              page: { type: "integer", minimum: 0 },
-              totalPages: { type: "integer", minimum: 0 },
-              facets: {
-                type: "object",
-                required: ["categories"],
-                properties: {
-                  categories: {
-                    type: "array",
-                    maxItems: 50,
-                    items: { $ref: "#/components/schemas/ItemFacet" },
-                  },
-                },
-                additionalProperties: true,
-              },
-              query: {
-                type: "object",
-                required: ["category", "sortBy"],
-                properties: {
-                  category: { type: "string", maxLength: 60 },
-                  sortBy: { type: "string", maxLength: 60 },
-                },
-                additionalProperties: true,
-              },
-              seoInfo: { $ref: "#/components/schemas/SeoInfo" },
-            },
-            additionalProperties: true,
-          },
-          ItemReviews: {
-            type: "object",
-            required: ["reviews"],
-            properties: {
-              reviews: {
-                type: "array",
-                maxItems: 50,
-                items: {
-                  type: "object",
-                  required: ["author", "rating", "comment"],
-                  properties: {
-                    author: { type: "string", maxLength: 120 },
-                    rating: { type: "number", minimum: 1, maximum: 5 },
-                    comment: { type: "string", maxLength: 2000 },
-                  },
-                  additionalProperties: true,
-                },
-              },
-            },
-            additionalProperties: true,
-          },
-          LiveMessage: {
-            type: "object",
-            required: ["message"],
-            properties: { message: { type: "string", maxLength: 200 } },
-            additionalProperties: true,
-          },
-          // Two levels, named separately: a self-referencing $ref is a cycle the
-          // contract dereferencer cannot resolve, and the renderer bounds depth anyway.
-          MenuLeaf: {
-            type: "object",
-            required: ["id", "name", "url", "displayOrder", "mobileDisplayOrder"],
-            properties: {
-              id: { type: "integer" },
-              parentId: { type: ["integer", "null"] },
-              name: { type: "string", maxLength: 120 },
-              hamburgerName: { type: "string", maxLength: 120 },
-              description: { type: "string", maxLength: 500 },
-              url: { type: "string", maxLength: 2048 },
-              external: { type: "boolean" },
-              imagePath: { type: "string", maxLength: 500 },
-              activeImagePath: { type: "string", maxLength: 500 },
-              displayOrder: { type: "integer" },
-              mobileDisplayOrder: { type: "integer" },
-              menuType: { type: "integer" },
-              itemType: { type: "integer" },
-              menuDisplayDeviceType: { type: "integer" },
-              menuDisplayType: { type: "integer" },
-            },
-            additionalProperties: true,
-          },
-          MenuItem: {
-            type: "object",
-            required: ["id", "name", "url", "displayOrder", "mobileDisplayOrder"],
-            properties: {
-              id: { type: "integer" },
-              parentId: { type: ["integer", "null"] },
-              name: { type: "string", maxLength: 120 },
-              hamburgerName: { type: "string", maxLength: 120 },
-              description: { type: "string", maxLength: 500 },
-              url: { type: "string", maxLength: 2048 },
-              external: { type: "boolean" },
-              imagePath: { type: "string", maxLength: 500 },
-              activeImagePath: { type: "string", maxLength: 500 },
-              displayOrder: { type: "integer" },
-              mobileDisplayOrder: { type: "integer" },
-              menuType: { type: "integer" },
-              itemType: { type: "integer" },
-              menuDisplayDeviceType: { type: "integer" },
-              menuDisplayType: { type: "integer" },
-              subMenuItemList: {
-                type: "array",
-                maxItems: 50,
-                items: { $ref: "#/components/schemas/MenuLeaf" },
-              },
-            },
-            additionalProperties: true,
-          },
-          Menu: {
-            type: "object",
-            required: ["headerItems"],
-            properties: {
-              headerItems: {
-                type: "array",
-                maxItems: 50,
-                items: { $ref: "#/components/schemas/MenuItem" },
-              },
-              hamburgerItems: {
-                type: "array",
-                maxItems: 50,
-                items: { $ref: "#/components/schemas/MenuItem" },
-              },
-              footerItems: {
-                type: "array",
-                maxItems: 50,
-                items: { $ref: "#/components/schemas/MenuItem" },
-              },
-            },
-            additionalProperties: true,
-          },
-        },
-      },
+      additionalProperties: true,
     },
-    null,
-    2,
-  ) + "\n";
+    Item: {
+      type: "object",
+      required: [
+        "slug",
+        "name",
+        "blurb",
+        "category",
+        "provider",
+        "interestRate",
+        "minAmount",
+        "maxAmount",
+        "terms",
+        "seo",
+      ],
+      properties: {
+        slug: { type: "string", maxLength: 100 },
+        name: { type: "string", maxLength: 200 },
+        blurb: { type: "string", maxLength: 1000 },
+        category: { type: "string", maxLength: 60 },
+        provider: { type: "string", maxLength: 120 },
+        interestRate: { type: "number", minimum: 0, maximum: 100 },
+        minAmount: { type: "number", minimum: 0 },
+        maxAmount: { type: "number", minimum: 0 },
+        terms: { type: "array", maxItems: 20, items: { type: "integer", minimum: 1 } },
+        seo: { $ref: "#/$defs/ItemSeo" },
+      },
+      additionalProperties: true,
+    },
+    ItemQuote: {
+      type: "object",
+      required: ["amount", "term", "monthlyPayment", "totalPayment", "annualCostRate"],
+      properties: {
+        amount: { type: "number", minimum: 0 },
+        term: { type: "integer", minimum: 1 },
+        monthlyPayment: { type: "number", minimum: 0 },
+        totalPayment: { type: "number", minimum: 0 },
+        annualCostRate: { type: "number", minimum: 0, maximum: 100 },
+      },
+      additionalProperties: true,
+    },
+    ItemDetail: {
+      type: "object",
+      required: ["item", "quote", "seoInfo"],
+      properties: {
+        item: { $ref: "#/$defs/Item" },
+        quote: { $ref: "#/$defs/ItemQuote" },
+        seoInfo: { $ref: "#/$defs/SeoInfo" },
+      },
+      additionalProperties: true,
+    },
+    SeoInfo: {
+      type: "object",
+      properties: {
+        title: { type: "string", maxLength: 200 },
+        metaDescription: { type: "string", maxLength: 1000 },
+        headingTitle: { type: "string", maxLength: 200 },
+        image: { type: "string", maxLength: 500 },
+        imageAlt: { type: "string", maxLength: 300 },
+        imageWidth: { type: "integer", minimum: 1, maximum: 10000 },
+        imageHeight: { type: "integer", minimum: 1, maximum: 10000 },
+        friendlyUrl: { type: "string", maxLength: 2048 },
+        noindex: { type: "boolean" },
+        nofollow: { type: "boolean" },
+        openGraphType: { type: "string", enum: ["website", "article", "product"] },
+        publishedTime: { type: "string" },
+        modifiedTime: { type: "string" },
+      },
+      additionalProperties: true,
+    },
+    ItemFacet: {
+      type: "object",
+      required: ["value", "count"],
+      properties: {
+        value: { type: "string", maxLength: 60 },
+        count: { type: "integer", minimum: 0 },
+      },
+      additionalProperties: true,
+    },
+    ItemPage: {
+      type: "object",
+      required: ["items", "total", "page", "totalPages", "facets", "query", "seoInfo"],
+      properties: {
+        items: { type: "array", maxItems: 100, items: { $ref: "#/$defs/Item" } },
+        total: { type: "integer", minimum: 0 },
+        page: { type: "integer", minimum: 0 },
+        totalPages: { type: "integer", minimum: 0 },
+        facets: {
+          type: "object",
+          required: ["categories"],
+          properties: {
+            categories: {
+              type: "array",
+              maxItems: 50,
+              items: { $ref: "#/$defs/ItemFacet" },
+            },
+          },
+          additionalProperties: true,
+        },
+        query: {
+          type: "object",
+          required: ["category", "sortBy"],
+          properties: {
+            category: { type: "string", maxLength: 60 },
+            sortBy: { type: "string", maxLength: 60 },
+          },
+          additionalProperties: true,
+        },
+        seoInfo: { $ref: "#/$defs/SeoInfo" },
+      },
+      additionalProperties: true,
+    },
+    ItemReviews: {
+      type: "object",
+      required: ["reviews"],
+      properties: {
+        reviews: {
+          type: "array",
+          maxItems: 50,
+          items: {
+            type: "object",
+            required: ["author", "rating", "comment"],
+            properties: {
+              author: { type: "string", maxLength: 120 },
+              rating: { type: "number", minimum: 1, maximum: 5 },
+              comment: { type: "string", maxLength: 2000 },
+            },
+            additionalProperties: true,
+          },
+        },
+      },
+      additionalProperties: true,
+    },
+    LiveMessage: {
+      type: "object",
+      required: ["message"],
+      properties: { message: { type: "string", maxLength: 200 } },
+      additionalProperties: true,
+    },
+    // Two levels, named separately: a self-referencing $ref is a cycle the
+    // contract dereferencer cannot resolve, and the renderer bounds depth anyway.
+    MenuLeaf: {
+      type: "object",
+      required: ["id", "name", "url", "displayOrder", "mobileDisplayOrder"],
+      properties: {
+        id: { type: "integer" },
+        parentId: { type: ["integer", "null"] },
+        name: { type: "string", maxLength: 120 },
+        hamburgerName: { type: "string", maxLength: 120 },
+        description: { type: "string", maxLength: 500 },
+        url: { type: "string", maxLength: 2048 },
+        external: { type: "boolean" },
+        imagePath: { type: "string", maxLength: 500 },
+        activeImagePath: { type: "string", maxLength: 500 },
+        displayOrder: { type: "integer" },
+        mobileDisplayOrder: { type: "integer" },
+        menuType: { type: "integer" },
+        itemType: { type: "integer" },
+        menuDisplayDeviceType: { type: "integer" },
+        menuDisplayType: { type: "integer" },
+      },
+      additionalProperties: true,
+    },
+    MenuItem: {
+      type: "object",
+      required: ["id", "name", "url", "displayOrder", "mobileDisplayOrder"],
+      properties: {
+        id: { type: "integer" },
+        parentId: { type: ["integer", "null"] },
+        name: { type: "string", maxLength: 120 },
+        hamburgerName: { type: "string", maxLength: 120 },
+        description: { type: "string", maxLength: 500 },
+        url: { type: "string", maxLength: 2048 },
+        external: { type: "boolean" },
+        imagePath: { type: "string", maxLength: 500 },
+        activeImagePath: { type: "string", maxLength: 500 },
+        displayOrder: { type: "integer" },
+        mobileDisplayOrder: { type: "integer" },
+        menuType: { type: "integer" },
+        itemType: { type: "integer" },
+        menuDisplayDeviceType: { type: "integer" },
+        menuDisplayType: { type: "integer" },
+        subMenuItemList: {
+          type: "array",
+          maxItems: 50,
+          items: { $ref: "#/$defs/MenuLeaf" },
+        },
+      },
+      additionalProperties: true,
+    },
+    Menu: {
+      type: "object",
+      required: ["headerItems"],
+      properties: {
+        headerItems: {
+          type: "array",
+          maxItems: 50,
+          items: { $ref: "#/$defs/MenuItem" },
+        },
+        hamburgerItems: {
+          type: "array",
+          maxItems: 50,
+          items: { $ref: "#/$defs/MenuItem" },
+        },
+        footerItems: {
+          type: "array",
+          maxItems: 50,
+          items: { $ref: "#/$defs/MenuItem" },
+        },
+      },
+      additionalProperties: true,
+    },
+  };
+  const document = { $schema: "https://json-schema.org/draft/2020-12/schema", $defs };
+  return `${JSON.stringify(document, null, 2)}\n`;
+};
 
 const gatewayContractConfig = () =>
   JSON.stringify(
     {
       schemaVersion: 2,
-      schema: "openapi.json",
+      schema: "gateway-schemas.json",
       authProfiles: {},
       contracts: [
         {
@@ -9739,7 +9677,7 @@ const gatewayContractConfig = () =>
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/items-page.json",
-            schema: "#/components/schemas/ItemPage",
+            schema: "#/$defs/ItemPage",
           },
         },
         {
@@ -9750,7 +9688,7 @@ const gatewayContractConfig = () =>
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/item.json",
-            schema: "#/components/schemas/ItemDetail",
+            schema: "#/$defs/ItemDetail",
           },
         },
         {
@@ -9761,7 +9699,7 @@ const gatewayContractConfig = () =>
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/item-reviews.json",
-            schema: "#/components/schemas/ItemReviews",
+            schema: "#/$defs/ItemReviews",
           },
         },
         {
@@ -9772,7 +9710,7 @@ const gatewayContractConfig = () =>
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/live-message.json",
-            schema: "#/components/schemas/LiveMessage",
+            schema: "#/$defs/LiveMessage",
           },
         },
         {
@@ -9783,7 +9721,7 @@ const gatewayContractConfig = () =>
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/menu.json",
-            schema: "#/components/schemas/Menu",
+            schema: "#/$defs/Menu",
           },
         },
       ],

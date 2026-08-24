@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { format, resolveConfig } from "prettier";
@@ -195,7 +195,13 @@ async function applyPlan(current, plan) {
 
   for (const [relativePath, contents] of Object.entries(plan.fileWrites ?? {})) {
     const target = join(current.root, relativePath);
+    // Backed up before either branch: a removal is the case where the backup
+    // matters most, because there is nothing left to read afterwards.
     backupIfPresent(target, join(plan.backupDirectory, relativePath));
+    if (contents === null) {
+      if (existsSync(target)) rmSync(target);
+      continue;
+    }
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, contents);
   }

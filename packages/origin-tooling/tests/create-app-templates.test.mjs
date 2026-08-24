@@ -951,7 +951,7 @@ describe("renderTemplates — production reference coverage", () => {
     const files = standalone();
     const pkg = JSON.parse(files["package.json"]);
     const contracts = JSON.parse(files["contracts/gateway-contracts.json"]);
-    expect(files).toHaveProperty(["contracts/openapi.json"]);
+    expect(files).toHaveProperty(["contracts/gateway-schemas.json"]);
     expect(files).toHaveProperty(["contracts/gateway-contracts.json"]);
     expect(files).toHaveProperty(["performance-budgets.json"]);
     expect(files).toHaveProperty(["lighthouserc.json"]);
@@ -970,7 +970,7 @@ describe("renderTemplates — production reference coverage", () => {
         status: 200,
         contentType: "application/json",
         fixture: "fixtures/items-page.json",
-        schema: "#/components/schemas/ItemPage",
+        schema: "#/$defs/ItemPage",
       },
     });
     expect(contracts.contracts).toContainEqual(
@@ -980,7 +980,7 @@ describe("renderTemplates — production reference coverage", () => {
         request: { method: "GET", path: "/live/message" },
         response: expect.objectContaining({
           fixture: "fixtures/live-message.json",
-          schema: "#/components/schemas/LiveMessage",
+          schema: "#/$defs/LiveMessage",
         }),
       }),
     );

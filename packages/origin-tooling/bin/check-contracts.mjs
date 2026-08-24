@@ -121,11 +121,10 @@ function loadFixture(contract, direction, definition) {
     return { failed: true };
   }
   const value = readJson(fixturePath, `${direction} fixture ${contract.id}`);
-  // Compiled with the refs left as refs, so a schema that refers to itself — a
-  // menu tree, a comment thread — resolves instead of recursing until the stack
-  // ends. Inlining every `$ref` was the old approach and a cyclic schema is a
-  // legitimate thing to write.
-  const validate = ajv.compile(jsonSchemaFor(schemaDocument, definition.schema));
+  // The document is plain JSON Schema and the refs stay refs, so a schema that
+  // refers to itself — a menu tree, a comment thread — resolves instead of
+  // recursing until the stack ends.
+  const validate = ajv.compile({ ...schemaDocument, $ref: definition.schema });
   if (!validate(value)) {
     results.push({
       id: contract.id,
@@ -166,38 +165,6 @@ function compareShape(expected, actual, path = "$", changes = []) {
     }
   }
   return changes;
-}
-
-/**
- * The OpenAPI document as something Ajv will compile.
- *
- * Ajv runs in strict mode, and OpenAPI's own envelope (`openapi`, `info`,
- * `paths`, `components`) is not JSON Schema — strict mode rejects each of those
- * as an unknown keyword. Moving the schemas under `$defs` and rewriting the
- * pointers to match is the whole conversion; nothing inside a schema changes,
- * which is what keeps a recursive one working.
- */
-function jsonSchemaFor(document, pointer) {
-  const defs = document.components?.schemas ?? {};
-  return {
-    $defs: rewriteRefs(defs),
-    $ref: rewritePointer(pointer),
-  };
-}
-
-function rewritePointer(pointer) {
-  return pointer.replace("#/components/schemas/", "#/$defs/");
-}
-
-function rewriteRefs(value) {
-  if (Array.isArray(value)) return value.map(rewriteRefs);
-  if (!isObject(value)) return value;
-  return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [
-      key,
-      key === "$ref" && typeof entry === "string" ? rewritePointer(entry) : rewriteRefs(entry),
-    ]),
-  );
 }
 
 function render(items, baseUrl, manifestVersion) {

@@ -55,16 +55,14 @@ export const GatewayContracts = {
 
 const manifestSource = {
   schemaVersion: 2,
-  schema: "openapi.json",
+  schema: "gateway-schemas.json",
   authProfiles: {},
   contracts: [],
 };
 
-const openApiSource = {
-  openapi: "3.1.0",
-  info: { title: "Test", version: "1.0.0" },
-  paths: {},
-  components: { schemas: {} },
+const schemaSource = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $defs: {},
 };
 
 describe("scaffold-gateway infer + generate", () => {
@@ -108,7 +106,7 @@ describe("scaffold-gateway infer + generate", () => {
       'financeWidgets: defineGatewayContract("finance_widgets"',
     );
     expect(artifacts.patches.manifestEntry.id).toBe("finance-widgets");
-    expect(artifacts.patches.openApiFragment.path).toBe("/finance/widgets");
+    expect(artifacts.patches.schemaFragment.name).toBe("FinanceWidgets");
   });
 });
 
@@ -126,11 +124,11 @@ describe("scaffold-gateway apply", () => {
     expect(updated.content).toContain("} as const;");
   });
 
-  it("writes scaffold files and merges manifest/openapi on apply", () => {
+  it("writes scaffold files and merges manifest/schemas on apply", () => {
     const root = fixture({
       "server/services/gateway-contracts.ts": gatewayContractsSource,
       "contracts/gateway-contracts.json": `${JSON.stringify(manifestSource, null, 2)}\n`,
-      "contracts/openapi.json": `${JSON.stringify(openApiSource, null, 2)}\n`,
+      "contracts/gateway-schemas.json": `${JSON.stringify(schemaSource, null, 2)}\n`,
     });
 
     const artifacts = buildScaffoldArtifacts({
@@ -160,9 +158,11 @@ describe("scaffold-gateway apply", () => {
     expect(manifest.contracts).toHaveLength(1);
     expect(manifest.contracts[0].id).toBe("finance-widgets");
 
-    const openApi = JSON.parse(readFileSync(join(root, "contracts/openapi.json"), "utf8"));
-    expect(openApi.paths["/finance/widgets"].get.operationId).toBe("finance.widgets");
-    expect(openApi.components.schemas.FinanceWidgets).toBeTruthy();
+    const schemas = JSON.parse(readFileSync(join(root, "contracts/gateway-schemas.json"), "utf8"));
+    // Plain JSON Schema: no paths, no operations, no response envelope. Nothing
+    // ever read those, and the manifest already carries the method and the path.
+    expect(schemas.paths).toBeUndefined();
+    expect(schemas.$defs.FinanceWidgets).toBeTruthy();
   });
 
   it("skips existing files unless force is set", () => {
@@ -228,7 +228,7 @@ describe("origin-scaffold-gateway CLI", () => {
     const root = fixture({
       "server/services/gateway-contracts.ts": gatewayContractsSource,
       "contracts/gateway-contracts.json": `${JSON.stringify(manifestSource, null, 2)}\n`,
-      "contracts/openapi.json": `${JSON.stringify(openApiSource, null, 2)}\n`,
+      "contracts/gateway-schemas.json": `${JSON.stringify(schemaSource, null, 2)}\n`,
     });
     const { status, stdout } = runCli(
       ["--id", "finance-widgets", "--path", "/finance/widgets", "--apply"],

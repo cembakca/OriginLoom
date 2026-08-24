@@ -27,30 +27,27 @@ describe("quality gate CLIs", () => {
   it("validates a schema that refers to itself", () => {
     const root = temporaryRoot();
     mkdirSync(join(root, "contracts/fixtures"), { recursive: true });
-    writeJson(join(root, "contracts/openapi.json"), {
-      openapi: "3.1.0",
-      components: {
-        schemas: {
-          Node: {
-            type: "object",
-            required: ["name"],
-            properties: {
-              name: { type: "string" },
-              children: { type: "array", items: { $ref: "#/components/schemas/Node" } },
-            },
-            additionalProperties: false,
+    writeJson(join(root, "contracts/gateway-schemas.json"), {
+      $defs: {
+        Node: {
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+            children: { type: "array", items: { $ref: "#/$defs/Node" } },
           },
+          additionalProperties: false,
         },
       },
     });
     writeJson(join(root, "contracts/gateway-contracts.json"), {
-      schema: "openapi.json",
+      schema: "gateway-schemas.json",
       contracts: [
         {
           id: "tree",
           path: "/tree",
           fixture: "fixtures/tree.json",
-          schema: "#/components/schemas/Node",
+          schema: "#/$defs/Node",
         },
       ],
     });
@@ -75,30 +72,27 @@ describe("quality gate CLIs", () => {
   it("accepts a valid fixture and rejects contract drift that violates the schema", () => {
     const root = temporaryRoot();
     mkdirSync(join(root, "contracts/fixtures"), { recursive: true });
-    writeJson(join(root, "contracts/openapi.json"), {
-      openapi: "3.1.0",
-      components: {
-        schemas: {
-          Menu: {
-            type: "array",
-            items: {
-              type: "object",
-              required: ["label", "href"],
-              properties: { label: { type: "string" }, href: { type: "string" } },
-              additionalProperties: true,
-            },
+    writeJson(join(root, "contracts/gateway-schemas.json"), {
+      $defs: {
+        Menu: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["label", "href"],
+            properties: { label: { type: "string" }, href: { type: "string" } },
+            additionalProperties: true,
           },
         },
       },
     });
     writeJson(join(root, "contracts/gateway-contracts.json"), {
-      schema: "openapi.json",
+      schema: "gateway-schemas.json",
       contracts: [
         {
           id: "menu",
           path: "/menu",
           fixture: "fixtures/menu.json",
-          schema: "#/components/schemas/Menu",
+          schema: "#/$defs/Menu",
         },
       ],
     });
@@ -121,23 +115,20 @@ describe("quality gate CLIs", () => {
   it("supports manifest v2 auth profiles while keeping local fixture checks secret-free", async () => {
     const root = temporaryRoot();
     mkdirSync(join(root, "contracts/fixtures"), { recursive: true });
-    writeJson(join(root, "contracts/openapi.json"), {
-      openapi: "3.1.0",
-      components: {
-        schemas: {
-          Profile: {
-            type: "object",
-            required: ["displayName"],
-            properties: { displayName: { type: "string" } },
-            additionalProperties: true,
-          },
+    writeJson(join(root, "contracts/gateway-schemas.json"), {
+      $defs: {
+        Profile: {
+          type: "object",
+          required: ["displayName"],
+          properties: { displayName: { type: "string" } },
+          additionalProperties: true,
         },
       },
     });
     writeJson(join(root, "contracts/fixtures/profile.json"), { displayName: "Ada" });
     const manifest = {
       schemaVersion: 2,
-      schema: "openapi.json",
+      schema: "gateway-schemas.json",
       authProfiles: {
         "staging-user": { type: "bearer", tokenEnv: "CONTRACT_USER_BEARER_TOKEN" },
       },
@@ -150,7 +141,7 @@ describe("quality gate CLIs", () => {
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/profile.json",
-            schema: "#/components/schemas/Profile",
+            schema: "#/$defs/Profile",
           },
         },
       ],
@@ -191,34 +182,31 @@ describe("quality gate CLIs", () => {
   it("sends bound POST bodies and headers, accepts negative status cases and validates empty responses", async () => {
     const root = temporaryRoot();
     mkdirSync(join(root, "contracts/fixtures/requests"), { recursive: true });
-    writeJson(join(root, "contracts/openapi.json"), {
-      openapi: "3.1.0",
-      components: {
-        schemas: {
-          RefreshRequest: {
-            type: "object",
-            required: ["refreshToken"],
-            properties: { refreshToken: { type: "string", minLength: 8 } },
-            additionalProperties: false,
-          },
-          TokenResponse: {
-            type: "object",
-            required: ["accessToken", "refreshToken"],
-            properties: { accessToken: { type: "string" }, refreshToken: { type: "string" } },
-            additionalProperties: false,
-          },
-          ErrorResponse: {
-            type: "object",
-            required: ["error"],
-            properties: { error: { type: "string" } },
-            additionalProperties: false,
-          },
-          AnalyticsEvent: {
-            type: "object",
-            required: ["path"],
-            properties: { path: { type: "string" } },
-            additionalProperties: false,
-          },
+    writeJson(join(root, "contracts/gateway-schemas.json"), {
+      $defs: {
+        RefreshRequest: {
+          type: "object",
+          required: ["refreshToken"],
+          properties: { refreshToken: { type: "string", minLength: 8 } },
+          additionalProperties: false,
+        },
+        TokenResponse: {
+          type: "object",
+          required: ["accessToken", "refreshToken"],
+          properties: { accessToken: { type: "string" }, refreshToken: { type: "string" } },
+          additionalProperties: false,
+        },
+        ErrorResponse: {
+          type: "object",
+          required: ["error"],
+          properties: { error: { type: "string" } },
+          additionalProperties: false,
+        },
+        AnalyticsEvent: {
+          type: "object",
+          required: ["path"],
+          properties: { path: { type: "string" } },
+          additionalProperties: false,
         },
       },
     });
@@ -233,7 +221,7 @@ describe("quality gate CLIs", () => {
     writeJson(join(root, "contracts/fixtures/requests/analytics.json"), { path: "/catalog" });
     const manifest = {
       schemaVersion: 2,
-      schema: "openapi.json",
+      schema: "gateway-schemas.json",
       authProfiles: {
         "staging-user": { type: "bearer", tokenEnv: "CONTRACT_USER_BEARER_TOKEN" },
       },
@@ -251,7 +239,7 @@ describe("quality gate CLIs", () => {
             },
             body: {
               fixture: "fixtures/requests/refresh.json",
-              schema: "#/components/schemas/RefreshRequest",
+              schema: "#/$defs/RefreshRequest",
               contentType: "application/json",
               envBindings: { "/refreshToken": "CONTRACT_REFRESH_TOKEN" },
             },
@@ -260,7 +248,7 @@ describe("quality gate CLIs", () => {
             status: 200,
             contentType: "application/json",
             fixture: "fixtures/refresh-response.json",
-            schema: "#/components/schemas/TokenResponse",
+            schema: "#/$defs/TokenResponse",
           },
         },
         {
@@ -271,7 +259,7 @@ describe("quality gate CLIs", () => {
             status: 401,
             contentType: "application/json",
             fixture: "fixtures/unauthorized.json",
-            schema: "#/components/schemas/ErrorResponse",
+            schema: "#/$defs/ErrorResponse",
           },
         },
         {
@@ -282,7 +270,7 @@ describe("quality gate CLIs", () => {
             path: "/analytics/bot",
             body: {
               fixture: "fixtures/requests/analytics.json",
-              schema: "#/components/schemas/AnalyticsEvent",
+              schema: "#/$defs/AnalyticsEvent",
             },
           },
           response: { status: 202 },
@@ -377,14 +365,13 @@ describe("quality gate CLIs", () => {
   it("rejects unsafe manifest v2 request definitions before issuing requests", () => {
     const root = temporaryRoot();
     mkdirSync(join(root, "contracts/fixtures"), { recursive: true });
-    writeJson(join(root, "contracts/openapi.json"), {
-      openapi: "3.1.0",
-      components: { schemas: { Empty: { type: "object" } } },
+    writeJson(join(root, "contracts/gateway-schemas.json"), {
+      $defs: { Empty: { type: "object" } },
     });
     writeJson(join(root, "contracts/fixtures/empty.json"), {});
     const manifest = {
       schemaVersion: 2,
-      schema: "openapi.json",
+      schema: "gateway-schemas.json",
       contracts: [
         {
           id: "unsafe-request",
@@ -397,7 +384,7 @@ describe("quality gate CLIs", () => {
           response: {
             status: 200,
             fixture: "fixtures/empty.json",
-            schema: "#/components/schemas/Empty",
+            schema: "#/$defs/Empty",
           },
         },
       ],
@@ -412,7 +399,7 @@ describe("quality gate CLIs", () => {
     delete manifest.contracts[0].request.headers;
     manifest.contracts[0].request.body = {
       fixture: "fixtures/empty.json",
-      schema: "#/components/schemas/Empty",
+      schema: "#/$defs/Empty",
     };
     writeJson(join(root, "contracts/gateway-contracts.json"), manifest);
     const getBody = run(CONTRACT_CLI, root);
