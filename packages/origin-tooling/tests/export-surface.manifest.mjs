@@ -70,6 +70,7 @@ export const SHARED_TEMPLATE_SUBPATHS = [
   "lib/client/options",
   "lib/client/performance-telemetry",
   "lib/client/reload-button",
+  "lib/form",
   "lib/content-url",
   "lib/content-values",
   "lib/cookies",

@@ -482,6 +482,40 @@ bilirsiniz.
 Kişisel içerik için doğru sıra: önce `defer` island + `/api/internal/*` (doküman paylaşımlı kalır),
 o mümkün değilse route'u `strategy: "never"` yapın.
 
+### Yanıtı `await using` ile aç
+
+Okunmayan bir gateway yanıtı, gövdesi boşaltılana kadar bir Undici socket'ini tutar. Bunu her çıkış
+yolunda yapmak gerekir — erken return, status kontrolüyle parse arasında atılan bir throw, hepsi.
+`try`/`finally` bunu söyler ama yalnızca yazmayı hatırlayan için: eksik bir `finally`, doğru yazılmış
+bir `finally` gibi okunur, ta ki yük altında connection pool tükenene kadar — ve o an socket'i
+kaybeden koddan çok uzaktadır.
+
+`await using` garantiyi yazardan dile devreder. Bildirimin kendisi temizliktir ve bloktan çıkan
+hiçbir dal onu atlayamaz:
+
+```ts
+export async function getItem(slug: string, request: Request): Promise<ItemDetail | null> {
+  await using response = await gatewayFetchWithIdentity(request, `/items/${slug}`);
+  if (response.status === 404) return null; // socket geri verildi
+  await requireGatewayOk(response, "Items gateway returned");
+  return parse(await readGatewayJson(response, GatewayContracts.items, INVALID));
+}
+```
+
+Üç kural:
+
+1. **`return await`, düz `return` değil.** Dispose blok biterken çalışır; `return parseResponse(response)`
+   bloktan gövde hâlâ açıkken çıkar ve yarışa girer. Bir promise döndürüyorsanız `await` edin.
+2. **Kullanılmayan bağlama normaldir.** Gövdeyi hiç okumayan bir çağrıda (analytics POST'u)
+   bağlamanın tek işi bloktan çıkarken socket'i bırakmaktır; `_response` adı bunu söyler.
+3. **`releaseGatewayResponse` duruyor.** Dispose idempotent, yani mevcut `try`/`finally` çağrıları
+   aynen çalışır ve geçiş dosya dosya yapılabilir. Bu modülden gelmeyen bir `Response`'un dispose
+   metodu da yoktur; elle bırakmak oradaki tek yoldur.
+
+Test double'ları da sözleşmeyi borçlu. Çıplak bir `Response` döndüren sahte gateway'de dispose
+edilecek bir şey yoktur ve hata "Object is not disposable" olarak o servisin hata yoluna düşer —
+double'a değil. `asGatewayResponse(Response.json(...))` ikisini birlikte tutar.
+
 ### Servisler `signal` değil `Request` alır
 
 Kimliğin gateway'e ulaşmasının yolu budur:

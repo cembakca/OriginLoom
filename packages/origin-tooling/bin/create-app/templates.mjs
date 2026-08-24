@@ -118,6 +118,7 @@ export function renderTemplates({
     ...(standalone && packageManager === "yarn" ? { ".yarnrc.yml": yarnrcYaml() } : {}),
     "tsconfig.json": tsconfig(standalone),
     "eslint.config.js": eslintConfig(),
+    "tests/helpers/gateway.ts": gatewayTestHelper(),
     "eslint-rules/no-direct-gateway-import.mjs": noDirectGatewayImportRule(),
     "eslint-rules/no-direct-gateway-import.d.mts": noDirectGatewayImportTypes(),
     ".prettierrc.json": asset("prettierrc.json"),
@@ -628,6 +629,13 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
+  },
+  {
+    // The gateway seam exists so SSR_DIAGNOSTICS sees every upstream call — a
+    // runtime concern. A test that replaces the core module has to name it, and
+    // no test serves traffic, so the rule has nothing to protect here.
+    files: ["tests/**/*.{ts,tsx}"],
+    rules: { "local/no-direct-gateway-import": "off" },
   },
   prettier,
 );
@@ -1166,6 +1174,22 @@ test("the contact form submits and reports back without JavaScript", async ({ pa
   // Post/Redirect/Get: the browser ends up on a GET it can reload safely.
   await expect(page).toHaveURL(/\\/contact\\?status=sent$/);
   await expect(page.getByRole("status")).toContainText("Mesajınız alındı");
+});
+
+test("a rejected submission comes back with what was typed still in it", async ({ page }) => {
+  await page.goto("/contact");
+
+  await page.getByLabel("Adınız").fill("Ada");
+  await page.getByLabel("E-posta").fill("bu-bir-adres-degil");
+  await page.getByLabel("Mesajınız").fill("Merhaba");
+  await page.getByRole("button", { name: "Gönder" }).click();
+
+  // Same URL, no redirect: the page was re-rendered by its own action.
+  await expect(page).toHaveURL(/\\/contact$/);
+  await expect(page.getByText("Geçerli bir e-posta")).toBeVisible();
+  await expect(page.getByLabel("Adınız")).toHaveValue("Ada");
+  await expect(page.getByLabel("Mesajınız")).toHaveValue("Merhaba");
+  await expect(page.getByLabel("E-posta")).toHaveAttribute("aria-invalid", "true");
 });
 `;
 
@@ -1758,6 +1782,8 @@ import { installProductRuntime } from "@server/product/runtime";
 import { routes } from "@server/routes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
@@ -1779,7 +1805,7 @@ const VISITOR = "d1195a49-29da-457b-bb56-bfa9ce641601";
 describe("the analytics chain", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => gatewayJson(page));
     installProductRuntime();
     await closeCache();
     await initCache();
@@ -1883,6 +1909,8 @@ import { installProductRuntime } from "@server/product/runtime";
 import { routes } from "@server/routes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
@@ -1934,7 +1962,7 @@ function visit(instance: ReturnType<typeof app>, trackingId?: string) {
 describe("a visitor's tracking id and the shared cache", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => gatewayJson(page));
     installProductRuntime();
     await closeCache();
     await initCache();
@@ -1998,6 +2026,8 @@ import { experimentsMiddleware } from "@server/middleware/experiments";
 import { installProductRuntime } from "@server/product/runtime";
 import { routes } from "@server/routes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { gatewayJson } from "./helpers/gateway";
 
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
@@ -2072,7 +2102,7 @@ describe("an experiment inside cached HTML", () => {
     vi.clearAllMocks();
     // Menu and catalog both go through this; the menu degrading to empty is
     // fine here, the catalogue is what the test renders.
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(page));
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => gatewayJson(page));
     installProductRuntime();
     await closeCache();
     await initCache();
@@ -2266,8 +2296,8 @@ export const searchIndexingMiddleware = defineMiddleware({
 });
 `;
 
-const middlewareTest = () => `import { asGatewayResponse } from "@originloom/core/adapters/gateway";
-import type * as gatewayAdapter from "@originloom/core/adapters/gateway";
+const middlewareTest =
+  () => `import type * as gatewayAdapter from "@originloom/core/adapters/gateway";
 import type {
   MiddlewareContext,
   MiddlewareResult,
@@ -2277,6 +2307,8 @@ import { maintenanceMiddleware } from "@server/middleware/maintenance";
 import { redirectRulesMiddleware } from "@server/middleware/redirect-rules";
 import { searchIndexingMiddleware } from "@server/middleware/search-indexing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { gatewayJson } from "./helpers/gateway";
 
 const mocks = vi.hoisted(() => ({
   gatewayFetch: vi.fn(),
@@ -2342,16 +2374,6 @@ describe("search indexing middleware", () => {
   });
 });
 
-/**
- * A fake gateway still owes the gateway contract. The middleware takes its
- * response with \`await using\`, so a bare \`Response\` has nothing to dispose and
- * the failure surfaces as "the routing service is down" rather than as the bad
- * double it actually is.
- */
-function gatewayResponse(body: unknown) {
-  return asGatewayResponse(Response.json(body));
-}
-
 describe("redirect rules middleware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -2360,7 +2382,7 @@ describe("redirect rules middleware", () => {
   // Each case uses its own path: the middleware caches a decision per pathname.
   it("obeys a destination the service names", async () => {
     mocks.gatewayFetch.mockResolvedValue(
-      gatewayResponse({ action: "redirect", location: "/catalog", status: 301 }),
+      gatewayJson({ action: "redirect", location: "/catalog", status: 301 }),
     );
 
     const result = await run(redirectRulesMiddleware, context("http://app.local/moved"));
@@ -2376,14 +2398,14 @@ describe("redirect rules middleware", () => {
   });
 
   it("carries on when the service says next", async () => {
-    mocks.gatewayFetch.mockResolvedValue(gatewayResponse({ action: "next" }));
+    mocks.gatewayFetch.mockResolvedValue(gatewayJson({ action: "next" }));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/stays"))).toBeUndefined();
   });
 
   it("refuses a destination that would send visitors off-site", async () => {
     mocks.gatewayFetch.mockResolvedValue(
-      gatewayResponse({ action: "redirect", location: "https://evil.example/x" }),
+      gatewayJson({ action: "redirect", location: "https://evil.example/x" }),
     );
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/offsite"))).toBeUndefined();
@@ -2755,6 +2777,8 @@ describe("page cache registry", () => {
 const menuCacheTest = () => `import { getMenu } from "@server/services/menu";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({
   gatewayFetch: vi.fn(),
   read: vi.fn(),
@@ -2763,7 +2787,8 @@ const mocks = vi.hoisted(() => ({
   warn: vi.fn(),
 }));
 
-vi.mock("@originloom/core/adapters/gateway", () => ({
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
   gatewayFetch: mocks.gatewayFetch,
   requireGatewayOk: async (response: Response, message: string) => {
     if (!response.ok) throw new Error(\`\${message} \${response.status}\`);
@@ -2801,7 +2826,7 @@ describe("menu data cache", () => {
     mocks.read.mockResolvedValue(null);
     mocks.write.mockResolvedValue(true);
     mocks.deleteKey.mockResolvedValue(true);
-    mocks.gatewayFetch.mockImplementation(async () => Response.json(payload));
+    mocks.gatewayFetch.mockImplementation(async () => gatewayJson(payload));
   });
 
   it("serves a fresh cache hit without calling the gateway", async () => {
@@ -2840,7 +2865,7 @@ describe("menu data cache", () => {
 
   it("drops the whole menu when one item's URL cannot be trusted", async () => {
     mocks.gatewayFetch.mockImplementation(async () =>
-      Response.json({ headerItems: [item({ url: "javascript:alert(1)" })] }),
+      gatewayJson({ headerItems: [item({ url: "javascript:alert(1)" })] }),
     );
 
     // Rendering the other items and quietly skipping this one would put a menu
@@ -2856,7 +2881,7 @@ describe("menu data cache", () => {
   it("refuses a menu nested deeper than it will render", async () => {
     const deep = item({ subMenuItemList: [item({ subMenuItemList: [item({ subMenuItemList: [item()] })] })] });
     mocks.gatewayFetch.mockImplementation(async () =>
-      Response.json({ headerItems: [deep] }),
+      gatewayJson({ headerItems: [deep] }),
     );
 
     // Depth is bounded because this data becomes a render: an upstream loop
@@ -3118,6 +3143,8 @@ const liveMessageServiceTest =
   () => `import { getLiveMessage } from "@server/services/live-message";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
@@ -3129,7 +3156,7 @@ describe("gateway-backed progressive message", () => {
   beforeEach(() => mocks.gatewayFetchWithIdentity.mockReset());
 
   it("reads and validates the deferred gateway payload", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ message: "gateway-ready" }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(gatewayJson({ message: "gateway-ready" }));
     const request = new Request("http://app.local/live");
 
     await expect(getLiveMessage(request)).resolves.toBe("gateway-ready");
@@ -3139,7 +3166,7 @@ describe("gateway-backed progressive message", () => {
   });
 
   it("rejects an invalid payload instead of streaming untrusted data", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ message: 42 }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(gatewayJson({ message: 42 }));
     await expect(getLiveMessage(new Request("http://app.local/live"))).rejects.toThrow(
       "Live message gateway returned an invalid payload",
     );
@@ -3242,10 +3269,7 @@ import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway
 import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
 import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import {
-  gatewayFetchWithIdentity,
-  requireGatewayOk,
-} from "@server/diagnostics/gateway";
+import { gatewayFetchWithIdentity, requireGatewayOk } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -4840,6 +4864,8 @@ function isIsoDate(value: unknown): value is string {
 const sitemapServiceTest = () => `import { fetchSitemapEntries } from "@server/services/sitemap";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
@@ -4849,7 +4875,7 @@ vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
 const request = new Request("http://app.local/sitemap.xml");
 
 function upstream(entries: unknown[]) {
-  mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json({ entries }));
+  mocks.gatewayFetchWithIdentity.mockImplementation(async () => gatewayJson({ entries }));
 }
 
 describe("the sitemap source", () => {
@@ -5016,6 +5042,8 @@ const routeDomainsTest =
   () => `import { fetchRouteDomains, isKnownCategory } from "@server/services/route-domains";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({
   gatewayFetch: vi.fn(),
   gatewayFetchWithIdentity: vi.fn(),
@@ -5047,8 +5075,8 @@ describe("route params validated against the gateway", () => {
     mocks.deleteKey.mockResolvedValue(true);
     // A fresh Response per call: a body can only be read once, and reusing one
     // would fail for a reason that has nothing to do with the code under test.
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json(domains));
-    mocks.gatewayFetch.mockImplementation(async () => Response.json(domains));
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => gatewayJson(domains));
+    mocks.gatewayFetch.mockImplementation(async () => gatewayJson(domains));
   });
 
   it("accepts a value the gateway knows and rejects one it does not", async () => {
@@ -5086,7 +5114,7 @@ describe("route params validated against the gateway", () => {
 
   it("refuses an upstream answer that is not a list of slugs", async () => {
     mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
-      Response.json({ categories: ["Not A Slug"] }),
+      gatewayJson({ categories: ["Not A Slug"] }),
     );
 
     // Letting this through would put unvalidated upstream data in the position
@@ -5440,6 +5468,8 @@ import { installProductRuntime } from "@server/product/runtime";
 import { routes } from "@server/routes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
@@ -5479,7 +5509,7 @@ async function render(path: string): Promise<string> {
 describe("an editorial page", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    mocks.gatewayFetchWithIdentity.mockImplementation(async () => Response.json({ guide, seoInfo }));
+    mocks.gatewayFetchWithIdentity.mockImplementation(async () => gatewayJson({ guide, seoInfo }));
     installProductRuntime();
     await closeCache();
     await initCache();
@@ -5510,7 +5540,7 @@ describe("an editorial page", () => {
 
   it("makes no FAQ claim when the guide has no questions", async () => {
     mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
-      Response.json({ guide: { ...guide, faq: [] }, seoInfo }),
+      gatewayJson({ guide: { ...guide, faq: [] }, seoInfo }),
     );
 
     const types = structuredData(await render("/guides/konut-kredisi-rehberi")).map(
@@ -5524,7 +5554,7 @@ describe("an editorial page", () => {
 
   it("refuses a guide whose dates the upstream got wrong", async () => {
     mocks.gatewayFetchWithIdentity.mockImplementation(async () =>
-      Response.json({ guide: { ...guide, publishedAt: "yakında" }, seoInfo }),
+      gatewayJson({ guide: { ...guide, publishedAt: "yakında" }, seoInfo }),
     );
 
     // datePublished is a claim in the structured data, not a formatting detail.
@@ -10855,6 +10885,8 @@ function refuse(message: string, status: 400 | 404 | 502): Response {
 const referralApiTest = () => `import { handleReferral } from "@server/api/referrals";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayResponse } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
@@ -10880,7 +10912,7 @@ function submit(fields: Record<string, string>, headers: Record<string, string> 
 
 function upstream(body: unknown, status = 200) {
   mocks.gatewayFetchWithIdentity.mockImplementation(
-    async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }),
+    async () => gatewayResponse(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }),
   );
 }
 
@@ -11130,13 +11162,11 @@ export async function submitEnquiry(
   enquiry: Enquiry,
   request: Request,
 ): Promise<EnquiryReceipt> {
-  const response = await gatewayFetchWithIdentity(request, "/enquiries", {
+  await using response = await gatewayFetchWithIdentity(request, "/enquiries", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(enquiry),
   });
-  // requireGatewayOk drains the body before it throws, so a failed call never
-  // leaves a socket held open.
   await requireGatewayOk(response, "Enquiry gateway returned");
 
   const payload = await readGatewayJson(response, GatewayContracts.enquiries, INVALID);
@@ -11148,50 +11178,107 @@ function isReceipt(value: unknown): value is EnquiryReceipt {
 }
 `;
 
-const contactRoute = () => `import { defineRoute } from "@originloom/react/lib/types";
+const contactRoute = () => `import { redirect } from "@originloom/react/lib/types";
+import { defineRoute } from "@originloom/react/lib/types";
+import { formValue, readFormFields } from "@originloom/shared/lib/form";
+import { submitEnquiry } from "@server/services/enquiries";
 
-import { ContactPage, type EnquiryStatus } from "~/features/contact/contact-page";
+import {
+  type ContactFormState,
+  ContactPage,
+  EMPTY_ENQUIRY,
+  type EnquiryValues,
+} from "~/features/contact/contact-page";
 import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { defaultPageMeta } from "~/lib/shell-data";
 
-const STATUSES: readonly EnquiryStatus[] = ["sent", "invalid", "failed"];
-
 /**
- * The form's own page, and the page the endpoint redirects back to.
+ * The form's page and the form's handler, in one file.
  *
- * Never cached: what it renders depends on the outcome of a write. The status
- * comes from an allowlist rather than the raw query string — a value echoed into
- * the page is a value the caller gets to choose.
+ * The form posts to \`/contact\` — the page it is on — so there is no second URL
+ * to keep in step, and a rejected submission comes back on the page the visitor
+ * was already reading with what they typed still in it. Redirecting to a status
+ * code in the query string loses all of it.
+ *
+ * \`/api/enquiries\` is still there for machine clients. Same service underneath;
+ * only the two callers differ.
  */
-export default defineRoute({
+export default defineRoute<{ state: ContactFormState; sent: boolean }, ContactFormState>({
   path: "/contact",
   cache: pageCache(PageCacheId.contact),
-  loader: async (ctx) => {
-    const requested = ctx.url.searchParams.get("status");
-    return {
-      data: {
-        status: STATUSES.find((candidate) => candidate === requested) ?? null,
-        // The browser-visible path, so the form returns to the page it was on.
-        publicPath: ctx.publicPath,
-      },
+
+  action: async (ctx) => {
+    let fields;
+    try {
+      fields = await readFormFields(ctx.request, { maxFields: 8, maxValueLength: 2_000 });
+    } catch {
+      return { data: rejected(EMPTY_ENQUIRY, "Form okunamadı."), status: 400 };
+    }
+
+    const values: EnquiryValues = {
+      name: formValue(fields, "name"),
+      email: formValue(fields, "email"),
+      message: formValue(fields, "message"),
     };
+    const errors = validate(values);
+    // 422, not 200: the page comes back, but the write did not happen and every
+    // client that is not a browser deserves to be told.
+    if (Object.keys(errors).length > 0) return { data: { values, errors }, status: 422 };
+
+    try {
+      await submitEnquiry(values, ctx.request);
+    } catch {
+      return {
+        data: rejected(values, "Şu an gönderemedik. Biraz sonra tekrar deneyin."),
+        status: 503,
+      };
+    }
+    // Post/Redirect/Get: a reload re-runs a GET, so the browser never offers to
+    // re-submit and the confirmation is a bookmarkable URL.
+    return redirect(\`\${ctx.publicPath}?status=sent\`, 303);
   },
+
+  loader: async (ctx) => ({
+    data: {
+      state: ctx.action ?? { values: EMPTY_ENQUIRY, errors: {} },
+      sent: ctx.url.searchParams.get("status") === "sent",
+    },
+  }),
+
   generateMetadata: () => ({
     title: "İletişim",
     description: "Sorularınızı bize iletin.",
   }),
   pageMeta: (_data, ctx) => defaultPageMeta(ctx, "contact"),
-  Component: ({ data }) => <ContactPage status={data.status} publicPath={data.publicPath} />,
+  Component: ({ data }) => <ContactPage state={data.state} sent={data.sent} />,
 });
+
+function validate(values: EnquiryValues): ContactFormState["errors"] {
+  const errors: ContactFormState["errors"] = {};
+  if (values.name.length < 2 || values.name.length > 80) errors.name = "Adınızı girin.";
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(values.email)) {
+    errors.email = "Geçerli bir e-posta adresi girin.";
+  }
+  if (values.message.length === 0 || values.message.length > 2_000) {
+    errors.message = "Mesajınızı yazın.";
+  }
+  return errors;
+}
+
+function rejected(values: EnquiryValues, message: string): ContactFormState {
+  return { values, errors: { form: message } };
+}
 `;
 
-const contactPage = () => `export type EnquiryStatus = "sent" | "invalid" | "failed";
+const contactPage =
+  () => `export type EnquiryValues = { name: string; email: string; message: string };
 
-const TONES: Record<EnquiryStatus, string> = {
-  sent: "text-emerald-700",
-  invalid: "text-amber-700",
-  failed: "text-rose-700",
+export type ContactFormState = {
+  values: EnquiryValues;
+  errors: Partial<Record<keyof EnquiryValues | "form", string>>;
 };
+
+export const EMPTY_ENQUIRY: EnquiryValues = { name: "", email: "", message: "" };
 
 const TEXT = {
   title: "İletişim",
@@ -11200,73 +11287,154 @@ const TEXT = {
   message: "Mesajınız",
   submit: "Gönder",
   sent: "Mesajınız alındı. En kısa sürede döneceğiz.",
-  invalid: "Formu kontrol edip tekrar gönderin.",
-  failed: "Şu an gönderemedik. Biraz sonra tekrar deneyin.",
 };
 
+const FIELD = "w-full rounded-md border px-3 py-2";
+const OK = "border-slate-300";
+const BAD = "border-rose-500";
 
 /**
- * A plain form: method="post" to a real endpoint, no client JavaScript involved.
- * It works before hydration, without hydration, and when a bundle fails to load.
+ * A plain form: \`method="post"\` to the page it lives on, no client JavaScript
+ * involved. It works before hydration, without hydration, and when a bundle
+ * fails to load.
+ *
+ * The accessibility is the same markup read twice. Every control has a real
+ * \`<label for>\`; an invalid field carries \`aria-invalid\` and points at its
+ * message with \`aria-describedby\`; the summary is a \`role="alert"\` a screen
+ * reader announces the moment the rejected page loads — because the page did
+ * load, which is the part a fetch-and-swap has to reimplement.
  */
-export function ContactPage({
-  status,
-  publicPath,
-}: {
-  status: EnquiryStatus | null;
-  publicPath: string;
-}) {
-  const text = TEXT;
+export function ContactPage({ state, sent }: { state: ContactFormState; sent: boolean }) {
+  const { values, errors } = state;
   return (
     <div className="max-w-xl space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{text.title}</h1>
-      {status ? (
-        <p className={\`rounded-md bg-slate-50 px-4 py-3 text-sm \${TONES[status]}\`} role="status">
-          {text[status]}
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{TEXT.title}</h1>
+
+      {sent ? (
+        <p className="rounded-md bg-slate-50 px-4 py-3 text-sm text-emerald-700" role="status">
+          {TEXT.sent}
         </p>
       ) : null}
-      <form method="post" action="/api/enquiries" className="space-y-4">
-        {/* Where the endpoint sends the visitor back to. The same form served
-            from a second path — another language, say — returns to that path. */}
-        <input type="hidden" name="returnTo" value={publicPath} />
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">{text.name}</span>
-          <input
-            name="name"
-            required
-            maxLength={80}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">{text.email}</span>
-          <input
-            type="email"
-            name="email"
-            required
-            maxLength={160}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">{text.message}</span>
+
+      {errors.form ? (
+        <p className="rounded-md bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+          {errors.form}
+        </p>
+      ) : null}
+
+      {/* No \`action\`: the browser posts to the current page, which is where this
+          form's route action lives. */}
+      <form method="post" className="space-y-4" noValidate>
+        <Field
+          id="contact-name"
+          name="name"
+          label={TEXT.name}
+          value={values.name}
+          error={errors.name}
+          autoComplete="name"
+        />
+        <Field
+          id="contact-email"
+          name="email"
+          type="email"
+          label={TEXT.email}
+          value={values.email}
+          error={errors.email}
+          autoComplete="email"
+        />
+        <div className="space-y-1">
+          <label htmlFor="contact-message" className="text-sm font-medium text-slate-700">
+            {TEXT.message}
+          </label>
           <textarea
+            id="contact-message"
             name="message"
             required
             rows={5}
             maxLength={2000}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            defaultValue={values.message}
+            aria-invalid={errors.message ? true : undefined}
+            aria-describedby={errors.message ? "contact-message-error" : undefined}
+            className={\`\${FIELD} \${errors.message ? BAD : OK}\`}
           />
-        </label>
+          {errors.message ? (
+            <p id="contact-message-error" className="text-xs text-rose-700">
+              {errors.message}
+            </p>
+          ) : null}
+        </div>
         <button
           type="submit"
           className="rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700"
         >
-          {text.submit}
+          {TEXT.submit}
         </button>
       </form>
     </div>
   );
+}
+
+function Field({
+  id,
+  name,
+  label,
+  value,
+  error,
+  type = "text",
+  autoComplete,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  value: string;
+  error?: string | undefined;
+  type?: string;
+  autoComplete: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <label htmlFor={id} className="text-sm font-medium text-slate-700">
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        required
+        maxLength={160}
+        autoComplete={autoComplete}
+        defaultValue={value}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? \`\${id}-error\` : undefined}
+        className={\`\${FIELD} \${error ? BAD : OK}\`}
+      />
+      {error ? (
+        <p id={\`\${id}-error\`} className="text-xs text-rose-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+`;
+
+const gatewayTestHelper =
+  () => `import { asGatewayResponse } from "@originloom/core/adapters/gateway";
+
+/**
+ * A gateway double that honours the gateway contract.
+ *
+ * Services take their responses with \`await using\`, so a bare \`Response\` has no
+ * dispose method and the call fails with "Object is not disposable" — which
+ * surfaces wherever that service's failure path leads, not at the double that
+ * caused it. Building fakes through here keeps the two in step.
+ */
+export function gatewayJson(body: unknown, init?: ResponseInit) {
+  return asGatewayResponse(Response.json(body, init));
+}
+
+export function gatewayResponse(body?: BodyInit | null, init?: ResponseInit) {
+  return asGatewayResponse(new Response(body ?? null, init));
 }
 `;
 
@@ -11495,6 +11663,8 @@ import { installProductRuntime } from "@server/product/runtime";
 import { routes } from "@server/routes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { gatewayJson } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
@@ -11534,9 +11704,9 @@ const seoInfo = {
 
 function respond(path: string) {
   if (path.endsWith("/reviews")) {
-    return Response.json({ reviews: [{ author: "Deniz", rating: 5, comment: "iyi" }] });
+    return gatewayJson({ reviews: [{ author: "Deniz", rating: 5, comment: "iyi" }] });
   }
-  return Response.json({ item, quote, seoInfo });
+  return gatewayJson({ item, quote, seoInfo });
 }
 
 async function render(path: string): Promise<string> {
@@ -11597,8 +11767,8 @@ describe("the detail page's SEO output", () => {
   it("obeys a noindex the CMS set", async () => {
     mocks.gatewayFetchWithIdentity.mockImplementation(async (_r: Request, p: string) =>
       p.endsWith("/reviews")
-        ? Response.json({ reviews: [] })
-        : Response.json({ item, quote, seoInfo: { ...seoInfo, noindex: true } }),
+        ? gatewayJson({ reviews: [] })
+        : gatewayJson({ item, quote, seoInfo: { ...seoInfo, noindex: true } }),
     );
 
     const html = await render("/items/alpha");
@@ -11762,6 +11932,8 @@ const itemDetailReviewsTest = () => `import { routes } from "@server/routes";
 import { getItemReviews } from "@server/services/items";
 import { describe, expect, it, vi } from "vitest";
 
+import { gatewayJson, gatewayResponse } from "./helpers/gateway";
+
 const mocks = vi.hoisted(() => ({ gatewayFetchWithIdentity: vi.fn() }));
 vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@originloom/core/adapters/gateway")>()),
@@ -11788,7 +11960,7 @@ describe("the detail page's second gateway call", () => {
   });
 
   it("costs the section, not the page, when the gateway cannot answer", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(new Response("", { status: 503 }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(gatewayResponse("", { status: 503 }));
 
     // Reviews are an addition to the page. Throwing here would turn a degraded
     // section into a 500 for a product that is perfectly renderable without it.
@@ -11797,7 +11969,7 @@ describe("the detail page's second gateway call", () => {
 
   it("rejects a review list the gateway got wrong", async () => {
     mocks.gatewayFetchWithIdentity.mockResolvedValue(
-      Response.json({ reviews: [{ author: "Deniz", rating: 11, comment: "" }] }),
+      gatewayJson({ reviews: [{ author: "Deniz", rating: 11, comment: "" }] }),
     );
 
     // A rating of 11 is not a rating. Rendering it would put a broken star row
