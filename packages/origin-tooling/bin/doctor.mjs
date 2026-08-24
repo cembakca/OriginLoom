@@ -11,6 +11,7 @@ import {
   TOOLING_VERSION,
   versionFromRange,
 } from "./upgrade/compatibility.mjs";
+import { measureDrift } from "./lib/template-drift.mjs";
 import { pendingMigrations } from "./upgrade/migrations.mjs";
 import { pluginsById } from "./create-app/plugins/registry.mjs";
 import {
@@ -34,15 +35,32 @@ if (!root) {
   );
 }
 
+const project = readProject(root);
+
 let report;
 try {
-  report = inspect(readProject(root));
+  report = inspect(project);
 } catch (error) {
   exitWithError(error.message);
 }
 
-if (options.json) console.log(JSON.stringify(report, null, 2));
-else render(report);
+// Measured only when asked: rendering the whole template and formatting it
+// costs about a second, and the answer is a report to read rather than a check
+// that passes.
+let drift;
+if (options.drift) {
+  try {
+    drift = await measureDrift(project);
+  } catch (error) {
+    exitWithError("Şablon karşılaştırması başarısız: " + error.message);
+  }
+}
+
+if (options.json) console.log(JSON.stringify({ ...report, ...(drift ? { drift } : {}) }, null, 2));
+else {
+  render(report);
+  if (drift) renderDrift(drift);
+}
 
 const errors = report.findings.filter(({ severity }) => severity === "error").length;
 const warnings = report.findings.filter(({ severity }) => severity === "warning").length;
@@ -287,15 +305,58 @@ function render(result) {
   }
 }
 
+/**
+ * The drift report is deliberately not a verdict.
+ *
+ * Most of what an app diverges on is the app: its routes, its pages, its cache
+ * keys, its tests. Turning that into warnings would train everyone to ignore
+ * the command — and the two findings this was built for were both a single
+ * infrastructure file sitting where nobody looked. Rank the list, show the
+ * shape, let a human read it.
+ */
+function renderDrift(drift) {
+  console.log("\nŞablondan ıraksama — üretilen hâline karşı ölçüldü");
+  if (drift.files.length === 0) {
+    console.log("  (fark yok)");
+  } else {
+    for (const { path, lines } of drift.files.slice(0, 25)) {
+      console.log("  " + String(lines).padStart(5) + "  " + path);
+    }
+    if (drift.files.length > 25) {
+      console.log("  … ve " + (drift.files.length - 25) + " dosya daha (--json hepsini verir)");
+    }
+    console.log(
+      "\n  " +
+        drift.files.length +
+        " dosya, " +
+        drift.total +
+        " satır. " +
+        "Ürün kodunun ıraksaması beklenir; buradaki soru altyapının ıraksayıp ıraksamadığı.",
+    );
+  }
+  if (drift.missing.length > 0) {
+    console.log("  Bu uygulamada bulunmayan " + drift.missing.length + " şablon dosyası var.");
+  }
+  if (drift.uncompared.length > 0) {
+    console.log(
+      "  " +
+        drift.uncompared.length +
+        " dosya karşılaştırılmadı: scaffold başlığı " +
+        "kaydedilmemiş (origin-migrate bunu geriye doldurur).",
+    );
+  }
+}
+
 function parseArgs(argv) {
-  const parsed = { cwd: process.cwd(), json: false, strict: false };
+  const parsed = { cwd: process.cwd(), json: false, strict: false, drift: false };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === "--cwd") parsed.cwd = argv[++index];
     else if (arg === "--json") parsed.json = true;
     else if (arg === "--strict") parsed.strict = true;
+    else if (arg === "--drift") parsed.drift = true;
     else if (arg === "--help") {
-      console.log("Usage: origin-doctor [--cwd <project>] [--json] [--strict]");
+      console.log("Usage: origin-doctor [--cwd <project>] [--json] [--strict] [--drift]");
       process.exit(0);
     } else exitWithError("Bilinmeyen seçenek: " + arg);
   }

@@ -77,3 +77,18 @@ CI, pnpm origin:doctor --strict çalıştırır; warning'ler de upgrade borcu ol
 Otomatik migration yalnız compatibility matrix'te ilan edilen sürümden başlar. Daha eski proje
 doğrudan en yeni sürüme atlatılmaz: önce desteklenen ara sürüme manuel olarak gelin, o sürümün
 pnpm ci kapısını geçin, sonra sıradaki migration'ı çalıştırın.
+
+## Şablondan ne kadar uzaktayız?
+
+```bash
+pnpm origin:doctor --drift
+```
+
+Uygulamanın bugün üretilecek hâlinden dosya başına kaç satır uzakta olduğunu, en büyükten küçüğe
+listeler. Bir gate değildir ve olmamalı: sağlıklı bir uygulamanın ıraksamasının çoğu ürünün
+kendisidir — route'ları, sayfaları, cache key'leri, testleri.
+
+Aranan şey listenin tepesine yakın duran bir **altyapı** dosyasıdır. Bir yardımcı modül, bir config,
+şablonun ilerlediği ama bu uygulamanın ilerlemediği bir yer. Böyle bir satır gördüğünüzde ya
+migration eksiktir ya da o dosya artık platforma ait olmalıdır — ikisi de platform ekibine bir
+issue'dur.

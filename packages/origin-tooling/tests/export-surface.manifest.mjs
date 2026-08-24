@@ -17,6 +17,7 @@ export const CORE_TEMPLATE_SUBPATHS = [
   "app",
   "assets",
   "auth/bff",
+  "bff",
   "cache",
   "cache/key-codec",
   "cache/resource",

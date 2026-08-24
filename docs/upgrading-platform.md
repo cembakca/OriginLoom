@@ -134,6 +134,10 @@ pnpm ci
 
 Platform ekibi yeni sürümü Nexus'a publish etmeden önce yerel Verdaccio'da 3. adımı geçmiş olmalı.
 
+Yükseltmeden sonra `pnpm origin:doctor --drift` ürünün şablondan ne kadar uzaklaştığını dosya bazında
+gösterir. Ürün kodunun ıraksaması beklenir; listenin tepesine yakın duran bir **altyapı** dosyası
+eksik bir migration'ın ya da platforma ait olması gereken bir kopyanın işaretidir.
+
 ---
 
 ## Üç prova — birbirinin yerine geçmez

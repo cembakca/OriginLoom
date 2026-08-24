@@ -14,6 +14,22 @@ browser JavaScript'i token görmez.
 5. Refresh de `401` ise kullanıcı signed-out olur. Gateway `5xx` ise session silinmez; durum
    `unavailable` olarak gösterilir.
 
+## BFF yardımcıları
+
+Bir BFF route'unun ihtiyacı olan her şey `@originloom/core/bff` içinde:
+
+| Ne                                                       | Yardımcı                                                          |
+| -------------------------------------------------------- | ----------------------------------------------------------------- |
+| Oturum zorunlu route                                     | `requireBffAuth`                                                  |
+| Giriş yapmışken zenginleşen ama açıkken de çalışan route | `resolveBffGatewayContext`                                        |
+| Cevap gövdesi                                            | `bffJson`, `BFF_HEADERS` (`private, no-store` sözleşmesi)         |
+| Auth cookie'lerini cevaba iliştirme                      | `withBffCookies`                                                  |
+| Hazır cevaplar                                           | `bffSignedOut`, `bffSessionUnavailable`, `bffGatewayUnauthorized` |
+| Handler'ı bu cevapla bitirme (RPC tipi korunur)          | `halt`                                                            |
+
+`requireBffAuth` ve `resolveBffGatewayContext` çağrılmadan **önce** request gövdesini okuyun: ikisi de
+`Authorization` eklemek için request'i yeniden kurar, bu da orijinal gövdeyi tüketir.
+
 ## Local cookie ile deneme
 
 `pnpm dev:mock`, `mock-gateway/server.mjs` dosyasını `127.0.0.1:4002` üzerinde başlatır (`pnpm dev` başlatmaz). Cookie'leri

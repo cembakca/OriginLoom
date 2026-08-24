@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +37,7 @@ export const DEVTOOLS_OPTION_MIGRATION = "0.7.32-devtools-client-option";
 export const SHUTDOWN_DRAIN_ORDER_MIGRATION = "0.7.32-shutdown-drain-order";
 export const DISPOSABLE_GATEWAY_MIGRATION = "0.7.34-disposable-gateway-response";
 export const JSON_SCHEMA_CONTRACTS_MIGRATION = "0.7.52-json-schema-contracts";
+export const PLATFORM_PLUMBING_MIGRATION = "0.7.56-platform-plumbing";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -438,6 +439,16 @@ export const migrations = [
       "Consumer contract şemaları OpenAPI zarfından çıkarılıp düz JSON Schema'ya taşınır: contracts/openapi.json → contracts/gateway-schemas.json, components.schemas → $defs, manifest pointer'ları buna göre yeniden yazılır. Zarfı hiçbir şey okumuyordu — kontrol eden araç yalnız şema tanımlarına bakıyor, endpoint'in method'u ve path'i zaten manifest'te.",
     migrateProject(root, changes, fileWrites, manualRequired) {
       migrateContractSchemas(root, changes, fileWrites, manualRequired);
+    },
+  },
+  {
+    id: PLATFORM_PLUMBING_MIGRATION,
+    introducedIn: "0.7.56",
+    description:
+      "Kopyalanan iki altyapı parçası pakete taşınır: server/diagnostics/* → @originloom/core (gateway artık çağrısını kendi kaydediyor, request-trace paketten geliyor) ve server/lib/bff-{http,auth}.ts → @originloom/core/bff. İkisi de saf altyapıydı, sıfır ürün içeriği; her uygulamada ayrı ayrı çürüyorlardı.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      rewritePlatformPlumbingImports(root, changes, fileWrites);
+      dropCopiedPlumbing(root, changes, fileWrites, manualRequired);
     },
   },
   {
@@ -950,6 +961,131 @@ function patchPerformancePolicy(source) {
       "regression.latencyP95IncreasePercent → latencyP97_5IncreasePercent (eşik değeri korunur; " +
       "autocannon p95 üretmez, ölçüm baştan beri p97.5 idi).",
   };
+}
+
+/**
+ * Import specifiers that used to point at a copy in the app and now point at
+ * the package. The copies were pure infrastructure — a recorder, a gateway
+ * wrapper, four BFF response helpers — so nothing here can be product code
+ * that merely happens to live at that path.
+ */
+const PLUMBING_IMPORT_REWRITES = [
+  ["@server/diagnostics/ssr-diagnostics", "@originloom/core/diagnostics/request-trace"],
+  ["@server/diagnostics/gateway", "@originloom/core/adapters/gateway"],
+  ["@server/lib/bff-http", "@originloom/core/bff"],
+  ["@server/lib/bff-auth", "@originloom/core/bff"],
+];
+
+const PLUMBING_SOURCE_GLOBS = ["server/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
+
+/**
+ * Rewrites the specifiers in place, everywhere they appear.
+ *
+ * Import *order* is deliberately left alone: `simple-import-sort` moves
+ * `@originloom/core/bff` up into the package group, and reproducing its
+ * grouping here would be a second implementation of a rule the app already
+ * runs. `pnpm lint:fix` sorts them in one pass, and the migration report says
+ * so.
+ */
+function rewritePlatformPlumbingImports(root, changes, fileWrites) {
+  for (const pattern of PLUMBING_SOURCE_GLOBS) {
+    for (const relativePath of globSync(pattern, { cwd: root })) {
+      const path = join(root, relativePath);
+      const source = fileWrites[relativePath] ?? readFileSync(path, "utf8");
+      let next = source;
+      for (const [from, to] of PLUMBING_IMPORT_REWRITES) {
+        next = next.replaceAll(`"${from}"`, `"${to}"`).replaceAll(`'${from}'`, `'${to}'`);
+      }
+      // `bindRequestPath` lost its request argument when it moved: the platform
+      // reads the request from its own async context now.
+      next = dropFirstArgument(next, "bindRequestPath");
+      if (next === source) continue;
+      fileWrites[relativePath] = next;
+      changes.push({
+        file: relativePath,
+        kind: "patch",
+        detail: "kopyalanan altyapı import'ları @originloom/core'a yönlendirildi",
+      });
+    }
+  }
+}
+
+/**
+ * Removes the copies themselves — but only when the file still looks like the
+ * one the template generated.
+ *
+ * An app that grew its own code inside these files is not something a migration
+ * may delete, so an unrecognised file is reported for a human instead. The
+ * marker for each is an export the generated version has always had.
+ */
+const COPIED_PLUMBING = [
+  ["server/diagnostics/ssr-diagnostics.ts", "export function logSsrOutcome"],
+  ["server/diagnostics/gateway.ts", "export async function gatewayFetch"],
+  ["server/lib/bff-http.ts", "export function bffJson"],
+  ["server/lib/bff-auth.ts", "export async function requireBffAuth"],
+];
+
+function dropCopiedPlumbing(root, changes, fileWrites, manualRequired) {
+  for (const [relativePath, marker] of COPIED_PLUMBING) {
+    const path = join(root, relativePath);
+    if (!existsSync(path)) continue;
+    if (!readFileSync(path, "utf8").includes(marker)) {
+      manualRequired?.push({
+        file: relativePath,
+        detail:
+          "Dosya üretilen halinden farklı; içindekini @originloom/core karşılığıyla " +
+          "karşılaştırıp elle silin.",
+      });
+      continue;
+    }
+    fileWrites[relativePath] = null;
+    changes.push({
+      file: relativePath,
+      kind: "remove",
+      detail: "platform paketine taşındı",
+    });
+  }
+}
+
+/**
+ * Removes the first argument from every call to `name`.
+ *
+ * Written as a scan rather than a regular expression because the argument that
+ * survives routinely contains parentheses of its own — the real call site was
+ * `bindRequestPath(ctx.request, ctx.publicPath ?? new URL(ctx.request.url).pathname)`,
+ * and a regex that stops at the first `)` truncates it into something that
+ * still parses and means the wrong thing.
+ */
+function dropFirstArgument(source, name) {
+  let result = "";
+  let index = 0;
+  for (;;) {
+    const start = source.indexOf(`${name}(`, index);
+    if (start === -1) return result + source.slice(index);
+    const open = start + name.length;
+    let depth = 0;
+    let comma = -1;
+    let close = -1;
+    for (let cursor = open; cursor < source.length; cursor += 1) {
+      const character = source[cursor];
+      if (character === "(" || character === "[" || character === "{") depth += 1;
+      else if (character === ")" || character === "]" || character === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          close = cursor;
+          break;
+        }
+      } else if (character === "," && depth === 1 && comma === -1) comma = cursor;
+    }
+    // Unbalanced, or a single-argument call that has already been migrated.
+    if (close === -1 || comma === -1) {
+      result += source.slice(index, open + 1);
+      index = open + 1;
+      continue;
+    }
+    result += source.slice(index, open + 1) + source.slice(comma + 1, close).trim();
+    index = close;
+  }
 }
 
 function setDependency(manifest, changes, section, name, expected) {

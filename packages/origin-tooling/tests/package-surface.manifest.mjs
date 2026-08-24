@@ -101,6 +101,7 @@ export const CORE_PUBLIC_SUBPATHS = [
   "app",
   "assets",
   "auth/bff",
+  "bff",
   "cache",
   "cache/codec",
   "cache/csp-nonce",

@@ -42,6 +42,7 @@ değişebilir.
 | `app`                         | `createApp`                                  |
 | `assets`                      | Manifest, `readAssets`, preload              |
 | `auth/bff`                    | Session BFF, refresh                         |
+| `bff`                         | BFF route yardımcıları, cevap sözleşmesi     |
 | `cache`                       | L1/L2 init, topology, read/write             |
 | `cache/key-codec`             | Cache key registry, purge API                |
 | `cache/resource`              | Typed data-cache resource tanımları          |

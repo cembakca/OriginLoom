@@ -612,6 +612,7 @@ function project({ version, metadata }) {
                   "0.7.32-shutdown-drain-order",
                   "0.7.34-disposable-gateway-response",
                   "0.7.52-json-schema-contracts",
+                  "0.7.56-platform-plumbing",
                 ]
               : []),
           ],

@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 
 import { format, resolveConfig } from "prettier";
@@ -147,6 +155,7 @@ function buildPlan(current, fromVersion, migrations) {
     platformRange: current.mode === "workspace" ? "workspace:*" : "^" + TOOLING_VERSION,
     renderer: current.renderer,
     mode: current.mode,
+    ...(scaffoldMetadata(current) ? { scaffold: scaffoldMetadata(current) } : {}),
     generatedBy: "@originloom/tooling",
     plugins: inferPlugins(current),
     appliedMigrations: [...appliedMigrations].sort(),
@@ -212,6 +221,37 @@ async function applyPlan(current, plan) {
     const source = new URL("./create-app/assets/docs/upgrading.md", import.meta.url);
     copyFileSync(source, targetGuide);
   }
+}
+
+/**
+ * The scaffold arguments this app was generated with, kept once recorded and
+ * backfilled from the app itself when they were never written.
+ *
+ * `title` is the one value nothing in the app records unambiguously — it ends
+ * up inside prose in seven generated files, all of which a real product has
+ * rewritten by now. Guessing it would make `origin-doctor --drift` report
+ * confident nonsense, so it stays absent and the report says which files it
+ * could not compare.
+ */
+function scaffoldMetadata(current) {
+  const recorded = current.metadata?.scaffold;
+  if (recorded?.title) return recorded;
+  const envPath = join(current.root, ".env.development");
+  const env = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
+  const port = (key) => {
+    const match = new RegExp(`^${key}=(\\d+)`, "m").exec(env);
+    return match ? Number(match[1]) : undefined;
+  };
+  const scaffold = {
+    ...(recorded ?? {}),
+    name: recorded?.name ?? current.pkg?.name,
+    port: recorded?.port ?? port("PORT"),
+    metricsPort: recorded?.metricsPort ?? port("METRICS_PORT"),
+  };
+  const known = Object.fromEntries(
+    Object.entries(scaffold).filter(([, value]) => value !== undefined),
+  );
+  return Object.keys(known).length > 0 ? known : undefined;
 }
 
 function inferTemplateVersion(current) {
