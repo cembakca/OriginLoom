@@ -18,6 +18,60 @@ afterEach(() => {
 });
 
 describe("quality gate CLIs", () => {
+  /**
+   * A menu is a tree and a comment is a thread: a schema that refers to itself
+   * is a normal thing to write. Inlining every `$ref` to validate one — which is
+   * what this did — recurses until the stack ends, and the failure looks like a
+   * crash rather than a limitation.
+   */
+  it("validates a schema that refers to itself", () => {
+    const root = temporaryRoot();
+    mkdirSync(join(root, "contracts/fixtures"), { recursive: true });
+    writeJson(join(root, "contracts/openapi.json"), {
+      openapi: "3.1.0",
+      components: {
+        schemas: {
+          Node: {
+            type: "object",
+            required: ["name"],
+            properties: {
+              name: { type: "string" },
+              children: { type: "array", items: { $ref: "#/components/schemas/Node" } },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+    writeJson(join(root, "contracts/gateway-contracts.json"), {
+      schema: "openapi.json",
+      contracts: [
+        {
+          id: "tree",
+          path: "/tree",
+          fixture: "fixtures/tree.json",
+          schema: "#/components/schemas/Node",
+        },
+      ],
+    });
+    writeJson(join(root, "contracts/fixtures/tree.json"), {
+      name: "root",
+      children: [{ name: "child", children: [{ name: "grandchild" }] }],
+    });
+
+    const ok = run(CONTRACT_CLI, root);
+    expect(ok.status).toBe(0);
+    expect(ok.stdout).toContain("✓ tree");
+
+    // And it still catches drift three levels down, rather than stopping at the
+    // first ref it cannot follow.
+    writeJson(join(root, "contracts/fixtures/tree.json"), {
+      name: "root",
+      children: [{ name: "child", children: [{ label: "renamed" }] }],
+    });
+    expect(run(CONTRACT_CLI, root).status).toBe(1);
+  });
+
   it("accepts a valid fixture and rejects contract drift that violates the schema", () => {
     const root = temporaryRoot();
     mkdirSync(join(root, "contracts/fixtures"), { recursive: true });

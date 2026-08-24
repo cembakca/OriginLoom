@@ -244,15 +244,33 @@ kapalıyken blok dekorasyondu. Detay: `docs/migrations/0.7.41.md`.
   sınırı + doğrulama). Aynı disiplin **kendi** BFF girdilerimizde yok.
 - **Değer**: 4.1 ile birlikte alınırsa doğal olarak gelir. Ayrı bir iş değil.
 
-### 4.4 Route'lardan OpenAPI üretimi **[P2]**
+### 4.4 Route'lardan OpenAPI üretimi **[HAYIR]**
 
-- **Ne**: `@hono/zod-openapi` route tanımlarından OpenAPI şeması üretiyor.
-- **Bizde**: `contracts/openapi.json` **elle yazılmış bir fixture** — gerçek route'lardan
-  türetilmiyor, dolayısıyla sessizce eskiyebilir.
-- **Değer**: Sözleşmenin koddan türemesi. Gateway kontrat testlerimizin (`contracts:fixtures`)
-  değerini artırır.
+**İlk değerlendirme yanlış bir dosyayı işaret ediyordu.** Şöyle yazmıştım:
+"`contracts/openapi.json` elle yazılmış bir fixture — gerçek route'lardan türetilmiyor, dolayısıyla
+sessizce eskiyebilir." Dosyaya bakınca ikisi de çıkmadı.
 
----
+**O belge bizim API'mizi tarif etmiyor, gateway'i tarif ediyor.** İçindeki path'ler `/items`,
+`/pages/menuitem/list` — bizim `/api` uçlarımız değil, tükettiğimiz upstream'in uçları. Bizim
+route'larımızdan türetilemez, çünkü başka birinin sistemini anlatıyor. Türetseydik yanlış sistem
+hakkında bir belge üretmiş olurduk.
+
+**Ve "elle yazılmış fixture" değil, çalışan bir consumer-driven contract.** `contracts:fixtures`
+üretilen uygulamaların `ci` zincirinde koşuyor ve fixture'ları şemaya karşı doğruluyor;
+`.github/workflows/contract-staging.yml` aynı kontrolü gerçek gateway'e karşı koşuyor. Yani drift
+koruması zaten var.
+
+**Peki `@hono/zod-openapi` (maddenin asıl önerisi) gerekli mi? Hayır.** O, _bizim kendi_ `/api`
+uçlarımız için OpenAPI üretirdi. O uçların istemcisi bizim kendi island'larımız ve 4.1 (Hono RPC)
+onlara tipi **kaynaktan** veriyor — üretilmiş bir belgeden kesin olarak daha iyi. Kendi API'miz için
+OpenAPI, ancak birlikte derlemediğimiz bir istemci (mobil uygulama, partner) çıktığında hak eder.
+
+**Gerçek risk başkaydı ve daha büyüktü.** Ne showroom ne sigorta bu makineden hiçbirini
+benimsememişti: sigorta on beş gateway ucu okuyor, hepsinin byte bütçesi var, **hiçbirinin şeması,
+fixture'ı ya da drift kapısı yoktu.** Byte bütçesi şekil kontrolü değildir — upstream'in on megabayt
+yollamasını engeller, bir alanı yeniden adlandırdığı gün hiçbir şey söylemez. Bu, dökümanın işaret
+ettiği riskin yerine geçen gerçek risk. § 4.4 yerine oraya bakılmalı: 0.7.50'de sigorta'ya kapı
+takıldı ve **kendi kendini kapatan** hale getirildi (aşağıda).
 
 ## 5. Güvenlik
 
@@ -785,7 +803,7 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 | 6.2 ✅ | Early Hints (103)           | ✅    | Yalnız cache MISS'te, render'dan hemen önce; varsayılan kapalı, `EARLY_HINTS=true` ile açılıyor                   |
 | 3.2 ✅ | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; `cache-control`/`set-cookie`/`content-type` korumalı ve açılışta uyarıyor          |
 | 3.3 ✅ | Storage soyutlaması         | ✅    | `registerCacheDriver`; `CacheStore` zaten sürücü arayüzüydü, eksik olan dışarıdan girişti                         |
-| 4.4    | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                 |
+| 4.4 ⛔ | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı    |
 | 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                 |
 | 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                 |
 | 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                        |
@@ -807,6 +825,10 @@ o maddeyi tekrar gündeme getirecek olan şey.
 
 ### Kasıtlı hayır
 
+- **4.4 Route'lardan OpenAPI üretimi** — kendi `/api` uçlarımızın istemcisi kendi island'larımız ve
+  4.1 onlara tipi kaynaktan veriyor; üretilmiş bir belgenin okuyucusu yok. Birlikte derlemediğimiz
+  bir istemci (mobil, partner) çıkarsa yeniden bakılır. Ayrıntı ve maddenin neden yanlış teşhis
+  olduğu: § 4.4.
 - **6.1 Speculation Rules** — analitik itirazı çözülebilir (§ 6.1'de nasıl olduğu yazılı), ama
   prerender'ın ucuz olduğu senaryo bu uygulamada gerçekleşmiyor: paylaşımlı cache'li tek sayfa `/`
   ve kimse üstünde durduğu sayfayı prerender etmez. Gerçek hedefler üç `neverCache` sayfa, yani
