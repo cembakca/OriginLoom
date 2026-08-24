@@ -18,6 +18,7 @@ const BODY_SIZE_BUCKETS_BYTES = [1_024, 10_240, 51_200, 102_400, 262_144, 524_28
 const KEY_SIZE_BUCKETS_BYTES = [32, 64, 128, 256, 512, 1_024];
 const MAX_DISTINCT_KEYS_PER_ROUTE = 2_000;
 const MAX_DISTINCT_CLIENT_ISLANDS = 100;
+const MAX_DISTINCT_BFCACHE_REASONS = 40;
 const MAX_COMPILED_REQUEST_LABELS = 1_000;
 const KNOWN_CACHE_STATES = new Set([
   "HIT",
@@ -63,10 +64,12 @@ const clientErrorTelemetry: CounterMap = new Map();
 const clientRuntimeErrors: CounterMap = new Map();
 const clientMetricIngestion: CounterMap = new Map();
 const clientWebVitals: CounterMap = new Map();
+const clientBackForwardCache: CounterMap = new Map();
 const requestTimeouts: CounterMap = new Map();
 const ssrCapacityRejections: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
 const distinctClientIslands = new Set<string>();
+const distinctBfcacheReasons = new Set<string>();
 const requestDurations = new Histogram(DURATION_BUCKETS_MS);
 const cacheResponseDurations = new Histogram(DURATION_BUCKETS_MS);
 const gatewayDurations = new Histogram(DURATION_BUCKETS_MS);
@@ -260,10 +263,24 @@ export function observeClientPerformance(
         value: number;
         rating: "good" | "needs-improvement" | "poor";
       }
-    | { kind: "island-mount"; name: string; value: number },
+    | { kind: "island-mount"; name: string; value: number }
+    | { kind: "bfcache"; outcome: "restored" | "blocked"; reason: string },
 ): void {
   if (metric.kind === "web-vital") {
     increment(clientWebVitals, `name="${metric.name}",rating="${metric.rating}"`);
+  } else if (metric.kind === "bfcache") {
+    // Bounded the same way islands are: the reason vocabulary is the browser's
+    // and it grows between releases, so an unseen one lands in "other" rather
+    // than minting a new series forever.
+    const known = distinctBfcacheReasons.has(metric.reason);
+    if (!known && distinctBfcacheReasons.size < MAX_DISTINCT_BFCACHE_REASONS) {
+      distinctBfcacheReasons.add(metric.reason);
+    }
+    const reason = distinctBfcacheReasons.has(metric.reason) ? metric.reason : "other";
+    increment(
+      clientBackForwardCache,
+      `outcome="${metric.outcome}",reason="${escapeLabel(reason)}"`,
+    );
   } else {
     const knownIsland = distinctClientIslands.has(metric.name);
     if (!knownIsland && distinctClientIslands.size < MAX_DISTINCT_CLIENT_ISLANDS) {
@@ -654,6 +671,11 @@ export function renderMetrics(): string {
       "ssr_client_web_vitals_total",
       "Core Web Vitals observations by rating",
       clientWebVitals,
+    ),
+    ...counterLines(
+      "ssr_client_bfcache_total",
+      "Back/forward navigations by whether the page was restored, and what blocked it",
+      clientBackForwardCache,
     ),
     ...clientIslandMountDurations.lines(
       "ssr_client_island_mount_duration_milliseconds",

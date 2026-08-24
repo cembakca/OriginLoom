@@ -36,8 +36,34 @@ describe("client performance metric contract", () => {
     ).resolves.toMatchObject({ kind: "island-mount", name: "account-panel", value: 42.5 });
   });
 
+  /**
+   * The reason string comes from the browser and becomes a metric label, so it
+   * is shape-checked rather than trusted — and dropped rather than sanitised,
+   * because a mangled label looks like a real reason nobody can find.
+   */
+  it("accepts a back/forward cache outcome and its reason code", async () => {
+    await expect(
+      parseClientMetricPayload(
+        request({
+          kind: "bfcache",
+          outcome: "blocked",
+          reason: "response-cache-control-no-store",
+          value: 1,
+          path: "/kasko?utm_source=x",
+        }),
+      ),
+    ).resolves.toEqual({
+      kind: "bfcache",
+      outcome: "blocked",
+      reason: "response-cache-control-no-store",
+      path: "/kasko",
+    });
+  });
+
   it.each([
     { kind: "web-vital", name: "FCP", value: 10, rating: "good", path: "/" },
+    { kind: "bfcache", outcome: "maybe", reason: "unload-handler", value: 1, path: "/" },
+    { kind: "bfcache", outcome: "blocked", reason: "Injected {label}", value: 1, path: "/" },
     { kind: "web-vital", name: "CLS", value: -1, rating: "poor", path: "/" },
     { kind: "island-mount", name: "../../token", value: 10, path: "/" },
   ])("rejects an unbounded or unknown metric: $name", async (payload) => {

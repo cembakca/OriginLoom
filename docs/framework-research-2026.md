@@ -394,7 +394,7 @@ değer.
 animasyon alıyordu. Animasyonsuz bir view transition anlık bir takastır — tercihin istediği şey tam
 olarak budur.
 
-### 6.4 bfcache uyumluluğu **[P2]**
+### 6.4 bfcache uyumluluğu **[P2]** **[ÖLÇÜLDÜ — 0.7.44]**
 
 - **Ne**: Geri/ileri navigasyonunda sayfanın tamamen canlı olarak geri gelmesi.
 - **Bizde**: Açıkça test edilmiyor. `unload` dinleyicisi, açık WebSocket/EventSource ve
@@ -405,6 +405,36 @@ olarak budur.
   bfcache devre dışı ve bundan haberimiz yok.
 - **Maliyet/risk**: Ölçmek ucuz; düzeltmek `no-store` politikamızla çatışabilir (kişiselleştirme
   gereği). Önce ölç.
+
+**Ölçüldü (0.7.44) — ve korku büyük ölçüde yersizmiş.**
+
+Yukarıdaki "muhtemelen bugün çoğu sayfada bfcache devre dışı" tahmini sigorta için **yanlış**.
+`tests/bfcache-eligibility.test.ts` üç durumu sabitliyor:
+
+| Durum                           | `Set-Cookie` | `Cache-Control`                | bfcache            |
+| ------------------------------- | ------------ | ------------------------------ | ------------------ |
+| İlk ziyaret (session basılıyor) | var          | `private, no-store`            | hayır              |
+| Sonraki her ziyaret             | yok          | `private, no-cache, max-age=0` | **evet**           |
+| Form gönderimi (POST)           | —            | `private, no-store`            | hayır (doğrusu bu) |
+
+`applyCookies` yalnızca gerçekten `Set-Cookie` taşıyan yanıtı düşürüyor, ve session cookie'leri bir
+kez basılıyor. Yani maliyet ilk ziyarette bir kez ödeniyor, sonra geri tuşu çalışıyor.
+
+**İlginç kısım:** bu durum bir yan etki. `session-start.ts`'teki `isBot` bayrağı bir zamanlar her
+istekte yeniden türetiliyordu — yani her yanıtta bir `Set-Cookie`, yani her yanıtta `no-store`, yani
+**site genelinde bfcache kapalı**. O hata HTTP cache gerekçesiyle düzeltilmişti; bfcache'i de
+düzelttiğini kimse bilmiyordu. Ölçmenin değeri buydu: düzeltilecek bir şey değil, doğrulanacak bir
+şey bulduk — ve artık bir test onu geri gitmekten koruyor.
+
+**Gerçek blocker'lar nerede:** sigorta'da `unload` dinleyicisi, WebSocket ve EventSource **yok**.
+Showroom'un `market-live` island'ı EventSource açıyor — o sayfada bfcache gerçekten kapalı, ve bu
+demo sayfası olduğu için kabul edilebilir.
+
+**Ölçüm aracı kalıcı.** `reportBackForwardCache()` tarayıcının kendi iki sinyalini okuyor:
+`pageshow.persisted` sayfanın canlı geri geldiğini, Chrome'un `notRestoredReasons`'ı gelemediyse
+nedenini söylüyor. Sonuç `ssr_client_bfcache_total{outcome,reason}` sayacına düşüyor. Reason
+vocabulary tarayıcının ve sürümler arası büyüyor, o yüzden island isimleriyle aynı şekilde
+sınırlandı: tanınmayan bir neden sonsuza kadar yeni bir seri açmak yerine `other`'a düşüyor.
 
 ---
 
@@ -636,21 +666,21 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 
 `◐` = bir kısmı var, eksik olan yazıyor. `—` = hiç yok.
 
-| #      | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                   |
-| ------ | --------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 9.2 ✅ | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.4×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                                                   |
-| 5.4 ✅ | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                                                |
-| 6.3 ✅ | View Transitions            | ✅    | İsimli geçişler (`data-view-transition`: header/footer/main) ve reduced-motion boşluğu kapandı                                                |
-| 7.4 ✅ | instrumentation kancaları   | ✅    | `onRequestError` runtime kancası; beş dağınık `logError` tek rapora birleşti, log satırları aynen                                             |
-| 6.4    | bfcache ölçümü              | —     | **En yüksek öncelikli olan bu.** Tuzak #4 hâlâ açık: `applyCookies`'in `private, no-store` kuralı bfcache'i bozuyor olabilir ve bunu ölçmedik |
-| 5.6    | Idempotency key'leri        | —     | 4.2 form action'ları geldi, yani çift gönderim yüzeyi **büyüdü**. PRG çifte POST'u kapatıyor ama ağ tekrarını kapatmıyor                      |
-| 6.2    | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş                               |
-| 3.2    | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                                                        |
-| 3.3    | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                                                  |
-| 4.4    | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                                             |
-| 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                                             |
-| 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                                             |
-| 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                                                    |
+| #      | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                              |
+| ------ | --------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------ |
+| 9.2 ✅ | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.4×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                              |
+| 5.4 ✅ | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                           |
+| 6.3 ✅ | View Transitions            | ✅    | İsimli geçişler (`data-view-transition`: header/footer/main) ve reduced-motion boşluğu kapandı                           |
+| 7.4 ✅ | instrumentation kancaları   | ✅    | `onRequestError` runtime kancası; beş dağınık `logError` tek rapora birleşti, log satırları aynen                        |
+| 6.4 ✅ | bfcache ölçümü              | ✅    | Ölçüldü: ilk ziyaret hariç her sayfa restorable. `ssr_client_bfcache_total` kalıcı ölçüm; test regresyonu tutuyor        |
+| 5.6    | Idempotency key'leri        | —     | 4.2 form action'ları geldi, yani çift gönderim yüzeyi **büyüdü**. PRG çifte POST'u kapatıyor ama ağ tekrarını kapatmıyor |
+| 6.2    | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş          |
+| 3.2    | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                                   |
+| 3.3    | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                             |
+| 4.4    | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                        |
+| 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                        |
+| 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                        |
+| 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                               |
 
 ### Üçüncü dalga — fikir olarak dursun
 
@@ -699,9 +729,11 @@ Araştırma sırasında çıkan, uygularken sorun çıkaracak noktalar:
 3. **Taint'in sınırı**: React'in kendi dokümanı açıkça söylüyor — `{...user}` ya da
    `{name: user.name}` yeni ve **kirletilmemiş** bir nesne üretir. Taint tek başına güvenlik değil,
    DAL'daki filtrelemenin yerine geçmez.
-4. **bfcache vs `no-store`**: Çerez taşıyan yanıtlara `private, no-store` koyma kuralımız
-   (`applyCookies`) bfcache'i bozuyor olabilir. İkisi doğrudan çatışıyor; önce ölçmek, sonra
-   hangi sayfalarda hangisinin kazanacağına karar vermek gerekiyor.
+4. **bfcache vs `no-store`** — **ölçüldü, çatışma dar çıktı.** `applyCookies` yalnızca gerçekten
+   `Set-Cookie` taşıyan yanıtı düşürüyor ve session cookie'leri bir kez basılıyor: ilk ziyaret
+   restorable değil, sonraki her ziyaret restorable. Asıl ders tuzağın kendisinde değil: her
+   istekte cookie basan bir hata (session-start'ın eski `isBot` davranışı) site genelinde bfcache'i
+   kapatır ve **hiçbir yerde görünmez**. Artık görünüyor — § 6.4.
 5. **Preview mode ve cache**: Preview çerezli istek paylaşılan cache'e **yazmamalı**. Bu kuralın
    framework tarafından garanti edilmesi şart; uygulamaya bırakılırsa er geç yayınlanmamış içerik
    herkese servis edilir.

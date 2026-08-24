@@ -7771,7 +7771,10 @@ import {
 } from "@originloom/shared/lib/client/error-telemetry";
 import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
 import type { OriginLoomClientOptions } from "@originloom/shared/lib/client/options";
-import { reportWebVital } from "@originloom/shared/lib/client/performance-telemetry";
+import {
+  reportBackForwardCache,
+  reportWebVital,
+} from "@originloom/shared/lib/client/performance-telemetry";
 import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
 
 const originLoomOptions: OriginLoomClientOptions = {
@@ -7781,6 +7784,10 @@ const devtoolsEnabled = originLoomOptions.devtools ?? true;
 
 installReloadButtons();
 logPageRequestIdInDev();
+// The back button is a large share of real navigation and nothing measured
+// whether it was restoring pages. The browser already knows: \`pageshow.persisted\`
+// says it came back alive, \`notRestoredReasons\` says what stopped it.
+reportBackForwardCache();
 
 // Dev-only and lazily imported. Set devtools to false above to keep the panel
 // out of the development module graph as well.

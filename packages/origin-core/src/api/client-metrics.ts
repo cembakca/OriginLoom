@@ -14,7 +14,14 @@ export type ClientMetric =
       rating: "good" | "needs-improvement" | "poor";
       path: string;
     }
-  | { kind: "island-mount"; name: string; value: number; path: string };
+  | { kind: "island-mount"; name: string; value: number; path: string }
+  | {
+      kind: "bfcache";
+      outcome: "restored" | "blocked";
+      /** The browser's own reason code, or "restored". Bounded — see the parser. */
+      reason: string;
+      path: string;
+    };
 
 const globalLimit = new FixedWindowRateLimiter(600, 60_000);
 const ipLimit = new BoundedIpRateLimiter(100, 60_000, 5_000, 300_000);
@@ -74,6 +81,20 @@ export async function parseClientMetricPayload(request: Request): Promise<Client
     /^[a-z0-9-]{1,100}$/.test(input.name)
   ) {
     return { kind: "island-mount", name: input.name, value: Number(input.value), path };
+  }
+  if (input.kind === "bfcache") {
+    if (!["restored", "blocked"].includes(String(input.outcome))) return null;
+    // The reason comes from the browser, not from us, and it becomes a metric
+    // label — so it is shape-checked here rather than trusted. An unrecognised
+    // shape is dropped instead of sanitised: a mangled label is worse than a
+    // missing one, because it looks like a real reason nobody can find.
+    if (typeof input.reason !== "string" || !/^[a-z0-9_-]{1,64}$/.test(input.reason)) return null;
+    return {
+      kind: "bfcache",
+      outcome: input.outcome as "restored" | "blocked",
+      reason: input.reason,
+      path,
+    };
   }
   return null;
 }
