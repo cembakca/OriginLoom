@@ -12,6 +12,11 @@ export function match(routes: Route[], pathname: string) {
   return null;
 }
 
+/** The same patterns, for anything that matches a path without being a route. */
+export function matchesPath(pattern: string, pathname: string): boolean {
+  return matchPath(pattern, pathname) !== null;
+}
+
 function matchPath(pattern: string, pathname: string): Record<string, string> | null {
   const pat = pattern.split("/").filter(Boolean);
   const seg = pathname.split("/").filter(Boolean);

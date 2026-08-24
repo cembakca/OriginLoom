@@ -102,7 +102,7 @@ kısmını zaten veriyor. Maliyet/fayda tutmuyor.
 - **Maliyet/risk**: Çok düşük. Mevcut sayıları profillere eşleyen bir tablo + geriye dönük ham sayı
   desteği. Migration'la taşınabilir.
 
-### 3.2 `routeRules` — bildirimsel, tek yerde route politikası **[P2]**
+### 3.2 `routeRules` — bildirimsel, tek yerde route politikası **[P2]** **[YAPILDI — 0.7.49]**
 
 - **Ne**: Nitro'nun `routeRules`'ı glob başına cache, header, redirect, proxy, prerender, ISR/SWR
   kurallarını tek konfigürasyonda topluyor: `"/blog/**": { cache: { maxAge: 3600 } }`,
@@ -114,7 +114,25 @@ kısmını zaten veriyor. Maliyet/fayda tutmuyor.
   manifest çıktımız zaten bu tabloyu üretmeye çalışıyor — kaynağı da tekleştirmek doğal devam.
 - **Maliyet/risk**: Orta. Mevcut iki kaynağı tek modele indirirken geriye uyumluluk gerekiyor.
 
-### 3.3 Storage abstraction (unstorage) **[P2]**
+**Ne yapıldı (0.7.49).** `createApp({ routeRules })` — sıralı bir tablo, path desenleri route
+tablosunun kendi diliyle (`/a/:id`, `/a/:path*`).
+
+Şikâyet bölünmeydi: "bu path ne gönderiyor" sorusunun cevabı registry, middleware ve route dosyası
+arasında dağılmıştı. Tablo o cevabın tek yeri.
+
+**Sıralama route tablosunun tersi.** Route'ta ilk eşleşen kazanır; burada **sonraki kazanır**, yani
+tablo en genelden özele okunur — stylesheet gibi. İkisi farklı olduğu için `match` yeniden
+kullanılmadı.
+
+**İkinci bir cache policy yolu değil.** `Route.cache` key oluşmadan önce çalışıyor ve isteği
+okuyabiliyor; statik bir tablo okuyamaz, ve tek bir karar için iki kaynak zaten bölünmenin başladığı
+yer. `cache-control`, `set-cookie` ve `content-type` bu yüzden korumalı: üçü de yanıt başına, bir
+path deseninin göremeyeceği şeyleri bilen makine tarafından kararlaştırılıyor (bu bir gönderim
+miydi, cookie basıldı mı, preview policy'yi düşürdü mü). Tablo bunları ezseydi hata bir kural gibi
+değil bir cache bug'ı gibi görünürdü. Korumalı bir başlık yazmaya çalışan tablo **açılışta**
+uyarı alıyor — üretimde eksik bir header'dan öğrenmek pahalı yol.
+
+### 3.3 Storage abstraction (unstorage) **[P2]** **[YAPILDI — 0.7.49]**
 
 - **Ne**: Nitro'nun `useStorage()` katmanı — dosya sistemi, bellek, Redis, S3, Cloudflare KV/R2,
   Vercel Blob dahil ~20 driver'ın arkasında tek KV arayüzü. Cache de bu katmanın üstünde duruyor.
@@ -127,6 +145,19 @@ kısmını zaten veriyor. Maliyet/fayda tutmuyor.
 - **Maliyet/risk**: `unstorage`'ı doğrudan almak yeni bir bağımlılık ve bizim cache semantiğimiz
   (tag, cold-fill lock, negative cache) onun modelinden zengin. Muhtemelen **kendi ince arayüzümüz**
   daha doğru; unstorage'dan alınacak olan fikir ve driver sınırı, kodu değil.
+
+**Ne yapıldı (0.7.49).** `registerCacheDriver({ name, create })`.
+
+`CacheStore` zaten bir sürücü arayüzüydü — memory, Redis ve ikisinin tiered bileşimi onun üç
+implementasyonu. Eksik olan **dışarıdan giriş**ti: platformun hiç duymadığı bir runtime'da çalışan
+bir uygulama (Cloudflare KV, Memcached, her çağrıyı kaydeden bir test double'ı) fork etmek zorundaydı.
+
+`initCache`'ten **önce** kaydediliyor ve çalışan bir sunucunun altından değiştirilemiyor: store
+uçuş sırasında değişse uçuştaki okumalar bir backend'e, yazmaları başkasına konuşurdu. Geç kayıt
+denemesi sessizce yok sayılmıyor, hata veriyor.
+
+Sürücünün adı topology etiketi oluyor, yani `cache initialized` log satırı ve metrikler hangi
+store'un çalıştığını söylüyor.
 
 ### 3.4 Draft / preview mode **[P1]** **[YAPILDI — 0.7.29]**
 
@@ -405,7 +436,7 @@ bugün ödenecek bir fatura yok.
 Yukarıdaki tespit silinmedi: bu madde tekrar açılırsa dört sayan yüzey ve neden ikisinin header,
 ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
 
-### 6.2 Early Hints (HTTP 103) **[P2]**
+### 6.2 Early Hints (HTTP 103) **[P2]** **[YAPILDI — 0.7.49]**
 
 - **Ne**: Sunucu asıl yanıtı hazırlarken 103 ile kritik kaynakları önceden bildiriyor.
 - **Bizde**: Yok. Cache MISS'te gateway beklerken geçen süre tam olarak 103'ün doldurduğu boşluk.
@@ -413,6 +444,22 @@ ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
   hızlıyız, yani kazanç dar bir dilimde — ama o dilim (cold path) bizim en yavaş yolumuz.
 - **Maliyet/risk**: Hono + Node HTTP/1.1 üzerinde 103 göndermek doğrudan desteklenmiyor; ters proxy
   (nginx/CDN) katmanı gerekebilir. Altyapıya bağımlı.
+
+**Ne yapıldı (0.7.49).** `EARLY_HINTS=true` ile açılıyor, **varsayılan kapalı**.
+
+Kritik olan ne zaman gönderildiği. 103, sunucu upstream'i beklerken soketin boşta durduğu dilimde
+işe yarıyor; cache HIT'te doküman zaten elde ve hint bir milisaniye sonra gerçek yanıtın cevapladığı
+şeyi soruyor — saf maliyet. Bu yüzden blanket middleware değil: `executeSsrRequest` cache'in
+kaçırdığını öğrendiği anda, render'dan hemen önce gönderiyor.
+
+Yalnız ilk boyamanın beklediği şeyler hint ediliyor: stylesheet, entry (`modulepreload` olarak —
+`preload; as=script` farklı bir cache girdisi, yanlışını hint etmek dosyayı iki kez indirtir) ve
+build'in preload işaretlediği fontlar (`crossorigin` ile, yoksa tarayıcı preload'ı atıp yeniden
+indirir). Modül preload grafiği kasıtlı olarak dışarıda: büyük ve spekülatif.
+
+Her hata sessiz. `writeEarlyHints`'i olmayan bir runtime, kapanmış bir bağlantı, soketi açmayan bir
+adapter — hiçbiri başarıyla sonuçlanacak bir isteği düşürmek için sebep değil. `ssr_early_hints_total`
+yalnızca gerçekten gönderilenleri sayıyor.
 
 ### 6.3 View Transitions (cross-document) **[P2]** **[YAPILDI — 0.7.43]**
 
@@ -735,9 +782,9 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 | 7.4 ✅ | instrumentation kancaları   | ✅    | `onRequestError` runtime kancası; beş dağınık `logError` tek rapora birleşti, log satırları aynen                 |
 | 6.4 ✅ | bfcache ölçümü              | ✅    | Ölçüldü: ilk ziyaret hariç her sayfa restorable. `ssr_client_bfcache_total` kalıcı ölçüm; test regresyonu tutuyor |
 | 5.6 ✅ | Idempotency key'leri        | ✅    | `runOnce` + formun taşıdığı anahtar; JS'siz çalışıyor, store yoksa sessizce değil `unavailable` diyor             |
-| 6.2    | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş   |
-| 3.2    | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                            |
-| 3.3    | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                      |
+| 6.2 ✅ | Early Hints (103)           | ✅    | Yalnız cache MISS'te, render'dan hemen önce; varsayılan kapalı, `EARLY_HINTS=true` ile açılıyor                   |
+| 3.2 ✅ | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; `cache-control`/`set-cookie`/`content-type` korumalı ve açılışta uyarıyor          |
+| 3.3 ✅ | Storage soyutlaması         | ✅    | `registerCacheDriver`; `CacheStore` zaten sürücü arayüzüydü, eksik olan dışarıdan girişti                         |
 | 4.4    | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                 |
 | 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                 |
 | 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                 |

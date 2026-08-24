@@ -90,6 +90,9 @@ export const config = {
   /** Ceiling on concurrently running `after()` tasks; past it they are refused, not queued. */
   afterTaskMaxInFlight: numberEnv("AFTER_TASK_MAX_IN_FLIGHT", 1_000),
   afterTaskDrainTimeoutMs: numberEnv("AFTER_TASK_DRAIN_TIMEOUT_MS", 2_000),
+  // Off by default: a 103 helps only while the server is waiting on an
+  // upstream, and costs a write on every response that was not waiting.
+  earlyHints: booleanEnv("EARLY_HINTS", false),
   ssrRequestTimeoutMs,
   apiRequestTimeoutMs: numberEnv("API_REQUEST_TIMEOUT_MS", 12_000),
   proxyRequestTimeoutMs: numberEnv("PROXY_REQUEST_TIMEOUT_MS", 8_000),

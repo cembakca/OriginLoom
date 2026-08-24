@@ -54,6 +54,10 @@ export type CacheTopology = "memory" | "memory+redis";
 let topologyMemo: { topology: CacheTopology; l2: boolean } | null = null;
 
 function resolveTopology(): { topology: CacheTopology; l2: boolean } {
+  if (driver) {
+    topologyMemo = { topology: driver.name as CacheTopology, l2: false };
+    return topologyMemo;
+  }
   if (topologyMemo) return topologyMemo;
   const l2 = runtimeCacheBackend() === "redis" && Boolean(runtimeRedisUrl());
   topologyMemo = { topology: l2 ? "memory+redis" : "memory", l2 };
@@ -73,9 +77,47 @@ export function isL2Configured(): boolean {
   return resolveTopology().l2;
 }
 
+/**
+ * A store an application supplies instead of the built-in tiers.
+ *
+ * The `CacheStore` interface was always a driver interface — memory, Redis and
+ * the tiered composition of the two are three implementations of it — but there
+ * was no way in from outside, so an app on a runtime the platform has never
+ * heard of (Cloudflare KV, Memcached, a test double that records every call) had
+ * to fork rather than plug in.
+ *
+ * Registered before `initCache`, and never swapped underneath a running server:
+ * a store change mid-flight would leave in-flight reads talking to one backend
+ * and their writes to another.
+ */
+export type CacheDriver = {
+  name: string;
+  create: () => CacheStore | Promise<CacheStore>;
+};
+
+let driver: CacheDriver | null = null;
+
+export function registerCacheDriver(next: CacheDriver | null): void {
+  if (store) {
+    throw new Error("Cache driver must be registered before initCache()");
+  }
+  driver = next;
+}
+
+/** The topology label a metric or a log line reports. */
+export function registeredCacheDriverName(): string | null {
+  return driver?.name ?? null;
+}
+
 export async function initCache(): Promise<CacheStore> {
   if (store) return store;
   invalidateTopologyMemo();
+
+  if (driver) {
+    store = await driver.create();
+    logger.info("cache initialized", { topology: cacheTopology() });
+    return store;
+  }
 
   const l1 = new MemoryStore(config.cacheMaxEntries, {
     maxBytes: config.cacheL1MaxBytes,

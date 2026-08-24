@@ -17,6 +17,7 @@ import { resolveTrustedClientIp } from "./client-ip.js";
 import { config } from "./config.js";
 import { errorResponse } from "./error.js";
 import { handle, handleHead } from "./handler.js";
+import { logger } from "./logger.js";
 import { observeRequest } from "./metrics.js";
 import { createPipeline } from "./middleware/pipeline.js";
 import type { OriginMiddleware } from "./middleware/product.js";
@@ -28,6 +29,7 @@ import { staticAssetCacheHeaders } from "./middleware/static-assets.js";
 import { SpanStatusCode, withRequestSpan } from "./observability.js";
 import { publicUrlErrorResponse, publicUrlRedirectResponse } from "./public-url.js";
 import { reportRequestError } from "./request-error.js";
+import { applyRouteRules, refusedRuleHeaders, type RouteRule } from "./route-rules.js";
 import { ssrCapacity as defaultSsrCapacity } from "./ssr-capacity.js";
 
 export const DEV_SERVER_GENERATION_HEADER = "x-originloom-dev-generation";
@@ -72,6 +74,12 @@ export type CreateAppOptions = {
    * They manage their own lifetime, so no request deadline is armed for them.
    */
   longLivedRoutes?: readonly string[];
+  /**
+   * Policy that belongs to a path rather than to a page — indexing, framing, a
+   * vendor header one section needs. One table instead of a middleware per rule
+   * and a header set in three route files.
+   */
+  routeRules?: readonly RouteRule[];
   /**
    * Third-party origins this app's pages reach — an analytics vendor, a consent
    * tool, an embedded player. Added to the platform's own CSP sources.
@@ -157,6 +165,24 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
       }
     });
   });
+  const routeRules = options.routeRules ?? [];
+  if (routeRules.length > 0) {
+    const refused = refusedRuleHeaders(routeRules);
+    if (refused.length > 0) {
+      // At startup rather than per request: a rule that can never apply is a
+      // mistake in the table, and finding out from a missing header in
+      // production is the expensive way to learn it.
+      logger.warn("route rules cannot set these headers; they are decided per response", {
+        headers: refused.join(", "),
+      });
+    }
+    app.use("*", async (c, next) => {
+      await next();
+      const pathname = c.get("preparedRequest")?.url.pathname ?? new URL(c.req.url).pathname;
+      const ruled = applyRouteRules(c.res, pathname, routeRules);
+      if (ruled !== c.res) c.res = ruled;
+    });
+  }
   app.use("*", createSecurityMiddleware(options.csp));
   // Hono >=4.13 owns compression negotiation and its Vary: Accept-Encoding header.
   app.use("*", compress({ threshold: config.httpCompressionThresholdBytes }));

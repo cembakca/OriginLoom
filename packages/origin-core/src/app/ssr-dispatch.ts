@@ -3,6 +3,8 @@ import type { Route } from "@originloom/shared/lib/types";
 import type { Handler } from "hono";
 
 import type { Assets } from "../assets.js";
+import { config } from "../config.js";
+import { earlyHintLinks, sendEarlyHints, shouldSendEarlyHints } from "../early-hints.js";
 import {
   crossOriginSubmissionResponse,
   handle,
@@ -16,6 +18,7 @@ import {
   tryCachedHandle,
   tryServeCachedHead,
 } from "../handler.js";
+import { observeEarlyHints } from "../metrics.js";
 import {
   finalizePipelineResponse,
   finalizeSsrResponse,
@@ -101,7 +104,31 @@ export function createSsrDispatch({
     }
 
     try {
-      return await executeSsrRequest({ ...requestOptions, capacity });
+      return await executeSsrRequest({
+        ...requestOptions,
+        capacity,
+        // Handed down rather than sent here: the only moment a 103 is worth its
+        // write is after the cache has missed, when the socket is about to sit
+        // idle waiting on an upstream. Sending it before that would hint every
+        // cache HIT for nothing.
+        onFreshRender: () => {
+          if (
+            !shouldSendEarlyHints({
+              enabled: config.earlyHints,
+              method,
+              isDocumentRequest: ssrRoute,
+              willRenderFresh: true,
+            })
+          ) {
+            return;
+          }
+          const sent = sendEarlyHints(
+            (c.env as { outgoing?: unknown } | undefined)?.outgoing,
+            earlyHintLinks(assets),
+          );
+          if (sent) observeEarlyHints();
+        },
+      });
     } catch (error) {
       if (error instanceof SsrCapacityError) return ssrCapacityResponse(error, requestId);
       throw error;
@@ -123,10 +150,11 @@ type RequestOptions = {
 };
 
 async function executeSsrRequest(
-  options: RequestOptions & { capacity: Capacity },
+  options: RequestOptions & { capacity: Capacity; onFreshRender: () => void },
 ): Promise<Response> {
   const outcome = await tryServeFromCache(options);
   if ("response" in outcome) return outcome.response;
+  options.onFreshRender();
   return options.capacity.run(options.request.signal, outcome.render);
 }
 

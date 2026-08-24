@@ -84,6 +84,8 @@ export const CORE_PUBLIC_SUBPATHS = [
   "env-schema",
   "request-error",
   "idempotency",
+  "route-rules",
+  "early-hints",
   "server-island",
   "preview",
   "after",

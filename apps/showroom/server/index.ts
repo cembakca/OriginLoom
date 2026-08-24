@@ -49,6 +49,18 @@ async function main() {
     // The market stream holds its connection open by design and runs its own
     // heartbeat and admission, so it is exempt from the request deadline.
     longLivedRoutes: ["/api/markets/stream"],
+    // Policy that belongs to a path rather than to a page. Most general first:
+    // later rules win, the way a stylesheet reads.
+    routeRules: [
+      { path: "/:path*", headers: { "x-section": "public" } },
+      // A personal page has nothing an index should hold, and the page itself
+      // should not have to remember that.
+      {
+        path: "/hesabim",
+        headers: { "x-robots-tag": "noindex, nofollow", "x-section": "account" },
+      },
+      { path: "/preview-demo", headers: { "x-robots-tag": "noindex, nofollow" } },
+    ],
     isShuttingDown: () => shuttingDown,
   });
 

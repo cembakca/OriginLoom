@@ -168,6 +168,41 @@ describe("Hono application integration", () => {
     expect(second.headers.get("cache-control")).toBe("private, no-cache, max-age=0");
   });
 
+  /**
+   * Route policy used to be split across an app registry, a middleware and each
+   * route file, so answering "what does this path send" meant reading three
+   * places and hoping they agreed.
+   */
+  it("applies path policy from the rule table, most specific last", async () => {
+    const page: Route = {
+      path: "/:slug",
+      loader: async () => ({ data: {} }),
+      Component: () => createElement("p", null, "page"),
+      minimalChrome: true,
+    };
+    const app = createApp({
+      assets,
+      routes: [page],
+      readinessCheck: async () => true,
+      capacity: passthroughCapacity,
+      routeRules: [
+        { path: "/:path*", headers: { "x-section": "public" } },
+        { path: "/gizli", headers: { "x-robots-tag": "noindex", "x-section": "private" } },
+        // Refused: decided per response by machinery a path pattern cannot see.
+        { path: "/:path*", headers: { "cache-control": "public, max-age=99999" } },
+      ],
+    });
+
+    const open = await app.request("http://localhost/acik");
+    expect(open.headers.get("x-section")).toBe("public");
+    expect(open.headers.get("x-robots-tag")).toBeNull();
+
+    const hidden = await app.request("http://localhost/gizli");
+    expect(hidden.headers.get("x-section")).toBe("private");
+    expect(hidden.headers.get("x-robots-tag")).toBe("noindex");
+    expect(hidden.headers.get("cache-control")).not.toContain("max-age=99999");
+  });
+
   it("applies request identity and security middleware to final responses", async () => {
     const app = appWith([]);
     const response = await app.request("/healthz", {

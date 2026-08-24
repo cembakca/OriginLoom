@@ -66,6 +66,7 @@ const clientMetricIngestion: CounterMap = new Map();
 const clientWebVitals: CounterMap = new Map();
 const clientBackForwardCache: CounterMap = new Map();
 const idempotentRuns: CounterMap = new Map();
+let earlyHintsSent = 0;
 const requestTimeouts: CounterMap = new Map();
 const ssrCapacityRejections: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
@@ -302,6 +303,11 @@ export function observeIdempotency(
   outcome: "fresh" | "replayed" | "in_flight" | "not_recorded" | "unavailable",
 ): void {
   increment(idempotentRuns, `namespace="${escapeLabel(namespace)}",outcome="${outcome}"`);
+}
+
+/** Only counts responses a 103 actually went out on, not attempts. */
+export function observeEarlyHints(): void {
+  earlyHintsSent += 1;
 }
 
 export function observeRequestTimeout(requestClass: "api" | "proxy" | "ssr", route: string): void {
@@ -685,6 +691,9 @@ export function renderMetrics(): string {
       "Core Web Vitals observations by rating",
       clientWebVitals,
     ),
+    `# HELP ssr_early_hints_total Responses preceded by a 103 Early Hints`,
+    `# TYPE ssr_early_hints_total counter`,
+    `ssr_early_hints_total ${earlyHintsSent}`,
     ...counterLines(
       "ssr_idempotent_runs_total",
       "Keyed submissions by how the idempotency guard resolved them",
