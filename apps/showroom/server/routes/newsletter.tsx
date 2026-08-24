@@ -1,7 +1,13 @@
+import { boundedIdempotencyKey, newIdempotencyKey, runOnce } from "@originloom/core/idempotency";
 import { redirect } from "@originloom/react/lib/types";
 import { defineRoute } from "@originloom/react/lib/types";
-import { formChecked, formValue, readFormFields } from "@originloom/shared/lib/form";
-import { subscribeToNewsletter } from "@server/services/newsletter";
+import {
+  formChecked,
+  formValue,
+  IDEMPOTENCY_FIELD,
+  readFormFields,
+} from "@originloom/shared/lib/form";
+import { type SubscribeResult, subscribeToNewsletter } from "@server/services/newsletter";
 
 import {
   EMPTY_VALUES,
@@ -14,7 +20,11 @@ import { pageCache, PageCacheId } from "~/lib/cache-keys";
 import { generateMetaDataForPageWithDummySeoInfo } from "~/lib/metadata/dummy-seo";
 import { defaultPageMeta } from "~/lib/shell-data";
 
-type NewsletterData = { state: NewsletterFormState; subscribed: boolean };
+type NewsletterData = {
+  state: NewsletterFormState;
+  subscribed: boolean;
+  submissionKey: string;
+};
 
 const EMPTY_STATE: NewsletterFormState = { values: EMPTY_VALUES, errors: {} };
 
@@ -53,7 +63,32 @@ export default defineRoute<NewsletterData, NewsletterFormState>({
     // every client that is not a browser deserves to be told so.
     if (Object.keys(errors).length > 0) return { data: { values, errors }, status: 422 };
 
-    const result = await subscribeToNewsletter(ctx.request, values.email, values.name);
+    // Post/Redirect/Get already stops a reload from re-posting. It does nothing
+    // about the submissions it never sees — the impatient second click, the
+    // retry after a connection drops — and those arrive as separate POSTs. The
+    // key the form carries is the only thing that can tell them apart from two
+    // people subscribing.
+    const key = boundedIdempotencyKey(formValue(fields, IDEMPOTENCY_FIELD));
+    const once = key
+      ? await runOnce({
+          namespace: "newsletter",
+          key,
+          work: () => subscribeToNewsletter(ctx.request, values.email, values.name),
+          // An outage is not an outcome: the visitor has to be able to send the
+          // same form again once the service is back.
+          serialize: (value) => (value.kind === "unavailable" ? null : value.kind),
+          parse: (raw) => ({ kind: raw }) as SubscribeResult,
+        })
+      : null;
+    if (once?.kind === "in-flight") {
+      return {
+        data: withFormError({ values, errors: {} }, "Bu gönderim işleniyor, bir saniye."),
+        status: 409,
+      };
+    }
+    const result = once
+      ? once.value
+      : await subscribeToNewsletter(ctx.request, values.email, values.name);
     if (result.kind === "duplicate") {
       return { data: { values, errors: { email: "Bu adres zaten kayıtlı." } }, status: 409 };
     }
@@ -73,6 +108,9 @@ export default defineRoute<NewsletterData, NewsletterFormState>({
     data: {
       state: ctx.action ?? EMPTY_STATE,
       subscribed: ctx.url.searchParams.get("durum") === "ok",
+      // Minted here, so every render — including the one that redraws a
+      // rejected submission — hands the form a key of its own.
+      submissionKey: newIdempotencyKey(),
     },
   }),
 

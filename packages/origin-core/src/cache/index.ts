@@ -263,13 +263,18 @@ export async function pingCache(): Promise<boolean> {
   }
 }
 
-export async function acquireRevalidationLock(key: string): Promise<string | null> {
+/**
+ * A mutual exclusion across every pod, for a caller that owns its own TTL.
+ *
+ * A backend with no locks hands back a token anyway. That is right for the
+ * single-process case it describes — there is no other holder to exclude — and
+ * wrong to rely on for anything that needs a real distributed guarantee, which
+ * is why callers that do check their own record rather than trusting the lock.
+ */
+export async function acquireCacheLock(key: string, ttlMs: number): Promise<string | null> {
   const cache = getCache();
   if (!cache.acquireLock) return crypto.randomUUID();
   try {
-    const retryDelayMs =
-      config.revalidationBackoffMs * (2 ** Math.max(0, config.revalidationAttempts - 1) - 1);
-    const ttlMs = config.gatewayTimeoutMs * config.revalidationAttempts + retryDelayMs + 5_000;
     return await runCacheOperation("lock.acquire", () => cache.acquireLock!(key, ttlMs));
   } catch (error) {
     logError(error, { msg: "cache lock failed", key });
@@ -277,7 +282,7 @@ export async function acquireRevalidationLock(key: string): Promise<string | nul
   }
 }
 
-export async function releaseRevalidationLock(key: string, token: string): Promise<void> {
+export async function releaseCacheLock(key: string, token: string): Promise<void> {
   const cache = getCache();
   if (!cache.releaseLock) return;
   try {
@@ -285,6 +290,17 @@ export async function releaseRevalidationLock(key: string, token: string): Promi
   } catch (error) {
     logError(error, { msg: "cache unlock failed", key });
   }
+}
+
+export function acquireRevalidationLock(key: string): Promise<string | null> {
+  const retryDelayMs =
+    config.revalidationBackoffMs * (2 ** Math.max(0, config.revalidationAttempts - 1) - 1);
+  const ttlMs = config.gatewayTimeoutMs * config.revalidationAttempts + retryDelayMs + 5_000;
+  return acquireCacheLock(key, ttlMs);
+}
+
+export function releaseRevalidationLock(key: string, token: string): Promise<void> {
+  return releaseCacheLock(key, token);
 }
 
 export type ColdMissLockAttempt =

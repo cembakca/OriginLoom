@@ -64,6 +64,16 @@ export async function readFormFields(
   return fields;
 }
 
+/**
+ * The field a form carries so a resubmission can be recognised as one.
+ *
+ * Rendered as a hidden input with a value minted per render, which is what makes
+ * the scheme work without JavaScript: the browser sends back whatever the page
+ * gave it, so a double-click and a retry of the *same rendered form* carry the
+ * same key, while a fresh render is a genuinely new submission.
+ */
+export const IDEMPOTENCY_FIELD = "_islem";
+
 /** The trimmed value of a field, or "" — never undefined, so validators stay simple. */
 export function formValue(fields: FormFields, name: string): string {
   return (fields[name] ?? "").trim();

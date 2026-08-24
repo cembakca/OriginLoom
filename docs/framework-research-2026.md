@@ -296,13 +296,37 @@ kırmak olurdu. COEP kalıcı hayır.
 - **Maliyet/risk**: Vite dev, kaynak harita okuma, `.nitro`/dist erişimi gibi şeyler izin listesi
   ister. Production-only olarak denenmeli.
 
-### 5.6 Idempotency key'leri **[P2]**
+### 5.6 Idempotency key'leri **[P2]** **[YAPILDI — 0.7.46]**
 
 - **Ne**: Mutasyon endpoint'lerinde tekrar eden isteğin ikinci kez etki etmemesi.
 - **Bizde**: Yok. Bülten aboneliği, teklif yönlendirme gibi POST'lar çift tıklamada/retry'da iki kez
   işlenebilir.
 - **Değer**: Form actions (4.2) ile birlikte doğal — progressive enhancement'ın olduğu yerde retry
   daha sık. Storage katmanı (3.3) varsa ucuz.
+
+**Ne yapıldı (0.7.46).** `runOnce({ namespace, key, work, serialize, parse })`.
+
+PRG'nin kapatmadığı gönderimler için. Yenilemede tekrar POST'u PRG zaten kapatıyor; **görmediği**
+gönderimler var: sabırsız ikinci tık, bağlantı koptuktan sonraki retry, isteği kaybolmuş sanıp
+tekrarlayan proxy. Üçü de ayrı POST olarak geliyor ve iki gerçek gönderimden ayıran tek şey
+istemcinin seçtiği anahtar.
+
+**Anahtar formun kendisinde.** `IDEMPOTENCY_FIELD` render başına basılan gizli bir input. JS'siz
+çalışmasının sebebi bu: tarayıcı sayfanın verdiğini geri gönderiyor, yani **aynı render'ın** çift
+tıklaması ve retry'ı aynı anahtarı taşıyor, yeni bir render taşımıyor.
+
+**İki kayıt, bir tane değil.** Kilit "şu an biri yapıyor", değer "biri yaptı, sonucu bu" diyor. Tek
+bir bayrak bunları ayıramaz ve in-flight'ı tamamlanmış saymak henüz var olmayan bir sonucu
+tekrarlamak olurdu. `IdempotentRun` birleşiminde `in-flight`'ın **`value`'su yok** — çağıran
+çarpışmanın ne demek olduğuna karar etmek zorunda.
+
+**Sessiz yalan yok.** Ephemeral store olmayan bir topolojide `writeCoordinationValue` hiçbir şey
+yapmıyor. Bu durumda `runOnce` `unavailable` döndürüyor — kaydı geri okuyarak doğruladıktan sonra.
+Hiçbir şey yapmadığı halde koruma sağlıyormuş gibi davranan bir guard, guard'sızlıktan kötüdür;
+`ssr_idempotent_runs_total{outcome="unavailable"}` alarm kurulacak seri.
+
+**Başarısızlık kaydedilmiyor.** `serialize` null döndürebiliyor: reddedilen bir gönderim ya da
+gateway kesintisi tekrarlanabilir olmamalı, ziyaretçi düzeltip aynı formu yeniden gönderebilmeli.
 
 ---
 
@@ -685,21 +709,21 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 
 `◐` = bir kısmı var, eksik olan yazıyor. `—` = hiç yok.
 
-| #      | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                              |
-| ------ | --------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------ |
-| 9.2 ✅ | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.4×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                              |
-| 5.4 ✅ | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                           |
-| 6.3 ✅ | View Transitions            | ✅    | İsimli geçişler (`data-view-transition`: header/footer/main) ve reduced-motion boşluğu kapandı                           |
-| 7.4 ✅ | instrumentation kancaları   | ✅    | `onRequestError` runtime kancası; beş dağınık `logError` tek rapora birleşti, log satırları aynen                        |
-| 6.4 ✅ | bfcache ölçümü              | ✅    | Ölçüldü: ilk ziyaret hariç her sayfa restorable. `ssr_client_bfcache_total` kalıcı ölçüm; test regresyonu tutuyor        |
-| 5.6    | Idempotency key'leri        | —     | 4.2 form action'ları geldi, yani çift gönderim yüzeyi **büyüdü**. PRG çifte POST'u kapatıyor ama ağ tekrarını kapatmıyor |
-| 6.2    | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş          |
-| 3.2    | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                                   |
-| 3.3    | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                             |
-| 4.4    | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                        |
-| 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                        |
-| 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                        |
-| 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                               |
+| #      | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                       |
+| ------ | --------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------- |
+| 9.2 ✅ | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.4×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                       |
+| 5.4 ✅ | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                    |
+| 6.3 ✅ | View Transitions            | ✅    | İsimli geçişler (`data-view-transition`: header/footer/main) ve reduced-motion boşluğu kapandı                    |
+| 7.4 ✅ | instrumentation kancaları   | ✅    | `onRequestError` runtime kancası; beş dağınık `logError` tek rapora birleşti, log satırları aynen                 |
+| 6.4 ✅ | bfcache ölçümü              | ✅    | Ölçüldü: ilk ziyaret hariç her sayfa restorable. `ssr_client_bfcache_total` kalıcı ölçüm; test regresyonu tutuyor |
+| 5.6 ✅ | Idempotency key'leri        | ✅    | `runOnce` + formun taşıdığı anahtar; JS'siz çalışıyor, store yoksa sessizce değil `unavailable` diyor             |
+| 6.2    | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş   |
+| 3.2    | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                            |
+| 3.3    | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                      |
+| 4.4    | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                 |
+| 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                 |
+| 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                 |
+| 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                        |
 
 ### Üçüncü dalga — fikir olarak dursun
 

@@ -65,6 +65,7 @@ const clientRuntimeErrors: CounterMap = new Map();
 const clientMetricIngestion: CounterMap = new Map();
 const clientWebVitals: CounterMap = new Map();
 const clientBackForwardCache: CounterMap = new Map();
+const idempotentRuns: CounterMap = new Map();
 const requestTimeouts: CounterMap = new Map();
 const ssrCapacityRejections: CounterMap = new Map();
 const distinctCacheKeys = new Map<string, Set<string>>();
@@ -289,6 +290,18 @@ export function observeClientPerformance(
     const island = knownIsland || distinctClientIslands.has(metric.name) ? metric.name : "other";
     clientIslandMountDurations.observe(`island="${escapeLabel(island)}"`, metric.value);
   }
+}
+
+/**
+ * How submissions carrying a key resolved. `unavailable` is the one to alert on:
+ * it means the guard ran and could not record anything, so the promise the form
+ * makes is not being kept.
+ */
+export function observeIdempotency(
+  namespace: string,
+  outcome: "fresh" | "replayed" | "in_flight" | "not_recorded" | "unavailable",
+): void {
+  increment(idempotentRuns, `namespace="${escapeLabel(namespace)}",outcome="${outcome}"`);
 }
 
 export function observeRequestTimeout(requestClass: "api" | "proxy" | "ssr", route: string): void {
@@ -671,6 +684,11 @@ export function renderMetrics(): string {
       "ssr_client_web_vitals_total",
       "Core Web Vitals observations by rating",
       clientWebVitals,
+    ),
+    ...counterLines(
+      "ssr_idempotent_runs_total",
+      "Keyed submissions by how the idempotency guard resolved them",
+      idempotentRuns,
     ),
     ...counterLines(
       "ssr_client_bfcache_total",

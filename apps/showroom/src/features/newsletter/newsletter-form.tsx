@@ -1,3 +1,5 @@
+import { IDEMPOTENCY_FIELD } from "@originloom/shared/lib/form";
+
 import { Container } from "~/components/ui/container";
 
 /** What the visitor typed, echoed back so a rejected submission never loses it. */
@@ -31,9 +33,12 @@ const BAD = "border-red-500 focus:border-red-600";
 export function NewsletterForm({
   state,
   subscribed,
+  submissionKey,
 }: {
   state: NewsletterFormState;
   subscribed: boolean;
+  /** Minted per render, so this form is one submission however many times it is sent. */
+  submissionKey: string;
 }) {
   const { values, errors } = state;
   return (
@@ -62,6 +67,10 @@ export function NewsletterForm({
       ) : null}
 
       <form method="post" action="/bulten" className="mt-6 max-w-md space-y-4" noValidate>
+        {/* The browser sends back whatever the page gave it, which is what makes
+            this work with no JavaScript: a double-click and a retry of this same
+            rendered form carry the same key, a fresh render does not. */}
+        <input type="hidden" name={IDEMPOTENCY_FIELD} value={submissionKey} />
         <div>
           <label htmlFor="newsletter-name" className="text-sm font-medium text-slate-700">
             Adın

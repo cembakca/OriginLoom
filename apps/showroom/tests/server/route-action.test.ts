@@ -1,7 +1,8 @@
 import { createApp } from "@originloom/core/app";
 import { closeCache, initCache } from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
-import { formValue, readFormFields } from "@originloom/shared/lib/form";
+import { boundedIdempotencyKey, runOnce } from "@originloom/core/idempotency";
+import { formValue, IDEMPOTENCY_FIELD, readFormFields } from "@originloom/shared/lib/form";
 import type { Route } from "@originloom/shared/lib/types";
 import { redirect } from "@originloom/shared/lib/types";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -111,6 +112,53 @@ describe("route actions", () => {
     );
 
     expect(response.status).toBe(403);
+  });
+
+  /**
+   * PRG stops a reload from re-posting. It does nothing about the second click
+   * or the retry after a dropped connection, which arrive as separate POSTs —
+   * and the key the form carries is the only thing that tells them apart from
+   * two real submissions.
+   */
+  it("runs a keyed submission once, however many times it arrives", async () => {
+    let runs = 0;
+    const keyed: Route<{ runs: number }, unknown, { runs: number }> = {
+      path: "/keyed",
+      action: async (ctx) => {
+        const fields = await readFormFields(ctx.request);
+        const key = boundedIdempotencyKey(formValue(fields, IDEMPOTENCY_FIELD));
+        if (!key) return { data: { runs }, status: 400 };
+        const once = await runOnce({
+          namespace: "test",
+          key,
+          work: async () => ({ runs: ++runs }),
+          serialize: (value) => JSON.stringify(value),
+          parse: (raw) => JSON.parse(raw) as { runs: number },
+        });
+        // The union has no `value` on "in-flight" on purpose: a caller has to
+        // decide what a collision means rather than replaying an outcome that
+        // does not exist yet.
+        if (once.kind === "in-flight") return { data: { runs }, status: 409 };
+        return { data: once.value, status: once.kind === "replayed" ? 200 : 201 };
+      },
+      loader: async (ctx) => ({ data: ctx.action ?? { runs: 0 } }),
+      Component: () => null,
+      minimalChrome: true,
+    };
+    const keyedApp = createApp({
+      assets,
+      routes: [keyed],
+      readinessCheck: async () => true,
+      capacity: passthroughCapacity,
+    });
+    const body = `${IDEMPOTENCY_FIELD}=${"k".repeat(32)}`;
+
+    const first = await keyedApp.request(post("/keyed", body));
+    const again = await keyedApp.request(post("/keyed", body));
+
+    expect(first.status).toBe(201);
+    expect(again.status).toBe(200);
+    expect(runs).toBe(1);
   });
 
   /** A page with no action should say so, not quietly render and imply success. */
