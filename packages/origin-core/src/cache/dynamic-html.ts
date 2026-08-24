@@ -66,6 +66,13 @@ export function normalizeCachedHtmlDynamicValues(body: string, values: DynamicHt
   if (values.pageRequestId) {
     normalized = normalized.replaceAll(values.pageRequestId, PAGE_REQUEST_ID_PLACEHOLDER);
   }
+  // Not defence in depth like the two above — this is the only pass that runs
+  // for a submission key. A request-phase render draws the concrete key (the
+  // form has to work on a MISS too), so without this the body stored in the
+  // cache would hand every later visitor the first visitor's key.
+  if (values.submissionKey && SAFE_SUBMISSION_KEY.test(values.submissionKey)) {
+    normalized = normalized.replaceAll(values.submissionKey, SUBMISSION_KEY_PLACEHOLDER);
+  }
   return normalized;
 }
 

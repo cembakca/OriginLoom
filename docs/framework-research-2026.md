@@ -296,7 +296,7 @@ kırmak olurdu. COEP kalıcı hayır.
 - **Maliyet/risk**: Vite dev, kaynak harita okuma, `.nitro`/dist erişimi gibi şeyler izin listesi
   ister. Production-only olarak denenmeli.
 
-### 5.6 Idempotency key'leri **[P2]** **[YAPILDI — 0.7.47]**
+### 5.6 Idempotency key'leri **[P2]** **[YAPILDI — 0.7.48]**
 
 - **Ne**: Mutasyon endpoint'lerinde tekrar eden isteğin ikinci kez etki etmemesi.
 - **Bizde**: Yok. Bülten aboneliği, teklif yönlendirme gibi POST'lar çift tıklamada/retry'da iki kez
@@ -333,6 +333,10 @@ determinism testi bunu yakaladı.
 
 Doğrusu: `submissionKey`, `cspNonce` ve `pageRequestId` ile aynı mekanizmada bir **dynamic slot**.
 Cache'e placeholder giriyor, her yanıta taze değer materialize ediliyor.
+
+Slot'u eklemek yetmedi — ikinci bir test daha yakaladı. MISS'te form somut anahtarla çiziliyor
+(çizilmek zorunda, form MISS'te de çalışmalı), yani cache'e **somut** anahtar giriyordu. `normalize`
+pass'ine bir kural eklendi: diğer iki slot için o pass defence-in-depth, bunun için **tek koruma**.
 
 `pageRequestId`'yi anahtar olarak kullanmak cazipti ve yanlış olurdu: istemci `x-request-id`
 gönderebiliyor, ve istemcinin seçebildiği bir anahtar **başkası adına** seçebildiği bir anahtardır.
