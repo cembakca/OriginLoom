@@ -1,3 +1,5 @@
+import type * as gatewayAdapter from "@originloom/core/adapters/gateway";
+import { asGatewayResponse } from "@originloom/core/adapters/gateway";
 import type {
   MiddlewareContext,
   MiddlewareResult,
@@ -10,13 +12,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   gatewayFetchWithIdentity: vi.fn(),
-  releaseGatewayResponse: vi.fn(),
 }));
 
-vi.mock("@originloom/core/adapters/gateway", () => ({
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof gatewayAdapter>()),
   gatewayFetchWithIdentity: mocks.gatewayFetchWithIdentity,
-  releaseGatewayResponse: mocks.releaseGatewayResponse,
 }));
+
+/**
+ * A fake gateway still has to honour the gateway contract. The middleware takes
+ * its response with `await using`, so a bare `Response` would fail to dispose
+ * and the middleware would report a routing outage instead of a bad double.
+ */
+function gatewayResponse(body: unknown) {
+  return asGatewayResponse(Response.json(body));
+}
 vi.mock("@originloom/core/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -85,13 +95,12 @@ describe("search indexing middleware", () => {
 describe("redirect rules middleware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.releaseGatewayResponse.mockResolvedValue(undefined);
   });
 
   // Each case uses its own path: the middleware caches a decision per pathname.
   it("obeys a destination the service names", async () => {
     mocks.gatewayFetchWithIdentity.mockResolvedValue(
-      Response.json({ action: "redirect", location: "/kredi-kartlari", status: 301 }),
+      gatewayResponse({ action: "redirect", location: "/kredi-kartlari", status: 301 }),
     );
 
     const result = await run(redirectRulesMiddleware, context("http://app.local/tasindi"));
@@ -106,7 +115,7 @@ describe("redirect rules middleware", () => {
   });
 
   it("asks once per path and serves the rest from its own cache", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ action: "next" }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(gatewayResponse({ action: "next" }));
 
     await run(redirectRulesMiddleware, context("http://app.local/tekrar"));
     await run(redirectRulesMiddleware, context("http://app.local/tekrar?utm_source=x"));
@@ -116,14 +125,14 @@ describe("redirect rules middleware", () => {
   });
 
   it("carries on when the service says next", async () => {
-    mocks.gatewayFetchWithIdentity.mockResolvedValue(Response.json({ action: "next" }));
+    mocks.gatewayFetchWithIdentity.mockResolvedValue(gatewayResponse({ action: "next" }));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/kalir"))).toBeUndefined();
   });
 
   it("refuses a destination that would send visitors off-site", async () => {
     mocks.gatewayFetchWithIdentity.mockResolvedValue(
-      Response.json({ action: "redirect", location: "https://evil.example/x" }),
+      gatewayResponse({ action: "redirect", location: "https://evil.example/x" }),
     );
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/disari"))).toBeUndefined();
@@ -131,7 +140,7 @@ describe("redirect rules middleware", () => {
 
   it("falls back to a temporary redirect when the service invents a status", async () => {
     mocks.gatewayFetchWithIdentity.mockResolvedValue(
-      Response.json({ action: "redirect", location: "/kredi-kartlari", status: 999 }),
+      gatewayResponse({ action: "redirect", location: "/kredi-kartlari", status: 999 }),
     );
 
     const result = await run(redirectRulesMiddleware, context("http://app.local/uydurma"));

@@ -1,7 +1,4 @@
-import {
-  gatewayFetchWithIdentity,
-  releaseGatewayResponse,
-} from "@originloom/core/adapters/gateway";
+import { gatewayFetchWithIdentity } from "@originloom/core/adapters/gateway";
 import { readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
@@ -53,15 +50,12 @@ async function decide(url: URL, request: Request): Promise<MiddlewareRedirect | 
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
   try {
-    const response = await gatewayFetchWithIdentity(
+    await using response = await gatewayFetchWithIdentity(
       request,
       `/routing/decide?url=${encodeURIComponent(url.toString())}`,
     );
-    if (!response.ok) {
-      await releaseGatewayResponse(response);
-      // An unanswered lookup is not "no rule": do not cache it as one.
-      return null;
-    }
+    // An unanswered lookup is not "no rule": do not cache it as one.
+    if (!response.ok) return null;
     const payload = await readGatewayJson(
       response,
       GatewayContracts.routing,

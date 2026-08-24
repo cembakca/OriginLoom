@@ -20,6 +20,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
   "lib/client/trusted-types",
   "lib/client/devtools",
   "lib/client/options",
+  "lib/form",
   "lib/cache-profiles",
   "assets",
   "dev-client",

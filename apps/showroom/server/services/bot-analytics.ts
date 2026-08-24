@@ -1,4 +1,4 @@
-import { gatewayFetch, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
+import { gatewayFetch } from "@originloom/core/adapters/gateway";
 import { productConfig } from "@server/product/config";
 
 import {
@@ -33,15 +33,13 @@ export function drainBotAnalytics(
 }
 
 async function sendBatch(events: BotVisit[], signal: AbortSignal): Promise<void> {
-  const response = await gatewayFetch("/analytics/bot", {
+  // Fire-and-forget analytics: nothing ever reads this body, so the whole job
+  // of the call site is to give the socket back. `await using` is that job.
+  await using response = await gatewayFetch("/analytics/bot", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ events }),
     signal,
   });
-  if (!response.ok) {
-    await releaseGatewayResponse(response);
-    throw new BotAnalyticsRejectedError(response.status);
-  }
-  await releaseGatewayResponse(response);
+  if (!response.ok) throw new BotAnalyticsRejectedError(response.status);
 }

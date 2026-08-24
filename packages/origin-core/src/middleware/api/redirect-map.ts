@@ -1,10 +1,6 @@
 import { isRecord } from "@originloom/shared/lib/runtime-schema";
 
-import {
-  gatewayFetch,
-  gatewayFetchWithIdentity,
-  releaseGatewayResponse,
-} from "../../adapters/gateway.js";
+import { gatewayFetch, gatewayFetchWithIdentity } from "../../adapters/gateway.js";
 import { config } from "../../config.js";
 import {
   defineGatewayContract,
@@ -64,7 +60,7 @@ export async function lookupRedirect(
     // The rule is the same for everyone and cached by path, so identity here is
     // telemetry — but the gateway is told who asked on this call as on any other.
     // A lookup with no request behind it (a warm-up, a test) simply has none.
-    const res = request
+    await using res = request
       ? await gatewayFetchWithIdentity(request, path, { method: "GET" })
       : await gatewayFetch(path, { method: "GET" });
     if (res.ok) {
@@ -79,8 +75,6 @@ export async function lookupRedirect(
         parseRule,
         "Redirect gateway returned an invalid payload",
       );
-    } else {
-      await releaseGatewayResponse(res);
     }
   } catch (error) {
     if (isRequestDeadlineError(request?.signal.reason)) throw request.signal.reason;

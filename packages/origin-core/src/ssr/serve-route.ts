@@ -144,13 +144,19 @@ async function respondToExecution(
     throw new Error("Route data result was not rendered");
   }
   const state = options.cacheKey ? "MISS" : "BYPASS";
-  const status = result.status ?? 200;
+  // A rejected submission renders the page again, so the loader has no reason to
+  // set a status — the action is what knows the request was refused. The loader
+  // still wins if it says something, because a 404 outranks a 422.
+  const status = result.status ?? execution.submission?.status ?? 200;
+  const headers = execution.submission?.headers
+    ? { ...execution.submission.headers, ...result.headers }
+    : result.headers;
   logOutcome(options, status, state);
   if (execution.streamResult) {
     return htmlResponse(execution.streamResult.stream, status, {
       policy: options.policy,
       state,
-      headers: result.headers,
+      headers,
       requestId: options.requestId,
       timings: serverTimings(options, execution),
     });
@@ -168,7 +174,7 @@ async function respondToExecution(
   return htmlResponse(body, status, {
     policy: options.policy,
     state,
-    headers: result.headers,
+    headers,
     requestId: options.requestId,
     timings: serverTimings(options, execution),
   });

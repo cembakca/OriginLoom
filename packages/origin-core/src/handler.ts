@@ -79,10 +79,26 @@ export function isSsrRouteRequest(
   routeTable: Route[],
   prepared?: PreparedRequest,
 ): boolean {
-  if (prepared) return prepared.matched !== null;
+  return matchedSsrRoute(request, routeTable, prepared) !== null;
+}
+
+/** The route this request would render, or null when no page owns the path. */
+export function matchedSsrRoute(
+  request: Request,
+  routeTable: Route[],
+  prepared?: PreparedRequest,
+): Route | null {
+  if (prepared) return prepared.matched?.route ?? null;
   const resolution = resolveRoute(new URL(request.url), config.gatewayUrl);
-  if (resolution.kind === "redirect" || resolution.kind === "proxy") return false;
-  return match(routeTable, resolution.pathname) !== null;
+  if (resolution.kind === "redirect" || resolution.kind === "proxy") return null;
+  return match(routeTable, resolution.pathname)?.route ?? null;
+}
+
+/** A submission a browser would not have sent from this site. */
+export function crossOriginSubmissionResponse(requestId?: string): Response {
+  const headers = new Headers({ "cache-control": "private, no-store", "x-cache": "BYPASS" });
+  if (requestId) headers.set("x-request-id", requestId);
+  return new Response(null, { status: 403, headers });
 }
 
 export function methodNotAllowedResponse(requestId?: string): Response {

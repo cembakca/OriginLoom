@@ -19,6 +19,7 @@ export const GatewayContracts = {
   knowledgeCenter: defineGatewayContract("knowledge_center", 1_048_576),
   markets: defineGatewayContract("markets", 524_288),
   menu: defineGatewayContract("menu", 262_144),
+  newsletter: defineGatewayContract("newsletter", 4_096),
   offers: defineGatewayContract("offers", 131_072),
   page: defineGatewayContract("page", 65_536),
   popularBlogs: defineGatewayContract("popular_blogs", 524_288),

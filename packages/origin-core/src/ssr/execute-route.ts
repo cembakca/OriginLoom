@@ -12,6 +12,7 @@ import { SpanKind, withSpan } from "../observability.js";
 import { getRuntime } from "../runtime.js";
 import { createShellResolution, type ShellResolution } from "../shell-resolution.js";
 import { rethrowRequestDeadline } from "./context.js";
+import { isSafeMethod } from "./request-resolution.js";
 import type { RenderPhase, RouteExecution } from "./types.js";
 
 export class CacheFillTimeoutError extends Error {
@@ -53,18 +54,36 @@ export async function executeRoute(
   assets: Assets,
   phase: RenderPhase,
 ): Promise<RouteExecution> {
+  // A submission is handled before anything else, and before the shell starts.
+  // Both halves of that matter: the loader has to see what the action decided,
+  // and a submission that redirects never had a page to build a shell for.
+  let submission: RouteExecution["submission"];
+  let loaderCtx = routeCtx;
+  if (route.action && !isSafeMethod(routeCtx.request.method)) {
+    const actionResult = await runAction(route, routeCtx, phase);
+    // A redirect, a 404 or an error ends the request here: Post/Redirect/Get is
+    // the success path, and there is no page to draw for the others.
+    if (actionResult.kind && actionResult.kind !== "data") return { result: actionResult };
+    loaderCtx = { ...routeCtx, action: actionResult.data };
+    submission = {
+      ...(actionResult.status !== undefined ? { status: actionResult.status } : {}),
+      ...(actionResult.headers ? { headers: actionResult.headers } : {}),
+    };
+  }
+
   const shellResolution = createShellResolution(
-    routeCtx,
+    loaderCtx,
     route.path,
     route.minimalChrome === undefined ? {} : { minimalChrome: route.minimalChrome },
   );
+
   // The loader and the render are the two sequential phases of a response, so
   // timing them separately is what turns "this page took 1700ms" into "the
   // gateway took 1400 of it". They ride out on Server-Timing in development.
   const loaderStarted = performance.now();
   let result;
   try {
-    result = await runLoader(route, routeCtx, phase);
+    result = await runLoader(route, loaderCtx, phase);
   } catch (error) {
     shellResolution.abort(error);
     throw error;
@@ -80,12 +99,13 @@ export async function executeRoute(
   const renderStarted = performance.now();
   if (!shouldStream) {
     try {
-      const body = await runRender(route, result.data, assets, routeCtx, phase, shellResolution);
+      const body = await runRender(route, result.data, assets, loaderCtx, phase, shellResolution);
       return {
         result,
         body,
         shellResolution,
         timings: { loaderMs, renderMs: performance.now() - renderStarted },
+        ...(submission ? { submission } : {}),
       };
     } catch (error) {
       shellResolution.abort(error);
@@ -98,7 +118,7 @@ export async function executeRoute(
       route,
       result.data,
       assets,
-      { routeCtx, shellResolution, includeRequestOverlay: phase === "request" },
+      { routeCtx: loaderCtx, shellResolution, includeRequestOverlay: phase === "request" },
       (error) => {
         logError(error, {
           requestId: routeCtx.trackingId,
@@ -116,6 +136,7 @@ export async function executeRoute(
       streamResult,
       shellResolution,
       timings: { loaderMs, renderMs: performance.now() - renderStarted },
+      ...(submission ? { submission } : {}),
     };
   } catch (error) {
     shellResolution.abort(error);
@@ -135,6 +156,21 @@ export async function executeRoute(
       errorId,
     };
   }
+}
+
+export function runAction(route: Route, routeCtx: Ctx, phase: RenderPhase) {
+  return withSpan(
+    "route.action",
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        "http.route": route.path,
+        "http.request.method": routeCtx.request.method,
+        "ssr.phase": phase,
+      },
+    },
+    () => route.action!(routeCtx),
+  );
 }
 
 export function runLoader(route: Route, routeCtx: Ctx, phase: RenderPhase) {

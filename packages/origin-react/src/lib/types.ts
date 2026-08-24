@@ -7,13 +7,14 @@ import type { ReactElement } from "react";
  * `@originloom/shared/lib/types` `Route` — a `Route[]` from this module is
  * accepted anywhere the server core asks for the neutral shape.
  */
-export type Route<T = unknown> = SharedRoute<T, ReactElement>;
+export type Route<T = unknown, A = unknown> = SharedRoute<T, ReactElement, A>;
 
-export function defineRoute<T>(r: Route<T>): Route<T> {
+export function defineRoute<T, A = unknown>(r: Route<T, A>): Route<T, A> {
   return r;
 }
 
 export type {
+  ActionCtx,
   CachePolicy,
   Ctx,
   LoaderResult,

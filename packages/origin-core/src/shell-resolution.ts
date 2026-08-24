@@ -3,6 +3,7 @@ import type { Ctx } from "@originloom/shared/lib/types";
 import { observeShellDependency } from "./metrics.js";
 import { SpanKind, withSpan } from "./observability.js";
 import { getRuntime, type ShellBuildOptions, type ShellDependencyContext } from "./runtime.js";
+import { withRequestSignal } from "./ssr/context.js";
 
 type ShellDependency =
   | "request_facts"
@@ -129,7 +130,7 @@ function shellContext(
   return {
     ctx: {
       ...ctx,
-      request: new Request(ctx.request, { signal }),
+      request: withRequestSignal(ctx.request, signal),
     },
     signal,
     options,

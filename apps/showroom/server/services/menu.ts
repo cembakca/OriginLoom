@@ -88,7 +88,7 @@ async function fetchMenuFromGateway(request: Request, device: DeviceType): Promi
   // The menu is cached under a device key and shared by every visitor, so this
   // call must not carry the caller's credentials — only the identity the gateway
   // wants for telemetry.
-  const res = await gatewayFetchWithIdentity(request, "/pages/menuitem/list", {
+  await using res = await gatewayFetchWithIdentity(request, "/pages/menuitem/list", {
     headers: {
       "content-type": "application/json",
       device,

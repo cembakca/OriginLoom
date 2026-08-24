@@ -1,8 +1,4 @@
-import {
-  gatewayFetchWithIdentity,
-  releaseGatewayResponse,
-  requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
+import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 import {
@@ -27,25 +23,24 @@ import type {
 const INVALID_CONTENT = "Knowledge center gateway returned an invalid payload";
 
 export async function getKnowledgeArticles(search: URLSearchParams, request: Request) {
-  const response = await gatewayFetchWithIdentity(request, `/content/articles?${search}`);
-  return parseResponse(response, isArticleList);
+  await using response = await gatewayFetchWithIdentity(request, `/content/articles?${search}`);
+  // `return await`, not `return`: disposal runs when this scope exits, and a
+  // bare `return` would exit it while the parse still had the body open.
+  return await parseResponse(response, isArticleList);
 }
 
 export async function getKnowledgeArticle(slug: string, request: Request) {
-  const response = await gatewayFetchWithIdentity(
+  await using response = await gatewayFetchWithIdentity(
     request,
     `/content/articles/${encodeURIComponent(slug)}`,
   );
-  if (response.status === 404) {
-    await releaseGatewayResponse(response);
-    return null;
-  }
-  return parseResponse(response, isArticleDetail);
+  if (response.status === 404) return null;
+  return await parseResponse(response, isArticleDetail);
 }
 
 export async function getPopularKnowledgeArticles(request: Request) {
-  const response = await gatewayFetchWithIdentity(request, "/content/articles/popular");
-  return parseResponse(response, isPopularArticleList);
+  await using response = await gatewayFetchWithIdentity(request, "/content/articles/popular");
+  return await parseResponse(response, isPopularArticleList);
 }
 
 async function parseResponse<T>(

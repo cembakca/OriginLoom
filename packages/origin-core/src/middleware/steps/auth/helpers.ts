@@ -5,7 +5,7 @@ import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 import { taintValueIfPossible } from "@originloom/shared/lib/taint";
 
-import { gatewayFetch, releaseGatewayResponse } from "../../../adapters/gateway.js";
+import { gatewayFetch } from "../../../adapters/gateway.js";
 import {
   acquireCoordinationLock,
   readCoordinationValue,
@@ -219,20 +219,16 @@ async function fetchRefreshResult(
   signal: AbortSignal,
 ): Promise<RefreshResult> {
   try {
-    const res = await gatewayFetch("/auth/refresh", {
+    // Three ways out of this block, two of them without reading the body.
+    // `await using` covers all three without a finally to keep in step.
+    await using res = await gatewayFetch("/auth/refresh", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ refreshToken }),
       signal,
     });
-    if (res.status === 400 || res.status === 401) {
-      await releaseGatewayResponse(res);
-      return { kind: "unauthorized" };
-    }
-    if (!res.ok) {
-      await releaseGatewayResponse(res);
-      return { kind: "unavailable" };
-    }
+    if (res.status === 400 || res.status === 401) return { kind: "unauthorized" };
+    if (!res.ok) return { kind: "unavailable" };
 
     const payload = await readGatewayJson(res, AUTH_REFRESH, INVALID_REFRESH);
     const data = requireGatewayPayload(AUTH_REFRESH, payload, isRefreshPayload, INVALID_REFRESH);

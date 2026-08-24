@@ -10,12 +10,38 @@ import {
 } from "../observability.js";
 import { applyGatewayIdentity, readGatewayIdentity } from "./gateway-identity.js";
 
+/**
+ * A gateway response that releases its own socket.
+ *
+ * `releaseGatewayResponse` has to run on every path out of a call, including the
+ * ones nobody thought about: an early return, a throw between the status check
+ * and the parse. `try`/`finally` says that, but only for an author who remembers
+ * to write it — and a missing `finally` reads exactly like a correct one right
+ * up until the connection pool runs dry under load, far from the code that lost
+ * the socket.
+ *
+ * `await using` moves the guarantee from the author to the language. The
+ * declaration is the cleanup, and there is no branch out of the block that can
+ * skip it:
+ *
+ * ```ts
+ * await using response = await gatewayFetchWithIdentity(request, path);
+ * await requireGatewayOk(response, "Lookup gateway returned");
+ * return parse(await readGatewayJson(response, contract, INVALID));
+ * ```
+ *
+ * Disposal is idempotent, so an existing `try`/`finally` around the same
+ * response keeps doing exactly what it did and a call site can move over on its
+ * own schedule.
+ */
+export type GatewayResponse = Response & AsyncDisposable;
+
 export function gatewayUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${config.gatewayUrl}${p}`;
 }
 
-export async function gatewayFetch(path: string, init: RequestInit = {}): Promise<Response> {
+export async function gatewayFetch(path: string, init: RequestInit = {}): Promise<GatewayResponse> {
   const url = new URL(gatewayUrl(path));
   return withSpan(
     `gateway ${init.method ?? "GET"} ${url.pathname}`,
@@ -61,7 +87,7 @@ export async function gatewayFetch(path: string, init: RequestInit = {}): Promis
         span.setAttribute("gateway.outcome", outcome);
         if (response.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
         observeGatewayRequest(response.status, performance.now() - started, outcome);
-        return response;
+        return asGatewayResponse(response);
       } catch (error) {
         const outcome = timeout.aborted || isUndiciTimeout(error) ? "timeout" : "network_error";
         span.setAttribute("gateway.outcome", outcome);
@@ -73,8 +99,31 @@ export async function gatewayFetch(path: string, init: RequestInit = {}): Promis
 }
 
 /**
+ * Attaches the release to the response itself.
+ *
+ * Defined on the instance rather than wrapped in a class, because every caller
+ * and every helper here already speaks `Response`; a wrapper would buy the same
+ * guarantee at the cost of changing the type the whole codebase passes around.
+ *
+ * Exported for test doubles. A fake gateway that hands back a bare `Response`
+ * gives an `await using` call site nothing to dispose, and the resulting
+ * TypeError surfaces as whatever that code does when the gateway misbehaves —
+ * a fallback, a swallowed warning — rather than as the contract mismatch it is.
+ */
+export function asGatewayResponse(response: Response): GatewayResponse {
+  return Object.defineProperty(response, Symbol.asyncDispose, {
+    value: () => releaseGatewayResponse(response),
+    configurable: true,
+  }) as GatewayResponse;
+}
+
+/**
  * Consumes a small unused response so Undici can return its socket to the pool.
  * Oversized error bodies are cancelled instead of being buffered without limit.
+ *
+ * Prefer `await using` over calling this by hand — see {@link GatewayResponse}.
+ * It stays exported because disposal has to be idempotent anyway, and because a
+ * response that did not come from this module has no dispose method to call.
  */
 export async function releaseGatewayResponse(response: Response, maxBytes = 65_536): Promise<void> {
   if (!response.body || response.bodyUsed) return;
@@ -136,7 +185,7 @@ export function gatewayFetchForRequest(
   request: Request,
   path: string,
   init: RequestInit = {},
-): Promise<Response> {
+): Promise<GatewayResponse> {
   const headers = new Headers(init.headers);
   const authorization = request.headers.get("authorization");
   const requestId = request.headers.get("x-request-id") ?? activeRequestId();
@@ -157,7 +206,7 @@ export function gatewayFetchWithIdentity(
   request: Request,
   path: string,
   init: RequestInit = {},
-): Promise<Response> {
+): Promise<GatewayResponse> {
   const headers = new Headers(init.headers);
   const requestId = request.headers.get("x-request-id") ?? activeRequestId();
   if (requestId && !headers.has("correlationid")) headers.set("correlationid", requestId);

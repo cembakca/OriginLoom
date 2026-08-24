@@ -8,6 +8,7 @@ import {
   observeFragmentRefresh,
 } from "../metrics.js";
 import { type FragmentDefinition, getRuntime } from "../runtime.js";
+import { withRequestSignal } from "../ssr/context.js";
 import { coalesceColdMiss } from "./cold-fill.js";
 import {
   materializeCachedHtmlDynamicValues,
@@ -269,7 +270,7 @@ async function renderFragment(
   timer.unref?.();
   const workCtx: Ctx = {
     ...ctx,
-    request: new Request(ctx.request, { signal: controller.signal }),
+    request: withRequestSignal(ctx.request, controller.signal),
   };
   const pending = (async () => {
     const shell = definition.requiresShell

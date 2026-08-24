@@ -4,9 +4,10 @@ import type { Handler } from "hono";
 
 import type { Assets } from "../assets.js";
 import {
+  crossOriginSubmissionResponse,
   handle,
   handleHead,
-  isSsrRouteRequest,
+  matchedSsrRoute,
   methodNotAllowedResponse,
   renderHandle,
   renderHeadRoute,
@@ -24,6 +25,7 @@ import {
 import { contextRequest } from "../middleware/request-deadline.js";
 import type { AppVariables } from "../middleware/request-id.js";
 import { setActiveHttpRoute } from "../observability.js";
+import { isSameOriginBrowserRequest } from "../security/public-api-guard.js";
 import { SsrCapacityError, ssrCapacityResponse } from "../ssr-capacity.js";
 
 export type Capacity = {
@@ -58,11 +60,24 @@ export function createSsrDispatch({
     const pathname = preparedRequest?.url.pathname ?? new URL(request.url).pathname;
     const clientIp = c.get("clientIp") ?? "127.0.0.1";
     const method = request.method.toUpperCase();
-    const ssrRoute = isSsrRouteRequest(request, routes, preparedRequest);
+    const matchedRoute = matchedSsrRoute(request, routes, preparedRequest);
+    const ssrRoute = matchedRoute !== null;
 
     if (ssrRoute && method !== "GET" && method !== "HEAD") {
-      setActiveHttpRoute(method, "<method-not-allowed>");
-      return methodNotAllowedResponse(requestId);
+      // A page that declares an action accepts submissions to its own path; one
+      // that does not still answers 405 rather than rendering, because a POST
+      // that quietly returns the page tells the sender their write succeeded.
+      if (!matchedRoute.action) {
+        setActiveHttpRoute(method, "<method-not-allowed>");
+        return methodNotAllowedResponse(requestId);
+      }
+      // A form action is a state change, and the only evidence a browser offers
+      // that the submission came from this site is the origin it reports — the
+      // same check the public API guard applies to every mutation.
+      if (!isSameOriginBrowserRequest(request)) {
+        setActiveHttpRoute(method, matchedRoute.path);
+        return crossOriginSubmissionResponse(requestId);
+      }
     }
     if (!ssrRoute && c.get("requestClass") === "ssr" && !shouldUsePipeline(pathname)) {
       return c.notFound();

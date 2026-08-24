@@ -34,4 +34,6 @@ export type RouteExecution = {
   shellResolution?: ShellResolution;
   /** Absent when the loader short-circuited before anything was rendered. */
   timings?: RouteTimings;
+  /** Present only when a form action ran: what it wants the response to say. */
+  submission?: { status?: number; headers?: Record<string, string> };
 };

@@ -548,7 +548,7 @@ const projectMetadata = ({
 // has no parent to extend, so it carries them inline. Hand-formatted to match
 // Prettier (short arrays inlined) so a fresh app passes its own format:check.
 const BASE_COMPILER_OPTIONS = `    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "ESNext.Disposable", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
@@ -1536,7 +1536,7 @@ import { logger } from "@originloom/core/logger";
 import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isRecord } from "@originloom/shared/lib/runtime-schema";
-import { gatewayFetch, releaseGatewayResponse } from "@server/diagnostics/gateway";
+import { gatewayFetch } from "@server/diagnostics/gateway";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 
 /**
@@ -1593,15 +1593,14 @@ async function decide(url: URL, request: Request): Promise<MiddlewareRedirect | 
     // This step also runs \`before-auth\`, so there is no tracking id and no
     // resolved client IP yet: sending the header set would carry one device type
     // and two empty values, which reads like a per-visitor call and is not one.
-    const response = await gatewayFetch(
+    // \`await using\`: the release runs on every way out of this block, including
+    // the early return below and a throw from the parse.
+    await using response = await gatewayFetch(
       \`/routing/decide?url=\${encodeURIComponent(url.toString())}\`,
       { signal: request.signal },
     );
-    if (!response.ok) {
-      await releaseGatewayResponse(response);
-      // An unanswered lookup is not "no rule": do not cache it as one.
-      return null;
-    }
+    // An unanswered lookup is not "no rule": do not cache it as one.
+    if (!response.ok) return null;
     const payload = await readGatewayJson(
       response,
       GatewayContracts.routing,
@@ -2267,7 +2266,9 @@ export const searchIndexingMiddleware = defineMiddleware({
 });
 `;
 
-const middlewareTest = () => `import type {
+const middlewareTest = () => `import { asGatewayResponse } from "@originloom/core/adapters/gateway";
+import type * as gatewayAdapter from "@originloom/core/adapters/gateway";
+import type {
   MiddlewareContext,
   MiddlewareResult,
   OriginMiddleware,
@@ -2279,12 +2280,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   gatewayFetch: vi.fn(),
-  releaseGatewayResponse: vi.fn(),
 }));
 
-vi.mock("@originloom/core/adapters/gateway", () => ({
+vi.mock("@originloom/core/adapters/gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof gatewayAdapter>()),
   gatewayFetch: mocks.gatewayFetch,
-  releaseGatewayResponse: mocks.releaseGatewayResponse,
 }));
 vi.mock("@originloom/core/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -2342,16 +2342,25 @@ describe("search indexing middleware", () => {
   });
 });
 
+/**
+ * A fake gateway still owes the gateway contract. The middleware takes its
+ * response with \`await using\`, so a bare \`Response\` has nothing to dispose and
+ * the failure surfaces as "the routing service is down" rather than as the bad
+ * double it actually is.
+ */
+function gatewayResponse(body: unknown) {
+  return asGatewayResponse(Response.json(body));
+}
+
 describe("redirect rules middleware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.releaseGatewayResponse.mockResolvedValue(undefined);
   });
 
   // Each case uses its own path: the middleware caches a decision per pathname.
   it("obeys a destination the service names", async () => {
     mocks.gatewayFetch.mockResolvedValue(
-      Response.json({ action: "redirect", location: "/catalog", status: 301 }),
+      gatewayResponse({ action: "redirect", location: "/catalog", status: 301 }),
     );
 
     const result = await run(redirectRulesMiddleware, context("http://app.local/moved"));
@@ -2367,14 +2376,14 @@ describe("redirect rules middleware", () => {
   });
 
   it("carries on when the service says next", async () => {
-    mocks.gatewayFetch.mockResolvedValue(Response.json({ action: "next" }));
+    mocks.gatewayFetch.mockResolvedValue(gatewayResponse({ action: "next" }));
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/stays"))).toBeUndefined();
   });
 
   it("refuses a destination that would send visitors off-site", async () => {
     mocks.gatewayFetch.mockResolvedValue(
-      Response.json({ action: "redirect", location: "https://evil.example/x" }),
+      gatewayResponse({ action: "redirect", location: "https://evil.example/x" }),
     );
 
     expect(await run(redirectRulesMiddleware, context("http://app.local/offsite"))).toBeUndefined();
@@ -3235,7 +3244,6 @@ import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import {
   gatewayFetchWithIdentity,
-  releaseGatewayResponse,
   requireGatewayOk,
 } from "@server/diagnostics/gateway";
 
@@ -3328,15 +3336,12 @@ export async function getItem(
   search: URLSearchParams,
   request: Request,
 ): Promise<ItemDetail | null> {
-  const response = await gatewayFetchWithIdentity(
+  await using response = await gatewayFetchWithIdentity(
     request,
     \`/items/\${encodeURIComponent(slug)}?\${search}\`,
   );
   // A missing item is data, not a failure — the route turns it into notFound().
-  if (response.status === 404) {
-    await releaseGatewayResponse(response);
-    return null;
-  }
+  if (response.status === 404) return null;
   await requireGatewayOk(response, "Items gateway returned");
 
   const payload = await readGatewayJson(response, GatewayContracts.items, INVALID);
@@ -3350,16 +3355,13 @@ export async function getItem(
  * streams while this is still in flight. See docs/streaming.md.
  */
 export async function getItemReviews(slug: string, request: Request): Promise<ItemReview[]> {
-  const response = await gatewayFetchWithIdentity(
+  await using response = await gatewayFetchWithIdentity(
     request,
     \`/items/\${encodeURIComponent(slug)}/reviews\`,
   );
   // Reviews are an addition to the page, not the page: a missing or broken
   // response costs the section, not the product.
-  if (!response.ok) {
-    await releaseGatewayResponse(response);
-    return [];
-  }
+  if (!response.ok) return [];
   const payload = await readGatewayJson(response, GatewayContracts.items, INVALID);
   const reviews = requireGatewayPayload(
     GatewayContracts.items,
@@ -5101,7 +5103,6 @@ import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import {
   gatewayFetchWithIdentity,
-  releaseGatewayResponse,
   requireGatewayOk,
 } from "@server/diagnostics/gateway";
 
@@ -5137,11 +5138,8 @@ export async function listGuides(request: Request): Promise<GuideList> {
 }
 
 export async function getGuide(slug: string, request: Request): Promise<GuideDetail | null> {
-  const response = await gatewayFetchWithIdentity(request, \`/guides/\${encodeURIComponent(slug)}\`);
-  if (response.status === 404) {
-    await releaseGatewayResponse(response);
-    return null;
-  }
+  await using response = await gatewayFetchWithIdentity(request, \`/guides/\${encodeURIComponent(slug)}\`);
+  if (response.status === 404) return null;
   await requireGatewayOk(response, "Guides gateway returned");
 
   const payload = await readGatewayJson(response, GatewayContracts.guides, INVALID);
@@ -6548,7 +6546,7 @@ export function projectMenu(menu: IMenuItems, shell: "desktop" | "mobile"): Proj
 
 const botAnalyticsService = () => `import { logger } from "@originloom/core/logger";
 import type { BotVisit } from "@originloom/core/runtime";
-import { gatewayFetch, releaseGatewayResponse, requireGatewayOk } from "@server/diagnostics/gateway";
+import { gatewayFetch, requireGatewayOk } from "@server/diagnostics/gateway";
 import { productConfig } from "@server/product/config";
 
 type Sender = (events: BotVisit[], signal: AbortSignal) => Promise<void>;
@@ -6665,14 +6663,15 @@ export function drainBotAnalytics(): Promise<boolean> {
 }
 
 async function sendBatch(events: BotVisit[], signal: AbortSignal): Promise<void> {
-  const response = await gatewayFetch("/analytics/bot", {
+  // Nothing ever reads this body, so the entire job of the call site is to give
+  // the socket back — which is exactly what \`await using\` is.
+  await using response = await gatewayFetch("/analytics/bot", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ events }),
     signal,
   });
   await requireGatewayOk(response, "Bot analytics gateway returned");
-  await releaseGatewayResponse(response);
 }
 `;
 
@@ -7451,11 +7450,11 @@ import {
  * failure is exactly the case the trace exists for, so swallowing it here would
  * defeat the purpose.
  */
-async function instrument(
+async function instrument<T extends Response>(
   path: string,
   method: string,
-  call: () => Promise<Response>,
-): Promise<Response> {
+  call: () => Promise<T>,
+): Promise<T> {
   if (!SSR_DIAGNOSTICS_ENABLED) return call();
 
   const started = performance.now();
@@ -7482,21 +7481,21 @@ async function instrument(
 
 export function gatewayFetch(
   ...args: Parameters<typeof coreGateway.gatewayFetch>
-): Promise<Response> {
+): Promise<coreGateway.GatewayResponse> {
   const [path, init] = args;
   return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetch(...args));
 }
 
 export function gatewayFetchWithIdentity(
   ...args: Parameters<typeof coreGateway.gatewayFetchWithIdentity>
-): Promise<Response> {
+): Promise<coreGateway.GatewayResponse> {
   const [, path, init] = args;
   return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetchWithIdentity(...args));
 }
 
 export function gatewayFetchForRequest(
   ...args: Parameters<typeof coreGateway.gatewayFetchForRequest>
-): Promise<Response> {
+): Promise<coreGateway.GatewayResponse> {
   const [, path, init] = args;
   return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetchForRequest(...args));
 }
@@ -9987,7 +9986,7 @@ const profileService =
   () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import { gatewayFetchForRequest, releaseGatewayResponse } from "@server/diagnostics/gateway";
+import { gatewayFetchForRequest } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -10010,15 +10009,9 @@ export async function fetchUserProfile(request: Request): Promise<UserProfileRes
   if (!request.headers.get("authorization")) return { kind: "unauthorized" };
 
   try {
-    const response = await gatewayFetchForRequest(request, "/user/profile");
-    if (response.status === 401 || response.status === 403) {
-      await releaseGatewayResponse(response);
-      return { kind: "unauthorized" };
-    }
-    if (!response.ok) {
-      await releaseGatewayResponse(response);
-      return { kind: "unavailable" };
-    }
+    await using response = await gatewayFetchForRequest(request, "/user/profile");
+    if (response.status === 401 || response.status === 403) return { kind: "unauthorized" };
+    if (!response.ok) return { kind: "unavailable" };
 
     const payload = await readGatewayJson(response, GatewayContracts.profile, INVALID);
     const data = requireGatewayPayload(
@@ -10716,7 +10709,6 @@ const referralService =
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import {
   gatewayFetchWithIdentity,
-  releaseGatewayResponse,
   requireGatewayOk,
 } from "@server/diagnostics/gateway";
 
@@ -10743,16 +10735,13 @@ export async function createReferral(
   anonymousSessionId: string,
   request: Request,
 ): Promise<Referral | null> {
-  const response = await gatewayFetchWithIdentity(request, "/referrals", {
+  await using response = await gatewayFetchWithIdentity(request, "/referrals", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ slug, anonymousSessionId }),
   });
   // An unknown product is data, not a failure — the endpoint turns it into a 404.
-  if (response.status === 400 || response.status === 404) {
-    await releaseGatewayResponse(response);
-    return null;
-  }
+  if (response.status === 400 || response.status === 404) return null;
   await requireGatewayOk(response, "Referral gateway returned");
 
   const payload = await readGatewayJson(response, GatewayContracts.referral, INVALID);

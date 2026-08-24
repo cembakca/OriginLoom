@@ -35,6 +35,7 @@ export const WARM_PATH_PERFORMANCE_MIGRATION = "0.7.24-warm-path-performance";
 export const NODE_24_MIGRATION = "0.7.26-node-24";
 export const DEVTOOLS_OPTION_MIGRATION = "0.7.32-devtools-client-option";
 export const SHUTDOWN_DRAIN_ORDER_MIGRATION = "0.7.32-shutdown-drain-order";
+export const DISPOSABLE_GATEWAY_MIGRATION = "0.7.34-disposable-gateway-response";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -407,6 +408,29 @@ export const migrations = [
     },
   },
   {
+    id: DISPOSABLE_GATEWAY_MIGRATION,
+    introducedIn: "0.7.34",
+    description:
+      "Gateway yanıtları `await using` ile kapatılabilir hale gelir: tsconfig `lib` listesine ESNext.Disposable eklenir ve uygulamanın kendi gateway adapter'ı çekirdeğin GatewayResponse tipini olduğu gibi geçirir. Mevcut try/finally çağrıları aynen çalışmaya devam eder — bu migration yeni yazımı mümkün kılar, eskisini bozmaz.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "tsconfig.json",
+        patchDisposableLib,
+        manualRequired,
+      );
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "server/diagnostics/gateway.ts",
+        patchGatewayAdapterResponseType,
+      );
+    },
+  },
+  {
     id: WARM_PATH_PERFORMANCE_MIGRATION,
     introducedIn: "0.7.24",
     description:
@@ -665,6 +689,73 @@ function patchShutdownDrainOrder(source) {
     status: "patched",
     source: source.replace(whole, () => replacement),
     detail: "Kapanış iki faza ayrıldı: önce dinleyiciler kapanır, sonra drain'ler başlar.",
+  };
+}
+
+const DISPOSABLE_LIB = "ESNext.Disposable";
+
+/**
+ * Adds the disposable lib without reformatting the file.
+ *
+ * A hand-edited tsconfig is the app's, and a JSON round-trip would reflow every
+ * comment and every choice of quoting in it. Splicing the one entry in beside
+ * the ES lib it belongs next to leaves the rest byte-identical.
+ */
+function patchDisposableLib(source) {
+  if (source.includes(DISPOSABLE_LIB)) return { status: "already-applied" };
+  const lib = /("lib"\s*:\s*\[)([^\]]*)(\])/.exec(source);
+  if (!lib || lib.index === undefined) {
+    return {
+      status: "manual-required",
+      detail:
+        'tsconfig.json içinde bir "lib" dizisi bulunamadı. `await using` için listeye ' +
+        '"ESNext.Disposable" ekleyin.',
+    };
+  }
+  const entries = lib[2];
+  const quote = entries.includes("'") && !entries.includes('"') ? "'" : '"';
+  const patched = entries.replace(
+    /(['"])(ES\d{4}|ESNext)\1/,
+    (match) => `${match}, ${quote}${DISPOSABLE_LIB}${quote}`,
+  );
+  if (patched === entries) {
+    return {
+      status: "manual-required",
+      detail:
+        'tsconfig.json "lib" listesinde tanınan bir ES sürümü yok. ' +
+        '"ESNext.Disposable" girdisini elle ekleyin.',
+    };
+  }
+  return {
+    status: "patched",
+    source:
+      source.slice(0, lib.index) +
+      lib[1] +
+      patched +
+      lib[3] +
+      source.slice(lib.index + lib[0].length),
+    detail: "tsconfig lib listesine ESNext.Disposable eklendi.",
+  };
+}
+
+/**
+ * Stops the app's own gateway adapter from erasing the disposable type.
+ *
+ * The wrapper exists to record upstream calls, not to change the contract — but
+ * a declared `Promise<Response>` is exactly what makes `await using` reject at
+ * the call site, and the error points at the service rather than at the wrapper
+ * that caused it.
+ */
+function patchGatewayAdapterResponseType(source) {
+  if (source.includes("GatewayResponse")) return { status: "already-applied" };
+  const declaration =
+    /(export (?:async )?function (?:gatewayFetch|gatewayFetchWithIdentity|gatewayFetchForRequest)\([^)]*\): Promise<)Response(>)/g;
+  const patched = source.replace(declaration, "$1coreGateway.GatewayResponse$2");
+  if (patched === source) return source;
+  return {
+    status: "patched",
+    source: patched,
+    detail: "Gateway adapter çekirdeğin GatewayResponse tipini olduğu gibi geçiriyor.",
   };
 }
 

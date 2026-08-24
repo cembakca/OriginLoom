@@ -46,7 +46,7 @@ export async function fetchRouteDomains(request?: Request): Promise<RouteDomains
   // The snapshot is shared, so identity here is telemetry rather than a content
   // dimension — and a refresh triggered by a background task has no request to
   // read it from.
-  const response = request
+  await using response = request
     ? await gatewayFetchWithIdentity(request, "/routing/domains")
     : await gatewayFetch("/routing/domains");
   await requireGatewayOk(response, "Route domains gateway returned");

@@ -1,4 +1,4 @@
-import { gatewayFetchForRequest, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
+import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import {
@@ -20,15 +20,9 @@ export async function fetchAccountSummary(request: Request): Promise<AccountSumm
   if (!request.headers.get("authorization")) return { kind: "unauthorized" };
 
   try {
-    const response = await gatewayFetchForRequest(request, "/account/summary");
-    if (response.status === 401 || response.status === 403) {
-      await releaseGatewayResponse(response);
-      return { kind: "unauthorized" };
-    }
-    if (!response.ok) {
-      await releaseGatewayResponse(response);
-      return { kind: "unavailable" };
-    }
+    await using response = await gatewayFetchForRequest(request, "/account/summary");
+    if (response.status === 401 || response.status === 403) return { kind: "unauthorized" };
+    if (!response.ok) return { kind: "unavailable" };
 
     const payload = await readGatewayJson(response, GatewayContracts.account, INVALID_ACCOUNT);
     const data = requireGatewayPayload(

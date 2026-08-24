@@ -45,6 +45,7 @@ export const PageCacheId = {
   financeReferral: "finance-referral",
   serverIsland: "server-island",
   previewDemo: "preview-demo",
+  newsletter: "newsletter",
 } as const;
 
 export type PageCacheId = (typeof PageCacheId)[keyof typeof PageCacheId];
@@ -129,6 +130,25 @@ export const pageCacheRegistry: Record<PageCacheId, PageCacheDefinition> = {
     // No visitor dimension in the key on purpose: the personal part is not in
     // this HTML at all, so one cached entry serves everyone.
     buildKey: (ctx) => ["server-island", locale(ctx.request), layoutCacheFragment(ctx)],
+  },
+  [PageCacheId.newsletter]: {
+    id: PageCacheId.newsletter,
+    description: "Bülten formu — GET paylaşılan cache'ten, POST asla",
+    path: "/bulten",
+    strategy: "shared",
+    ttl: 3600,
+    tags: SHARED_SHELL_TAGS,
+    // The success state is a query param, so it has to be in the key — and
+    // bounded to the one value the route can produce. Letting `durum` through
+    // raw would let any visitor mint an unlimited number of cache entries.
+    contentQueryParams: ["durum"],
+    contentQueryNormalize: { durum: (value) => (value === "ok" ? "ok" : "") },
+    buildKey: (ctx) => [
+      "newsletter",
+      locale(ctx.request),
+      queryPart(pageCacheRegistry[PageCacheId.newsletter], ctx),
+      layoutCacheFragment(ctx),
+    ],
   },
   [PageCacheId.previewDemo]: {
     id: PageCacheId.previewDemo,

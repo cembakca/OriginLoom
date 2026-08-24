@@ -18,6 +18,16 @@ type RouteErrorComponent<E, TNode> = {
 
 type RouteNotFoundComponent<TNode> = () => TNode;
 
+/**
+ * Bivariant like `RouteComponent`, and for the same reason: a `Route<Data,
+ * _, Action>` has to stay assignable to the neutral `Route` the route table
+ * holds, and a loader that reads a narrower `ctx.action` is contravariant in
+ * exactly the way that would forbid it.
+ */
+type RouteLoader<T, A> = {
+  bivarianceHack(ctx: ActionCtx<A>): Promise<LoaderResult<T>>;
+}["bivarianceHack"];
+
 type RouteDataCallback<T, R> = {
   bivarianceHack(data: T, ctx: Ctx): R;
 }["bivarianceHack"];
@@ -51,7 +61,18 @@ export type Ctx = {
   cspNonce?: string;
   /** Document SSR request id — embedded for client error correlation only. */
   pageRequestId?: string;
+  /**
+   * What this request's form action returned, when one ran and returned data.
+   *
+   * Only ever present on a submission: a GET render never sees it, which is why
+   * the same component can render the empty form and the rejected one without
+   * asking which it is.
+   */
+  action?: unknown;
 };
+
+/** The context a route's loader sees, with its own action result typed. */
+export type ActionCtx<A> = Ctx & { action?: A };
 
 /**
  * How the rendered HTML may be reused.
@@ -120,7 +141,7 @@ export type LoaderResult<T> =
     } & ResultHeaders)
   | ({ kind: "error"; error: RouteError; status?: number } & ResultHeaders);
 
-export type Route<T = unknown, TNode = unknown> = {
+export type Route<T = unknown, TNode = unknown, A = unknown> = {
   path: string;
   streaming?: boolean;
 
@@ -139,8 +160,34 @@ export type Route<T = unknown, TNode = unknown> = {
    */
   cache?: RouteCacheResolver;
 
+  /**
+   * Handles a submission to this route's own path — the form's `action` is the
+   * page it lives on, so there is no second URL to keep in step.
+   *
+   * A form is the one interactive control a browser ships on its own, and it
+   * works before a single byte of JavaScript arrives. Keeping the handler on the
+   * route is what lets that keep being true: the browser posts, this runs, and
+   * the page comes back rendered by the same component that drew the empty form.
+   *
+   * Two ways out, and they are the two the web already had:
+   *
+   * - `redirect(location, 303)` — the success path. Post/Redirect/Get, so a
+   *   reload or a back button re-runs a GET instead of re-submitting.
+   * - `{ data, status }` — the rejected path. The result reaches the loader as
+   *   `ctx.action`, so the page can redraw the form with its errors and the
+   *   visitor's own values still in it. Send a 4xx status; a rejected
+   *   submission that answers 200 lies to every client that is not a browser.
+   *
+   * A route without an action answers 405 to anything but GET and HEAD: a page
+   * that cannot accept a submission should say so rather than quietly render.
+   *
+   * Never cached, in either direction. The response carries `no-store` and the
+   * request neither reads nor fills the HTML cache.
+   */
+  action?: (ctx: Ctx) => Promise<LoaderResult<A>>;
+
   /** Runs on cache miss. Free to be async and to hit your API. */
-  loader: (ctx: Ctx) => Promise<LoaderResult<T>>;
+  loader: RouteLoader<T, A>;
 
   Component: RouteComponent<T, TNode>;
 
@@ -175,7 +222,9 @@ export type Route<T = unknown, TNode = unknown> = {
   minimalChrome?: boolean;
 };
 
-export function defineRoute<T, TNode = unknown>(r: Route<T, TNode>): Route<T, TNode> {
+export function defineRoute<T, TNode = unknown, A = unknown>(
+  r: Route<T, TNode, A>,
+): Route<T, TNode, A> {
   return r;
 }
 

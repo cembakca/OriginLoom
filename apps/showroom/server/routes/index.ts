@@ -14,6 +14,7 @@ import knowledgeArticle from "./knowledge-article";
 import knowledgeCenter from "./knowledge-center";
 import loanCalculator from "./loan-calculator";
 import mediaPipeline from "./media-pipeline";
+import newsletter from "./newsletter";
 import previewDemo from "./preview-demo";
 import recourseRedirect from "./recourse-redirect";
 import remoteCustomerObtain from "./remote-customer-obtain";
@@ -24,6 +25,7 @@ export const routes: Route[] = [
   home,
   serverIsland,
   previewDemo,
+  newsletter,
   housingLoans,
   housingLoanDetail,
   creditCards,

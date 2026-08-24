@@ -8,6 +8,7 @@ import type { Ctx, Route } from "@originloom/shared/lib/types";
 import { logError } from "../logger.js";
 import { getRuntime } from "../runtime.js";
 import { createShellResolution, type ShellResolution } from "../shell-resolution.js";
+import { withRequestSignal } from "../ssr/context.js";
 import { rethrowRequestDeadline } from "../ssr/context.js";
 import {
   fragmentFallbackByName,
@@ -107,7 +108,7 @@ async function resolveUsableShell(
 function detachedContext(ctx: Ctx): Ctx {
   return {
     ...ctx,
-    request: new Request(ctx.request, { signal: new AbortController().signal }),
+    request: withRequestSignal(ctx.request, new AbortController().signal),
   };
 }
 

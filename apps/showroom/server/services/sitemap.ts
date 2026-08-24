@@ -17,7 +17,7 @@ export type SitemapEntry = {
 };
 
 export async function fetchSitemapEntries(request?: Request): Promise<SitemapEntry[]> {
-  const response = request
+  await using response = request
     ? await gatewayFetchWithIdentity(request, "/seo/sitemap")
     : await gatewayFetch("/seo/sitemap");
   await requireGatewayOk(response, "Sitemap gateway returned");

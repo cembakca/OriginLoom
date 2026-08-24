@@ -1,8 +1,4 @@
-import {
-  gatewayFetchWithIdentity,
-  releaseGatewayResponse,
-  requireGatewayOk,
-} from "@originloom/core/adapters/gateway";
+import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
 import type { GatewayContract } from "@originloom/core/gateway-payload";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import {
@@ -120,15 +116,12 @@ export async function createReferral(
   anonymousSessionId: string,
   request: Request,
 ): Promise<ReferralCreated | null> {
-  const response = await gatewayFetchWithIdentity(request, "/finance/referrals", {
+  await using response = await gatewayFetchWithIdentity(request, "/finance/referrals", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ productType, slug, anonymousSessionId }),
   });
-  if (response.status === 400 || response.status === 404) {
-    await releaseGatewayResponse(response);
-    return null;
-  }
+  if (response.status === 400 || response.status === 404) return null;
   await requireGatewayOk(response, "Finance gateway returned");
   const payload = await readGatewayJson(
     response,
@@ -144,7 +137,7 @@ export async function createReferral(
 }
 
 export async function getReferralStats(request: Request): Promise<ReferralStats> {
-  const response = await gatewayFetchWithIdentity(request, "/internal/referrals/stats");
+  await using response = await gatewayFetchWithIdentity(request, "/internal/referrals/stats");
   await requireGatewayOk(response, "Referral stats gateway returned");
   const payload = await readGatewayJson(
     response,
@@ -165,7 +158,7 @@ async function getJson<T>(
   guard: (value: unknown) => value is T,
   request: Request,
 ): Promise<T> {
-  const response = await gatewayFetchWithIdentity(request, path);
+  await using response = await gatewayFetchWithIdentity(request, path);
   await requireGatewayOk(response, "Finance gateway returned");
   const payload = await readGatewayJson(response, contract, INVALID_FINANCE);
   return requireGatewayPayload(contract, payload, guard, INVALID_FINANCE);
@@ -177,11 +170,8 @@ async function getOptionalJson<T>(
   guard: (value: unknown) => value is T,
   request: Request,
 ): Promise<T | null> {
-  const response = await gatewayFetchWithIdentity(request, path);
-  if (response.status === 404) {
-    await releaseGatewayResponse(response);
-    return null;
-  }
+  await using response = await gatewayFetchWithIdentity(request, path);
+  if (response.status === 404) return null;
   await requireGatewayOk(response, "Finance gateway returned");
   const payload = await readGatewayJson(response, contract, INVALID_FINANCE);
   return requireGatewayPayload(contract, payload, guard, INVALID_FINANCE);

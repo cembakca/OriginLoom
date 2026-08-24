@@ -115,12 +115,22 @@ async function resolveValidatedRoute(
 }
 
 function resolvedRoute(route: Route, routeCtx: Ctx, context: HandleContext): ResolvedSsrRequest {
-  const declared = route.cache?.(routeCtx) ?? { kind: "none" as const };
+  // A submission answers one visitor about what they just sent. Downgrading the
+  // policy here rather than in each route is the point: a cacheable page that
+  // grows a form cannot forget, and `{ kind: "none" }` is what makes the
+  // response `private, no-store` as well as unkeyed.
+  const declared = isSafeMethod(routeCtx.request.method)
+    ? (route.cache?.(routeCtx) ?? { kind: "none" as const })
+    : { kind: "none" as const };
   // Preview downgrades the policy before the key exists, so a draft render has
   // nothing to read from and nothing to write to. Doing it here rather than in
   // each route is the point: a route cannot forget.
   const policy = previewCachePolicy(applyMiddlewareCacheVary(declared, context), routeCtx.request);
   return { kind: "route", route, routeCtx, policy, cacheKey: cache.cacheKey(policy) };
+}
+
+export function isSafeMethod(method: string): boolean {
+  return method === "GET" || method === "HEAD";
 }
 
 async function resolveNotFoundResponse(

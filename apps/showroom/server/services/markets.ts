@@ -19,7 +19,7 @@ import type { Stock, StockList } from "~/lib/contracts/markets";
 const INVALID_MARKETS = "Markets gateway returned an invalid payload";
 
 export async function getBist100(search: URLSearchParams, request: Request) {
-  const response = await gatewayFetchWithIdentity(request, `/markets/bist100?${search}`);
+  await using response = await gatewayFetchWithIdentity(request, `/markets/bist100?${search}`);
   await requireGatewayOk(response, "Markets gateway returned");
   const payload = await readGatewayJson(response, GatewayContracts.markets, INVALID_MARKETS);
   return requireGatewayPayload(GatewayContracts.markets, payload, isStockList, INVALID_MARKETS);

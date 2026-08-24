@@ -1,4 +1,4 @@
-import { gatewayFetchForRequest, releaseGatewayResponse } from "@originloom/core/adapters/gateway";
+import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
@@ -15,15 +15,9 @@ export async function fetchUserProfileResult(request: Request): Promise<UserProf
   if (!request.headers.get("authorization")) return { kind: "unauthorized" };
 
   try {
-    const res = await gatewayFetchForRequest(request, "/user/profile");
-    if (res.status === 401 || res.status === 403) {
-      await releaseGatewayResponse(res);
-      return { kind: "unauthorized" };
-    }
-    if (!res.ok) {
-      await releaseGatewayResponse(res);
-      return { kind: "unavailable" };
-    }
+    await using res = await gatewayFetchForRequest(request, "/user/profile");
+    if (res.status === 401 || res.status === 403) return { kind: "unauthorized" };
+    if (!res.ok) return { kind: "unavailable" };
 
     const payload = await readGatewayJson(res, GatewayContracts.profile, INVALID_PROFILE);
     const data = requireGatewayPayload(
