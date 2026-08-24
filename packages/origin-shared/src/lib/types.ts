@@ -62,6 +62,16 @@ export type Ctx = {
   /** Document SSR request id — embedded for client error correlation only. */
   pageRequestId?: string;
   /**
+   * A per-response key for a form on this page to carry, so a resubmission of
+   * the same rendered form is recognisable as one.
+   *
+   * Minted by the platform, never read from the request: a key a client can
+   * choose is a key a client can choose for someone else. On a shared page it
+   * travels as a cache slot, so two visitors served one cached body still get
+   * two keys.
+   */
+  submissionKey?: string;
+  /**
    * What this request's form action returned, when one ran and returned data.
    *
    * Only ever present on a submission: a GET render never sees it, which is why

@@ -12,6 +12,7 @@ describe("shared HTML dynamic values", () => {
   const fillValues = {
     cspNonce: "fill-nonce+safe=",
     pageRequestId: "fill-request-id",
+    submissionKey: "fill-submission-key-0001",
   };
   const rendered =
     '<!DOCTYPE html><script nonce="fill-nonce+safe=">run()</script>' +
@@ -39,6 +40,35 @@ describe("shared HTML dynamic values", () => {
   it("gives cache-fill renderers markers instead of concrete request values", () => {
     expect(cachedHtmlDynamicValues(fillValues)).toEqual(dynamicHtmlPlaceholders());
     expect(cachedHtmlDynamicValues({})).toEqual({});
+  });
+
+  /**
+   * The slot exists because the page it sits on may be shared. Two visitors
+   * served one cached body must not submit under one key, or the guard becomes
+   * the bug: the second person's subscription replays as the first person's.
+   */
+  it("gives two visitors two submission keys out of one cached body", () => {
+    const placeholders = dynamicHtmlPlaceholders();
+    const cached = `<input name="_islem" value="${placeholders.submissionKey}">`;
+
+    const first = materializeCachedHtmlDynamicValues(cached, {
+      submissionKey: "aaaaaaaaaaaaaaaaaaaa",
+    });
+    const second = materializeCachedHtmlDynamicValues(cached, {
+      submissionKey: "bbbbbbbbbbbbbbbbbbbb",
+    });
+
+    expect(first).toContain('value="aaaaaaaaaaaaaaaaaaaa"');
+    expect(second).toContain('value="bbbbbbbbbbbbbbbbbbbb"');
+  });
+
+  /** The alphabet is checked, not escaped: a key needing escaping is not ours. */
+  it("empties the submission slot rather than trusting a malformed key", () => {
+    const cached = `<input value="${dynamicHtmlPlaceholders().submissionKey}">`;
+
+    expect(
+      materializeCachedHtmlDynamicValues(cached, { submissionKey: 'bad" onload="run()' }),
+    ).toBe('<input value="">');
   });
 
   it("fails closed for missing, unsafe and unknown slot values", () => {

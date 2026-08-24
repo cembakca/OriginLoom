@@ -1,4 +1,4 @@
-import { boundedIdempotencyKey, newIdempotencyKey, runOnce } from "@originloom/core/idempotency";
+import { boundedIdempotencyKey, runOnce } from "@originloom/core/idempotency";
 import { redirect } from "@originloom/react/lib/types";
 import { defineRoute } from "@originloom/react/lib/types";
 import {
@@ -108,9 +108,9 @@ export default defineRoute<NewsletterData, NewsletterFormState>({
     data: {
       state: ctx.action ?? EMPTY_STATE,
       subscribed: ctx.url.searchParams.get("durum") === "ok",
-      // Minted here, so every render — including the one that redraws a
-      // rejected submission — hands the form a key of its own.
-      submissionKey: newIdempotencyKey(),
+      // From the context, not minted here: on a shared page it travels as a
+      // cache slot, so two visitors served one cached body still get two keys.
+      submissionKey: ctx.submissionKey ?? "",
     },
   }),
 

@@ -6,17 +6,35 @@ const DYNAMIC_MARKER_PREFIX = "__ORIGINLOOM_";
 const UNKNOWN_DYNAMIC_PREFIX = "__ORIGINLOOM_DYNAMIC_";
 const CSP_NONCE_PLACEHOLDER = "__ORIGINLOOM_CSP_NONCE__";
 const PAGE_REQUEST_ID_PLACEHOLDER = "__ORIGINLOOM_DYNAMIC_PAGE_REQUEST_ID__";
+const SUBMISSION_KEY_PLACEHOLDER = "__ORIGINLOOM_DYNAMIC_SUBMISSION_KEY__";
+/** Server-minted, never read from the request — see the slot below. */
+const SAFE_SUBMISSION_KEY = /^[A-Za-z0-9_-]{16,128}$/;
 const UNKNOWN_DYNAMIC_PLACEHOLDER = /__ORIGINLOOM_DYNAMIC_[A-Z0-9_]+__/g;
 const SAFE_CSP_NONCE = /^[A-Za-z0-9+/_=-]{1,256}$/;
 
 export type DynamicHtmlValues = {
   cspNonce?: string | undefined;
   pageRequestId?: string | undefined;
+  /**
+   * The idempotency key a form on this page carries.
+   *
+   * A slot rather than a value baked into the HTML, because the page it sits on
+   * may be shared: two visitors served from one cache entry would otherwise
+   * submit under the same key, and the second one's subscription would be
+   * replayed as the first one's — the guard turning into the bug.
+   *
+   * Minted per response by the platform and never taken from the request. That
+   * distinction is the security review this registry asks for: `pageRequestId`
+   * looks like it would do, but a client can set `x-request-id`, and a key a
+   * client can choose is a key a client can choose *for someone else*.
+   */
+  submissionKey?: string | undefined;
 };
 
 type CachedDynamicHtmlValues = {
   cspNonce?: string;
   pageRequestId?: string;
+  submissionKey?: string;
 };
 
 /**
@@ -28,6 +46,7 @@ export function cachedHtmlDynamicValues(values: DynamicHtmlValues): CachedDynami
   return {
     ...(values.cspNonce !== undefined ? { cspNonce: CSP_NONCE_PLACEHOLDER } : {}),
     ...(values.pageRequestId !== undefined ? { pageRequestId: PAGE_REQUEST_ID_PLACEHOLDER } : {}),
+    ...(values.submissionKey !== undefined ? { submissionKey: SUBMISSION_KEY_PLACEHOLDER } : {}),
   };
 }
 
@@ -94,6 +113,16 @@ export function materializeCachedHtmlDynamicValues(
     materialized = materialized.replaceAll(PAGE_REQUEST_ID_PLACEHOLDER, pageRequestId);
   }
 
+  if (materialized.includes(SUBMISSION_KEY_PLACEHOLDER)) {
+    // The alphabet is checked rather than escaped: this lands in an attribute
+    // value, and a key that needs escaping is a key that did not come from here.
+    const submissionKey =
+      values.submissionKey && SAFE_SUBMISSION_KEY.test(values.submissionKey)
+        ? values.submissionKey
+        : "";
+    materialized = materialized.replaceAll(SUBMISSION_KEY_PLACEHOLDER, submissionKey);
+  }
+
   // Unknown or damaged future slot markers fail closed instead of reaching the
   // client or being interpreted as real correlation values. Every marker this
   // regex can match starts with `UNKNOWN_DYNAMIC_PREFIX`, so the substring
@@ -120,10 +149,12 @@ export function hasUnsafeConcreteCachedNonce(body: string): boolean {
 export function dynamicHtmlPlaceholders(): Readonly<{
   cspNonce: string;
   pageRequestId: string;
+  submissionKey: string;
 }> {
   return {
     cspNonce: CSP_NONCE_PLACEHOLDER,
     pageRequestId: PAGE_REQUEST_ID_PLACEHOLDER,
+    submissionKey: SUBMISSION_KEY_PLACEHOLDER,
   };
 }
 

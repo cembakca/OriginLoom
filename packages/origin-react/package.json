@@ -1,6 +1,6 @@
 {
   "name": "@originloom/react",
-  "version": "0.7.46",
+  "version": "0.7.47",
   "description": "React renderer adapter for OriginLoom: island runtime, document rendering and the Vite preset.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",

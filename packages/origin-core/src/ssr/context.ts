@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { Ctx } from "@originloom/shared/lib/types";
 
 import { config } from "../config.js";
@@ -18,6 +20,11 @@ export function createRouteContext(
     url,
     publicPath,
     siteUrl: config.siteUrl,
+    // Minted here so every response has one, whether or not the page has a
+    // form: a route cannot forget, and a page that grows a form later needs no
+    // wiring. On a cacheable render it is replaced by a slot before the body is
+    // stored, and materialized fresh into every response.
+    submissionKey: randomUUID(),
     ...(ctx.requestId !== undefined && isSafeRequestId(ctx.requestId)
       ? { pageRequestId: ctx.requestId }
       : {}),
