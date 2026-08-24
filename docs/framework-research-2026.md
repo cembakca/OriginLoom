@@ -601,7 +601,7 @@ sınırlandı: tanınmayan bir neden sonsuza kadar yeni bir seri açmak yerine `
   Bu yüzden görece ucuz ve etkisi büyük.
 - **Maliyet/risk**: Düşük-orta. Dev-only, production bundle'a sıfır etki (ayrı entry).
 
-### 7.2 Layers / extends **[P2]** **[KISMEN — 0.7.54]**
+### 7.2 Layers / extends **[P2]** **[KISMEN — 0.7.55]**
 
 - **Ne**: Nuxt'ın layer'ları — bir uygulama başka bir uygulamayı miras alıyor: bileşenler,
   composable'lar, sunucu route'ları, konfigürasyon. Çok markalı/çok siteli kurulumların ve DDD tarzı
@@ -645,8 +645,41 @@ uygulamaya üretilen bir kural, her uygulamada ayrı ayrı çürüyen bir kurald
 
 **Bu 7.2'yi kapatmıyor.** Var olmak için sebebi olmayan en büyük ıraksama parçasını kaldırıyor — ki
 bu, runtime layer kalıtımından farklı ve _ucuz_ bir şey: çözünürlük sırası yok, tip birleştirme yok,
-override semantiği yok. Geriye kalan ya gerçekten ürüne ait, ya da aynı muameleyi bekliyor. Sıradaki
-`server/diagnostics/gateway.ts` ve o daha büyük: 164 satır ıraksama, sıfır ürün içeriği.
+override semantiği yok. Geriye kalan ya gerçekten ürüne ait, ya da aynı muameleyi bekliyor.
+
+**Sıradaki 164 satır (0.7.55).** `server/diagnostics/gateway.ts` ve onu besleyen
+`ssr-diagnostics.ts`: sıfır ürün içeriği, iki uygulamada iki farklı sürüm. Doğru çözüm bunları
+platforma taşımak değil, **seam'i ortadan kaldırmaktı**. Sarmalayıcının tek işi gateway çağrısını
+kaydetmekti; artık `gatewayFetch` bunu kendisi yapıyor. Trace kaydedicisi
+`@originloom/core/diagnostics/request-trace` olarak paketlendi.
+
+Sarmalayıcı, unutulabilir olduğu için sorundu — ve 0.7.54'te bulduğumuz "dört servis onu unutmuş"
+tablosu bunun kanıtıydı. Unutulamayan tek sarmalayıcı, sarmalayıcı olmayandır. Onu zorunlu kılan
+lint kuralı da bu yüzden emekliye ayrıldı: yasakladığı import artık doğru olan import.
+
+Taşırken modülün taşıdığı bir bug çıktı: kayıtlar async context'teki id ile yazılıyor,
+`logSsrOutcome` ise `x-request-id` header'ıyla okuyordu — header'ı yalnız belli bir proxy set
+ediyor, yoksa arama ıskalıyor ve trace boş çıkıyordu. Boş trace "hiçbir şey olmadı"dan ayırt
+edilemez; iki kopya arasında dolaşan bir bug'ın kaç tur hayatta kaldığını bundan iyi anlatan bir
+örnek yok.
+
+**Kalan ıraksama** (biçimlendirilmiş scaffold'a karşı ölçüldü):
+
+| Dosya                       | Farklı satır | Değerlendirme                                       |
+| --------------------------- | -----------: | --------------------------------------------------- |
+| `server/index.ts`           |           54 | Ürüne ait: route tablosu, middleware sırası         |
+| `server/product/runtime.ts` |           49 | Ürüne ait: runtime sözleşmesinin doldurulması       |
+| `src/entry.client.tsx`      |           23 | Ürüne ait: island kaydı                             |
+| `eslint.config.js`          |           20 | Ürüne ait: Türkçe yorum + `public/` için global'ler |
+| `tsconfig.json`             |            0 | —                                                   |
+| `vitest.config.ts`          |            0 | —                                                   |
+
+0.7.54'ün tablosundaki `tsconfig.json` **13 satır** aslında ölçüm hatasıydı: scaffolder şablonları
+yazarken prettier'dan geçiriyor, ben ham şablonla karşılaştırmıştım. Fark sıfır. `vitest.config.ts`
+kozmetikti, hizalandı.
+
+Geriye kalan dört dosyanın tamamı ürüne ait. Runtime layer kalıtımının faturası hâlâ ödenmiyor —
+ama bu sefer ölçerek biliyoruz, varsayarak değil.
 
 ### 7.3 Tip güvenli env şeması (`astro:env`) **[P1]** **[YAPILDI — 0.7.31]**
 
@@ -859,7 +892,7 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 | 3.2 ✅ | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; `cache-control`/`set-cookie`/`content-type` korumalı ve açılışta uyarıyor          |
 | 3.3 ✅ | Storage soyutlaması         | ✅    | `registerCacheDriver`; `CacheStore` zaten sürücü arayüzüydü, eksik olan dışarıdan girişti                         |
 | 4.4 ⛔ | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı    |
-| 7.2 ◐  | Layers / extends            | ◐     | Ölçüldü ve en büyük parçası kaldırıldı: lint config paketlendi. Kalan ıraksama ya ürüne ait ya sırada             |
+| 7.2 ◐  | Layers / extends            | ◐     | İki tur ölçüldü: lint config paketlendi, diagnostics seam'i kaldırıldı. Kalan ıraksamanın tamamı ürüne ait        |
 | 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                 |
 | 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                        |
 
