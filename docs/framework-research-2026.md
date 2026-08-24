@@ -426,9 +426,17 @@ istekte yeniden türetiliyordu — yani her yanıtta bir `Set-Cookie`, yani her 
 düzelttiğini kimse bilmiyordu. Ölçmenin değeri buydu: düzeltilecek bir şey değil, doğrulanacak bir
 şey bulduk — ve artık bir test onu geri gitmekten koruyor.
 
-**Gerçek blocker'lar nerede:** sigorta'da `unload` dinleyicisi, WebSocket ve EventSource **yok**.
-Showroom'un `market-live` island'ı EventSource açıyor — o sayfada bfcache gerçekten kapalı, ve bu
-demo sayfası olduğu için kabul edilebilir.
+**Gerçek blocker'lar nerede:** hiçbir yerde `unload` dinleyicisi yok — bfcache'i kesin kapatan tek
+şey odur ve bizde yok. Sigorta'da ayrıca WebSocket ve EventSource da yok.
+
+Showroom'un `market-live` island'ı EventSource açıyor, ama **kapatıyor da**: `visibilitychange` →
+`hidden` geldiğinde bağlantıyı kapatıyor, ve o olay sayfa donduruImadan **önce** ateşleniyor. Yani
+tarayıcı uygunluğa bakarken ortada açık bağlantı kalmıyor; sayfa geri geldiğinde de aynı dinleyici
+yeniden bağlanıyor. Standart mitigasyon zaten uygulanmış durumda.
+
+Geriye kalan tek dürüst cevap: **bilmiyoruz, artık ölçüyoruz.** "EventSource var, demek ki kapalı"
+bir varsayımdır ve bu maddenin tamamı böyle varsayımların yanlış çıkmasıyla ilgili.
+`notRestoredReasons` bunu söyleyecek olan şey.
 
 **Ölçüm aracı kalıcı.** `reportBackForwardCache()` tarayıcının kendi iki sinyalini okuyor:
 `pageshow.persisted` sayfanın canlı geri geldiğini, Chrome'un `notRestoredReasons`'ı gelemediyse
