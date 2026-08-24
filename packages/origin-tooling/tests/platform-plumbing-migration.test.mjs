@@ -167,6 +167,11 @@ export default defineConfig({
     expect(fileWrites["vitest.config.ts"]).toContain(
       'import { configDefaults, defineConfig } from "vitest/config";',
     );
+    // A migrated config has to come out identical to a generated one, or the
+    // tool that measures drift becomes a source of it.
+    expect(fileWrites["vitest.config.ts"]).toMatch(
+      /name: "fixture",\n(\s*)\/\/ origin-migrate keeps[\s\S]*?exclude: \[\.\.\.configDefaults\.exclude, "\.originloom\/\*\*"\],/,
+    );
   });
 
   it("leaves an already-excluded project alone", () => {

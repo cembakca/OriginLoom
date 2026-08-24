@@ -601,7 +601,7 @@ sınırlandı: tanınmayan bir neden sonsuza kadar yeni bir seri açmak yerine `
   Bu yüzden görece ucuz ve etkisi büyük.
 - **Maliyet/risk**: Düşük-orta. Dev-only, production bundle'a sıfır etki (ayrı entry).
 
-### 7.2 Layers / extends **[P2]** **[KISMEN — 0.7.55]**
+### 7.2 Layers / extends **[P2]** **[YAPILDI — 0.7.57]** · _runtime kalıtım kasıtlı olarak yok_
 
 - **Ne**: Nuxt'ın layer'ları — bir uygulama başka bir uygulamayı miras alıyor: bileşenler,
   composable'lar, sunucu route'ları, konfigürasyon. Çok markalı/çok siteli kurulumların ve DDD tarzı
@@ -643,9 +643,10 @@ Bir kısmı **olması gereken** fark: route tablosu, product runtime, client ter
 yayıyor ve yalnızca gerçekten kendine ait olanı tutuyor. Kural ve testi de pakete taşındı — her
 uygulamaya üretilen bir kural, her uygulamada ayrı ayrı çürüyen bir kuraldır.
 
-**Bu 7.2'yi kapatmıyor.** Var olmak için sebebi olmayan en büyük ıraksama parçasını kaldırıyor — ki
-bu, runtime layer kalıtımından farklı ve _ucuz_ bir şey: çözünürlük sırası yok, tip birleştirme yok,
-override semantiği yok. Geriye kalan ya gerçekten ürüne ait, ya da aynı muameleyi bekliyor.
+**Bu, o turda 7.2'yi kapatmadı.** Var olmak için sebebi olmayan en büyük ıraksama parçasını
+kaldırdı — ki bu, runtime layer kalıtımından farklı ve _ucuz_ bir şey: çözünürlük sırası yok, tip
+birleştirme yok, override semantiği yok. Geriye kalan ya gerçekten ürüne aitti, ya da aynı
+muameleyi bekliyordu.
 
 **Sıradaki 164 satır (0.7.55).** `server/diagnostics/gateway.ts` ve onu besleyen
 `ssr-diagnostics.ts`: sıfır ürün içeriği, iki uygulamada iki farklı sürüm. Doğru çözüm bunları
@@ -678,8 +679,65 @@ edilemez; iki kopya arasında dolaşan bir bug'ın kaç tur hayatta kaldığın�
 yazarken prettier'dan geçiriyor, ben ham şablonla karşılaştırmıştım. Fark sıfır. `vitest.config.ts`
 kozmetikti, hizalandı.
 
-Geriye kalan dört dosyanın tamamı ürüne ait. Runtime layer kalıtımının faturası hâlâ ödenmiyor —
-ama bu sefer ölçerek biliyoruz, varsayarak değil.
+**Tam sweep (0.7.56).** Altı dosyaya bakmak yetmiyordu. Şablonun ürettiği her dosya ile sigorta
+karşılaştırıldı: **154 ortak dosya, ~5.300 satır fark.** Tablo şunu söylüyor:
+
+| Nerede                                                                           | Ne kadar | Meşru mu?                                   |
+| -------------------------------------------------------------------------------- | -------: | ------------------------------------------- |
+| `server/services/menu.ts`, `src/lib/cache-keys.ts`, route'lar, sayfalar, testler |    ~5000 | Evet — ürünün kendisi                       |
+| `server/lib/bff-{http,auth}.ts`                                                  |       83 | **Hayır** — saf altyapı, sıfır ürün içeriği |
+
+Yani sistemin geri kalanı sağlıklıydı; ıraksamanın neredeyse tamamı ürün kodunun ürün olmasıydı.
+Geriye tek bir kopya kalmıştı ve o da aynı hikâyeydi: sigorta'nın kopyasında `BFF_HEADERS` ve
+`halt()` hiç yoktu, ve "gövdeyi önce oku, yoksa `Body is unusable`" uyarısı düşmüştü. Bir hata
+önleyicisi, sessizce.
+
+**0.7.56: son kopya da pakete gitti.** `@originloom/core/bff` — dokuz yardımcı, bir BFF route'unun
+ihtiyacı olan her şey.
+
+**0.7.57: migration'ın kendi çöpü.** Bunu 0.7.56'nın migration'ını gerçek bir uygulamada
+_çalıştırmak_ ortaya çıkardı. `origin-migrate` değiştirdiği her dosyanın yedeğini
+`.originloom/backups/` altına yazıyor; hiçbir şey o dizini ignore etmiyor, hiçbir şey onu test
+toplamasından dışlamıyordu. Bir test dosyasına dokunan ilk migration, testin ikinci bir kopyasını
+üretti — kopya migration'ın az önce sildiği modülü import etmeye devam ediyordu ve suite kimsenin
+yazmadığı bir dosyada düştü.
+
+**Asıl teslim: `origin-doctor --drift`.** Üç turun üçünde de sorunu bulan şey, elle alınmış bir
+diff'ti. On beş üründe kimsenin yapmayacağı adım tam olarak budur. Komut, uygulamanın bugün
+üretilecek hâlinden dosya başına kaç satır uzakta olduğunu en büyükten küçüğe listeler.
+
+Bilerek bir **gate değil**. Sağlıklı bir uygulamanın ıraksamasının çoğu ürünün kendisidir; bunları
+uyarıya çevirmek herkese komutu görmezden gelmeyi öğretirdi — ve üç bulgunun üçü de listenin
+tepesine yakın duran _tek bir altyapı dosyasıydı_. Sıralama, o dosyayı doğru olmaktan çıkarıp
+görünür yapar.
+
+Karşılaştırılabilir bir baseline üretebilmek için `.originloom/project.json` artık uygulamanın hangi
+argümanlarla üretildiğini (`scaffold`) taşıyor; migration bunu geriye dolduruyor. `title` doldurulmuyor:
+hiçbir yerde tek anlamlı kayıtlı değil ve tahmin etmek yedi dosyayı uygulamanın hiç sebep olmadığı
+bir ıraksama olarak raporlardı. Onlar "karşılaştırılmadı" olarak çıkıyor.
+
+---
+
+**Runtime layer kalıtımı yapılmadı — ve bu maddenin cevabı bu.**
+
+Nuxt'ın layer'ı bir uygulamanın başka bir uygulamayı miras almasıdır. Bugün miras alınacak ikinci
+bir uygulama yok, ve bir layer'ın taşıyacağı şeyler (kurumsal chrome, analytics, auth) şu an
+sigorta'nın **ürün** dosyaları — şekillerini tahmin ederek bir çözünürlük sırası, tip birleştirme ve
+override semantiği tasarlamak, ölçüm yerine varsayımla çalışmak olurdu. Bu turda üç kez varsayım
+yanlış çıktı.
+
+Bu maddenin gerçek acısı hiçbir zaman kalıtım değildi; **kopyanın sessizce ıraksaması**ydı. Üç tur
+boyunca ölçülen de, kapatılan da o oldu:
+
+| Tur    | Kopya                           | Kopyanın kaçırdığı                                  |
+| ------ | ------------------------------- | --------------------------------------------------- |
+| 0.7.54 | `eslint.config.js`              | Gateway seam kuralı — dört servis onu atlıyordu     |
+| 0.7.55 | `server/diagnostics/*`          | `x-request-id` yokken boş çıkan trace               |
+| 0.7.56 | `server/lib/bff-{http,auth}.ts` | `BFF_HEADERS`, `halt()`, "gövdeyi önce oku" uyarısı |
+
+Üçü de artık paket. Dördüncüsü olursa onu bir komut söyleyecek, bir kaza değil. İkinci ürün geldiği
+gün runtime kalıtım yeniden açılır — o zaman paylaşılacak şey elimizde olur ve tasarım onu ölçerek
+yapılır.
 
 ### 7.3 Tip güvenli env şeması (`astro:env`) **[P1]** **[YAPILDI — 0.7.31]**
 
@@ -892,7 +950,7 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 | 3.2 ✅ | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; `cache-control`/`set-cookie`/`content-type` korumalı ve açılışta uyarıyor          |
 | 3.3 ✅ | Storage soyutlaması         | ✅    | `registerCacheDriver`; `CacheStore` zaten sürücü arayüzüydü, eksik olan dışarıdan girişti                         |
 | 4.4 ⛔ | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı    |
-| 7.2 ◐  | Layers / extends            | ◐     | İki tur ölçüldü: lint config paketlendi, diagnostics seam'i kaldırıldı. Kalan ıraksamanın tamamı ürüne ait        |
+| 7.2 ✅ | Layers / extends            | ✅    | Üç kopya pakete taşındı, `origin-doctor --drift` ıraksamayı ölçüyor. Runtime kalıtım kasıtlı olarak yok           |
 | 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                 |
 | 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                        |
 

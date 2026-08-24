@@ -1115,15 +1115,20 @@ function excludeMigrationBackups(source) {
         `import {${named.includes("configDefaults") ? named : ` configDefaults,${named}`}} from "vitest/config";`,
     );
   }
-  next = next.replace(
-    /(\n(\s*)test: \{\n)/,
-    (match, opening, indent) =>
-      opening +
-      `${indent}  // origin-migrate keeps the previous copy of every file it rewrites under\n` +
-      `${indent}  // .originloom/backups/ — including test files, which vitest would otherwise\n` +
-      `${indent}  // collect and run against imports that no longer resolve.\n` +
-      `${indent}  exclude: [...configDefaults.exclude, ".originloom/**"],\n`,
-  );
+  // After `name:` when there is one, so a migrated config matches a generated
+  // one line for line — the drift this whole release is about does not get to
+  // start with the tool that reports it.
+  const entry = (indent) =>
+    `${indent}// origin-migrate keeps the previous copy of every file it rewrites under\n` +
+    `${indent}// .originloom/backups/ — including test files, which vitest would otherwise\n` +
+    `${indent}// collect and run against imports that no longer resolve.\n` +
+    `${indent}exclude: [...configDefaults.exclude, ".originloom/**"],\n`;
+  next = /\n(\s*)name: /.test(next)
+    ? next.replace(/(\n(\s*)name: [^\n]*\n)/, (line, whole, indent) => whole + entry(indent))
+    : next.replace(
+        /(\n(\s*)test: \{\n)/,
+        (line, opening, indent) => opening + entry(indent + "  "),
+      );
   if (next === source) {
     return {
       status: "manual-required",
