@@ -394,7 +394,7 @@ değer.
 animasyon alıyordu. Animasyonsuz bir view transition anlık bir takastır — tercihin istediği şey tam
 olarak budur.
 
-### 6.4 bfcache uyumluluğu **[P2]** **[ÖLÇÜLDÜ — 0.7.44]**
+### 6.4 bfcache uyumluluğu **[P2]** **[ÖLÇÜLDÜ — 0.7.45]**
 
 - **Ne**: Geri/ileri navigasyonunda sayfanın tamamen canlı olarak geri gelmesi.
 - **Bizde**: Açıkça test edilmiyor. `unload` dinleyicisi, açık WebSocket/EventSource ve
@@ -437,6 +437,17 @@ yeniden bağlanıyor. Standart mitigasyon zaten uygulanmış durumda.
 Geriye kalan tek dürüst cevap: **bilmiyoruz, artık ölçüyoruz.** "EventSource var, demek ki kapalı"
 bir varsayımdır ve bu maddenin tamamı böyle varsayımların yanlış çıkmasıyla ilgili.
 `notRestoredReasons` bunu söyleyecek olan şey.
+
+**Aracın kendisi de test edildi (0.7.45).** Bir ölçüm maddesinde en kötü boşluk, ölçen şeyin
+denenmemiş olmasıdır: sessizce yanlış bir neden, olmayan bir blocker'ı aramaya gönderen bir metrik
+etiketine dönüşür. `packages/origin-shared/tests/back-forward-cache.test.ts` frame ağacının
+düzleştirilmesini, tekrar edenlerin atılmasını, sekiz nedenlik sınırı, kullanılabilir neden
+taşımayan girdilerin atlanmasını, sıradan bir yüklemenin (o da `pageshow` ateşler) rapor
+üretmemesini ve navigasyon bitmeden okumamayı kapsıyor.
+
+Test bir kusur da buldu: fonksiyon iki kez çağrılırsa iki `pageshow` dinleyicisi kuruyor ve bir
+restore'u iki kez sayıyordu. Artık ikinci çağrı hiçbir şey yapmıyor — çift sayan bir sayaç, olmayan
+bir sayaçtan kötüdür.
 
 **Ölçüm aracı kalıcı.** `reportBackForwardCache()` tarayıcının kendi iki sinyalini okuyor:
 `pageshow.persisted` sayfanın canlı geri geldiğini, Chrome'un `notRestoredReasons`'ı gelemediyse

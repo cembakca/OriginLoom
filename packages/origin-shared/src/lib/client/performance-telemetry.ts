@@ -21,9 +21,16 @@ export function reportWebVital(metric: {
  * all in that vocabulary, so the reasons name our own rules back to us.
  *
  * Safe to call unconditionally: a browser without either signal reports nothing
- * rather than guessing.
+ * rather than guessing. Safe to call twice as well — the second call does
+ * nothing, because two `pageshow` listeners would report one restore as two and
+ * a counter that double-counts is worse than one that does not exist.
  */
+let backForwardCacheObserved = false;
+
 export function reportBackForwardCache(): void {
+  if (backForwardCacheObserved) return;
+  backForwardCacheObserved = true;
+
   window.addEventListener("pageshow", (event) => {
     if (!event.persisted) return;
     report({ kind: "bfcache", outcome: "restored", reason: "restored", path: path(), value: 1 });
