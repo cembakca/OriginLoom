@@ -171,7 +171,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
   etmek gerekiyor; bizim `mountApi` yapımız buna uygun hale getirilebilir. `tsconfig`'de `strict`
   şart, bizde zaten var.
 
-### 4.2 Form actions + progressive enhancement **[P1]**
+### 4.2 Form actions + progressive enhancement **[P1] — ✅ 0.7.41**
 
 - **Ne**: SvelteKit'in `form` remote fonksiyonu ve Astro Actions. Sunucu fonksiyonu **gerçek bir
   HTML form**'a bağlanıyor: JS yokken normal form POST'u olarak çalışıyor, JS varken araya girip
@@ -185,6 +185,26 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
   mevcut**, eksik olan onu birinci sınıf bir primitif haline getirmek.
 - **Maliyet/risk**: Düşük-orta. CSRF (same-origin guard'ımız var), idempotency ve hata durumunda
   form state'ini geri taşımak tasarlanmalı.
+
+**Ne yapıldı (0.7.41).** `Route.action`: formun `action`'ı üstünde durduğu sayfa, yani takip edilecek
+ikinci bir URL yok. İki çıkış — `redirect(location, 303)` başarı için (PRG), `{ data, status }` red
+için. Red sonucu loader'a `ctx.action` olarak ulaşıyor, **boş formu çizen aynı component** formu
+hatalarıyla ve ziyaretçinin kendi değerleriyle yeniden çiziyor; 4xx status ile, çünkü sayfa geri
+gelse de gönderim başarısız oldu.
+
+Rotanın ayarlamak zorunda olmadığı üç şey: güvenli olmayan metot için cache policy key oluşmadan
+düşüyor (yanıtı `private, no-store` yapan da bu — cache'li bir sayfa forma kavuştuğunda unutamaz),
+`action` tanımlamayan sayfa 405 dönüyor, cross-origin gönderim 403.
+
+`@originloom/shared/lib/form` gönderimi güvenmeden okuyor: alan sayısı ve uzunluk sınırlı, dosya
+parçaları atılıyor, **kırpmıyor reddediyor** — kırpılmış bir değer ziyaretçinin yazmadığı değerdir.
+
+Bu iş sırasında iki gizli bug çıktı: shell'i başlatmak isteği klonluyor ve form gövdesini
+tüketiyordu (action artık shell'den önce çalışıyor, ki redirect eden bir gönderim için shell zaten
+boşunaydı), ve kullanılmış bir isteği yeniden kurmak error boundary'yi düşürüyordu.
+
+Sigorta'da bülten formu artık JS'siz çalışıyor — önce `disabled` input'lardı, yani JavaScript
+kapalıyken blok dekorasyondu. Detay: `docs/migrations/0.7.41.md`.
 
 ### 4.3 Astro Actions tarzı şema-önce sunucu fonksiyonu **[P2]**
 
@@ -288,9 +308,43 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
   prerender edilen istek çoğunlukla cache HIT. Yani maliyeti düşük, kazancı (anında navigasyon)
   yüksek. Ayrıca `Vary`/cookie kurallarımız net olduğu için prerender edilen yanıtın kişisel
   olmadığından eminiz.
-- **Maliyet/risk**: Düşük. Dikkat edilecek: prerender edilen sayfada analytics'in erken ateşlenmemesi
-  (`document.prerendering` / `prerenderingchange`) — bizim GTM zincirimiz buna göre ayarlanmalı,
-  yoksa görüntülenmemiş sayfa için page view atarız. Bu gerçek bir tuzak.
+- **Maliyet/risk**: Düşük **değil** — ilk yazımdaki değerlendirme iki noktada yanlıştı, sigorta'nın
+  koduna bakınca düzeldi. Aşağıya bak.
+
+**⏸ Ertelendi — sebebi ölçüm doğruluğu değil, kazancın yerinde olmaması.**
+
+**Ölçüm doğruluğu çözülebilir, hem de deterministik olarak.** Analitik ekibinin endişesi
+("prefetch ettiğimiz sayfaları da sayıyoruz") gerçek ama tahmine dayalı bir çözüm gerektirmiyor:
+
+- **Prefetch zaten sorun değil.** Prefetch JavaScript çalıştırmaz; page view diye bir şey olmaz.
+  Sorun yalnızca **prerender**'da.
+- **Sunucu tarafı deterministik**: Chrome spekülatif isteğe `Sec-Purpose: prefetch;prerender`
+  header'ı koyuyor. Sezgi değil, header. Sigorta'da sayan üç yer var ve üçü de bu header'la
+  susturulabilir: `session-start` (tracking id **basıyor** ve `newFeature` A/B kovasını atıyor —
+  page view'dan daha kötüsü, atılmış bir prerender geride kova ataması bırakır), `storeBotVisit`,
+  ve `logRequest`.
+- **İstemci tarafı deterministik**: prerender sırasında `document.prerendering === true`, aktivasyonda
+  `prerenderingchange` ateşleniyor.
+
+**Asıl iş GTM konteynerinde.** `server/product/analytics.ts` zincirinin 7 adımı prerender edilen
+belgede hemen çalışır; konteyner yüklendiği anda kendi `gtm.js`/`gtm.dom`/`gtm.load` tetikleyicilerini
+ve onlara bağlı Page View tag'ini ateşler. Çözüm konteyneri prerender sırasında **hiç yüklememek**:
+adım 1 (`dataLayer` init) çalışsın, 2–7 aktivasyona kadar beklesin. Zincir zaten `sequencedScript`
+ile sıralı ve bir hazır bayrağı/olayı var — dikiş yerinde, önüne bir kapı eklemek küçük bir değişiklik.
+
+Bunun bedeli dürüstçe söylenmeli: **prerender boyamayı anlık yapar, analytics'i bedava yapmaz.**
+Zincir aktivasyonda başlar, yani bugünkü maliyetiyle aynı yerde durur.
+
+**Kazancın yerinde olmaması, erteleme sebebi.** İlk değerlendirme "sayfalarımız paylaşılan cache'ten
+geliyor, prerender ucuz" diyordu. Sigorta'da bu **bugün doğru değil**: paylaşımlı cache'li tek sayfa
+`/` ve o da genelde giriş sayfası — kimse üstünde durduğu sayfayı prerender etmez. Prerender edilecek
+hedefler `/kasko`, `/zorunlu-trafik-sigortasi`, `/motorlu-tasitlar-vergisi`; üçü de `neverCache`.
+Yani atılan her prerender **tam SSR + dört gateway çağrısı**. Ucuz olan senaryo tam olarak
+gerçekleşmeyen senaryo.
+
+**Sıra:** 6.1'in değeri S7'ye (page cache kararları) bağlı. S7 açılmadan prerender, en pahalı
+sayfalarda spekülatif yük üretir. Analitik kapısı S7'den bağımsız olarak önce yazılabilir ve
+yazılmalı — ama tek başına bir kazanç değil, bir ön koşul.
 
 ### 6.2 Early Hints (HTTP 103) **[P2]**
 
@@ -412,7 +466,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
 
 ## 9. JS / runtime katmanı
 
-### 9.1 Explicit Resource Management (`using` / `await using`) **[P1]**
+### 9.1 Explicit Resource Management (`using` / `await using`) **[P1] — ✅ 0.7.41**
 
 - **Ne**: TC39 önerisi, Node 24'te destekli. Blok bitince kaynağı otomatik serbest bırakıyor.
 - **Bizde**: Elle serbest bırakılan kaynaklar var ve bu turda **tam bu sınıfta bir sorun gördük**:
@@ -422,6 +476,19 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
   "gateway yanıtını serbest bırakmayı unutma" hata sınıfını dilin kendisine devrediyor.
 - **Maliyet/risk**: Düşük. TypeScript 5.2+ destekliyor (bizde 5.9), Node 24 destekliyor. Kademeli
   benimsenebilir.
+
+**Ne yapıldı (0.7.41).** `gatewayFetch` ve iki kimlik sarmalayıcısı artık `GatewayResponse`
+döndürüyor — kendini bırakan bir `Response`. Bloktan çıkan hiçbir dal temizliği atlayamıyor. Dispose
+idempotent, yani mevcut `try`/`finally` çağrıları aynen çalışıyor ve geçiş dosya dosya yapılabiliyor.
+
+**Şüphe doğrulandı.** Sigorta'da yedi servis dosyası yanıtı **hiç bırakmıyordu** (kasko, zorunlu
+trafik, MTV ve ana sayfa page-data'ları, recourse forward-page, menu, sitemap); iki yerde de release
+await edilmemiş floating promise'ti. Yani bu bir teori değil, ölçülmüş bir sızıntı sınıfıydı.
+
+`asGatewayResponse` test double'ları için export edildi: çıplak bir `Response` döndüren sahte
+gateway'de dispose edilecek bir şey yok ve hata servisin hata yoluna düşüyor, double'a değil.
+`0.7.34-disposable-gateway-response` migration'ı tsconfig `lib` listesine `ESNext.Disposable`
+ekliyor ve uygulamanın kendi gateway adapter'ının tipi silmesini engelliyor.
 
 ### 9.2 `AsyncContextFrame` — AsyncLocalStorage'ın ucuzlaması **[P1, bedava]**
 
@@ -493,13 +560,13 @@ showroom'da: `/server-island` ve `/preview-demo`.
 | 5.2 ✅ | Taint / sızma koruması       | Mimarimizin en yüksek etkili hata sınıfı, bugün sadece test koruyor         |
 | 3.4 ✅ | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
 | 2.1 ✅ | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
-| 6.1    | Speculation Rules            | Cache mimarimiz prerender'ı olağandışı ucuz kılıyor                         |
+| 6.1 ⏸  | Speculation Rules            | Ölçüm doğruluğu çözülebilir; kazanç S7'ye bağlı — aşağıya bak               |
 | 5.1 ✅ | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
 | 7.1 ✅ | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |
 | 7.3 ✅ | Tip güvenli env şeması       | Doğrulama var, tip ve public/secret sınırı yok                              |
 | 3.1 ✅ | İsimli cache profilleri      | Ham TTL sayıları okunabilirliği ve denetimi zorlaştırıyor                   |
-| 9.1    | `using` ile kaynak yönetimi  | `releaseGatewayResponse` unutma sınıfını dile devreder                      |
-| 4.2    | Form actions                 | JS'siz form; a11y ve dayanıklılık                                           |
+| 9.1 ✅ | `using` ile kaynak yönetimi  | `releaseGatewayResponse` unutma sınıfını dile devreder                      |
+| 4.2 ✅ | Form actions                 | JS'siz form; a11y ve dayanıklılık                                           |
 
 ### İkinci dalga
 
@@ -529,8 +596,12 @@ showroom'da: `/server-island` ve `/preview-demo`.
 Araştırma sırasında çıkan, uygularken sorun çıkaracak noktalar:
 
 1. **Speculation Rules + analytics**: Prerender edilen sayfada page view erkenden ateşlenirse
-   görüntülenmemiş sayfa için ölçüm üretirsin. `document.prerendering` ve `prerenderingchange`
-   olayına göre GTM zincirimizin ertelenmesi gerekir. Bu, 6.1'i almadan önce çözülmesi gereken şey.
+   görüntülenmemiş sayfa için ölçüm üretirsin. Sigorta'nın kodunda **dört** sayan yüzey var, ikisi
+   ilk taramada gözden kaçmıştı: head'deki GTM zinciri, `page-analytics` island'ı, `session-start`'ın
+   tracking id + A/B kovası ataması, ve `storeBotVisit`/`logRequest`. İlk ikisi
+   `document.prerendering` / `prerenderingchange` ile, son ikisi `Sec-Purpose` header'ı ile
+   kapatılır. En kötüsü page view değil **kova ataması**: atılmış bir prerender, kullanıcı sayfayı
+   hiç görmeden onu bir deney kovasına yazar. 6.1'den önce çözülecek şey budur. Ayrıntı: § 6.1.
 2. **Server Islands props imzası**: Ertelenmiş render'ın props'u istemciden geliyorsa endpoint
    saldırgan kontrollü hale gelir. İmza/şifreleme opsiyonel değil.
 3. **Taint'in sınırı**: React'in kendi dokümanı açıkça söylüyor — `{...user}` ya da
