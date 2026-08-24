@@ -10,6 +10,7 @@
 /** @type {readonly string[]} */
 export const CORE_TEMPLATE_SUBPATHS = [
   "adapters/gateway",
+  "diagnostics/request-trace",
   "api/cache-purge",
   "api/client-errors",
   "api/client-metrics",

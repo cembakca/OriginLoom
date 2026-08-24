@@ -180,8 +180,6 @@ export function renderTemplates({
     "load-test/profile-target.mjs": asset("load-test/profile-target.mjs"),
 
     "server/index.ts": serverIndex("/src/entry.client.tsx"),
-    "server/diagnostics/ssr-diagnostics.ts": ssrDiagnostics(),
-    "server/diagnostics/gateway.ts": gatewayDiagnostics(),
     "server/lib/bff-http.ts": bffHttpLib(),
     "server/lib/bff-auth.ts": bffAuthLib(),
     "server/middleware/index.ts": middlewareIndex(),
@@ -1356,6 +1354,7 @@ import { createApp } from "@originloom/core/app";
 import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
+import { logSsrOutcome } from "@originloom/core/diagnostics/request-trace";
 import { closeGatewayTransport } from "@originloom/core/gateway-transport";
 import { drainAfterTasks, drainRevalidations } from "@originloom/core/handler";
 import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
@@ -1367,7 +1366,7 @@ import { validateRoutingRules } from "@originloom/shared/routing/validate";
 import { createRewrites, redirects, rewrites } from "~/routing/rules";
 
 import { mountApi } from "./api";
-${liveStream ? 'import { stopLiveStreams } from "./api/live-stream";\n' : ""}import { logSsrOutcome } from "./diagnostics/ssr-diagnostics";\nimport { productMiddleware } from "./middleware";
+${liveStream ? 'import { stopLiveStreams } from "./api/live-stream";\n' : ""}import { productMiddleware } from "./middleware";
 import { validateProductConfig } from "./product/config";
 import { productCsp } from "./product/csp";
 import { installProductRuntime } from "./product/runtime";
@@ -1523,12 +1522,12 @@ main().catch(async (err) => {
 `;
 
 const redirectRulesMiddlewareFile =
-  () => `import { readGatewayJson } from "@originloom/core/gateway-payload";
+  () => `import { gatewayFetch } from "@originloom/core/adapters/gateway";
+import { readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
 import { defineMiddleware, type MiddlewareRedirect } from "@originloom/core/middleware";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isRecord } from "@originloom/shared/lib/runtime-schema";
-import { gatewayFetch } from "@server/diagnostics/gateway";
 import { GatewayContracts } from "@server/services/gateway-contracts";
 
 /**
@@ -3232,12 +3231,13 @@ describe("operations cache key codec", () => {
 });
 `;
 
-const itemsService = () => `import { config } from "@originloom/core/config";
+const itemsService =
+  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { config } from "@originloom/core/config";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
 import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import { gatewayFetchWithIdentity, requireGatewayOk } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -3530,12 +3530,9 @@ function isFeaturedItemsSnapshot(value: unknown): value is FeaturedItemsSnapshot
 `;
 
 const liveMessageService =
-  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import {
-  gatewayFetchWithIdentity,
-  requireGatewayOk,
-} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -4747,14 +4744,13 @@ export default function LiveTicks() {
 }
 `;
 
-const sitemapService =
-  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
-import { isRecord } from "@originloom/shared/lib/runtime-schema";
-import {
+const sitemapService = () => `import {
   gatewayFetch,
   gatewayFetchWithIdentity,
   requireGatewayOk,
-} from "@server/diagnostics/gateway";
+} from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isRecord } from "@originloom/shared/lib/runtime-schema";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -4883,10 +4879,11 @@ describe("the sitemap source", () => {
 });
 `;
 
-const routeDomainsService = () => `import * as cache from "@originloom/core/cache";
+const routeDomainsService =
+  () => `import { gatewayFetch, gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import * as cache from "@originloom/core/cache";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
-import { gatewayFetch, gatewayFetchWithIdentity, requireGatewayOk } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -5092,15 +5089,15 @@ describe("route params validated against the gateway", () => {
 });
 `;
 
-const guidesService = () => `import { config } from "@originloom/core/config";
+const guidesService = () => `import {
+  gatewayFetchWithIdentity,
+  requireGatewayOk,
+} from "@originloom/core/adapters/gateway";
+import { config } from "@originloom/core/config";
 import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { parseSeoInfo } from "@originloom/shared/lib/metadata/schema";
 import type { SeoInfo } from "@originloom/shared/lib/metadata/types";
 import { isBoundedArray, isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import {
-  gatewayFetchWithIdentity,
-  requireGatewayOk,
-} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -5533,9 +5530,9 @@ describe("an editorial page", () => {
 `;
 
 const calculatorService =
-  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedArray, isRecord } from "@originloom/shared/lib/runtime-schema";
-import { gatewayFetchWithIdentity, requireGatewayOk } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -6153,9 +6150,10 @@ export function normalizePageParam(value: string | null): string {
 }
 `;
 
-const serverShellData = () => `import type { ShellDependencyPlan } from "@originloom/core/runtime";
+const serverShellData =
+  () => `import { bindRequestPath } from "@originloom/core/diagnostics/request-trace";
+import type { ShellDependencyPlan } from "@originloom/core/runtime";
 import type { Ctx } from "@originloom/react/lib/types";
-import { bindRequestPath } from "@server/diagnostics/ssr-diagnostics";
 import { getMenu } from "@server/services/menu";
 
 import { EMPTY_MENU } from "~/lib/menu";
@@ -6211,7 +6209,9 @@ export const shellDependencyPlan: ShellDependencyPlan<
 };
 `;
 
-const menuService = () => `import * as cache from "@originloom/core/cache";
+const menuService =
+  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import * as cache from "@originloom/core/cache";
 import { config } from "@originloom/core/config";
 import { parseGatewayPayload, readGatewayJson } from "@originloom/core/gateway-payload";
 import { logger } from "@originloom/core/logger";
@@ -6223,7 +6223,6 @@ import {
 } from "@originloom/shared/lib/content-url";
 import type { DeviceType } from "@originloom/shared/lib/device";
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
-import { gatewayFetch, requireGatewayOk } from "@server/diagnostics/gateway";
 import { productConfig } from "@server/product/config";
 
 import { CacheTag, menuCacheKey } from "~/lib/cache-keys";
@@ -6542,9 +6541,10 @@ export function projectMenu(menu: IMenuItems, shell: "desktop" | "mobile"): Proj
 
 `;
 
-const botAnalyticsService = () => `import { logger } from "@originloom/core/logger";
+const botAnalyticsService =
+  () => `import { gatewayFetch, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { logger } from "@originloom/core/logger";
 import type { BotVisit } from "@originloom/core/runtime";
-import { gatewayFetch, requireGatewayOk } from "@server/diagnostics/gateway";
 import { productConfig } from "@server/product/config";
 
 type Sender = (events: BotVisit[], signal: AbortSignal) => Promise<void>;
@@ -7021,146 +7021,6 @@ export function bffGatewayUnauthorized(
 }
 `;
 
-const ssrDiagnostics = () => `import { logger } from "@originloom/core/logger";
-import { activeRequestId } from "@originloom/core/observability";
-
-/**
- * Opt-in request tracing for the times a page is slow or failing in an
- * environment you cannot attach a debugger to.
- *
- * Off unless \`SSR_DIAGNOSTICS=1\`, and when off every function here returns
- * before doing any work — the tracking map stays empty, so this costs nothing
- * in production until the day you turn it on.
- */
-export const SSR_DIAGNOSTICS_ENABLED =
-  process.env.SSR_DIAGNOSTICS === "1" || process.env.SSR_DIAGNOSTICS === "true";
-
-const SLOW_REQUEST_MS = Number(process.env.SSR_DIAGNOSTICS_SLOW_MS ?? 750);
-/** A request that never reports an outcome must not pin its entry forever. */
-const MAX_TRACKED_REQUESTS = 2_048;
-
-export type UpstreamCallRecord = {
-  url: string;
-  method: string;
-  status: number;
-  durationMs: number;
-  cached?: boolean;
-  error?: string;
-};
-
-type TrackedRequest = {
-  pagePath?: string;
-  startedAt: number;
-  upstream: UpstreamCallRecord[];
-};
-
-const tracked = new Map<string, TrackedRequest>();
-
-/**
- * The id the platform assigned this request, from the async context it keeps
- * for the duration of the request.
- *
- * Reading the inbound \`x-request-id\` header instead would only work behind a
- * proxy that sets one: the platform mints its own when the header is absent,
- * which is every local run and most deployments. That mistake is silent —
- * nothing is ever tracked, and the trace comes out empty rather than missing.
- */
-function currentRequestId(): string | undefined {
-  return activeRequestId();
-}
-
-function ensureTracked(requestId: string): TrackedRequest {
-  let entry = tracked.get(requestId);
-  if (!entry) {
-    if (tracked.size >= MAX_TRACKED_REQUESTS) {
-      const oldest = tracked.keys().next().value;
-      if (oldest !== undefined) tracked.delete(oldest);
-    }
-    entry = { startedAt: performance.now(), upstream: [] };
-    tracked.set(requestId, entry);
-  }
-  return entry;
-}
-
-/** Names the page a request id belongs to, so the log line is readable. */
-export function bindRequestPath(pagePath: string): void {
-  if (!SSR_DIAGNOSTICS_ENABLED) return;
-  const requestId = currentRequestId();
-  if (!requestId) return;
-  ensureTracked(requestId).pagePath = pagePath;
-}
-
-export function recordUpstreamCall(record: UpstreamCallRecord): void {
-  if (!SSR_DIAGNOSTICS_ENABLED) return;
-  const requestId = currentRequestId();
-  if (!requestId) return;
-  ensureTracked(requestId).upstream.push(record);
-}
-
-/**
- * Closes out a request. Only failures and slow requests are logged — a healthy
- * fast page would otherwise bury them — and the entry is dropped either way.
- *
- * The id comes off the response, not the async context: this runs after the
- * request has finished, where that context is already gone. The platform's
- * request-id middleware stamps \`x-request-id\` on the way out, which is what
- * ties the outcome back to the calls recorded during the render.
- */
-export function logSsrOutcome(opts: {
-  request: Request;
-  response?: Response | undefined;
-  pageStatus: number;
-  errorType?: string | undefined;
-  errorMessage?: string | undefined;
-}): void {
-  if (!SSR_DIAGNOSTICS_ENABLED) return;
-
-  const requestId =
-    opts.response?.headers.get("x-request-id") ??
-    opts.request.headers.get("x-request-id") ??
-    undefined;
-  const entry = requestId ? tracked.get(requestId) : undefined;
-  const durationMs = entry ? performance.now() - entry.startedAt : undefined;
-  const pagePath = entry?.pagePath ?? new URL(opts.request.url).pathname;
-  const isFailure = opts.pageStatus >= 400;
-  const isSlow = durationMs !== undefined && durationMs >= SLOW_REQUEST_MS;
-
-  if (requestId) tracked.delete(requestId);
-  if (!isFailure && !isSlow) return;
-
-  const upstream = entry?.upstream ?? [];
-  const payload = {
-    page: pagePath,
-    pageStatus: opts.pageStatus,
-    requestId: requestId ?? "unknown",
-    durationMs: durationMs === undefined ? undefined : Math.round(durationMs),
-    errorType: opts.errorType,
-    errorMessage: opts.errorMessage,
-    upstreamCount: upstream.length,
-    upstream: upstream.length
-      ? upstream.map(
-          (call) =>
-            \`\${call.method} \${call.url} => \${call.status}\${call.cached ? " (cached)" : ""} / \${call.durationMs.toFixed(0)}ms\${call.error ? \` err=\${call.error}\` : ""}\`,
-        )
-      : undefined,
-  };
-
-  if (isFailure) logger.error("ssr request failed", payload);
-  else logger.warn("ssr request slow", payload);
-}
-
-/** Turns an upstream status into a stable, greppable label. */
-export function classifyGatewayError(status: number): string {
-  if (status === 429) return "UPSTREAM_RATE_LIMIT";
-  if (status === 503) return "UPSTREAM_UNAVAILABLE";
-  if (status === 502) return "UPSTREAM_BAD_GATEWAY";
-  if (status === 504) return "UPSTREAM_TIMEOUT";
-  if (status >= 500) return "UPSTREAM_5XX";
-  if (status >= 400) return "UPSTREAM_4XX";
-  return "UPSTREAM_ERROR";
-}
-`;
-
 const menuProjectionTest =
   () => `import type { IMenuItems, MenuItem } from "@originloom/shared/lib/menu/types";
 import { describe, expect, it } from "vitest";
@@ -7254,118 +7114,6 @@ describe("projectMenu", () => {
     expect(source.headerItems.map((entry) => entry.name)).toEqual(["B", "A"]);
   });
 });
-`;
-
-const gatewayDiagnostics = () => `/**
- * The gateway adapter every service imports.
- *
- * It is a thin pass-through to \`@originloom/core/adapters/gateway\` that, when
- * \`SSR_DIAGNOSTICS=1\`, records how long each upstream call took and what it
- * answered. Services import from here rather than from core so that turning
- * diagnostics on is an environment variable, not a code change across the app.
- *
- * With diagnostics off each function forwards directly, so this costs one extra
- * call frame and nothing else.
- *
- * Every function below takes \`...args\` and forwards them untouched. That is
- * deliberate: a wrapper that normalized \`init\` to \`{}\` would change the arity
- * core sees, which is invisible in production and breaks every test that
- * asserts on how the gateway was called. A pass-through must be invisible.
- */
-import * as coreGateway from "@originloom/core/adapters/gateway";
-
-import {
-  classifyGatewayError,
-  recordUpstreamCall,
-  SSR_DIAGNOSTICS_ENABLED,
-} from "./ssr-diagnostics";
-
-/**
- * Times one upstream call and records it under the request that made it, which
- * the diagnostics module resolves from the platform's async request context —
- * so a call with no \`Request\` in hand is attributed just as well as one with.
- *
- * A thrown error is recorded as status 0 and rethrown untouched — a transport
- * failure is exactly the case the trace exists for, so swallowing it here would
- * defeat the purpose.
- */
-async function instrument<T extends Response>(
-  path: string,
-  method: string,
-  call: () => Promise<T>,
-): Promise<T> {
-  if (!SSR_DIAGNOSTICS_ENABLED) return call();
-
-  const started = performance.now();
-  try {
-    const response = await call();
-    recordUpstreamCall({
-      url: path,
-      method,
-      status: response.status,
-      durationMs: performance.now() - started,
-    });
-    return response;
-  } catch (error) {
-    recordUpstreamCall({
-      url: path,
-      method,
-      status: 0,
-      durationMs: performance.now() - started,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
-}
-
-export function gatewayFetch(
-  ...args: Parameters<typeof coreGateway.gatewayFetch>
-): Promise<coreGateway.GatewayResponse> {
-  const [path, init] = args;
-  return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetch(...args));
-}
-
-export function gatewayFetchWithIdentity(
-  ...args: Parameters<typeof coreGateway.gatewayFetchWithIdentity>
-): Promise<coreGateway.GatewayResponse> {
-  const [, path, init] = args;
-  return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetchWithIdentity(...args));
-}
-
-export function gatewayFetchForRequest(
-  ...args: Parameters<typeof coreGateway.gatewayFetchForRequest>
-): Promise<coreGateway.GatewayResponse> {
-  const [, path, init] = args;
-  return instrument(path, init?.method ?? "GET", () => coreGateway.gatewayFetchForRequest(...args));
-}
-
-/**
- * Forwarded at call time rather than re-exported by value: a test that mocks
- * the core module partially would otherwise fail at import, because binding the
- * export here reads a property the mock never defined.
- */
-export function releaseGatewayResponse(
-  ...args: Parameters<typeof coreGateway.releaseGatewayResponse>
-): Promise<void> {
-  return coreGateway.releaseGatewayResponse(...args);
-}
-
-/** Records the failing status before core turns it into a thrown error. */
-export function requireGatewayOk(
-  ...args: Parameters<typeof coreGateway.requireGatewayOk>
-): Promise<void> {
-  const [response] = args;
-  if (!response.ok && SSR_DIAGNOSTICS_ENABLED) {
-    recordUpstreamCall({
-      url: "(requireGatewayOk)",
-      method: "CHECK",
-      status: response.status,
-      durationMs: 0,
-      error: classifyGatewayError(response.status),
-    });
-  }
-  return coreGateway.requireGatewayOk(...args);
-}
 `;
 
 const shellContext = () => `import { createContext, type ReactNode, useContext } from "react";
@@ -9767,10 +9515,10 @@ jobs:
 `;
 
 const profileService =
-  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+  () => `import { gatewayFetchForRequest } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isRequestDeadlineError } from "@originloom/core/middleware/request-deadline";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import { gatewayFetchForRequest } from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -10488,13 +10236,12 @@ describe("the provider webhook", () => {
 });
 `;
 
-const referralService =
-  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
-import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import {
+const referralService = () => `import {
   gatewayFetchWithIdentity,
   requireGatewayOk,
-} from "@server/diagnostics/gateway";
+} from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 
 import { GatewayContracts } from "./gateway-contracts";
 
@@ -10897,12 +10644,9 @@ function seeOther(path: string, status: "sent" | "invalid" | "failed"): Response
 `;
 
 const enquiryService =
-  () => `import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
+  () => `import { gatewayFetchWithIdentity, requireGatewayOk } from "@originloom/core/adapters/gateway";
+import { readGatewayJson, requireGatewayPayload } from "@originloom/core/gateway-payload";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
-import {
-  gatewayFetchWithIdentity,
-  requireGatewayOk,
-} from "@server/diagnostics/gateway";
 
 import { GatewayContracts } from "./gateway-contracts";
 

@@ -83,6 +83,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
 export const CORE_PUBLIC_SUBPATHS = [
   "env-schema",
   "request-error",
+  "diagnostics/request-trace",
   "idempotency",
   "route-rules",
   "early-hints",

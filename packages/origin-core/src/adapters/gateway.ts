@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { classifyGatewayError, recordUpstreamCall } from "../diagnostics/request-trace.js";
 import { gatewayTransportFetch } from "../gateway-transport.js";
 import { observeGatewayRequest } from "../metrics.js";
 import {
@@ -86,12 +87,34 @@ export async function gatewayFetch(path: string, init: RequestInit = {}): Promis
         span.setAttribute("http.response.status_code", response.status);
         span.setAttribute("gateway.outcome", outcome);
         if (response.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
-        observeGatewayRequest(response.status, performance.now() - started, outcome);
+        const durationMs = performance.now() - started;
+        observeGatewayRequest(response.status, durationMs, outcome);
+        // Recorded here rather than by a wrapper each app owns. A wrapper is a
+        // thing a service can forget to import, and four of them in one real app
+        // had — so their calls were invisible to the trace that exists to find
+        // them. A lint rule can catch that; not needing the rule is better.
+        recordUpstreamCall({
+          url: url.pathname,
+          method: init.method ?? "GET",
+          status: response.status,
+          durationMs,
+          ...(response.ok ? {} : { error: classifyGatewayError(response.status) }),
+        });
         return asGatewayResponse(response);
       } catch (error) {
         const outcome = timeout.aborted || isUndiciTimeout(error) ? "timeout" : "network_error";
         span.setAttribute("gateway.outcome", outcome);
-        observeGatewayRequest(0, performance.now() - started, outcome);
+        const durationMs = performance.now() - started;
+        observeGatewayRequest(0, durationMs, outcome);
+        // Status 0 and the message: a transport failure is exactly the case the
+        // trace exists for, so it is recorded and then rethrown untouched.
+        recordUpstreamCall({
+          url: url.pathname,
+          method: init.method ?? "GET",
+          status: 0,
+          durationMs,
+          error: error instanceof Error ? error.message : String(error),
+        });
         throw error;
       }
     },
