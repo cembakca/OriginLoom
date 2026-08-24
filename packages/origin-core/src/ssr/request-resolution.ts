@@ -135,7 +135,7 @@ async function resolveNotFoundResponse(
   logOutcome(requestId, url, 404, "BYPASS", started);
   return {
     kind: "response",
-    response: htmlResponse(body, 404, { kind: "none" }, "BYPASS", undefined, requestId),
+    response: htmlResponse(body, 404, { policy: { kind: "none" }, state: "BYPASS", requestId }),
   };
 }
 

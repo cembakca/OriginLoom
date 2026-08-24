@@ -58,6 +58,10 @@ export async function executeRoute(
     route.path,
     route.minimalChrome === undefined ? {} : { minimalChrome: route.minimalChrome },
   );
+  // The loader and the render are the two sequential phases of a response, so
+  // timing them separately is what turns "this page took 1700ms" into "the
+  // gateway took 1400 of it". They ride out on Server-Timing in development.
+  const loaderStarted = performance.now();
   let result;
   try {
     result = await runLoader(route, routeCtx, phase);
@@ -65,6 +69,7 @@ export async function executeRoute(
     shellResolution.abort(error);
     throw error;
   }
+  const loaderMs = performance.now() - loaderStarted;
   if (result.kind && result.kind !== "data") {
     shellResolution.abort();
     return { result };
@@ -72,12 +77,15 @@ export async function executeRoute(
 
   const shouldStream =
     route.streaming && phase === "request" && !getRuntime().document.isBotRequest(routeCtx.request);
+  const renderStarted = performance.now();
   if (!shouldStream) {
     try {
+      const body = await runRender(route, result.data, assets, routeCtx, phase, shellResolution);
       return {
         result,
-        body: await runRender(route, result.data, assets, routeCtx, phase, shellResolution),
+        body,
         shellResolution,
+        timings: { loaderMs, renderMs: performance.now() - renderStarted },
       };
     } catch (error) {
       shellResolution.abort(error);
@@ -100,7 +108,15 @@ export async function executeRoute(
       },
     );
     routeCtx.request.signal.addEventListener("abort", () => streamResult.abort());
-    return { result, streamResult, shellResolution };
+    // A streamed render returns once the shell is ready, not once the body is
+    // finished — the headers leave at that moment too, so this is the phase the
+    // header can honestly describe.
+    return {
+      result,
+      streamResult,
+      shellResolution,
+      timings: { loaderMs, renderMs: performance.now() - renderStarted },
+    };
   } catch (error) {
     shellResolution.abort(error);
     rethrowRequestDeadline(routeCtx.request, error);

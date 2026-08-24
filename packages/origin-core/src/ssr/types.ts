@@ -18,6 +18,12 @@ export type HandleContext = {
 
 export type RenderPhase = "request" | "revalidation" | "cache_fill";
 
+/** Sequential server-side phases of one execution, in milliseconds. */
+export type RouteTimings = {
+  loaderMs: number;
+  renderMs: number;
+};
+
 export type RouteExecution = {
   result: LoaderResult<unknown>;
   body?: string;
@@ -26,4 +32,6 @@ export type RouteExecution = {
   errorId?: string;
   /** Shares public shell work with document render and fresh fragment stitching. */
   shellResolution?: ShellResolution;
+  /** Absent when the loader short-circuited before anything was rendered. */
+  timings?: RouteTimings;
 };

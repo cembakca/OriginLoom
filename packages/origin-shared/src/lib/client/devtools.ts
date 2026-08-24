@@ -13,6 +13,11 @@
  */
 export type DevtoolsSnapshot = {
   cache: { state: string; durationMs?: number | undefined };
+  /**
+   * The server-side phases behind this navigation, when the server published
+   * them. Development only: the platform omits `Server-Timing` in production.
+   */
+  server: { loaderMs?: number | undefined; renderMs?: number | undefined };
   requestId?: string | undefined;
   islands: { name: string; mode: string; hydrated: boolean }[];
   serverIslands: { name: string; filled: boolean }[];
@@ -208,7 +213,8 @@ const DEVTOOLS_CSS = `
 export function readDevtoolsSnapshot(doc: Document = document): DevtoolsSnapshot {
   const meta = (name: string): string | undefined =>
     doc.querySelector<HTMLMetaElement>(`meta[name="${name}"]`)?.content || undefined;
-  const cacheTiming = readCacheTiming();
+  const serverTiming = readServerTiming();
+  const cacheTiming = serverTiming.cache;
 
   const islands = [...doc.querySelectorAll<HTMLElement>("[data-island]")].map((element) => ({
     name: element.dataset.island ?? "",
@@ -232,6 +238,7 @@ export function readDevtoolsSnapshot(doc: Document = document): DevtoolsSnapshot
       state: cacheTiming?.state ?? meta("originloom:cache-state") ?? "unknown",
       ...(cacheTiming?.durationMs !== undefined ? { durationMs: cacheTiming.durationMs } : {}),
     },
+    server: serverTiming.phases,
     ...(meta("originloom:request-id") ? { requestId: meta("originloom:request-id") } : {}),
     islands,
     serverIslands,
@@ -240,20 +247,45 @@ export function readDevtoolsSnapshot(doc: Document = document): DevtoolsSnapshot
 }
 
 /**
- * The cache state of *this* navigation.
+ * What the server said about *this* navigation.
  *
  * Read from `Server-Timing` rather than the document, because the document is
  * the thing being cached: a HIT serves a body that was rendered during a MISS,
  * so anything baked into the HTML describes the wrong request. The header is
  * per-response and the browser exposes it here.
+ *
+ * The loader and render phases are what make the total actionable — a page that
+ * spends its time in the loader is waiting on data, one that spends it in the
+ * render is paying for markup, and the panel should not make anyone guess which.
  */
-function readCacheTiming(): { state?: string; durationMs?: number } | undefined {
+function readServerTiming(): {
+  cache?: { state?: string; durationMs?: number };
+  phases: DevtoolsSnapshot["server"];
+} {
   const [navigation] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
-  const entry = navigation?.serverTiming?.find((timing) => timing.name === "cache");
-  if (!entry) return undefined;
+  const entries = navigation?.serverTiming ?? [];
+  const find = (name: string) => entries.find((timing) => timing.name === name);
+  const phaseMs = (name: string): number | undefined => {
+    const entry = find(name);
+    return entry && Number.isFinite(entry.duration) ? Math.max(0, entry.duration) : undefined;
+  };
+
+  const cache = find("cache");
+  const loaderMs = phaseMs("loader");
+  const renderMs = phaseMs("render");
   return {
-    ...(entry.description ? { state: entry.description } : {}),
-    ...(Number.isFinite(entry.duration) ? { durationMs: Math.max(0, entry.duration) } : {}),
+    ...(cache
+      ? {
+          cache: {
+            ...(cache.description ? { state: cache.description } : {}),
+            ...(Number.isFinite(cache.duration) ? { durationMs: Math.max(0, cache.duration) } : {}),
+          },
+        }
+      : {}),
+    phases: {
+      ...(loaderMs !== undefined ? { loaderMs } : {}),
+      ...(renderMs !== undefined ? { renderMs } : {}),
+    },
   };
 }
 
@@ -462,6 +494,21 @@ function summaryItem(doc: Document, label: string, value: string): HTMLElement {
 
 function fillDetails(doc: Document, details: HTMLElement, snapshot: DevtoolsSnapshot): void {
   details.append(heading(doc, "Request"), row(doc, "id", snapshot.requestId ?? "—"));
+
+  // Loader and render are sequential, so they read as a breakdown of the cache
+  // total rather than three unrelated numbers. Absent in production, where the
+  // platform publishes no Server-Timing at all.
+  const { loaderMs, renderMs } = snapshot.server;
+  if (snapshot.cache.durationMs !== undefined || loaderMs !== undefined) {
+    const server = doc.createElement("div");
+    server.className = "ol-timing";
+    server.append(
+      timingItem(doc, "Total", format(snapshot.cache.durationMs)),
+      timingItem(doc, "Loader", format(loaderMs)),
+      timingItem(doc, "Render", format(renderMs)),
+    );
+    details.append(heading(doc, "Server"), server);
+  }
 
   const timing = doc.createElement("div");
   timing.className = "ol-timing";
@@ -681,5 +728,8 @@ function empty(doc: Document, text: string): HTMLElement {
 }
 
 function format(ms: number | undefined): string {
-  return ms === undefined ? "—" : `${ms}ms`;
+  if (ms === undefined) return "—";
+  // Server phases arrive fractional; rounding at the edge keeps a cell from
+  // becoming "1412.4400000000001ms" and blowing out the column.
+  return `${Number.isInteger(ms) ? ms : Math.round(ms * 10) / 10}ms`;
 }

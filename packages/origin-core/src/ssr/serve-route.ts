@@ -23,6 +23,7 @@ import {
   loaderRedirectResponse,
   logRouteOutcome,
   normalizeErrorStatus,
+  type ServerTimings,
 } from "./response.js";
 import type { RouteExecution } from "./types.js";
 
@@ -105,15 +106,12 @@ async function cachedResponse(
     ? await stitchCachedHtml(cachedBody, options.route, options.routeCtx, true, fragmentMarkers)
     : cachedBody;
   const body = materializeCachedHtmlDynamicValues(stitchedBody, options.routeCtx);
-  return htmlResponse(
-    body,
-    200,
-    options.policy,
+  return htmlResponse(body, 200, {
+    policy: options.policy,
     state,
-    undefined,
-    options.requestId,
-    cacheDuration(options),
-  );
+    requestId: options.requestId,
+    timings: serverTimings(options),
+  });
 }
 
 function toColdFillResult(value: RouteExecution, dynamicValues: Ctx) {
@@ -149,15 +147,13 @@ async function respondToExecution(
   const status = result.status ?? 200;
   logOutcome(options, status, state);
   if (execution.streamResult) {
-    return htmlResponse(
-      execution.streamResult.stream,
-      status,
-      options.policy,
+    return htmlResponse(execution.streamResult.stream, status, {
+      policy: options.policy,
       state,
-      result.headers,
-      options.requestId,
-      cacheDuration(options),
-    );
+      headers: result.headers,
+      requestId: options.requestId,
+      timings: serverTimings(options, execution),
+    });
   }
 
   const stitchedBody = await stitchCachedHtml(
@@ -169,15 +165,13 @@ async function respondToExecution(
     execution.shellResolution,
   );
   const body = materializeCachedHtmlDynamicValues(stitchedBody, options.routeCtx);
-  return htmlResponse(
-    body,
-    status,
-    options.policy,
+  return htmlResponse(body, status, {
+    policy: options.policy,
     state,
-    result.headers,
-    options.requestId,
-    cacheDuration(options),
-  );
+    headers: result.headers,
+    requestId: options.requestId,
+    timings: serverTimings(options, execution),
+  });
 }
 
 function respondToRedirect(
@@ -205,15 +199,13 @@ async function respondToNotFound(
   );
   logOutcome(options, 404, "BYPASS");
   const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
-  return htmlResponse(
-    body,
-    404,
-    { kind: "none" },
-    "BYPASS",
-    result.headers,
-    options.requestId,
-    cacheDuration(options),
-  );
+  return htmlResponse(body, 404, {
+    policy: { kind: "none" },
+    state: "BYPASS",
+    headers: result.headers,
+    requestId: options.requestId,
+    timings: serverTimings(options),
+  });
 }
 
 async function respondToExpectedError(
@@ -246,15 +238,13 @@ async function respondToExpectedError(
   );
   const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
   logOutcome(options, status, "BYPASS");
-  return htmlResponse(
-    body,
-    status,
-    { kind: "none" },
-    "BYPASS",
-    result.headers,
-    options.requestId,
-    cacheDuration(options),
-  );
+  return htmlResponse(body, status, {
+    policy: { kind: "none" },
+    state: "BYPASS",
+    headers: result.headers,
+    requestId: options.requestId,
+    timings: serverTimings(options),
+  });
 }
 
 async function renderUnexpectedRouteError(
@@ -285,15 +275,12 @@ async function renderUnexpectedRouteError(
   );
   const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
   logOutcome(options, 500, "ERROR");
-  return htmlResponse(
-    body,
-    500,
-    { kind: "none" },
-    "ERROR",
-    undefined,
-    options.requestId,
-    cacheDuration(options),
-  );
+  return htmlResponse(body, 500, {
+    policy: { kind: "none" },
+    state: "ERROR",
+    requestId: options.requestId,
+    timings: serverTimings(options),
+  });
 }
 
 function cacheSafeRenderContext(routeCtx: Ctx): Ctx {
@@ -315,7 +302,14 @@ function logOutcome(options: ServeRouteOptions, status: number, cacheState: stri
   logRouteOutcome(options.requestId, options.url, status, cacheState, options.started);
 }
 
-/** The server-side HTML phase represented by the adjacent cache state. */
-function cacheDuration(options: ServeRouteOptions): number {
-  return Math.max(0, Date.now() - options.started);
+/**
+ * The phases behind this response. `totalMs` is always available — it is wall
+ * clock since the request arrived — while the loader/render split exists only
+ * where a route actually executed, which a cache HIT by definition did not.
+ */
+function serverTimings(options: ServeRouteOptions, execution?: RouteExecution): ServerTimings {
+  return {
+    totalMs: Math.max(0, Date.now() - options.started),
+    ...execution?.timings,
+  };
 }

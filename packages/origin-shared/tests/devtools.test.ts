@@ -62,7 +62,29 @@ describe("readDevtoolsSnapshot", () => {
     const snapshot = readDevtoolsSnapshot(page(""));
 
     expect(snapshot.cache).toEqual({ state: "HIT", durationMs: 3.4 });
+    expect(snapshot.server).toEqual({});
     expect(snapshot.timing.loadMs).toBe(72);
+  });
+
+  /** The split is the point: a total says how long, the phases say which half. */
+  it("reads the loader and render phases alongside the total", () => {
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue([
+      {
+        responseStart: 1712,
+        domContentLoadedEventEnd: 1740,
+        loadEventEnd: 1755,
+        serverTiming: [
+          { name: "cache", description: "BYPASS", duration: 1700 },
+          { name: "loader", description: "", duration: 1412.4 },
+          { name: "render", description: "", duration: 238.5 },
+        ],
+      } as unknown as PerformanceNavigationTiming,
+    ]);
+
+    const snapshot = readDevtoolsSnapshot(page(""));
+
+    expect(snapshot.cache).toEqual({ state: "BYPASS", durationMs: 1700 });
+    expect(snapshot.server).toEqual({ loaderMs: 1412.4, renderMs: 238.5 });
   });
 
   /** An unfilled placeholder is the interesting case: it means the fallback is showing. */
@@ -127,6 +149,48 @@ describe("mountDevtoolsPanel", () => {
     expect(document.querySelectorAll("#originloom-devtools")).toHaveLength(1);
     unmountFirst();
     unmountSecond();
+  });
+
+  it("breaks the server total down into its phases", () => {
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue([
+      {
+        responseStart: 1712,
+        domContentLoadedEventEnd: 1740,
+        loadEventEnd: 1755,
+        serverTiming: [
+          { name: "cache", description: "BYPASS", duration: 1700 },
+          { name: "loader", description: "", duration: 1412.44 },
+          { name: "render", description: "", duration: 238.5 },
+        ],
+      } as unknown as PerformanceNavigationTiming,
+    ]);
+    page("");
+
+    const unmount = mountDevtoolsPanel({ document });
+    document.querySelector<HTMLButtonElement>(".ol-toggle")?.click();
+    const text = document.getElementById("originloom-devtools")?.textContent ?? "";
+
+    expect(text).toContain("Server");
+    expect(text).toContain("Loader");
+    // Rounded at the edge, so a fractional server duration cannot blow out the cell.
+    expect(text).toContain("1412.4ms");
+    expect(text).toContain("238.5ms");
+    unmount();
+  });
+
+  /** Production publishes no Server-Timing, so the section must simply not exist. */
+  it("omits the server section when the response carried no phases", () => {
+    page("");
+
+    const unmount = mountDevtoolsPanel({ document });
+    document.querySelector<HTMLButtonElement>(".ol-toggle")?.click();
+    const headings = [...document.querySelectorAll(".ol-heading")].map(
+      (heading) => heading.textContent,
+    );
+
+    expect(headings).not.toContain("Server");
+    expect(headings).toContain("Navigation");
+    unmount();
   });
 
   it("can be disabled from code and closes an existing panel", () => {

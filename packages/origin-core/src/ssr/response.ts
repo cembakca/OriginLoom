@@ -6,40 +6,74 @@ import { logger } from "../logger.js";
 
 type CachePolicy = ReturnType<NonNullable<Route["cache"]>>;
 
+/**
+ * The server-side phases of one response, in milliseconds.
+ *
+ * `loaderMs` and `renderMs` are sequential and therefore additive; the shell is
+ * deliberately not among them, because it is started alongside the loader and
+ * awaited inside the render, so its cost already shows up in whichever of the
+ * two was still running when it landed. A separate shell number would overlap
+ * the others and invite the wrong subtraction.
+ */
+export type ServerTimings = {
+  /** Time to these headers — the phase the adjacent cache state describes. */
+  totalMs?: number | undefined;
+  /** Route loader, including every request it awaits. */
+  loaderMs?: number | undefined;
+  /** Document render. On a streamed route this is the shell, not the whole body. */
+  renderMs?: number | undefined;
+};
+
+export type HtmlResponseOptions = {
+  policy: CachePolicy;
+  state: string;
+  headers?: Record<string, string> | undefined;
+  requestId?: string | undefined;
+  timings?: ServerTimings | undefined;
+};
+
 export function htmlResponse(
   body: string | ReadableStream,
   status: number,
-  policy: CachePolicy,
-  state: string,
-  extra?: Record<string, string>,
-  requestId?: string,
-  cacheDurationMs?: number,
+  options: HtmlResponseOptions,
 ): Response {
   const isStream = body instanceof ReadableStream;
   const headers: Record<string, string> = {
-    ...extra,
+    ...options.headers,
     "content-type": "text/html; charset=utf-8",
     "cache-control": isStream
       ? "no-transform, no-cache, no-store, must-revalidate"
-      : cache.cacheControl(policy),
-    "x-cache": state,
+      : cache.cacheControl(options.policy),
+    "x-cache": options.state,
   };
-  if (requestId) headers["x-request-id"] = requestId;
+  if (options.requestId) headers["x-request-id"] = options.requestId;
   // Development only. `x-cache` is already on the response, but a script cannot
   // read its own document's headers — and a meta tag would be wrong, because a
   // cache HIT reuses a body that was rendered on a MISS. `Server-Timing` is a
-  // header the browser does expose to JS, so both the state and the server-side
-  // phase that produced this HTML stay fresh on every response.
+  // header the browser does expose to JS, so the cache state and the phases
+  // that produced this HTML stay fresh on every response.
   if (!config.isProduction) {
-    const duration =
-      cacheDurationMs !== undefined && Number.isFinite(cacheDurationMs)
-        ? `;dur=${Math.max(0, cacheDurationMs).toFixed(1)}`
-        : "";
-    headers["server-timing"] = `cache;desc="${state}"${duration}`;
+    headers["server-timing"] = serverTiming(options.state, options.timings);
   }
   if (isStream) headers["transfer-encoding"] = "chunked";
 
   return new Response(body, { status, headers });
+}
+
+/**
+ * One metric per phase, so a browser plots them and the devtools panel can say
+ * which half of a slow response was the data and which was the render. A total
+ * alone answers "how long", never "why".
+ */
+function serverTiming(state: string, timings: ServerTimings = {}): string {
+  const metrics = [`cache;desc="${state}"${duration(timings.totalMs)}`];
+  if (timings.loaderMs !== undefined) metrics.push(`loader${duration(timings.loaderMs)}`);
+  if (timings.renderMs !== undefined) metrics.push(`render${duration(timings.renderMs)}`);
+  return metrics.join(", ");
+}
+
+function duration(ms: number | undefined): string {
+  return ms !== undefined && Number.isFinite(ms) ? `;dur=${Math.max(0, ms).toFixed(1)}` : "";
 }
 
 export function headResponse(

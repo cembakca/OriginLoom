@@ -37,6 +37,37 @@ describe("Hono application integration", () => {
     await closeCache();
   });
 
+  /**
+   * The unit test proves the header is formatted; this proves the numbers reach
+   * it through the real pipeline. Without that, a phase could be measured and
+   * silently dropped somewhere between executeRoute and the response.
+   */
+  it("publishes the loader and render phases it actually measured", async () => {
+    const slowLoader: Route = {
+      path: "/timed",
+      loader: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        return { data: {} };
+      },
+      Component: () => createElement("p", null, "timed"),
+      minimalChrome: true,
+    };
+
+    const response = await appWith([slowLoader]).request("/timed");
+    const timing = response.headers.get("server-timing") ?? "";
+    // `cache` carries a desc before its dur; the phases carry dur alone.
+    const phase = (name: string) =>
+      Number(new RegExp(`(?:^|, )${name}(?:;desc="[^"]*")?;dur=([0-9.]+)`).exec(timing)?.[1]);
+
+    expect(timing).toContain('cache;desc="BYPASS"');
+    // The sleep has to land in the loader, not in the render — that separation
+    // is the whole point of splitting them.
+    expect(phase("loader")).toBeGreaterThanOrEqual(20);
+    expect(phase("render")).toBeLessThan(phase("loader"));
+    // Both phases happen inside the total, so neither can exceed it.
+    expect(phase("cache")).toBeGreaterThanOrEqual(phase("loader"));
+  });
+
   it("puts an app's own third-party origins in the policy, and no one else's", async () => {
     const route: Route = {
       path: "/csp",
