@@ -608,6 +608,8 @@ function project({ version, metadata }) {
                   "0.7.23-cache-performance-acceptance",
                   "0.7.24-warm-path-performance",
                   "0.7.26-node-24",
+                  "0.7.32-devtools-client-option",
+                  "0.7.32-shutdown-drain-order",
                 ]
               : []),
           ],

@@ -860,6 +860,20 @@ describe("renderTemplates — gateway wiring", () => {
     expect(files[".env.production"]).toContain("GATEWAY_CONNECT_TIMEOUT_MS=1000");
   });
 
+  it("react: closes active requests before draining their after tasks", () => {
+    const server = standalone()["server/index.ts"];
+    const closePhase = server.indexOf(
+      "await Promise.all([closeServer(httpServer), closeServer(metricsServer)]);",
+    );
+    const drainPhase = server.indexOf(
+      "await Promise.all([\n          drainRevalidations(config.revalidationDrainTimeoutMs),",
+    );
+
+    expect(closePhase).toBeGreaterThan(-1);
+    expect(drainPhase).toBeGreaterThan(closePhase);
+    expect(server.slice(drainPhase)).toContain("drainAfter()");
+  });
+
   it("react: documents log sampling, precompression and CDN delivery", () => {
     const files = standalone();
     expect(files[".env.production"]).toContain("REQUEST_LOG_SAMPLE_RATE=0.1");
@@ -1130,6 +1144,17 @@ describe("renderTemplates — production reference coverage", () => {
     expect(entry).toContain('import("web-vitals")');
     expect(entry).toContain("requestIdleCallback");
     expect(entry).not.toContain('from "web-vitals"');
+  });
+
+  it("makes development tools an app-owned client option", () => {
+    const entry = standalone()["src/entry.client.tsx"];
+
+    expect(entry).toContain("const originLoomOptions: OriginLoomClientOptions");
+    expect(entry).toContain("devtools: true");
+    expect(entry).toContain("const devtoolsEnabled = originLoomOptions.devtools ?? true");
+    expect(entry).toContain("import.meta.env.DEV && devtoolsEnabled");
+    expect(entry).toContain('import("@originloom/shared/lib/client/devtools")');
+    expect(entry).toContain("mountDevtoolsPanel({ enabled: devtoolsEnabled })");
   });
 
   it("normalizes content query params before they enter a cache key", () => {

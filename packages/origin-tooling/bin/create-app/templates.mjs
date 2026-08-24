@@ -1478,9 +1478,10 @@ ${liveStream ? "    stopLiveStreams();\n" : ""}
 
     void (async () => {
       try {
+        // Stop accepting work first: no request may still be able to park an
+        // after() task while the drains take their snapshot.
+        await Promise.all([closeServer(httpServer), closeServer(metricsServer)]);
         await Promise.all([
-          closeServer(httpServer),
-          closeServer(metricsServer),
           drainRevalidations(config.revalidationDrainTimeoutMs),
           drainAfter(),
 ${botAnalytics ? "          drainBotAnalytics(),\n" : ""}        ]);
@@ -7740,11 +7741,25 @@ import {
   reportClientError,
 } from "@originloom/shared/lib/client/error-telemetry";
 import { runIslandBootstrap } from "@originloom/shared/lib/client/island-runtime";
+import type { OriginLoomClientOptions } from "@originloom/shared/lib/client/options";
 import { reportWebVital } from "@originloom/shared/lib/client/performance-telemetry";
 import { installReloadButtons } from "@originloom/shared/lib/client/reload-button";
 
+const originLoomOptions: OriginLoomClientOptions = {
+  devtools: true,
+};
+const devtoolsEnabled = originLoomOptions.devtools ?? true;
+
 installReloadButtons();
 logPageRequestIdInDev();
+
+// Dev-only and lazily imported. Set devtools to false above to keep the panel
+// out of the development module graph as well.
+if (import.meta.env.DEV && devtoolsEnabled) {
+  void import("@originloom/shared/lib/client/devtools").then(({ mountDevtoolsPanel }) =>
+    mountDevtoolsPanel({ enabled: devtoolsEnabled }),
+  );
+}
 
 // Quality telemetry must not compete with first paint or island hydration.
 // The dynamic import keeps web-vitals out of the initial route chunk.

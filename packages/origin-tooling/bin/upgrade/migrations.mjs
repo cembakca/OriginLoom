@@ -33,6 +33,8 @@ export const SSR_ERROR_REFERENCE_MIGRATION = "0.7.22-ssr-error-reference";
 export const CACHE_PERFORMANCE_ACCEPTANCE_MIGRATION = "0.7.23-cache-performance-acceptance";
 export const WARM_PATH_PERFORMANCE_MIGRATION = "0.7.24-warm-path-performance";
 export const NODE_24_MIGRATION = "0.7.26-node-24";
+export const DEVTOOLS_OPTION_MIGRATION = "0.7.32-devtools-client-option";
+export const SHUTDOWN_DRAIN_ORDER_MIGRATION = "0.7.32-shutdown-drain-order";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -373,6 +375,38 @@ export const migrations = [
     },
   },
   {
+    id: DEVTOOLS_OPTION_MIGRATION,
+    introducedIn: "0.7.32",
+    description:
+      "Dev-only devtools paneli uygulamanın kendi tercihi olur: client entry bir OriginLoomClientOptions bloğu taşır ve dinamik import o bayrağın arkasına alınır, böylece kapatıldığında panel development modül grafiğine de girmez.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "src/entry.client.tsx",
+        patchClientEntryDevtoolsOption,
+        manualRequired,
+      );
+    },
+  },
+  {
+    id: SHUTDOWN_DRAIN_ORDER_MIGRATION,
+    introducedIn: "0.7.32",
+    description:
+      "Kapanış iki faza ayrılır. Sunucu kapatma ve drain'ler tek bir Promise.all içinde koştuğunda, kapanış anında hâlâ kabul edilen bir istek after() işini drain kendi anlık görüntüsünü aldıktan sonra park edebiliyordu; artık önce dinleyiciler kapanır, sonra drain başlar.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "server/index.ts",
+        patchShutdownDrainOrder,
+        manualRequired,
+      );
+    },
+  },
+  {
     id: WARM_PATH_PERFORMANCE_MIGRATION,
     introducedIn: "0.7.24",
     description:
@@ -502,6 +536,136 @@ function repairClientEntryTelemetryImport(source) {
     next = next.replace(analyticsImportPattern, repairedAnalyticsImport);
   }
   return patchClientEntry(next);
+}
+
+const DEVTOOLS_OPTIONS_IMPORT =
+  'import type { OriginLoomClientOptions } from "@originloom/shared/lib/client/options";';
+
+const DEVTOOLS_OPTIONS_BLOCK = `const originLoomOptions: OriginLoomClientOptions = {
+  devtools: true,
+};
+const devtoolsEnabled = originLoomOptions.devtools ?? true;`;
+
+const DEVTOOLS_MOUNT_BLOCK = `// Dev-only and lazily imported. Set devtools to false above to keep the panel
+// out of the development module graph as well.
+if (import.meta.env.DEV && devtoolsEnabled) {
+  void import("@originloom/shared/lib/client/devtools").then(({ mountDevtoolsPanel }) =>
+    mountDevtoolsPanel({ enabled: devtoolsEnabled }),
+  );
+}`;
+
+const ISLAND_RUNTIME_IMPORT =
+  /^import \{ runIslandBootstrap \} from (["'])@originloom\/shared\/lib\/client\/island-runtime\1;$/m;
+
+/**
+ * Puts the devtools panel behind an app-owned flag.
+ *
+ * An entry that already mounts the panel only needs the flag threaded through
+ * the guard it already has; one generated before 0.7.32 has no panel at all and
+ * gets the whole block. Both end at the same shape, so a project that adopted
+ * devtools by hand and one that never saw them converge here.
+ */
+function patchClientEntryDevtoolsOption(source) {
+  if (source.includes("OriginLoomClientOptions")) return { status: "already-applied" };
+
+  const installCall = "installReloadButtons();";
+  if (!ISLAND_RUNTIME_IMPORT.test(source) || !source.includes(installCall)) {
+    return {
+      status: "manual-required",
+      detail:
+        "src/entry.client.tsx bilinen generated kalıba uymuyor. OriginLoomClientOptions bloğunu " +
+        "ve mountDevtoolsPanel({ enabled: devtoolsEnabled }) çağrısını elle ekleyin.",
+    };
+  }
+
+  let next = source.replace(ISLAND_RUNTIME_IMPORT, (line) => `${line}\n${DEVTOOLS_OPTIONS_IMPORT}`);
+  next = next.replace(installCall, () => `${DEVTOOLS_OPTIONS_BLOCK}\n\n${installCall}`);
+
+  if (next.includes("@originloom/shared/lib/client/devtools")) {
+    next = next
+      .replace("if (import.meta.env.DEV) {", "if (import.meta.env.DEV && devtoolsEnabled) {")
+      .replace("mountDevtoolsPanel()", "mountDevtoolsPanel({ enabled: devtoolsEnabled })");
+  } else {
+    const telemetryCall = "logPageRequestIdInDev();";
+    const mountAfter = next.includes(telemetryCall) ? telemetryCall : installCall;
+    next = next.replace(mountAfter, () => `${mountAfter}\n\n${DEVTOOLS_MOUNT_BLOCK}`);
+  }
+
+  return {
+    status: "patched",
+    source: next,
+    detail: "Devtools paneli app-owned bir OriginLoomClientOptions bayrağının arkasına alındı.",
+  };
+}
+
+const CLOSE_THEN_DRAIN =
+  /await Promise\.all\(\[\s*closeServer\([A-Za-z0-9_]+\)\s*,\s*closeServer\([A-Za-z0-9_]+\)\s*,?\s*\]\);/;
+
+/**
+ * Splits shutdown into a close phase and a drain phase.
+ *
+ * While the two share one `Promise.all`, a request accepted during shutdown can
+ * park an `after()` task *after* the drain has taken its snapshot, and that task
+ * is then dropped on exit. Closing the listeners first removes the window.
+ */
+function patchShutdownDrainOrder(source) {
+  const combined = [
+    ...source.matchAll(/^([ \t]*)await Promise\.all\(\[\n([\s\S]*?)\n\1\]\);$/gm),
+  ].find(([, , body]) => /\bcloseServer\(/.test(body) && /\bdrain[A-Za-z]*\(/.test(body));
+
+  if (!combined) {
+    if (CLOSE_THEN_DRAIN.test(source)) return { status: "already-applied" };
+    return {
+      status: "manual-required",
+      detail:
+        "server/index.ts kapanışı bilinen generated kalıba uymuyor. closeServer çağrılarını " +
+        "drain çağrılarından ayrı ve onlardan önce await edin.",
+    };
+  }
+
+  const [whole, indent, body] = combined;
+  const entries = body.split("\n").filter((line) => line.trim());
+  if (entries.some((line) => line.trim().startsWith("//"))) {
+    return {
+      status: "manual-required",
+      detail:
+        "Kapanış Promise.all'ı yorum satırı içeriyor; sırayı elle ayırın: önce closeServer, " +
+        "sonra drain çağrıları.",
+    };
+  }
+
+  const closes = entries.filter((line) => line.includes("closeServer("));
+  const drains = entries.filter((line) => !line.includes("closeServer("));
+  if (closes.length === 0 || drains.length === 0) {
+    return {
+      status: "manual-required",
+      detail:
+        "Kapanış Promise.all'ında ayrılacak bir closeServer/drain çifti bulunamadı; sırayı " +
+        "elle gözden geçirin.",
+    };
+  }
+
+  // Prettier collapses a short array and expands a long one, so the migration
+  // has to emit the shape it would have produced or the app fails format:check.
+  const inline = `${indent}await Promise.all([${closes
+    .map((line) => line.trim().replace(/,$/, ""))
+    .join(", ")}]);`;
+  const closePhase =
+    inline.length <= 100
+      ? inline
+      : `${indent}await Promise.all([\n${closes.join("\n")}\n${indent}]);`;
+
+  const replacement =
+    `${indent}// Stop accepting work first: no request may still be able to park an\n` +
+    `${indent}// after() task while the drains take their snapshot.\n` +
+    `${closePhase}\n` +
+    `${indent}await Promise.all([\n${drains.join("\n")}\n${indent}]);`;
+
+  return {
+    status: "patched",
+    source: source.replace(whole, () => replacement),
+    detail: "Kapanış iki faza ayrıldı: önce dinleyiciler kapanır, sonra drain'ler başlar.",
+  };
 }
 
 function patchBoundaryErrorReference(source) {

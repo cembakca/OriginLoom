@@ -44,7 +44,17 @@ export type EnvValue<S extends EnvVarSpec> = S extends { type: "number" }
       ? V
       : string;
 
+/**
+ * The sound result when the runtime mode is development or not known to the
+ * compiler. A default is always present; a production-only requirement may be
+ * absent while developing and therefore remains optional here.
+ */
 export type ParsedEnv<S extends EnvSchema> = {
+  [K in keyof S]: S[K] extends { default: unknown } ? EnvValue<S[K]> : EnvValue<S[K]> | undefined;
+};
+
+/** The stronger result available when production validation was explicitly requested. */
+export type ProductionParsedEnv<S extends EnvSchema> = {
   [K in keyof S]: S[K] extends { required: true }
     ? EnvValue<S[K]>
     : S[K] extends { default: unknown }
@@ -68,9 +78,19 @@ export class EnvSchemaError extends Error {
  */
 export function parseEnv<S extends EnvSchema>(
   schema: S,
+  env: NodeJS.ProcessEnv,
+  options: { production: true },
+): ProductionParsedEnv<S>;
+export function parseEnv<S extends EnvSchema>(
+  schema: S,
+  env?: NodeJS.ProcessEnv,
+  options?: { production?: boolean },
+): ParsedEnv<S>;
+export function parseEnv<S extends EnvSchema>(
+  schema: S,
   env: NodeJS.ProcessEnv = process.env,
   options: { production?: boolean } = {},
-): ParsedEnv<S> {
+): ParsedEnv<S> | ProductionParsedEnv<S> {
   const production = options.production ?? env.NODE_ENV === "production";
   const problems: string[] = [];
   const parsed: Record<string, unknown> = {};

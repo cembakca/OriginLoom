@@ -5,7 +5,7 @@ import { readAssets } from "@originloom/core/assets";
 import { cacheTopology, closeCache, initCache } from "@originloom/core/cache";
 import { config, validateConfig } from "@originloom/core/config";
 import { closeGatewayTransport } from "@originloom/core/gateway-transport";
-import { drainRevalidations } from "@originloom/core/handler";
+import { drainAfterTasks, drainRevalidations } from "@originloom/core/handler";
 import { register, shutdownInstrumentation } from "@originloom/core/instrumentation";
 import { logError, logger } from "@originloom/core/logger";
 import { createMetricsApp } from "@originloom/core/metrics-server";
@@ -87,17 +87,20 @@ async function main() {
 
     void (async () => {
       try {
-        const [, , revalidationsDrained, botAnalyticsDrained] = await Promise.all([
-          closeServer(httpServer),
-          closeServer(metricsServer),
+        // No request may still be able to park new work when the drain takes
+        // its snapshot, otherwise shutdown can miss a task that starts later.
+        await Promise.all([closeServer(httpServer), closeServer(metricsServer)]);
+        const [revalidationsDrained, afterTasksDrained, botAnalyticsDrained] = await Promise.all([
           drainRevalidations(config.revalidationDrainTimeoutMs),
+          drainAfterTasks(config.afterTaskDrainTimeoutMs),
           drainBotAnalytics(productConfig.botAnalyticsDrainTimeoutMs),
           stopMarketQuoteHub(),
         ]);
         if (!revalidationsDrained) logger.warn("revalidation drain timed out");
+        if (!afterTasksDrained) logger.warn("after task drain timed out");
         if (!botAnalyticsDrained) logger.warn("bot analytics drain timed out");
-        // Revalidation and analytics drains may still use the gateway. Close
-        // the shared transport only after every gateway-dependent task settles.
+        // Background drains may still use the gateway. Close the shared
+        // transport only after every gateway-dependent task settles.
         await closeGatewayTransport();
         await closeCache();
         await shutdownInstrumentation();

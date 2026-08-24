@@ -72,9 +72,21 @@ export function mountPreviewApi(app: Hono<{ Variables: AppVariables }>): void {
  * chat messages — exactly the link someone would click without reading.
  */
 function safeReturnPath(request: Request): string {
-  const raw = new URL(request.url).searchParams.get("path") ?? "/";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
-  return raw;
+  const requestUrl = new URL(request.url);
+  const raw = requestUrl.searchParams.get("path") ?? "/";
+  if (!raw.startsWith("/")) return "/";
+
+  // WHATWG treats backslashes as slashes for HTTP(S) URLs, so `/\evil.test`
+  // resolves to `//evil.test` even though a string-prefix check accepts it.
+  // Resolve exactly as the browser will, then return only the same-origin
+  // path-shaped portion so no alternate spelling can survive into Location.
+  // `URL.parse` rather than the constructor: a path that resolves to an empty
+  // host — `//` and `/\` are the whole of it — is a parse *failure* for an
+  // http(s) base, and throwing here would turn a hostile query string on the
+  // public disable endpoint into a 500 instead of a redirect home.
+  const resolved = URL.parse(raw, requestUrl.origin);
+  if (!resolved || resolved.origin !== requestUrl.origin) return "/";
+  return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
 function redirect(location: string): Response {

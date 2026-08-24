@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   type EnvSchema,
@@ -95,10 +95,19 @@ describe("parseEnv", () => {
     }
   });
 
-  /** A development default must not quietly stand in for a production value. */
-  it("only enforces required outside development", () => {
-    expect(() => parseEnv(schema, {}, { production: false })).not.toThrow();
+  /** A production-only requirement may genuinely be absent while developing. */
+  it("keeps missing development requirements optional in both value and type", () => {
+    const development = parseEnv(schema, {}, { production: false });
+
+    expect(development.GATEWAY_TOKEN).toBeUndefined();
+    expectTypeOf(development.GATEWAY_TOKEN).toEqualTypeOf<string | undefined>();
     expect(() => parseEnv(schema, {}, { production: true })).toThrow(EnvSchemaError);
+  });
+
+  it("narrows required values when production validation is explicit", () => {
+    const production = parseEnv(schema, complete, { production: true });
+
+    expectTypeOf(production.GATEWAY_TOKEN).toEqualTypeOf<string>();
   });
 
   it("rejects a URL with an unexpected protocol", () => {

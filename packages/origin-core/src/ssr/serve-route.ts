@@ -105,7 +105,15 @@ async function cachedResponse(
     ? await stitchCachedHtml(cachedBody, options.route, options.routeCtx, true, fragmentMarkers)
     : cachedBody;
   const body = materializeCachedHtmlDynamicValues(stitchedBody, options.routeCtx);
-  return htmlResponse(body, 200, options.policy, state, undefined, options.requestId);
+  return htmlResponse(
+    body,
+    200,
+    options.policy,
+    state,
+    undefined,
+    options.requestId,
+    cacheDuration(options),
+  );
 }
 
 function toColdFillResult(value: RouteExecution, dynamicValues: Ctx) {
@@ -148,6 +156,7 @@ async function respondToExecution(
       state,
       result.headers,
       options.requestId,
+      cacheDuration(options),
     );
   }
 
@@ -160,7 +169,15 @@ async function respondToExecution(
     execution.shellResolution,
   );
   const body = materializeCachedHtmlDynamicValues(stitchedBody, options.routeCtx);
-  return htmlResponse(body, status, options.policy, state, result.headers, options.requestId);
+  return htmlResponse(
+    body,
+    status,
+    options.policy,
+    state,
+    result.headers,
+    options.requestId,
+    cacheDuration(options),
+  );
 }
 
 function respondToRedirect(
@@ -188,7 +205,15 @@ async function respondToNotFound(
   );
   logOutcome(options, 404, "BYPASS");
   const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
-  return htmlResponse(body, 404, { kind: "none" }, "BYPASS", result.headers, options.requestId);
+  return htmlResponse(
+    body,
+    404,
+    { kind: "none" },
+    "BYPASS",
+    result.headers,
+    options.requestId,
+    cacheDuration(options),
+  );
 }
 
 async function respondToExpectedError(
@@ -221,7 +246,15 @@ async function respondToExpectedError(
   );
   const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
   logOutcome(options, status, "BYPASS");
-  return htmlResponse(body, status, { kind: "none" }, "BYPASS", result.headers, options.requestId);
+  return htmlResponse(
+    body,
+    status,
+    { kind: "none" },
+    "BYPASS",
+    result.headers,
+    options.requestId,
+    cacheDuration(options),
+  );
 }
 
 async function renderUnexpectedRouteError(
@@ -252,7 +285,15 @@ async function renderUnexpectedRouteError(
   );
   const body = materializeCachedHtmlDynamicValues(rendered, options.routeCtx);
   logOutcome(options, 500, "ERROR");
-  return htmlResponse(body, 500, { kind: "none" }, "ERROR", undefined, options.requestId);
+  return htmlResponse(
+    body,
+    500,
+    { kind: "none" },
+    "ERROR",
+    undefined,
+    options.requestId,
+    cacheDuration(options),
+  );
 }
 
 function cacheSafeRenderContext(routeCtx: Ctx): Ctx {
@@ -272,4 +313,9 @@ function scheduleRouteRevalidation(options: ServeRouteOptions): void {
 
 function logOutcome(options: ServeRouteOptions, status: number, cacheState: string): void {
   logRouteOutcome(options.requestId, options.url, status, cacheState, options.started);
+}
+
+/** The server-side HTML phase represented by the adjacent cache state. */
+function cacheDuration(options: ServeRouteOptions): number {
+  return Math.max(0, Date.now() - options.started);
 }

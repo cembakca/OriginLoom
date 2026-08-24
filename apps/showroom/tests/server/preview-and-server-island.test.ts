@@ -88,12 +88,25 @@ describe("preview endpoints", () => {
 
   /** The enable link gets pasted into chat; it must not forward anywhere. */
   it("only returns to a same-site absolute path", async () => {
-    for (const path of ["https://evil.example", "//evil.example", "javascript:alert(1)"]) {
+    for (const path of [
+      "https://evil.example",
+      "//evil.example",
+      "/\\evil.example",
+      "javascript:alert(1)",
+    ]) {
       const response = await app.request(
         `/api/preview/enable?token=dev-preview-secret&path=${encodeURIComponent(path)}`,
       );
       expect(response.headers.get("location")).toBe("/");
     }
+  });
+
+  it("does not turn the public disable endpoint into an open redirect", async () => {
+    const path = encodeURIComponent("/\\evil.example");
+    const response = await app.request(`/api/preview/disable?path=${path}`);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("/");
   });
 });
 

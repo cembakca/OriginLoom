@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mountDevtoolsPanel, readDevtoolsSnapshot } from "../src/lib/client/devtools.js";
 
@@ -14,6 +14,11 @@ function page(body: string, meta: Record<string, string> = {}): Document {
 beforeEach(() => {
   document.head.innerHTML = "";
   document.body.innerHTML = "";
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("readDevtoolsSnapshot", () => {
@@ -44,6 +49,22 @@ describe("readDevtoolsSnapshot", () => {
     expect(snapshot.islands).toEqual([]);
   });
 
+  it("reads the cache phase duration from Server-Timing", () => {
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue([
+      {
+        responseStart: 14,
+        domContentLoadedEventEnd: 38,
+        loadEventEnd: 72,
+        serverTiming: [{ name: "cache", description: "HIT", duration: 3.4 }],
+      } as unknown as PerformanceNavigationTiming,
+    ]);
+
+    const snapshot = readDevtoolsSnapshot(page(""));
+
+    expect(snapshot.cache).toEqual({ state: "HIT", durationMs: 3.4 });
+    expect(snapshot.timing.loadMs).toBe(72);
+  });
+
   /** An unfilled placeholder is the interesting case: it means the fallback is showing. */
   it("distinguishes a filled server island from one still on its fallback", () => {
     const doc = page(
@@ -63,10 +84,17 @@ describe("mountDevtoolsPanel", () => {
       "originloom:cache-state": "MISS",
     });
 
-    const unmount = mountDevtoolsPanel(document);
+    const unmount = mountDevtoolsPanel({ document });
     const panel = document.getElementById("originloom-devtools");
 
     expect(panel?.textContent).toContain("MISS");
+    expect(panel?.textContent).toContain("duration");
+    expect(panel?.querySelector("[data-originloom-mark]")).not.toBeNull();
+    expect(panel?.querySelector(".ol-details")?.hasAttribute("hidden")).toBe(true);
+
+    panel?.querySelector<HTMLButtonElement>(".ol-toggle")?.click();
+    expect(panel?.querySelector(".ol-toggle")?.getAttribute("aria-expanded")).toBe("true");
+    expect(panel?.querySelector(".ol-details")?.hasAttribute("hidden")).toBe(false);
     expect(panel?.textContent).toContain("counter");
 
     unmount();
@@ -81,19 +109,92 @@ describe("mountDevtoolsPanel", () => {
   it("never turns page values into markup", () => {
     page(`<div data-island="&lt;img src=x onerror=alert(1)&gt;" data-mode="hydrate"></div>`);
 
-    mountDevtoolsPanel(document);
+    const unmount = mountDevtoolsPanel({ document });
     const panel = document.getElementById("originloom-devtools");
+    panel?.querySelector<HTMLButtonElement>(".ol-toggle")?.click();
 
     expect(panel?.querySelector("img")).toBeNull();
     expect(panel?.textContent).toContain("<img src=x onerror=alert(1)>");
+    unmount();
   });
 
   it("replaces an existing panel instead of stacking copies", () => {
     page("");
 
-    mountDevtoolsPanel(document);
-    mountDevtoolsPanel(document);
+    const unmountFirst = mountDevtoolsPanel({ document });
+    const unmountSecond = mountDevtoolsPanel({ document });
 
     expect(document.querySelectorAll("#originloom-devtools")).toHaveLength(1);
+    unmountFirst();
+    unmountSecond();
+  });
+
+  it("can be disabled from code and closes an existing panel", () => {
+    page("");
+
+    const unmount = mountDevtoolsPanel({ document, enabled: true });
+    expect(document.getElementById("originloom-devtools")).not.toBeNull();
+
+    mountDevtoolsPanel({ document, enabled: false });
+    expect(document.getElementById("originloom-devtools")).toBeNull();
+    unmount();
+  });
+});
+
+describe("the panel's own writes", () => {
+  /**
+   * The panel is appended to `document.body`, which is also what it observes.
+   * Rendering into it therefore mutates the observed subtree — and if that
+   * feeds straight back into the observer, the callback re-renders, mutates
+   * again and never stops. In a browser that is a frozen tab, not a slow one.
+   */
+  it("does not re-trigger its own observer", async () => {
+    page(`<div data-island="counter" data-mode="hydrate"></div>`);
+    let renders = 0;
+    const observer = new MutationObserver(() => {
+      renders += 1;
+    });
+
+    const unmount = mountDevtoolsPanel({ document });
+    observer.observe(document.body, { subtree: true, attributes: true, childList: true });
+
+    // One unrelated mutation, the kind an island mounting produces.
+    document.querySelector("[data-island]")?.setAttribute("data-hydrated", "");
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // A loop shows up as an ever-growing count; a settled panel does not.
+    const afterFirstSettle = renders;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(renders).toBe(afterFirstSettle);
+    observer.disconnect();
+    unmount();
+  });
+
+  it("cancels a queued render when the panel is unmounted", async () => {
+    page(`<div data-island="counter" data-mode="hydrate"></div>`);
+    const frames: FrameRequestCallback[] = [];
+    const requestFrame = vi.fn((callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return 42;
+    });
+    const cancelFrame = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", requestFrame);
+    vi.stubGlobal("cancelAnimationFrame", cancelFrame);
+    const observe = vi.spyOn(MutationObserver.prototype, "observe");
+
+    const unmount = mountDevtoolsPanel({ document });
+    document.querySelector("[data-island]")?.setAttribute("data-hydrated", "");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(requestFrame).toHaveBeenCalledOnce();
+    unmount();
+    expect(cancelFrame).toHaveBeenCalledWith(42);
+
+    // Even if a host delivers an already-cancelled callback, it must not
+    // resurrect the observer after cleanup.
+    frames[0]?.(0);
+    expect(observe).toHaveBeenCalledOnce();
+    observe.mockRestore();
   });
 });

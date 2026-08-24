@@ -13,6 +13,7 @@ export function htmlResponse(
   state: string,
   extra?: Record<string, string>,
   requestId?: string,
+  cacheDurationMs?: number,
 ): Response {
   const isStream = body instanceof ReadableStream;
   const headers: Record<string, string> = {
@@ -27,8 +28,15 @@ export function htmlResponse(
   // Development only. `x-cache` is already on the response, but a script cannot
   // read its own document's headers — and a meta tag would be wrong, because a
   // cache HIT reuses a body that was rendered on a MISS. `Server-Timing` is a
-  // header the browser does expose to JS, so it is fresh on every response.
-  if (!config.isProduction) headers["server-timing"] = `cache;desc="${state}"`;
+  // header the browser does expose to JS, so both the state and the server-side
+  // phase that produced this HTML stay fresh on every response.
+  if (!config.isProduction) {
+    const duration =
+      cacheDurationMs !== undefined && Number.isFinite(cacheDurationMs)
+        ? `;dur=${Math.max(0, cacheDurationMs).toFixed(1)}`
+        : "";
+    headers["server-timing"] = `cache;desc="${state}"${duration}`;
+  }
   if (isStream) headers["transfer-encoding"] = "chunked";
 
   return new Response(body, { status, headers });
