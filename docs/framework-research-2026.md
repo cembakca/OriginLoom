@@ -391,7 +391,7 @@ kırmak olurdu. COEP kalıcı hayır.
 - **Maliyet/risk**: Vite dev, kaynak harita okuma, `.nitro`/dist erişimi gibi şeyler izin listesi
   ister. Production-only olarak denenmeli.
 
-### 5.6 Idempotency key'leri **[P2]** **[YAPILDI — 0.7.48, sözleşme 0.7.58'de kapandı]**
+### 5.6 Idempotency key'leri **[P2]** **[YAPILDI — 0.7.46, sözleşme 0.7.58'de kapandı]**
 
 - **Ne**: Mutasyon endpoint'lerinde tekrar eden isteğin ikinci kez etki etmemesi.
 - **Bizde**: Yok. Bülten aboneliği, teklif yönlendirme gibi POST'lar çift tıklamada/retry'da iki kez
@@ -615,7 +615,7 @@ Ad artık kutuyu çizen elemanın üstünde: showroom ve Sigorta'da `<header>` /
 tarayıcı gerektirmeden ikisini ayırt edebilen en ucuz şeyi assert ediyor — adın **hangi etikette**
 durduğunu, her rolün belge başına tam bir kez göründüğünü, ve hiçbir `ssr-fragment`'ın ad taşımadığını.
 
-### 6.4 bfcache uyumluluğu **[P2]** **[ÖLÇÜLDÜ — 0.7.45]**
+### 6.4 bfcache uyumluluğu **[P2]** **[ÖLÇÜLDÜ — 0.7.44]**
 
 - **Ne**: Geri/ileri navigasyonunda sayfanın tamamen canlı olarak geri gelmesi.
 - **Bizde**: Açıkça test edilmiyor. `unload` dinleyicisi, açık WebSocket/EventSource ve
@@ -1054,7 +1054,7 @@ kanıtlanması**.
 
 ## 10. Build ve dev sunucusu
 
-### 10.1 Vite Environment API **[P2]**
+### 10.1 Vite Environment API **[P2]** **[KASITLI HAYIR — 0.7.58]**
 
 - **Ne**: Vite 6+ ile gelen, Vite 7'de olgunlaşan model: client/ssr/worker gibi birden fazla
   "environment"ı birinci sınıf tanımlıyorsun, her birinin kendi modül grafiği ve runner'ı var.
@@ -1129,12 +1129,19 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 
 `◐` = bir kısmı var, eksik olan yazıyor. `—` = hiç yok.
 
-**0.7.58 bir review turuydu, yeni madde turu değil.** Bu dalganın "yapıldı" satırları dışarıdan
-okundu ve altısı fazla söylüyordu. Üçü gerçek koddu — `routeRules`'ın catch-all deseni hiç
+**0.7.58 iki review turu taşıdı, yeni madde turu değil.** Bu dalganın "yapıldı" satırları iki kez
+dışarıdan okundu. İlk turda altı satır fazla söylüyordu. Üçü gerçek koddu — `routeRules`'ın catch-all deseni hiç
 eşleşmiyordu, View Transition adları `display: contents` bir sarmalayıcıda etkisizdi, `onRequestError`
 iki yolu ve async bir reporter'ı kaçırıyordu — üçü de düzeltildi ve teste bağlandı. Üçü ifadeydi:
 bfcache'in tablosu bir sonuç değil bir header sözleşmesi, Early Hints yalnız MISS'te değil, storage
-maddesi vaat ettiğinin yarısı. Aşağıdaki satırlar bu turdan sonraki hali.
+maddesi vaat ettiğinin yarısı.
+
+İkinci tur 5.6'ya odaklandı ve üç sınır daha buldu — hepsi § 5.6'da yazılı: uyarı shared olmayan
+bir driver'ı shared sanıyordu, Redis koordinasyonu `RELEASE_ID` namespace'i yüzünden deploy sınırını
+geçemiyordu, ve store arızası `in-flight` olarak raporlanıyordu. Üçü de kapandı; `reportRequestError`'ın
+yeni `context` alanının kanonik log alanlarını ezebilmesi de aynı turda düzeltildi.
+
+Aşağıdaki satırlar iki turdan sonraki hali.
 
 | #       | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                                                                                                           |
 | ------- | --------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

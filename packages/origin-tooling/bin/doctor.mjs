@@ -338,11 +338,16 @@ function renderDrift(drift) {
     console.log("  Bu uygulamada bulunmayan " + drift.missing.length + " şablon dosyası var.");
   }
   if (drift.uncompared.length > 0) {
+    // Not "origin-migrate fills this in": it fills in the name and the ports and
+    // deliberately leaves the title alone, because nothing in an app records it
+    // unambiguously. Pointing at a command that will never do it is worse than
+    // saying the value has to be typed.
     console.log(
       "  " +
         drift.uncompared.length +
-        " dosya karşılaştırılmadı: scaffold başlığı " +
-        "kaydedilmemiş (origin-migrate bunu geriye doldurur).",
+        " dosya karşılaştırılmadı: bu uygulamanın scaffold başlığı hiçbir yerde " +
+        "kayıtlı değil. Karşılaştırmak için .originloom/project.json içindeki " +
+        'scaffold bloğuna "title" ekleyin.',
     );
   }
 }
