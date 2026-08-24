@@ -38,6 +38,7 @@ export const SHUTDOWN_DRAIN_ORDER_MIGRATION = "0.7.32-shutdown-drain-order";
 export const DISPOSABLE_GATEWAY_MIGRATION = "0.7.34-disposable-gateway-response";
 export const JSON_SCHEMA_CONTRACTS_MIGRATION = "0.7.52-json-schema-contracts";
 export const PLATFORM_PLUMBING_MIGRATION = "0.7.56-platform-plumbing";
+export const MIGRATION_BACKUPS_MIGRATION = "0.7.57-migration-backups";
 
 const VIEW_TRANSITION_CSS = `
 /* Same-origin navigations keep the outgoing page visible until the next document is ready. */
@@ -449,6 +450,23 @@ export const migrations = [
     migrateProject(root, changes, fileWrites, manualRequired) {
       rewritePlatformPlumbingImports(root, changes, fileWrites);
       dropCopiedPlumbing(root, changes, fileWrites, manualRequired);
+    },
+  },
+  {
+    id: MIGRATION_BACKUPS_MIGRATION,
+    introducedIn: "0.7.57",
+    description:
+      "origin-migrate'in yazdığı .originloom/backups/ dizini git tarafından yok sayılır ve vitest tarafından toplanmaz. Bir migration ilk kez bir test dosyasına dokunduğunda, o testin artık çözülemeyen import'lara bakan ikinci bir kopyası test olarak çalışıyordu.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      patchProjectFile(root, changes, fileWrites, ".gitignore", ignoreMigrationBackups);
+      patchProjectFile(
+        root,
+        changes,
+        fileWrites,
+        "vitest.config.ts",
+        excludeMigrationBackups,
+        manualRequired,
+      );
     },
   },
   {
@@ -1056,6 +1074,65 @@ function dropCopiedPlumbing(root, changes, fileWrites, manualRequired) {
  * and a regex that stops at the first `)` truncates it into something that
  * still parses and means the wrong thing.
  */
+/**
+ * The backup directory this very migration writes into.
+ *
+ * `origin-migrate --apply` keeps the previous copy of every file it changes
+ * under `.originloom/backups/`, deleted files included. Nothing was ignoring it
+ * and nothing was excluding it from the test run — so the first migration that
+ * touched a test file produced a second copy of that test, still importing the
+ * module the migration had just removed, and the suite failed on a file nobody
+ * had written. Found by running this migration on a real app.
+ */
+function ignoreMigrationBackups(source) {
+  if (source.includes(".originloom/backups/")) return { status: "already-applied" };
+  const entry =
+    "# Migration backups — origin-migrate writes the previous copy of every file it\n" +
+    "# changes here, including deleted ones. Useful locally, never a repo artefact.\n" +
+    ".originloom/backups/\n";
+  const anchor = "# Test / tooling";
+  const next = source.includes(anchor)
+    ? source.replace(anchor, entry + "\n" + anchor)
+    : source.trimEnd() + "\n\n" + entry;
+  return { status: "patched", source: next, detail: ".originloom/backups/ ignore edilir" };
+}
+
+function excludeMigrationBackups(source) {
+  if (source.includes(".originloom/**")) return { status: "already-applied" };
+  if (!source.includes("defineConfig") || !source.includes("test: {")) {
+    return {
+      status: "manual-required",
+      detail:
+        'vitest.config.ts tanınmadı; test.exclude içine ".originloom/**" değerini elle ekleyin ' +
+        "(migration backup'ları aksi halde test olarak toplanır).",
+    };
+  }
+  let next = source;
+  if (!/configDefaults/.test(next)) {
+    next = next.replace(
+      /import \{([^}]*)\} from "vitest\/config";/,
+      (match, named) =>
+        `import {${named.includes("configDefaults") ? named : ` configDefaults,${named}`}} from "vitest/config";`,
+    );
+  }
+  next = next.replace(
+    /(\n(\s*)test: \{\n)/,
+    (match, opening, indent) =>
+      opening +
+      `${indent}  // origin-migrate keeps the previous copy of every file it rewrites under\n` +
+      `${indent}  // .originloom/backups/ — including test files, which vitest would otherwise\n` +
+      `${indent}  // collect and run against imports that no longer resolve.\n` +
+      `${indent}  exclude: [...configDefaults.exclude, ".originloom/**"],\n`,
+  );
+  if (next === source) {
+    return {
+      status: "manual-required",
+      detail: "vitest.config.ts içindeki test bloğu bulunamadı; exclude girdisini elle ekleyin.",
+    };
+  }
+  return { status: "patched", source: next, detail: "test.exclude .originloom/** eklenir" };
+}
+
 function dropFirstArgument(source, name) {
   let result = "";
   let index = 0;

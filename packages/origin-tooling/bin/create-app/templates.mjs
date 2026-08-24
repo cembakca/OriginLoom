@@ -661,7 +661,7 @@ export default defineConfig(
 
 const vitestConfig = (name) => `import { resolve } from "node:path";
 
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const root = import.meta.dirname;
 
@@ -674,6 +674,10 @@ export default defineConfig({
   },
   test: {
     name: "${name}",
+    // origin-migrate keeps the previous copy of every file it rewrites under
+    // .originloom/backups/ — including test files, which vitest would otherwise
+    // collect and run against imports that no longer resolve.
+    exclude: [...configDefaults.exclude, ".originloom/**"],
     // Workspace packages ship source; inline them so vi.mock reaches their internals.
     server: { deps: { inline: [/@originloom\\//] } },
   },

@@ -10,6 +10,10 @@ dist/
 .env.local
 .env.*.local
 
+# Migration backups — origin-migrate writes the previous copy of every file it
+# changes here, including deleted ones. Useful locally, never a repo artefact.
+.originloom/backups/
+
 # Test / tooling
 coverage/
 .vite/

@@ -4,7 +4,11 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { migrations, PLATFORM_PLUMBING_MIGRATION } from "../bin/upgrade/migrations.mjs";
+import {
+  MIGRATION_BACKUPS_MIGRATION,
+  migrations,
+  PLATFORM_PLUMBING_MIGRATION,
+} from "../bin/upgrade/migrations.mjs";
 
 const scratch = [];
 
@@ -13,6 +17,7 @@ afterEach(() => {
 });
 
 const migration = migrations.find(({ id }) => id === PLATFORM_PLUMBING_MIGRATION);
+const backupsMigration = migrations.find(({ id }) => id === MIGRATION_BACKUPS_MIGRATION);
 
 function projectWith(files) {
   const root = mkdtempSync(join(tmpdir(), "originloom-plumbing-"));
@@ -24,11 +29,11 @@ function projectWith(files) {
   return root;
 }
 
-function run(root) {
+function run(root, which = migration) {
   const changes = [];
   const fileWrites = {};
   const manualRequired = [];
-  migration.migrateProject(root, changes, fileWrites, manualRequired);
+  which.migrateProject(root, changes, fileWrites, manualRequired);
   return { changes, fileWrites, manualRequired };
 }
 
@@ -130,5 +135,54 @@ bindRequestPath(ctx.request, ctx.publicPath ?? new URL(ctx.request.url).pathname
     expect(fileWrites).toEqual({});
     expect(changes).toEqual([]);
     expect(manualRequired).toEqual([]);
+  });
+});
+
+describe(MIGRATION_BACKUPS_MIGRATION, () => {
+  /**
+   * Both of these were found by running the migration on a real app: the
+   * backup directory it writes into was neither ignored by git nor excluded
+   * from the test run, so the first migrated test file came back as a second,
+   * broken copy of itself.
+   */
+  it("teaches the app to ignore the backups this migration writes", () => {
+    const root = projectWith({
+      ".gitignore": "# Build output\ndist/\n\n# Test / tooling\ncoverage/\n",
+      "vitest.config.ts": `import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    name: "fixture",
+  },
+});
+`,
+    });
+
+    const { fileWrites } = run(root, backupsMigration);
+
+    expect(fileWrites[".gitignore"]).toContain(".originloom/backups/");
+    expect(fileWrites["vitest.config.ts"]).toContain(
+      'exclude: [...configDefaults.exclude, ".originloom/**"]',
+    );
+    expect(fileWrites["vitest.config.ts"]).toContain(
+      'import { configDefaults, defineConfig } from "vitest/config";',
+    );
+  });
+
+  it("leaves an already-excluded project alone", () => {
+    const root = projectWith({
+      ".gitignore": "dist/\n.originloom/backups/\n",
+      "vitest.config.ts": `import { configDefaults, defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: { exclude: [...configDefaults.exclude, ".originloom/**"] },
+});
+`,
+    });
+
+    const { fileWrites } = run(root, backupsMigration);
+
+    expect(fileWrites[".gitignore"]).toBeUndefined();
+    expect(fileWrites["vitest.config.ts"]).toBeUndefined();
   });
 });
