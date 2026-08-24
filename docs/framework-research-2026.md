@@ -171,7 +171,7 @@ Bu bölüm bence **en yüksek DX getirisi olan blok**, ve Hono seçimimiz sayesi
   etmek gerekiyor; bizim `mountApi` yapımız buna uygun hale getirilebilir. `tsconfig`'de `strict`
   şart, bizde zaten var.
 
-### 4.2 Form actions + progressive enhancement **[P1] — ✅ 0.7.41**
+### 4.2 Form actions + progressive enhancement **[P1]** **[YAPILDI — 0.7.41]**
 
 - **Ne**: SvelteKit'in `form` remote fonksiyonu ve Astro Actions. Sunucu fonksiyonu **gerçek bir
   HTML form**'a bağlanıyor: JS yokken normal form POST'u olarak çalışıyor, JS varken araya girip
@@ -297,7 +297,7 @@ kapalıyken blok dekorasyondu. Detay: `docs/migrations/0.7.41.md`.
 
 ## 6. Web platformu — sayfa geçişi ve algılanan hız
 
-### 6.1 Speculation Rules API **[P1]**
+### 6.1 Speculation Rules API **[HAYIR]**
 
 - **Ne**: `<script type="speculationrules">` ile tarayıcıya "bu linkleri prefetch/prerender et"
   demek. Document rules + `eagerness` ile "kullanıcı üzerine gelince prerender" gibi politikalar.
@@ -311,7 +311,8 @@ kapalıyken blok dekorasyondu. Detay: `docs/migrations/0.7.41.md`.
 - **Maliyet/risk**: Düşük **değil** — ilk yazımdaki değerlendirme iki noktada yanlıştı, sigorta'nın
   koduna bakınca düzeldi. Aşağıya bak.
 
-**⏸ Ertelendi — sebebi ölçüm doğruluğu değil, kazancın yerinde olmaması.**
+**Karar: yapılmayacak.** Sebebi ölçüm doğruluğu değil — o çözülebilir. Kazanç bu uygulamada
+yerinde değil, ve onu yerine getirecek olan (S7) da bilinçli olarak ertelenmiş durumda.
 
 **Ölçüm doğruluğu çözülebilir, hem de deterministik olarak.** Analitik ekibinin endişesi
 ("prefetch ettiğimiz sayfaları da sayıyoruz") gerçek ama tahmine dayalı bir çözüm gerektirmiyor:
@@ -342,9 +343,14 @@ hedefler `/kasko`, `/zorunlu-trafik-sigortasi`, `/motorlu-tasitlar-vergisi`; ü�
 Yani atılan her prerender **tam SSR + dört gateway çağrısı**. Ucuz olan senaryo tam olarak
 gerçekleşmeyen senaryo.
 
-**Sıra:** 6.1'in değeri S7'ye (page cache kararları) bağlı. S7 açılmadan prerender, en pahalı
-sayfalarda spekülatif yük üretir. Analitik kapısı S7'den bağımsız olarak önce yazılabilir ve
-yazılmalı — ama tek başına bir kazanç değil, bir ön koşul.
+**Karar.** 6.1 kapalı. Bir gün açılacaksa sırası şudur ve tersi çalışmaz: önce S7 (hangi sayfaların
+paylaşımlı cache'e alınacağı, ölçümle), sonra analitik kapısı (`Sec-Purpose` + `document.prerendering`,
+testleriyle), en son speculation rules. Analitik kapısı S7'den bağımsız olarak da yazılabilir ve
+prerender'dan bağımsız bir değeri vardır — ama tek başına bir kazanç değil, bir ön koşuldur, ve
+bugün ödenecek bir fatura yok.
+
+Yukarıdaki tespit silinmedi: bu madde tekrar açılırsa dört sayan yüzey ve neden ikisinin header,
+ikisinin tarayıcı API'si ile kapatıldığı burada yazılı duruyor.
 
 ### 6.2 Early Hints (HTTP 103) **[P2]**
 
@@ -466,7 +472,7 @@ yazılmalı — ama tek başına bir kazanç değil, bir ön koşul.
 
 ## 9. JS / runtime katmanı
 
-### 9.1 Explicit Resource Management (`using` / `await using`) **[P1] — ✅ 0.7.41**
+### 9.1 Explicit Resource Management (`using` / `await using`) **[P1]** **[YAPILDI — 0.7.41]**
 
 - **Ne**: TC39 önerisi, Node 24'te destekli. Blok bitince kaynağı otomatik serbest bırakıyor.
 - **Bizde**: Elle serbest bırakılan kaynaklar var ve bu turda **tam bu sınıfta bir sorun gördük**:
@@ -549,9 +555,10 @@ Değer/maliyet oranına göre, mimarimize uygunluk sırasıyla:
 
 ### İlk dalga — yüksek değer, düşük/orta maliyet
 
-✅ işaretli satırlar yapıldı; ayrıntı ilgili maddenin başlığındaki **[YAPILDI]**
-notunda ve `CHANGELOG`'da. Server island ve draft preview'in çalışan örneği
-showroom'da: `/server-island` ve `/preview-demo`.
+İlk dalganın tamamı yapıldı. Ayrıntı ilgili maddenin başlığındaki **[YAPILDI]** notunda ve
+`docs/migrations/` altında. Çalışan örnekler showroom'da: `/server-island`, `/preview-demo`,
+`/bulten` (form action). Bu tabloda başlangıçta 6.1 de vardı; § 6.1'deki gerekçeyle
+**Kasıtlı hayır**'a taşındı.
 
 | #      | Madde                        | Neden ilk                                                                   |
 | ------ | ---------------------------- | --------------------------------------------------------------------------- |
@@ -560,7 +567,6 @@ showroom'da: `/server-island` ve `/preview-demo`.
 | 5.2 ✅ | Taint / sızma koruması       | Mimarimizin en yüksek etkili hata sınıfı, bugün sadece test koruyor         |
 | 3.4 ✅ | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
 | 2.1 ✅ | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
-| 6.1 ⏸  | Speculation Rules            | Ölçüm doğruluğu çözülebilir; kazanç S7'ye bağlı — aşağıya bak               |
 | 5.1 ✅ | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
 | 7.1 ✅ | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |
 | 7.3 ✅ | Tip güvenli env şeması       | Doğrulama var, tip ve public/secret sınırı yok                              |
@@ -570,17 +576,48 @@ showroom'da: `/server-island` ve `/preview-demo`.
 
 ### İkinci dalga
 
-3.2 routeRules · 3.3 storage soyutlaması · 4.4 OpenAPI üretimi · 5.4 COOP · 5.6 idempotency ·
-6.2 Early Hints · 6.3 View Transitions (isimli) · 6.4 bfcache ölçümü · 7.2 layers ·
-7.4 instrumentation kancaları · 9.3 WinterTC kısıtı · 10.1 Vite Environment API
+İlk dalga bittiği için sıradaki dalga bu. Birkaçının bir kısmı, başka bir işin yan ürünü olarak
+zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taşıyan bir tablo.
 
-### Fikir olarak dursun
+`◐` = bir kısmı var, eksik olan yazıyor. `—` = hiç yok.
 
-2.2 PPR · 3.5 SSG · 5.5 Node permission model · 8.2 preset'ler (yalnız "bağımlısız çıktı" fikri) ·
-8.3 scheduled tasks · 9.4 node:sqlite · 10.2 Rolldown
+| #    | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                            |
+| ---- | --------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9.2  | `AsyncContextFrame`         | ◐     | Node 24 geçişiyle (0.7.26) **zaten kazanıldı**; eksik olan iş değil **ölçüm** — Node 22 vs 24 kapasite karşılaştırması hiç koşulmadı                                   |
+| 5.4  | COOP / Origin-Agent-Cluster | ◐     | Hono `secureHeaders` varsayılanıyla ikisi de yanıtta. Karar verilmiş değil, miras alınmış — doğrulanıp bilinçli hale getirilmeli. COEP hayır                           |
+| 6.3  | View Transitions            | ◐     | `@view-transition{navigation:auto}` critical paint'te var. Eksik: isimli geçişler (`view-transition-name`). 6.1 ile birlikte alınma gerekçesi 6.1 kapandığı için düştü |
+| 7.4  | instrumentation kancaları   | ◐     | `register()` / `shutdownInstrumentation()` var. Eksik: `onRequestError` eşleniği — bugün hata raporlama `logError` çağrılarına dağılmış                                |
+| 6.4  | bfcache ölçümü              | —     | **En yüksek öncelikli olan bu.** Tuzak #4 hâlâ açık: `applyCookies`'in `private, no-store` kuralı bfcache'i bozuyor olabilir ve bunu ölçmedik                          |
+| 5.6  | Idempotency key'leri        | —     | 4.2 form action'ları geldi, yani çift gönderim yüzeyi **büyüdü**. PRG çifte POST'u kapatıyor ama ağ tekrarını kapatmıyor                                               |
+| 6.2  | Early Hints (103)           | —     | Kazanç cache MISS/cold-fill diliminde. Sigorta'da üç sayfa `neverCache` olduğu için o dilim sanıldığından geniş                                                        |
+| 3.2  | `routeRules`                | —     | Route politikası bugün `cache-keys.ts` registry'si + route dosyaları arasında bölünmüş                                                                                 |
+| 3.3  | Storage soyutlaması         | —     | L1/L2 cache var ama unstorage benzeri bir sürücü arayüzü yok                                                                                                           |
+| 4.4  | OpenAPI üretimi             | —     | `contracts/openapi.json` hâlâ elle yazılmış fixture; route'lardan türemiyor, sessizce eskiyebilir                                                                      |
+| 7.2  | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                                                                      |
+| 9.3  | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                                                                      |
+| 10.1 | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                                                                             |
+
+### Üçüncü dalga — fikir olarak dursun
+
+Bugün yapılmayacak, ama "hayır" da değil: koşullar değişirse yeniden bakılır. Her satırdaki koşul,
+o maddeyi tekrar gündeme getirecek olan şey.
+
+| #    | Madde                  | Durum | Hangi koşulda geri gelir                                                                                                                                                           |
+| ---- | ---------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.2  | Partial Prerendering   | —     | Server islands (2.1) faydanın büyük kısmını verdi. React'in PPR'ı stabil bir API haline gelirse yeniden bakılır                                                                    |
+| 3.5  | Build-time prerender   | —     | İçeriğimiz CMS güdümlü ve saatlik değişiyor; gerçekten statik bir bölüm (blog arşivi gibi) çıkarsa anlamlı olur                                                                    |
+| 5.5  | Node permission model  | —     | Tek süreçte çalışıyoruz ve üçüncü taraf kod çalıştırmıyoruz. Plugin mekanizması gerçek kod çalıştırmaya başlarsa gerekli olur                                                      |
+| 8.2  | Deployment preset'leri | —     | Tek deploy hedefi var. Yalnız "bağımlısız çıktı" fikri ayrıca değerli; ikinci hedef çıkarsa tamamı gündeme gelir                                                                   |
+| 8.3  | Zamanlanmış görevler   | —     | `after()` yanıt sonrası işi çözdü. Yanıttan **bağımsız** periyodik iş (cache ısıtma, sitemap tazeleme) ihtiyacı doğarsa                                                            |
+| 9.4  | `node:sqlite`          | —     | Gömülü veri ihtiyacımız yok; L1 cache byte-bütçeli map, L2 Redis. Yerel bir okuma-ağırlıklı veri seti çıkarsa                                                                      |
+| 10.2 | Rolldown               | —     | Vite 8'deyiz ama bundler hâlâ esbuild/Rollup; `@rolldown/pluginutils` yalnızca bir plugin yardımcısı olarak lockfile'da. Rolldown Vite'ta varsayılan olduğunda kendiliğinden gelir |
 
 ### Kasıtlı hayır
 
+- **6.1 Speculation Rules** — analitik itirazı çözülebilir (§ 6.1'de nasıl olduğu yazılı), ama
+  prerender'ın ucuz olduğu senaryo bu uygulamada gerçekleşmiyor: paylaşımlı cache'li tek sayfa `/`
+  ve kimse üstünde durduğu sayfayı prerender etmez. Gerçek hedefler üç `neverCache` sayfa, yani
+  atılan her prerender tam SSR + dört gateway çağrısı. S7 kararı verilmeden bu madde açılmaz.
 - **2.3 Resumability (Qwik)** — React'e taşınamaz, island modelimiz faydanın çoğunu zaten veriyor.
 - **5.3 SRI** — ana üçüncü taraf script'imiz GTM ve o sürekli değiştiği için SRI uygulanamaz;
   sabit sürümlü vendor'larda dar fayda.
