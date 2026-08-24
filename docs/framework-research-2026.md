@@ -601,7 +601,7 @@ sınırlandı: tanınmayan bir neden sonsuza kadar yeni bir seri açmak yerine `
   Bu yüzden görece ucuz ve etkisi büyük.
 - **Maliyet/risk**: Düşük-orta. Dev-only, production bundle'a sıfır etki (ayrı entry).
 
-### 7.2 Layers / extends **[P2]**
+### 7.2 Layers / extends **[P2]** **[KISMEN — 0.7.54]**
 
 - **Ne**: Nuxt'ın layer'ları — bir uygulama başka bir uygulamayı miras alıyor: bileşenler,
   composable'lar, sunucu route'ları, konfigürasyon. Çok markalı/çok siteli kurulumların ve DDD tarzı
@@ -614,6 +614,39 @@ sınırlandı: tanınmayan bir neden sonsuza kadar yeni bir seri açmak yerine `
   semptomu.
 - **Maliyet/risk**: Yüksek. Çözünürlük sırası, tip birleştirme, override semantiği zor problemler.
   Ama bu ıraksama sorununu başka türlü çözmek de zor.
+
+**Önce ölçüldü (0.7.54).** "Tek ürün olduğu sürece fatura ödenmiyor" notu yanlıştı:
+`docs/multi-product-adoption.md` on beş ürün planlıyor, ve template ile sigorta arasındaki fark
+zaten ödenmiş bir faturaydı.
+
+| Dosya                           | Farklı satır |
+| ------------------------------- | -----------: |
+| `server/diagnostics/gateway.ts` |          164 |
+| `server/index.ts`               |           64 |
+| `server/product/runtime.ts`     |           51 |
+| `src/entry.client.tsx`          |           27 |
+| `eslint.config.js`              |           26 |
+| `tsconfig.json`                 |           13 |
+
+Bir kısmı **olması gereken** fark: route tablosu, product runtime, client tercihleri ürüne ait.
+`eslint.config.js` değil — ve ıraksamasının bedeli somut çıktı:
+
+1. **Gateway seam kuralı sigorta'da hiç yoktu.** Servislerin gateway'i diagnostics sarmalayıcısı
+   yerine doğrudan import etmesini engelleyen kural. Dört servis tam bunu yapıyordu ve o çağrılar
+   `SSR_DIAGNOSTICS`'e görünmüyordu. Olmayan bir kural hiçbir şeyi düşürmez, o yüzden kimse fark
+   edemezdi.
+2. **Import sıralaması hiç açılmamıştı.** Config plugin'i kaydediyor ama kurallarını `error`
+   yapmıyordu; 89 ihlal sessizce birikmişti.
+
+**Yapılan, layer sistemi değil.** Config kopyalanmıştı, oysa **paketlenmeliydi**.
+`@originloom/tooling/eslint` paylaşılan kuralları ve seam kuralını taşıyor; üretilen config preset'i
+yayıyor ve yalnızca gerçekten kendine ait olanı tutuyor. Kural ve testi de pakete taşındı — her
+uygulamaya üretilen bir kural, her uygulamada ayrı ayrı çürüyen bir kuraldır.
+
+**Bu 7.2'yi kapatmıyor.** Var olmak için sebebi olmayan en büyük ıraksama parçasını kaldırıyor — ki
+bu, runtime layer kalıtımından farklı ve _ucuz_ bir şey: çözünürlük sırası yok, tip birleştirme yok,
+override semantiği yok. Geriye kalan ya gerçekten ürüne ait, ya da aynı muameleyi bekliyor. Sıradaki
+`server/diagnostics/gateway.ts` ve o daha büyük: 164 satır ıraksama, sıfır ürün içeriği.
 
 ### 7.3 Tip güvenli env şeması (`astro:env`) **[P1]** **[YAPILDI — 0.7.31]**
 
@@ -826,7 +859,7 @@ zaten gelmiş — o yüzden burası da artık düz bir liste değil, durum taş�
 | 3.2 ✅ | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; `cache-control`/`set-cookie`/`content-type` korumalı ve açılışta uyarıyor          |
 | 3.3 ✅ | Storage soyutlaması         | ✅    | `registerCacheDriver`; `CacheStore` zaten sürücü arayüzüydü, eksik olan dışarıdan girişti                         |
 | 4.4 ⛔ | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı    |
-| 7.2    | Layers / extends            | —     | Tek ürün olduğu sürece fatura ödenmiyor; ikinci ürün geldiği gün ilk sıraya çıkar                                 |
+| 7.2 ◐  | Layers / extends            | ◐     | Ölçüldü ve en büyük parçası kaldırıldı: lint config paketlendi. Kalan ıraksama ya ürüne ait ya sırada             |
 | 9.3    | WinterTC kısıtı             | —     | Bugün Node'a bağlıyız ve tek deploy hedefimiz var                                                                 |
 | 10.1   | Vite Environment API        | —     | Client/SSR yapılandırması bugün elle ayrılmış; API bunu tek yerde toplardı                                        |
 
