@@ -113,12 +113,28 @@ async function readSvgrConfig() {
   }
 }
 
+/**
+ * The order `simple-import-sort` wants, so the generator and the linter agree.
+ *
+ * They did not. The barrel came out in filename order — plain `Array.sort`,
+ * which is code-unit order and puts every capitalised name before every
+ * lowercase one. `simple-import-sort/exports` compares module sources with a
+ * base-sensitivity collator, where `./brand-mark` comes before
+ * `./ComprehensiveCarInsurance`. So `pnpm build` regenerated a file `pnpm lint`
+ * rejected, `pnpm lint:fix` produced one the next build overwrote, and which of
+ * the two an app's CI saw depended on the order its steps happened to run in.
+ */
+const SOURCE_ORDER = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+
+function compareSources(left, right) {
+  return SOURCE_ORDER.compare(left, right) || (left < right ? -1 : left > right ? 1 : 0);
+}
+
 async function writeBarrel(svgFiles) {
-  const lines = svgFiles.map((name) => {
-    const stem = svgStem(name);
-    const exportName = toPascalCase(stem);
-    return `export { default as ${exportName} } from "./${stem}";`;
-  });
+  const lines = svgFiles
+    .map((name) => svgStem(name))
+    .sort(compareSources)
+    .map((stem) => `export { default as ${toPascalCase(stem)} } from "./${stem}";`);
 
   const content =
     lines.length > 0

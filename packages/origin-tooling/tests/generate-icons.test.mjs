@@ -94,4 +94,31 @@ describe("generate-icons", () => {
       firstMtimes.map(({ mtimeMs }) => mtimeMs),
     );
   });
+
+  /**
+   * The generator and `simple-import-sort` used to disagree, and which one an
+   * app's CI believed depended on whether `build` ran before `lint`.
+   */
+  it("emits the barrel in the order simple-import-sort wants", async () => {
+    const root = await mkdtemp(join(tmpdir(), "originloom-icons-order-"));
+    const svgDir = join(root, "src/assets/svg");
+    await mkdir(svgDir, { recursive: true });
+    await writeFile(join(root, ".svgrrc.cjs"), svgrConfig);
+    const square = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24"/></svg>`;
+    for (const name of ["ArrowRight.svg", "ComprehensiveCarInsurance.svg", "brand-mark.svg"]) {
+      await writeFile(join(svgDir, name), square);
+    }
+
+    execFileSync(process.execPath, [generateIcons], {
+      cwd: root,
+      env: { ...process.env, ORIGIN_APP_ROOT: root },
+      stdio: "pipe",
+    });
+
+    const barrel = await readFile(join(root, "src/components/icons/index.ts"), "utf8");
+    const sources = [...barrel.matchAll(/from "\.\/([^"]+)"/g)].map(([, stem]) => stem);
+
+    // Code-unit order would put both capitalised names first.
+    expect(sources).toEqual(["ArrowRight", "brand-mark", "ComprehensiveCarInsurance"]);
+  });
 });
