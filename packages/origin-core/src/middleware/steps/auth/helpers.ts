@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { cookie } from "@originloom/shared/lib/request";
+import { sessionCookie } from "@originloom/shared/lib/request";
 import { isBoundedString, isRecord } from "@originloom/shared/lib/runtime-schema";
 import { stripUndefined } from "@originloom/shared/lib/strip-undefined";
 import { taintValueIfPossible } from "@originloom/shared/lib/taint";
@@ -66,8 +66,8 @@ export function displayNameFromAccess(access: string): string {
 
 export function readTokens(request: Request): { access?: string; refresh?: string } {
   const tokens = stripUndefined({
-    access: cookie(request, Cookie.accessToken),
-    refresh: cookie(request, Cookie.refreshToken),
+    access: sessionCookie(request, Cookie.accessToken),
+    refresh: sessionCookie(request, Cookie.refreshToken),
   });
 
   // Marked here rather than at each call site, because this is the one door the
@@ -124,7 +124,10 @@ const AUTH_COOKIES = [
  * response uncacheable — see `applyCookies`.
  */
 export function hasAuthCookies(request: Request): boolean {
-  return AUTH_COOKIES.some((name) => cookie(request, name) !== undefined);
+  // Through `sessionCookie` like every other read: during the migration a
+  // visitor may hold either name, and a "has cookies" check that only knew one
+  // of them would decide a signed-in visitor is anonymous.
+  return AUTH_COOKIES.some((name) => sessionCookie(request, name) !== undefined);
 }
 
 export function clearTokenCookies(jar: CookieJar): void {

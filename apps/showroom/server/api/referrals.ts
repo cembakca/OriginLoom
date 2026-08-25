@@ -7,7 +7,7 @@ import { guardPublicApi, type PublicApiPolicy } from "@originloom/core/security/
 import { normalizeNavigationUrl } from "@originloom/shared/lib/content-url";
 import { isBoundedRouteSlug } from "@originloom/shared/lib/content-values";
 import { Cookie } from "@originloom/shared/lib/cookies";
-import { cookie } from "@originloom/shared/lib/request";
+import { sessionCookie } from "@originloom/shared/lib/request";
 import { observeReferralRedirect } from "@server/metrics/referrals";
 import { createReferral } from "@server/services/financial-products";
 import type { Hono } from "hono";
@@ -44,7 +44,7 @@ export async function handleReferralApi(
       return measuredError("Geçersiz başvuru isteği", 400, productType, started);
     }
 
-    const currentSession = sanitizeUuid(cookie(request, Cookie.referralSession));
+    const currentSession = sanitizeUuid(sessionCookie(request, Cookie.referralSession));
     const anonymousSessionId = currentSession ?? crypto.randomUUID();
     const created = await createReferral(definition.gatewayType, slug, anonymousSessionId, request);
     if (!created) {

@@ -116,7 +116,11 @@ describe("/server-island", () => {
     const html = await response.text();
 
     expect(html).toContain('data-server-island="visitor-summary"');
-    expect(html).toMatch(/data-payload="[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"/);
+    expect(html).toMatch(
+      // `<body>.<kid>.<digest>` — the key ring puts the signing key's label between
+      // the payload and its signature so a rotation can still verify it.
+      /data-payload="[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"/,
+    );
     // The fallback is what a visitor without scripts keeps.
     expect(html).toContain("Ziyaretçi özeti yükleniyor");
     expect((await app.request("/server-island")).headers.get("x-cache")).toBe("HIT");

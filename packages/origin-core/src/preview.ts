@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookie } from "@originloom/shared/lib/request";
 
 import { config } from "./config.js";
+import { type KeyRing, keyRing, signWithRing, verifyWithRing } from "./key-ring.js";
 import type { CookieJar } from "./middleware/cookie-jar.js";
 
 /**
@@ -22,7 +23,9 @@ import type { CookieJar } from "./middleware/cookie-jar.js";
 export const PREVIEW_COOKIE = "originloom_preview";
 
 /** Cookie value: `<expiry-ms>.<hmac>`. */
-const VALUE_PATTERN = /^(\d{1,15})\.([A-Za-z0-9_-]{20,})$/;
+// `<expiry>.<kid>.<digest>` — the signature carries the label of the key that
+// made it, so a value signed by the previous secret is still recognisable.
+const VALUE_PATTERN = /^(\d{1,15})\.([A-Za-z0-9_-]{1,32}\.[A-Za-z0-9_-]{20,})$/;
 
 export type PreviewGrant = { value: string; expiresAt: number };
 
@@ -45,14 +48,20 @@ export function isPreviewConfigured(): boolean {
  */
 export function createPreviewGrant(now = Date.now()): PreviewGrant {
   const expiresAt = now + config.previewTtlMs;
-  return { value: `${expiresAt}.${sign(String(expiresAt))}`, expiresAt };
+  return { value: `${expiresAt}.${signWithRing(ring(), String(expiresAt))}`, expiresAt };
 }
 
 /** Verifies the shared secret an editor presents to start a preview session. */
 export function isValidPreviewToken(token: string | null | undefined): boolean {
   const secret = config.previewSecret;
   if (!secret || !token) return false;
-  return constantTimeEquals(token, secret);
+  // The rotating one too: an editor's bookmarked link carries whichever secret
+  // was current when they saved it, and a rotation that logs every editor out
+  // of preview is a rotation nobody performs.
+  return (
+    constantTimeEquals(token, secret) ||
+    (config.previewPreviousSecret ? constantTimeEquals(token, config.previewPreviousSecret) : false)
+  );
 }
 
 /**
@@ -73,7 +82,7 @@ export function isPreviewRequest(request: Request): boolean {
   const [, expiry, signature] = parsed as unknown as [string, string, string];
   if (Number(expiry) <= Date.now()) return false;
 
-  return constantTimeEquals(signature, sign(expiry));
+  return verifyWithRing(ring(), expiry, signature);
 }
 
 /**
@@ -103,10 +112,9 @@ export function clearPreviewCookie(jar: CookieJar): void {
   jar.delete(PREVIEW_COOKIE);
 }
 
-function sign(payload: string): string {
-  return createHmac("sha256", config.previewSecret ?? "")
-    .update(payload)
-    .digest("base64url");
+/** Current signs, previous still verifies — see `key-ring.ts` for why. */
+function ring(): KeyRing {
+  return keyRing(config.previewSecret ?? "", config.previewPreviousSecret);
 }
 
 /** Length-independent comparison: the digests hide how far the match got. */

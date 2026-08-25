@@ -151,6 +151,7 @@ export function renderTemplates({
     "docs/route-params.md": asset("docs/route-params.md"),
     "docs/referrals.md": asset("docs/referrals.md"),
     "docs/routing.md": asset("docs/routing.md"),
+    "docs/secret-rotation.md": asset("docs/secret-rotation.md"),
     "docs/seo.md": asset("docs/seo.md"),
     "docs/supply-chain-security.md": asset("docs/supply-chain-security.md"),
     "docs/streaming.md": asset("docs/streaming.md"),
@@ -1313,13 +1314,21 @@ ANALYTICS_VENDOR_URL=http://127.0.0.1:4002/vendor/consent.js
 # OTEL_SERVICE_NAME=\${name}
 `;
 
-const envProduction = (name, port, metricsPort, includeLiveStream = false) => `NODE_ENV=production
+const envProduction = (name, port, metricsPort, includeLiveStream = false) =>
+  `NODE_ENV=production
 APP_ENV=production
 PORT=${port}
 METRICS_PORT=${metricsPort}
 
 # Required in production — set these from your secret manager / deployment env:
 #   SITE_URL, GATEWAY_URL, RELEASE_ID, APP_ID, AUTH_REFRESH_COORDINATION_SECRET
+#
+# Every signing secret has a PREVIOUS twin (PREVIEW_PREVIOUS_SECRET and friends)
+# used only while rotating: set the new value as the secret and the old one as
+# the twin, deploy, then drop the twin. Signing uses the current key while
+# verification accepts either, so nothing already in flight — a preview link, an
+# island placeholder in a rendered page — is refused mid-rollout.
+# See docs/secret-rotation.md.
 #
 # RELEASE_ID and APP_ID answer different questions and both are required.
 #   RELEASE_ID  changes on every deploy. It namespaces cached HTML, which a new

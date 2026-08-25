@@ -184,12 +184,16 @@ export const config = {
    * refusing is the only safe answer.
    */
   previewSecret: process.env.PREVIEW_SECRET?.trim() || undefined,
+  /** The preview secret being rotated out; still verifies links an editor already opened. */
+  previewPreviousSecret: process.env.PREVIEW_PREVIOUS_SECRET?.trim() || undefined,
   /**
    * Signs server-island placeholders. It must be the same across every pod:
    * the placeholder is baked into shared cached HTML by one process and
    * verified by whichever process answers the fill request.
    */
   serverIslandSecret: process.env.SERVER_ISLAND_SECRET?.trim() || undefined,
+  /** The island secret being rotated out; still verifies placeholders already in flight. */
+  serverIslandPreviousSecret: process.env.SERVER_ISLAND_PREVIOUS_SECRET?.trim() || undefined,
   previewTtlMs: numberEnv("PREVIEW_TTL_MS", 3_600_000),
   cspEnforce: booleanEnv("CSP_ENFORCE", nodeEnv === "production"),
   /**

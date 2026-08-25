@@ -425,6 +425,33 @@ ettiğinde sesli söyleyen şey.
   sabit sürümlü vendor script'lerinde uygulanabilir. Kısmi fayda — dürüst olmak gerekirse GTM
   senaryosunda uygulanamaz.
 
+### 5.5b Secret rotasyonu ve `__Host-` cookie'leri **[P1]** **[YAPILDI — 0.7.67]**
+
+Review'ın son iki maddesi, ve tek release'de gitmeleri taviz değil doğruydu: key-ring, cookie
+geçişini güvenli yapan şeyin ta kendisi.
+
+**Tek secret rotasyonu yazı-tura yapıyordu.** Rolling deploy sırasında iki release iki farklı değer
+tutuyor ve birinin imzaladığını diğeri reddediyor — bir dakika önce açılmış bir preview linki, render
+edilmiş bir sayfada duran island yer tutucusu. Auth refresh codec'i bunu kendisi için çözmüştü;
+`key-ring.ts` o fikri primitive yapıyor, ki bir sonraki ihtiyaç üçüncü bir çözüm üretmesin. Sözleşme
+tek cümle: **current ile imzala, halkadaki herhangi bir anahtarla doğrula.** `kid` etiketi secret'tan
+türetiliyor — gece üçte secret döndüren birinin ayrıca etiket uydurup senkron tutması gerekmemeli.
+
+**`__Host-` dekorasyon değil.** Onsuz, tarayıcının bu origin için tuttuğu bir cookie'yi kayıtlı alan
+adı altındaki herhangi bir host yazmış olabilir; önek tarayıcının tersini garanti etmesi. Her cookie
+değil: `Domain`'i yasakladığı için subdomain'ler arası paylaşılan atıf cookie'leri kapsam dışı, ve
+development'ta hiç uygulanmıyor çünkü orada `Secure` yok ve önekli cookie sessizce düşerdi.
+
+Geçişin ortası düşünüldü: okuma iki adı da deniyor (önekli önce), ve **çıkış ikisini birden**
+süresiz kılıyor. Sonuncusu yazarken çıkan asıl bulgu — yalnız önekliyi temizlemek, rollout'tan önce
+giriş yapmış bir ziyaretçinin refresh token'ını tarayıcısında bırakırdı, ve temizlemeyi ıskalayan bir
+çıkış hiçbir yerde hata gibi görünmez.
+
+`SameSite` bilerek `lax` kaldı: `strict` daha sıkı ama bu ürünler için doğru olduğu gösterilmedi
+(e-postadan gelen ziyaretçi çıkış yapmış karşılanır). Yazılı olması unutulmuş olmasından farklı.
+
+Ayrıntı: üretilen `docs/secret-rotation.md`.
+
 ### 5.4 COOP / COEP / Origin-Agent-Cluster **[P2]** **[YAPILDI — 0.7.43]**
 
 - **Ne**: Cross-origin izolasyon başlıkları. `SharedArrayBuffer`/yüksek çözünürlüklü timer erişimi

@@ -1,3 +1,5 @@
+import { HOST_PREFIX, HOST_PREFIXED_COOKIES } from "@originloom/shared/lib/cookies";
+
 export type CookieOptions = {
   maxAge?: number;
   path?: string;
@@ -6,7 +8,8 @@ export type CookieOptions = {
   sameSite?: "lax" | "strict" | "none";
 };
 
-type Entry = { value: string; options: CookieOptions };
+/** `wire` is the name that goes out; it may carry the `__Host-` prefix. */
+type Entry = { value: string; options: CookieOptions; wire: string };
 
 /** RFC 6265 cookie-name: an HTTP token. Notably excludes `;`, `=`, space and controls. */
 const COOKIE_NAME = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
@@ -36,6 +39,30 @@ function assertWritable(name: string, path: string | undefined): void {
   }
 }
 
+/**
+ * The name that goes on the wire, prefixed when the browser will accept it.
+ *
+ * Decided here rather than at each `jar.set`, because the prefix is only valid
+ * under conditions this class already owns — `Secure`, `Path=/`, no `Domain` —
+ * and a caller that had to remember all three would eventually emit a cookie
+ * every browser silently drops. In development, where nothing is `Secure`, the
+ * plain name is used and the session keeps working.
+ */
+/**
+ * Both names when the prefixed one is in play, so an expiry reaches whichever
+ * the visitor is actually holding.
+ */
+function clearableNames(name: string, options: CookieOptions): string[] {
+  const wire = wireName(name, options);
+  return wire === name ? [name] : [wire, name];
+}
+
+function wireName(name: string, options: CookieOptions): string {
+  if (!HOST_PREFIXED_COOKIES.has(name)) return name;
+  if (!options.secure || options.path !== "/") return name;
+  return `${HOST_PREFIX}${name}`;
+}
+
 /** Accumulates Set-Cookie headers across pipeline steps. */
 export class CookieJar {
   private entries = new Map<string, Entry>();
@@ -50,20 +77,33 @@ export class CookieJar {
   set(name: string, value: string, options: CookieOptions = {}): void {
     const resolved = this.applySecurityPolicy({ path: "/", sameSite: "lax", ...options });
     assertWritable(name, resolved.path);
-    this.entries.set(name, { value, options: resolved });
+    const wire = wireName(name, resolved);
+    this.entries.set(wire, { value, options: resolved, wire });
   }
 
+  /**
+   * Clears a cookie under **every** name it may be sitting under.
+   *
+   * The prefixed name alone is not enough while the migration is running: a
+   * visitor who signed in before the rollout holds the unprefixed cookie, and
+   * clearing only `__Host-refresh_token` would leave their actual refresh token
+   * in the browser after they pressed sign out. A cookie a sign-out failed to
+   * clear is the one bug in this file that would not look like a bug.
+   *
+   * Emitting an expiry for a cookie the visitor does not have costs one header
+   * and does nothing, which is the right price for not having to know.
+   */
   delete(name: string): void {
     assertWritable(name, "/");
-    this.entries.set(name, {
-      value: "",
-      options: this.applySecurityPolicy({ path: "/", maxAge: 0 }),
-    });
+    const options = this.applySecurityPolicy({ path: "/", maxAge: 0 });
+    for (const wire of clearableNames(name, options)) {
+      this.entries.set(wire, { value: "", options, wire });
+    }
   }
 
   toHeaderStrings(): string[] {
-    return [...this.entries.entries()].map(([name, { value, options }]) => {
-      const parts = [`${name}=${encodeURIComponent(value)}`];
+    return [...this.entries.values()].map(({ value, options, wire }) => {
+      const parts = [`${wire}=${encodeURIComponent(value)}`];
       if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
       if (options.path) parts.push(`Path=${options.path}`);
       if (options.httpOnly) parts.push("HttpOnly");
@@ -74,10 +114,10 @@ export class CookieJar {
   }
 
   merge(other: CookieJar): void {
-    for (const [name, entry] of other.entries) {
+    for (const [wire, entry] of other.entries) {
       const options = this.applySecurityPolicy(entry.options);
-      assertWritable(name, options.path);
-      this.entries.set(name, { ...entry, options });
+      assertWritable(wire, options.path);
+      this.entries.set(wire, { ...entry, options });
     }
   }
 

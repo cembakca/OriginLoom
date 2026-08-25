@@ -132,6 +132,7 @@ export const CORE_PUBLIC_SUBPATHS = [
   "handler",
   "instrumentation",
   "log-format",
+  "key-ring",
   "logger",
   "media",
   "metrics",

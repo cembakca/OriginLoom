@@ -76,7 +76,11 @@ describe("auth helpers", () => {
     const outcome = await runAuthCore(request, jar);
     expect(outcome.kind).toBe("anonymous");
     expect(outcome.authorization).toBeUndefined();
-    expect(jar.toHeaderStrings()).toContain("refresh_token=; Max-Age=0; Path=/; Secure");
+    // Both names are expired during the __Host- migration, so the assertion is
+    // "an expiry for this cookie is present", not "this exact header is".
+    expect(jar.toHeaderStrings()).toContainEqual(
+      expect.stringContaining("refresh_token=; Max-Age=0; Path=/; Secure"),
+    );
     expect(jar.toHeaderStrings()).not.toContainEqual(expect.stringMatching(/^signed_in=1/));
   });
 

@@ -1,6 +1,5 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 import { config } from "./config.js";
+import { type KeyRing, keyRing, signWithRing, verifyWithRing } from "./key-ring.js";
 
 /**
  * A hole in cached HTML that the server fills per request.
@@ -61,19 +60,21 @@ export function signServerIslandPayload(name: string, props: unknown): string {
   if (!isServerIslandConfigured()) throw new ServerIslandConfigError();
 
   const body = Buffer.from(JSON.stringify({ name, props }), "utf8").toString("base64url");
-  return `${body}.${sign(body)}`;
+  return `${body}.${signWithRing(ring(), body)}`;
 }
 
 /** Returns the payload only when the signature checks out. */
 export function verifyServerIslandPayload(token: string): ServerIslandPayload | null {
   if (!isServerIslandConfigured()) return null;
 
-  const separator = token.lastIndexOf(".");
+  // The first dot, not the last: the body is base64url and carries none, while
+  // the signature after it is `<kid>.<digest>` and carries one.
+  const separator = token.indexOf(".");
   if (separator <= 0) return null;
 
   const body = token.slice(0, separator);
   const signature = token.slice(separator + 1);
-  if (!constantTimeEquals(signature, sign(body))) return null;
+  if (!verifyWithRing(ring(), body, signature)) return null;
 
   try {
     const parsed: unknown = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
@@ -85,14 +86,13 @@ export function verifyServerIslandPayload(token: string): ServerIslandPayload | 
   }
 }
 
-function sign(payload: string): string {
-  return createHmac("sha256", config.serverIslandSecret ?? "")
-    .update(payload)
-    .digest("base64url");
-}
-
-function constantTimeEquals(a: string, b: string): boolean {
-  const left = createHmac("sha256", "compare").update(a).digest();
-  const right = createHmac("sha256", "compare").update(b).digest();
-  return timingSafeEqual(left, right);
+/**
+ * The ring, rebuilt per call rather than memoised.
+ *
+ * `keyRing` is two HMACs over a short string and the config is read anyway; a
+ * cached ring would be one more thing to invalidate when a test changes the
+ * secret, for a saving nothing can measure.
+ */
+function ring(): KeyRing {
+  return keyRing(config.serverIslandSecret ?? "", config.serverIslandPreviousSecret);
 }

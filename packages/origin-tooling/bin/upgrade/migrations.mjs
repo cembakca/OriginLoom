@@ -42,6 +42,7 @@ export const MIGRATION_BACKUPS_MIGRATION = "0.7.57-migration-backups";
 export const SHARED_ALIASES_MIGRATION = "0.7.58-shared-aliases";
 export const APP_ID_MIGRATION = "0.7.62-app-id";
 export const NAMESPACES_GUIDE_MIGRATION = "0.7.64-namespaces-guide";
+export const SECRET_ROTATION_MIGRATION = "0.7.67-secret-rotation";
 export const WASM_RUNTIME_PIN_MIGRATION = "0.7.58-wasm-runtime-pin";
 
 const VIEW_TRANSITION_CSS = `
@@ -535,6 +536,15 @@ export const migrations = [
     // every time — a fix to a shipped migration is a new migration.
     migrateProject(root, changes, fileWrites) {
       addMissingDoc(root, changes, fileWrites, "docs/namespaces.md");
+    },
+  },
+  {
+    id: SECRET_ROTATION_MIGRATION,
+    introducedIn: "0.7.67",
+    description:
+      "Oturum cookie'leri production'da __Host- önekiyle yazılıyor (okuma iki adı da deniyor, çıkış ikisini de temizliyor) ve imzalayan her secret'ın bir *_PREVIOUS_SECRET ikizi var. Rehber ekleniyor.",
+    migrateProject(root, changes, fileWrites) {
+      addMissingDoc(root, changes, fileWrites, "docs/secret-rotation.md");
     },
   },
   {

@@ -618,6 +618,7 @@ function project({ version, metadata }) {
                   "0.7.58-wasm-runtime-pin",
                   "0.7.62-app-id",
                   "0.7.64-namespaces-guide",
+                  "0.7.67-secret-rotation",
                 ]
               : []),
           ],
