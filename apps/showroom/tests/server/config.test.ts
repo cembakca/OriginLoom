@@ -97,7 +97,7 @@ describe("server config", () => {
         RELEASE_ID: undefined,
         APP_ID: undefined,
       }),
-    ).rejects.toThrow("Production GATEWAY_URL");
+    ).rejects.toThrow("GATEWAY_URL (Upstream the SSR loaders read from");
   });
 
   it("allows L1-only production when CACHE_BACKEND=memory", async () => {

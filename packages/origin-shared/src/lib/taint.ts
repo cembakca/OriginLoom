@@ -131,6 +131,30 @@ export function assertNodeUntainted(value: unknown, where: string): void {
   }
 }
 
+/**
+ * Throws when rendered HTML contains a marked value, before it is shared.
+ *
+ * `assertNodeUntainted` walks structured data and catches a credential on its
+ * way into island props. It cannot see the other route, which is the one this
+ * item is named after: a personal string rendered as *text*, into HTML that a
+ * shared cache is about to store and serve to everyone.
+ *
+ * By that point the objects are gone and there is nothing to walk — but the
+ * strings are still strings, and a marked one is long enough to search for
+ * (`MIN_TAINTABLE_LENGTH` exists for exactly this reason: `"1"` would match
+ * every document). So this is a substring scan, run once per shared cache write
+ * and skipped entirely when nothing is marked.
+ *
+ * It is a second line, not the first. The first is not rendering personal data
+ * into shared HTML at all; this is what says so out loud when someone does.
+ */
+export function assertHtmlUntainted(html: string, where: string): void {
+  if (taintedValues.size === 0) return;
+  for (const [value, reason] of taintedValues) {
+    if (html.includes(value)) throw new TaintedValueError(reason, where);
+  }
+}
+
 /** Test-only: forgets every mark so one case cannot leak into the next. */
 export function clearTaintRegistryForTests(): void {
   taintedValues.clear();

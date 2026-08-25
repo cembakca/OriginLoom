@@ -90,6 +90,7 @@ export const CORE_PUBLIC_SUBPATHS = [
   "route-rules",
   "early-hints",
   "server-island",
+  "platform-env",
   "preview",
   "after",
   "adapters/gateway",

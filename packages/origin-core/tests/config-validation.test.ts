@@ -93,12 +93,16 @@ describe("production placeholder sentinel (OR5)", () => {
  */
 describe("APP_ID", () => {
   it("is required in production", () => {
-    expect(() =>
-      validateAppConfig(productionConfig({ appId: "sigorta" }), {
-        ...productionEnv,
-        APP_ID: undefined,
-      }),
-    ).toThrow(/APP_ID is required in production/);
+    expect(
+      () =>
+        validateAppConfig(productionConfig({ appId: "sigorta" }), {
+          ...productionEnv,
+          APP_ID: undefined,
+        }),
+      // The message carries the declaration's own description, because the useful
+      // thing to read at 3am is what stops working, not the name the deploy
+      // already showed you.
+    ).toThrow(/Required in production but not set:[\s\S]*APP_ID \(Product identity/);
   });
 
   /**

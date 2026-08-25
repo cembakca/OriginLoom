@@ -1,4 +1,5 @@
 import type { Span } from "@opentelemetry/api";
+import { assertHtmlUntainted } from "@originloom/shared/lib/taint";
 import type { CachePolicy } from "@originloom/shared/lib/types";
 
 import { config } from "../config.js";
@@ -266,6 +267,12 @@ export async function write(
   memory?: CacheMemoryWriteOptions,
 ): Promise<boolean> {
   try {
+    // The boundary this guard was always about. A cache entry is served to every
+    // visitor, so a marked value inside one is not a rendering bug for one
+    // request — it is that value published. Refusing the write costs this
+    // response its cache entry and nothing else; letting it through costs
+    // everyone.
+    assertHtmlUntainted(body, `cache write ${key}`);
     const written = await runCacheOperation("write", () =>
       getCache().write(key, body, policy, memory),
     );

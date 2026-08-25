@@ -397,6 +397,25 @@ kırılarak doğrulandı: pod-c'ye farklı bir `APP_ID` verildiğinde gateway bi
 Kapsamadıkları dürüstçe yazılı: graceful drain, secret rotation, ve pod'lar arası rate limit (o
 birim seviyesinde pinli). Ayrıntı: [production-topology.md](./production-topology.md).
 
+### 5.2d Taint'in ikinci hattı: paylaşılan cache **[P1]** **[YAPILDI — 0.7.65]**
+
+Review 5.2'nin ✅'ini fazla buldu ve haklıydı: taint altyapısı iyi ama production'da yalnız iki şeyi
+işaretliyordu (access ve refresh token) ve kontrol yalnız **bir yerde** çalışıyordu —
+`embedded-json.ts`, yani island props'u. Yani garanti "credential'ın gömülü JSON'a sızmaması"ydı;
+maddenin adı olan "kişisel içeriğin paylaşılan HTML'e sızmaması" değil.
+
+İkinci yol için nesne yürüyüşü işe yaramıyor: HTML'e vardığında nesneler çoktan gitmiş, geriye
+string kalıyor. Ama işaretli bir değer **aranabilir** — `MIN_TAINTABLE_LENGTH` tam da bu yüzden var,
+`"1"` her belgeyi eşleştirirdi.
+
+`assertHtmlUntainted` artık **paylaşılan cache yazımında** çalışıyor. Sınır bilerek orası: bir cache
+girdisi her ziyaretçiye servis edilir, yani içindeki işaretli bir değer tek bir isteğin render
+hatası değil, o değerin **yayımlanması**dır. Yazmayı reddetmek o yanıta cache girdisini kaybettirir;
+geçirmek herkese mal olur.
+
+İlk hat değil, ikinci hat: ilk hat kişisel veriyi paylaşılan HTML'e hiç render etmemek. Bu, biri
+ettiğinde sesli söyleyen şey.
+
 ### 5.3 Subresource Integrity (SRI) **[P2]**
 
 - **Ne**: Üçüncü taraf script'lere `integrity` hash'i.
@@ -934,6 +953,30 @@ yapılır.
   secret'ın istemciye sızması bugün bizde sadece dikkatle engelleniyor.
 - **Maliyet/risk**: Düşük. Mevcut `validateConfig` altyapısının üstüne şema.
 
+---
+
+**Adoption (0.7.65).** Review şunu söyledi ve doğruydu: `env-schema.ts` kapsamlı ve testliydi ama
+**hiçbir çağıranı yoktu**. İyi test edilmiş, çağrılmayan bir primitive bir yetenek değil.
+
+`PLATFORM_ENV` artık platformun kendi değişkenlerini bir tablo olarak beyan ediyor, ve production
+zorunlulukları elle yazılmış `if` dizisi yerine o tablodan türüyor: değişken eklemek bir satır, ve
+kontrolü unutmak artık ekleme yollarından biri değil. Hata mesajı beyandaki `description`'ı taşıyor
+— gece üçte okunacak olan şey değişkenin adı değil (deploy onu zaten söyledi), onsuz neyin
+bozulduğu.
+
+`access` alanı hiçbir `if`'in ifade etmediği yarıydı, ve artık bir yaptırımı var: `origin-build`,
+client bundle'ında **secret'ların değerini** arıyor ve bulursa build'i düşürüyor. Adı değil değeri:
+bir ad bundle'da çoğu zaman zararsız ve sık sık yanlış alarm, değer ise hangi yoldan gitmiş olursa
+olsun sızıntının kendisi.
+
+Kural isim deseni (`_SECRET`, `_TOKEN`, `_KEY`, …), liste değil — bir liste tooling paketinde
+yaşamak zorunda kalırdı, o da runtime'a bağımlı değil, yani platformun beyanının bir **kopyası**
+olurdu. Konvansiyonu bozan uygulama `ORIGINLOOM_EXTRA_SECRETS` ile ad ekliyor.
+
+`config.ts` yerinde duruyor ve durmalı: oradaki değişkenlerin çoğu varsayılanı olan ayar düğmeleri,
+yanlış değeri performans sorusu. Şemaya ait olan şey **sınırı** olan: production'da zorunlu, ya da
+tarayıcıya asla yaklaşmaması gereken.
+
 ### 7.4 `instrumentation.register` / `onRequestError` **[P2]** **[YAPILDI — 0.7.43]**
 
 - **Ne**: Next'in tek dosyalık gözlemlenebilirlik giriş noktası: `register()` sunucu ayağa kalkarken
@@ -1181,19 +1224,19 @@ Değer/maliyet oranına göre, mimarimize uygunluk sırasıyla:
 `/bulten` (form action). Bu tabloda başlangıçta 6.1 de vardı; § 6.1'deki gerekçeyle
 **Kasıtlı hayır**'a taşındı.
 
-| #      | Madde                        | Neden ilk                                                                   |
-| ------ | ---------------------------- | --------------------------------------------------------------------------- |
-| 4.1 ✅ | Hono RPC ile tip güvenli BFF | Hono'yu zaten kullanıyoruz; bedava duran özellik                            |
-| 8.1 ✅ | `after()` / `waitUntil`      | Mevcut `void promise` deseni sessiz veri kaybı üretiyor                     |
-| 5.2 ✅ | Taint / sızma koruması       | Mimarimizin en yüksek etkili hata sınıfı, bugün sadece test koruyor         |
-| 3.4 ✅ | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                  |
-| 2.1 ✅ | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                             |
-| 5.1 ✅ | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor |
-| 7.1 ✅ | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                   |
-| 7.3 ✅ | Tip güvenli env şeması       | Doğrulama var, tip ve public/secret sınırı yok                              |
-| 3.1 ✅ | İsimli cache profilleri      | Ham TTL sayıları okunabilirliği ve denetimi zorlaştırıyor                   |
-| 9.1 ✅ | `using` ile kaynak yönetimi  | `releaseGatewayResponse` unutma sınıfını dile devreder                      |
-| 4.2 ✅ | Form actions                 | JS'siz form; a11y ve dayanıklılık                                           |
+| #      | Madde                        | Neden ilk                                                                          |
+| ------ | ---------------------------- | ---------------------------------------------------------------------------------- |
+| 4.1 ✅ | Hono RPC ile tip güvenli BFF | Hono'yu zaten kullanıyoruz; bedava duran özellik                                   |
+| 8.1 ✅ | `after()` / `waitUntil`      | Mevcut `void promise` deseni sessiz veri kaybı üretiyor                            |
+| 5.2 ✅ | Taint / sızma koruması       | İki hat: island props'u (gömülü JSON) ve paylaşılan cache yazımı (§ 5.2d)          |
+| 3.4 ✅ | Draft / preview mode         | CMS güdümlü üründe eksik; yanlış yapılırsa güvenlik sorunu                         |
+| 2.1 ✅ | Server Islands               | "Kişisel içerik JS'e bağımlı" kısıtını kaldırır                                    |
+| 5.1 ✅ | Trusted Types                | 2026'da cross-browser oldu; DOM XSS'i CSP'nin kapatamadığı yerden kapatıyor        |
+| 7.1 ✅ | DevTools paneli              | Veri zaten üretiliyor, sadece sunum eksik                                          |
+| 7.3 ✅ | Tip güvenli env şeması       | `PLATFORM_ENV` beyanı zorunlulukları sürüyor; secret'lar client bundle'da aranıyor |
+| 3.1 ✅ | İsimli cache profilleri      | Ham TTL sayıları okunabilirliği ve denetimi zorlaştırıyor                          |
+| 9.1 ✅ | `using` ile kaynak yönetimi  | `releaseGatewayResponse` unutma sınıfını dile devreder                             |
+| 4.2 ✅ | Form actions                 | JS'siz form; a11y ve dayanıklılık                                                  |
 
 ### İkinci dalga
 

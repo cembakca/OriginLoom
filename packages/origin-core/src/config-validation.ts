@@ -1,6 +1,8 @@
 import { isIP } from "node:net";
 
 import type { AppConfig } from "./config.js";
+import type { EnvSchema } from "./env-schema.js";
+import { PLATFORM_ENV } from "./platform-env.js";
 
 export function assertPositiveInteger(name: string, value: number): void {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`Invalid ${name}: ${value}`);
@@ -109,21 +111,16 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   if (config.isProduction) {
     if (config.viteDevServerUrl)
       throw new Error("VITE_DEV_SERVER_URL is not allowed in production");
-    if (!env.GATEWAY_URL) throw new Error("Production GATEWAY_URL must be explicitly configured");
-    if (!env.SITE_URL) throw new Error("Production SITE_URL must be explicitly configured");
+    // Driven by the declaration rather than by a run of `if`s: adding a required
+    // variable is a row in PLATFORM_ENV, and forgetting the check is no longer
+    // one of the ways to add one.
+    assertDeclaredEnvPresent(env);
     validateAuthRefreshSecrets(config);
-    if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
     assertNotProductionPlaceholder("RELEASE_ID", config.releaseId);
     // Required rather than defaulted, and the default is refused by name: every
     // app carrying `origin-loom` would share one coordination namespace, which
     // is the failure this variable exists to prevent — and it would fail
     // silently, in production, only once a second product shipped.
-    if (!env.APP_ID) {
-      throw new Error(
-        "APP_ID is required in production: coordination state (idempotency, auth refresh, " +
-          "rate limits) is namespaced by it, and apps sharing a Redis would otherwise share it",
-      );
-    }
     if (config.appId === "origin-loom") {
       throw new Error("APP_ID is still the platform default in production; give this app its own");
     }
@@ -201,6 +198,22 @@ function validateAuthRefreshSecrets(config: AppConfig): void {
  * "todo" as a substring (e.g. a ticket reference) must not be rejected. See OR5 in
  * CACHE_PERFORMANCE_ROADMAP.md for the accept/reject matrix this guards.
  */
+/**
+ * Every variable the platform declares as required, present in production.
+ *
+ * The message carries the declaration's own `description`, because the useful
+ * thing to read at 3am is not the variable's name — the deploy already told you
+ * that — but what stops working without it.
+ */
+function assertDeclaredEnvPresent(env: NodeJS.ProcessEnv): void {
+  const declared: EnvSchema = PLATFORM_ENV;
+  const missing = Object.entries(declared)
+    .filter(([name, spec]) => spec.required === true && !env[name]?.trim())
+    .map(([name, spec]) => `${name} (${spec.description})`);
+  if (missing.length === 0) return;
+  throw new Error(`Required in production but not set:\n  ${missing.join("\n  ")}`);
+}
+
 function assertNotProductionPlaceholder(name: string, value: string): void {
   const normalized = value.trim().toLowerCase();
   if (

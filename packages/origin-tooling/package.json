@@ -1,6 +1,6 @@
 {
   "name": "@originloom/tooling",
-  "version": "0.7.64",
+  "version": "0.7.65",
   "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -25,6 +25,7 @@
     "origin-build-media": "./bin/build-media.mjs",
     "origin-check-cycles": "./bin/check-import-cycles.mjs",
     "origin-check-budgets": "./bin/check-budgets.mjs",
+    "origin-check-client-secrets": "./bin/check-client-secrets.mjs",
     "origin-check-contracts": "./bin/check-contracts.mjs",
     "origin-compose-up": "./bin/compose-up.mjs",
     "origin-create-app": "./bin/create-app.mjs",
