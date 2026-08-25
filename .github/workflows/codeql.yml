@@ -20,6 +20,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A skipped job reads as "nothing to see here". This one always runs and says
+  # out loud whether the repository is actually being scanned, because "we have
+  # CodeQL" and "CodeQL analysed this commit" are different claims and only the
+  # second one is a control.
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report SAST coverage
+        run: |
+          if [[ "${{ github.event.repository.private }}" == "false" ]]; then
+            echo "✅ CodeQL bu commit'i tarıyor." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "⚠️ **CodeQL bu depoda çalışmıyor.**"
+              echo
+              echo "Sonuçları yüklemek code scanning gerektiriyor; private bir depoda o da"
+              echo "GitHub Advanced Security (ücretli) demek. Onsuz tarama dört dakika koşup"
+              echo "yükleme adımında düşüyor, yani yeşil bir CI yanlış bir güven üretiyordu."
+              echo
+              echo "Yani şu an **SAST kapsamımız yok**. Depo public olduğunda ya da GHAS"
+              echo "açıldığında kendiliğinden başlar; o zamana kadar bu satır kaydın kendisidir."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   analyze:
     # Uploading results needs code scanning, which on a private repository needs
     # GitHub Advanced Security — a paid add-on. Without it the scan runs for four

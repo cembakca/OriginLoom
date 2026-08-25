@@ -374,6 +374,29 @@ tek başına yalnız üreteni korur.
 Temizlik **mapper'da**, component'te değil: sonuç cache'lenen şey, ve cache'e temizlenmiş olan
 girmeli.
 
+### 5.2c Production topolojisi kapısı **[P1]** **[YAPILDI — 0.7.64 turu]**
+
+Yine review'dan: CI hiçbir zaman production şeklini sınamıyordu. Container smoke'u `REDIS_URL`'i
+hiçbir şeyin dinlemediği bir porta veriyor ve `CACHE_REQUIRED=false` kullanıyor — kanıtladığı şey
+imajın Redis'siz ayağa kalktığı, ki bilinmeye değer ve production'ın yaptığı şey değil.
+
+Sorun bu platformun sattığı garantilerin **hiçbirinin tek süreçten görünmemesi**. Paylaşılan cache
+ancak ikinci bir pod ilkinin yazdığını okursa paylaşılmıştır; "en fazla bir kez" iki pod hakkında bir
+iddiadır; ve release/app ayrımının tamamı rolling deploy anına dairdir.
+
+`pnpm topology` (CI'da ayrı bir iş, gerçek Redis servisiyle) bir gateway ve **üç** pod kuruyor —
+ikisi aynı release, üçüncüsü rollout sırasında başlayan bir sonraki release — ve beş şeyi
+doğruluyor: `CACHE_REQUIRED=true` altında hazır olma, L2'nin gerçekten paylaşılması, bir idempotency
+anahtarının pod'lar arasında işi bir kez çalıştırması, yeni release'in eskisinin HTML'ini
+**almaması**, ve eskisinin idempotency kaydına **saygı duyması**.
+
+Son iki satır 0.7.58 ve 0.7.62'de kurduğumuz ayrımın uçtan uca kanıtı. Kontrollerin kendisi de
+kırılarak doğrulandı: pod-c'ye farklı bir `APP_ID` verildiğinde gateway bir yerine iki abonelik
+çağrısı görüyor.
+
+Kapsamadıkları dürüstçe yazılı: graceful drain, secret rotation, ve pod'lar arası rate limit (o
+birim seviyesinde pinli). Ayrıntı: [production-topology.md](./production-topology.md).
+
 ### 5.3 Subresource Integrity (SRI) **[P2]**
 
 - **Ne**: Üçüncü taraf script'lere `integrity` hash'i.

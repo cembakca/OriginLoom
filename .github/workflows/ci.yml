@@ -55,7 +55,12 @@ jobs:
       - name: Build production container
         run: docker build --file apps/showroom/Dockerfile --tag origin-loom-ci:${{ github.sha }} .
 
-      - name: Smoke test production container
+      # Deliberately Redis-less: REDIS_URL points at a port nothing is listening
+      # on, so what this proves is that the image boots and serves when the cache
+      # is unreachable. The guarantees that need a real Redis are in the
+      # `topology` job below — this step is not a substitute for it and should
+      # not grow into one.
+      - name: Smoke test production container (fail-open, no Redis)
         shell: bash
         run: |
           set -euo pipefail
@@ -63,6 +68,7 @@ jobs:
             --env CACHE_BACKEND=redis \
             --env CACHE_REQUIRED=false \
             --env REDIS_URL=redis://127.0.0.1:6379 \
+            --env APP_ID=container-smoke \
             --env GATEWAY_URL=http://127.0.0.1:4002 \
             --env SITE_URL=http://127.0.0.1:3005 \
             --env CACHE_PURGE_SECRET=container-smoke-secret \
@@ -92,6 +98,50 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: HIGH,CRITICAL
+
+  # One pod cannot show any of what this platform promises. A shared cache is
+  # only shared if a second pod reads it; "at most once per key" is a claim about
+  # two pods; and the release/app namespace split only means anything mid rolling
+  # deploy, when two releases of one app are up at the same time.
+  topology:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the production bundle
+        run: pnpm run build
+
+      - name: Check the production topology
+        env:
+          REDIS_URL: redis://127.0.0.1:6379
+        run: node scripts/topology-check.mjs
 
   # Everything above runs against the workspace, where the packages resolve to
   # src/ through workspace:*. This job publishes them to a throwaway registry and

@@ -37,6 +37,7 @@
     "smoke": "pnpm --filter showroom smoke",
     "start": "pnpm --filter showroom start",
     "test": "vitest run",
+    "topology": "node scripts/topology-check.mjs",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "pnpm -r --if-present typecheck",

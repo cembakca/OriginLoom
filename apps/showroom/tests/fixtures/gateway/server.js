@@ -219,8 +219,31 @@ async function route(request, response) {
       stats: { comparisonsThisMonth: 4, savedOffers: 2 },
     });
   }
+  if (request.method === "POST" && url.pathname === "/newsletter/subscribers") {
+    // Counted, because counting is the point: `runOnce` promises the work runs
+    // once per key across every pod, and the only place that promise is visible
+    // from outside is here. The topology check reads the counter below.
+    upstreamCalls.newsletterSubscribes += 1;
+    return json(response, 201, { status: "subscribed" });
+  }
+  if (request.method === "GET" && url.pathname === "/__fixture/counters") {
+    return json(response, 200, upstreamCalls);
+  }
+  if (request.method === "POST" && url.pathname === "/__fixture/counters/reset") {
+    for (const name of Object.keys(upstreamCalls)) upstreamCalls[name] = 0;
+    return empty(response, 204);
+  }
   return json(response, 404, { error: "mock gateway route not found", path: url.pathname });
 }
+
+/**
+ * What the app actually asked this gateway to do.
+ *
+ * Only meaningful for a single-process fixture, which is exactly the shape the
+ * topology check wants: several app pods, one gateway, so "how many times did
+ * the work run" is a number this process alone can answer.
+ */
+const upstreamCalls = { newsletterSubscribes: 0 };
 
 function isBotAnalyticsBatch(value) {
   if (!value || typeof value !== "object" || !Array.isArray(value.events)) return false;
