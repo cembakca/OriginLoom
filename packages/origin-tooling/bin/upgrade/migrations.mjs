@@ -521,6 +521,10 @@ export const migrations = [
       for (const file of [".env.production", ".env.development"]) {
         patchProjectFile(root, changes, fileWrites, file, (source) => addAppId(source, appId));
       }
+      // Both env files and the release note point at this guide, and in an
+      // upgraded app it would not exist. Written only when absent: a doc the
+      // app has edited is the app's.
+      addMissingDoc(root, changes, fileWrites, "docs/namespaces.md");
     },
   },
   {
@@ -1238,6 +1242,13 @@ function useSharedAliases(source) {
  * the value being written here is one that must never change once production
  * has coordination state under it.
  */
+/** Adds a generated guide that did not exist before, and never overwrites one that does. */
+function addMissingDoc(root, changes, fileWrites, relativePath) {
+  if (existsSync(join(root, relativePath))) return;
+  fileWrites[relativePath] = migrationAsset(relativePath);
+  changes.push({ file: relativePath, kind: "add", detail: "yeni rehber eklendi" });
+}
+
 function projectAppId(root) {
   const metadataPath = join(root, ".originloom/project.json");
   if (existsSync(metadataPath)) {

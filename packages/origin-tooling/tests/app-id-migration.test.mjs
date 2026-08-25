@@ -84,6 +84,29 @@ describe(APP_ID_MIGRATION, () => {
     expect(manualRequired).toEqual([expect.objectContaining({ file: ".env.production" })]);
   });
 
+  /**
+   * Both env files and the release note point at this guide; in an upgraded app
+   * it would otherwise be a dangling reference.
+   */
+  it("brings the guide the new comments point at", () => {
+    const root = projectWith({
+      ".originloom/project.json": JSON.stringify({ scaffold: { name: "sigorta" } }),
+      ".env.production": ENV,
+    });
+
+    expect(run(root).fileWrites["docs/namespaces.md"]).toContain("APP_ID");
+  });
+
+  it("never overwrites a guide the app already has", () => {
+    const root = projectWith({
+      ".originloom/project.json": JSON.stringify({ scaffold: { name: "sigorta" } }),
+      ".env.production": ENV,
+      "docs/namespaces.md": "# bizim notlarımız\n",
+    });
+
+    expect(run(root).fileWrites["docs/namespaces.md"]).toBeUndefined();
+  });
+
   it("leaves an app that already has one alone", () => {
     const root = projectWith({
       ".originloom/project.json": JSON.stringify({ scaffold: { name: "sigorta" } }),
