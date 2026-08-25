@@ -4,7 +4,11 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { APP_ID_MIGRATION, migrations } from "../bin/upgrade/migrations.mjs";
+import {
+  APP_ID_MIGRATION,
+  migrations,
+  NAMESPACES_GUIDE_MIGRATION,
+} from "../bin/upgrade/migrations.mjs";
 
 const scratch = [];
 
@@ -13,6 +17,7 @@ afterEach(() => {
 });
 
 const migration = migrations.find(({ id }) => id === APP_ID_MIGRATION);
+const guideMigration = migrations.find(({ id }) => id === NAMESPACES_GUIDE_MIGRATION);
 
 function projectWith(files) {
   const root = mkdtempSync(join(tmpdir(), "originloom-app-id-"));
@@ -24,11 +29,11 @@ function projectWith(files) {
   return root;
 }
 
-function run(root) {
+function run(root, which = migration) {
   const changes = [];
   const fileWrites = {};
   const manualRequired = [];
-  migration.migrateProject(root, changes, fileWrites, manualRequired);
+  which.migrateProject(root, changes, fileWrites, manualRequired);
   return { changes, fileWrites, manualRequired };
 }
 
@@ -84,6 +89,17 @@ describe(APP_ID_MIGRATION, () => {
     expect(manualRequired).toEqual([expect.objectContaining({ file: ".env.production" })]);
   });
 
+  it("leaves an app that already has one alone", () => {
+    const root = projectWith({
+      ".originloom/project.json": JSON.stringify({ scaffold: { name: "sigorta" } }),
+      ".env.production": `${ENV}APP_ID=insurance\n`,
+    });
+
+    expect(run(root).fileWrites[".env.production"]).toBeUndefined();
+  });
+});
+
+describe(NAMESPACES_GUIDE_MIGRATION, () => {
   /**
    * Both env files and the release note point at this guide; in an upgraded app
    * it would otherwise be a dangling reference.
@@ -94,7 +110,7 @@ describe(APP_ID_MIGRATION, () => {
       ".env.production": ENV,
     });
 
-    expect(run(root).fileWrites["docs/namespaces.md"]).toContain("APP_ID");
+    expect(run(root, guideMigration).fileWrites["docs/namespaces.md"]).toContain("APP_ID");
   });
 
   it("never overwrites a guide the app already has", () => {
@@ -104,15 +120,6 @@ describe(APP_ID_MIGRATION, () => {
       "docs/namespaces.md": "# bizim notlarımız\n",
     });
 
-    expect(run(root).fileWrites["docs/namespaces.md"]).toBeUndefined();
-  });
-
-  it("leaves an app that already has one alone", () => {
-    const root = projectWith({
-      ".originloom/project.json": JSON.stringify({ scaffold: { name: "sigorta" } }),
-      ".env.production": `${ENV}APP_ID=insurance\n`,
-    });
-
-    expect(run(root).fileWrites[".env.production"]).toBeUndefined();
+    expect(run(root, guideMigration).fileWrites["docs/namespaces.md"]).toBeUndefined();
   });
 });

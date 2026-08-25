@@ -41,6 +41,7 @@ export const PLATFORM_PLUMBING_MIGRATION = "0.7.56-platform-plumbing";
 export const MIGRATION_BACKUPS_MIGRATION = "0.7.57-migration-backups";
 export const SHARED_ALIASES_MIGRATION = "0.7.58-shared-aliases";
 export const APP_ID_MIGRATION = "0.7.62-app-id";
+export const NAMESPACES_GUIDE_MIGRATION = "0.7.64-namespaces-guide";
 export const WASM_RUNTIME_PIN_MIGRATION = "0.7.58-wasm-runtime-pin";
 
 const VIEW_TRANSITION_CSS = `
@@ -521,9 +522,18 @@ export const migrations = [
       for (const file of [".env.production", ".env.development"]) {
         patchProjectFile(root, changes, fileWrites, file, (source) => addAppId(source, appId));
       }
-      // Both env files and the release note point at this guide, and in an
-      // upgraded app it would not exist. Written only when absent: a doc the
-      // app has edited is the app's.
+    },
+  },
+  {
+    id: NAMESPACES_GUIDE_MIGRATION,
+    introducedIn: "0.7.64",
+    description:
+      "APP_ID'nin yazdığı env yorumları ve release notu docs/namespaces.md'ye atıfta bulunuyor; upgrade edilen bir uygulamada o dosya yoktu. Rehber ekleniyor — yalnızca yoksa.",
+    // Its own id rather than a line inside 0.7.62: an app that already applied
+    // that migration would never see the fix, because an applied id does not run
+    // again. The third time this shape has come up, and the rule is the same
+    // every time — a fix to a shipped migration is a new migration.
+    migrateProject(root, changes, fileWrites) {
       addMissingDoc(root, changes, fileWrites, "docs/namespaces.md");
     },
   },
