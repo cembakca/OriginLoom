@@ -20,8 +20,15 @@ vi.mock("ioredis", () => ({
       redisData.delete(key);
     });
     ping = vi.fn(async () => "PONG");
-    eval = vi.fn(async (_script: string, _keyCount: number, key: string, token: string) => {
-      if (redisData.get(key)?.toString("utf8") !== token) return 0;
+    eval = vi.fn(async (script: string, _keyCount: number, key: string, arg: string | number) => {
+      // Two scripts share this entry point: the compare-and-delete an unlock
+      // runs, and the counter a rate limit increments.
+      if (script.includes("INCR")) {
+        const count = Number(redisData.get(key)?.toString("utf8") ?? 0) + 1;
+        redisData.set(key, toBuffer(String(count)));
+        return [count, Number(arg)];
+      }
+      if (redisData.get(key)?.toString("utf8") !== arg) return 0;
       redisData.delete(key);
       return 1;
     });
@@ -130,5 +137,22 @@ describe("RedisStore", () => {
 
     expect(await before.acquireLock("cold-fill:loan", 60_000)).not.toBeNull();
     expect(await after.acquireLock("cold-fill:loan", 60_000)).not.toBeNull();
+  });
+
+  /**
+   * A rate limit counts the caller, and the caller does not redeploy. Under the
+   * release namespace every deploy handed everyone a fresh window, and a rolling
+   * one was worse than that: the two releases kept two windows at the same time,
+   * so the effective ceiling doubled for the length of the rollout.
+   */
+  it("counts a rate limit across a release boundary", async () => {
+    const before = new RedisStore("redis://localhost:6379", "release-1");
+    const after = new RedisStore("redis://localhost:6379", "release-2");
+
+    const first = await before.takeRateLimit("ip:198.51.100.7", 2, 60_000);
+    const second = await after.takeRateLimit("ip:198.51.100.7", 2, 60_000);
+    const third = await after.takeRateLimit("ip:198.51.100.7", 2, 60_000);
+
+    expect([first.allowed, second.allowed, third.allowed]).toEqual([true, true, false]);
   });
 });

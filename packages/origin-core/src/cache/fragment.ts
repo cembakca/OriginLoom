@@ -213,10 +213,16 @@ async function runFragmentRefresh(
   getShell: FragmentShellProvider,
 ): Promise<void> {
   const started = performance.now();
-  let outcome: "success" | "error" | "timeout" | "lock_miss" | "race_hit" = "error";
+  let outcome: "success" | "error" | "timeout" | "lock_miss" | "race_hit" | "lock_unavailable" =
+    "error";
   let lockToken: string | undefined;
   try {
-    if (cache.isL2Configured()) {
+    // Not `isL2Configured()`. The question a single-flight lock rests on is
+    // whether the pod next to this one can see the lock, and a registered driver
+    // answers that itself — `isL2Configured()` reports false for every driver,
+    // so an app on a shared store the platform did not ship used to get no
+    // cross-pod coordination at all, silently, everywhere this guard appears.
+    if (cache.isCoordinationShared()) {
       const lock = await cache.acquireCoordinationLock(
         `fragment-refresh:${key}`,
         timeoutMs(definition) + 1_000,
@@ -233,6 +239,17 @@ async function runFragmentRefresh(
           return;
         }
       }
+      // `unavailable` falls through on purpose: with L2 unreachable the refresh
+      // still fills this pod's L1, and refusing would leave every pod serving
+      // stale until the store came back. What it must not do is fall through
+      // *quietly*. Every pod refreshing at once is the exact stampede this lock
+      // exists to prevent, and without a label of its own it arrives as a pile
+      // of ordinary `success` — a gateway spike with no cause attached to it.
+      // The label survives a refresh that then succeeds — how the refresh ran is
+      // the useful fact about that run, and a success rate that stays flat
+      // through an outage hides it. A failure still overwrites it: an error is
+      // the more urgent of the two.
+      if (lock.kind === "unavailable") outcome = "lock_unavailable";
     }
 
     const body = await renderFragment(name, definition, ctx, getShell);
@@ -243,7 +260,7 @@ async function runFragmentRefresh(
     ) {
       throw new Error(`Fragment cache write failed: ${name}`);
     }
-    outcome = "success";
+    if (outcome !== "lock_unavailable") outcome = "success";
   } catch (error) {
     outcome = error instanceof FragmentTimeoutError ? "timeout" : "error";
     throw error;

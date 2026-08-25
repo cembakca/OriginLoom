@@ -60,7 +60,13 @@ function project(root, metadata) {
   };
 }
 
-describe("template drift", () => {
+/**
+ * Generous on purpose. Each case writes a whole generated application to disk
+ * and runs Prettier over it — around two seconds alone, and past Vitest's 5s
+ * default once the rest of the suite is competing for the same cores. A gate
+ * that fails on how busy the machine is teaches people to re-run it.
+ */
+describe("template drift", { timeout: 30_000 }, () => {
   /**
    * The measurement is only worth reading if a healthy app reads as zero —
    * otherwise the signal it exists to carry is buried in its own noise.

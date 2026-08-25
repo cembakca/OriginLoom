@@ -298,7 +298,12 @@ export class RedisStore implements CacheStore {
   }
 
   async takeRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
-    const redisKey = `${this.prefix}rate-limit:${key}`;
+    // Coordination, not cache. A counter namespaced by release forgets everyone
+    // at every deploy — and worse, during a rolling one the two releases keep
+    // two separate windows, so a caller gets the full allowance from each and
+    // the ceiling doubles for as long as the rollout lasts. The limit is about
+    // the caller, and the caller does not redeploy.
+    const redisKey = `${this.coordinationPrefix}rate-limit:${key}`;
     const result = (await this.redis.eval(
       "local count = redis.call('INCR', KEYS[1]); " +
         "if count == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]); end; " +

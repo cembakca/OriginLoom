@@ -427,7 +427,7 @@ export function observeFragmentAccess(fragment: string, state: "fresh" | "stale"
 
 export function observeFragmentRefresh(
   fragment: string,
-  outcome: "success" | "error" | "timeout" | "lock_miss" | "race_hit",
+  outcome: "success" | "error" | "timeout" | "lock_miss" | "race_hit" | "lock_unavailable",
   durationMs: number,
 ): void {
   const labels = `fragment="${escapeLabel(fragment)}",outcome="${outcome}"`;

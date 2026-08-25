@@ -398,6 +398,36 @@ export async function releaseColdMissLock(key: string, token: string): Promise<v
   }
 }
 
+/**
+ * The two halves of one lock, chosen together.
+ *
+ * Resolved as a pair rather than a method at a time, because the two routes do
+ * not share a key space: the built-in Redis store puts coordination locks
+ * outside the release namespace and cache locks inside it. A store that
+ * implements `acquireCoordinationLock` but not its release half would take the
+ * lock in one namespace and hand the release to the other, which does not fail
+ * — it silently leaves the lock held until its TTL runs out, and the next
+ * submission carrying that key is refused for as long as that lasts.
+ *
+ * So: the dedicated pair is used only when the store offers both halves.
+ */
+function coordinationLockPair(): {
+  acquire: ((key: string, ttlMs: number) => Promise<string | null>) | undefined;
+  release: ((key: string, token: string) => Promise<void>) | undefined;
+} {
+  const cache = getCache();
+  if (cache.acquireCoordinationLock && cache.releaseCoordinationLock) {
+    return {
+      acquire: cache.acquireCoordinationLock.bind(cache),
+      release: cache.releaseCoordinationLock.bind(cache),
+    };
+  }
+  return {
+    acquire: cache.acquireLock?.bind(cache),
+    release: cache.releaseLock?.bind(cache),
+  };
+}
+
 export type CoordinationLockAttempt =
   { kind: "acquired"; token: string } | { kind: "held" } | { kind: "unavailable" };
 
@@ -420,8 +450,7 @@ export async function attemptCoordinationLock(
   key: string,
   ttlMs: number,
 ): Promise<CoordinationLockAttempt> {
-  const cache = getCache();
-  const acquire = cache.acquireCoordinationLock?.bind(cache) ?? cache.acquireLock?.bind(cache);
+  const { acquire } = coordinationLockPair();
   if (!acquire) return { kind: "acquired", token: crypto.randomUUID() };
   try {
     const token = await runCacheOperation("coordination_lock.acquire", () =>
@@ -436,8 +465,7 @@ export async function attemptCoordinationLock(
 
 /** Releases whatever `attemptCoordinationLock` took, by the same route. */
 export async function releaseAttemptedCoordinationLock(key: string, token: string): Promise<void> {
-  const cache = getCache();
-  const release = cache.releaseCoordinationLock?.bind(cache) ?? cache.releaseLock?.bind(cache);
+  const { release } = coordinationLockPair();
   if (!release) return;
   try {
     await runCacheOperation("coordination_lock.release", () =>
@@ -453,8 +481,7 @@ export async function acquireCoordinationLock(
   ttlMs: number,
 ): Promise<CoordinationLockAttempt> {
   try {
-    const cache = getCache();
-    const acquire = cache.acquireCoordinationLock?.bind(cache) ?? cache.acquireLock?.bind(cache);
+    const { acquire } = coordinationLockPair();
     if (!acquire) return { kind: "unavailable" };
     const token = await runCacheOperation("coordination_lock.acquire", () =>
       acquire(`coordination:${key}`, ttlMs),
@@ -468,8 +495,7 @@ export async function acquireCoordinationLock(
 
 export async function releaseCoordinationLock(key: string, token: string): Promise<void> {
   try {
-    const cache = getCache();
-    const release = cache.releaseCoordinationLock?.bind(cache) ?? cache.releaseLock?.bind(cache);
+    const { release } = coordinationLockPair();
     if (!release) return;
     await runCacheOperation("coordination_lock.release", () =>
       release(`coordination:${key}`, token),

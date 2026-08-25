@@ -464,6 +464,23 @@ test eşzamanlılığı doğruluyor, dağıtıklığı değil. Sınırın kendis
    dördüncü durum ve o `acquired` — tek process'te dışlanacak başka tutan yok, ve orada reddetmek
    platformun varsayılan topolojisini kırardı.
 
+**Ve sinyal tanıtıldığı yerde kaldı — bir tur sonra fark edildi (0.7.60).** `isCoordinationShared()`
+idempotency için yazıldı ama tek-flight yollarına hiç yayılmadı: `fragment.ts`, `resource.ts` ve
+`cold-fill.ts` kilidi almadan önce hâlâ `isL2Configured()` soruyordu, ve o **her kayıtlı driver için
+`false`** döndürüyor — topoloji memo'su driver varken `l2: false` yazıyor, çünkü driver platformun
+tiered store'u değil. Sonuç: `coordinationScope: "shared"` beyan eden bir sürücüyle çalışan
+uygulama tek-pod dalını her pod'da alıyordu. Her fragment refresh, her cached-resource doldurması ve
+her cold miss aynı anda, kilidin korumak için var olduğu upstream'e. Hiçbir şey düşmüyordu.
+
+Bu, maddenin kendi dersinin tekrarıydı: doğru soruyu sormak yetmiyor, onu soran **her** yere
+taşımak gerekiyor. Üç guard da `isCoordinationShared()`'a geçti; yerleşik topolojide davranış
+birebir aynı, değişen yalnız driver'lı senaryo.
+
+Aynı turda iki şey daha: fragment yenilemesi `unavailable` kilidini sessizce yutup kilitsiz devam
+ediyordu ve metrikte `success` görünüyordu — artık `lock_unavailable` kendi etiketi (devam etmek
+doğru, sessizce devam etmek değil; `resource.ts` bunu zaten doğru yapıyordu, model oydu). Ve rate
+limit sayaçları koordinasyona taşındı: bir limit çağıranı sayar, çağıran yeniden deploy etmez.
+
 Bugünkü sözleşme: **paylaşımlı bir store başına en fazla bir kez, ve o store paylaşımlıysa deploy
 sınırını da geçiyor.** Paylaşımlı store yoksa garanti tek process kadar — ve bunu ilk guard
 çalıştığında uyarı söylüyor.
@@ -1143,21 +1160,21 @@ yeni `context` alanının kanonik log alanlarını ezebilmesi de aynı turda dü
 
 Aşağıdaki satırlar iki turdan sonraki hali.
 
-| #       | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                                                                                                           |
-| ------- | --------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 9.2 ✅  | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.2×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                                                                                                                                                           |
-| 5.4 ✅  | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                                                                                                                                                        |
-| 6.3 ✅  | View Transitions            | ✅    | İsimli geçişler + reduced-motion. 0.7.58: adlar `display:contents` sarmalayıcıdan gerçek `<header>`/`<footer>`'a                                                                                                                                      |
-| 7.4 ✅  | instrumentation kancaları   | ✅    | `onRequestError`; log satırları aynen. 0.7.58: HEAD + server-island bağlandı, async reporter yakalanıyor, iddia ziyaretçinin yanıtına karar veren hatalarla sınırlandı                                                                                |
-| 6.4 ◐   | bfcache                     | ◐     | Ölçüm altyapısı ✅ (`ssr_client_bfcache_total`). Tablo bir **header sözleşmesi**; "restorable" sonucunu söyleyen tek şey telemetri                                                                                                                    |
-| 5.6 ✅  | Idempotency key'leri        | ✅    | `runOnce` + formun taşıdığı anahtar; JS'siz. Garanti **paylaşımlı store başına** ve deploy sınırını da geçiyor (koordinasyon, release namespace'inin dışında); driver `coordinationScope` beyan ediyor; store arızası `in-flight` değil `unavailable` |
-| 6.2 ✅  | Early Hints (103)           | ✅    | Cache'ten servis edilmeyen her render'da (MISS **ve** BYPASS), render'dan hemen önce; varsayılan kapalı                                                                                                                                               |
-| 3.2 ✅  | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; korumalı header'lar + 0.7.58: gerçek rest deseni (`/:path*` artık `/` ve derin yolları da kapsıyor)                                                                                                                    |
-| 3.3 ◐   | Harici cache driver         | ◐     | `registerCacheDriver` = unstorage'ın (b) yarısı; artık `coordinationScope` da beyan ediyor. İsimli genel KV (`useStorage("sessions")`) hâlâ yok — ayrı madde                                                                                          |
-| 4.4 ⛔  | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı                                                                                                                                        |
-| 7.2 ✅  | Layers / extends            | ✅    | Üç kopya pakete taşındı, `origin-doctor --drift` ıraksamayı ölçüyor. Runtime kalıtım kasıtlı olarak yok                                                                                                                                               |
-| 9.3 ⛔  | WinterTC kısıtı             | ⛔    | **Kasıtlı hayır** — Node bağı yaprakta değil temelde (server, redis, otel). Ölçüm `origin-shared`'ın Node-free sınırını buldu, o korumaya alındı                                                                                                      |
-| 10.1 ⛔ | Vite Environment API        | ⛔    | **Kasıtlı hayır** — SSR dev'de Vite'tan geçmiyor, başlık özelliği kullanılmıyor. Tek gerçek tekrar olan alias haritası tek kaynağa indi                                                                                                               |
+| #       | Madde                       | Durum | Bugünkü durum ve eksik olan                                                                                                                                                                                                                                                                                      |
+| ------- | --------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9.2 ✅  | `AsyncContextFrame`         | ✅    | Ölçüldü — derin await zincirinde **2.2×**, çıplak store okumasında **2.8×**; § 9.2'de tablo                                                                                                                                                                                                                      |
+| 5.4 ✅  | COOP / Origin-Agent-Cluster | ✅    | Miras değil, yazılı karar; test ikisini de ve COEP'in yokluğunu da pinliyor. COEP kalıcı hayır                                                                                                                                                                                                                   |
+| 6.3 ✅  | View Transitions            | ✅    | İsimli geçişler + reduced-motion. 0.7.58: adlar `display:contents` sarmalayıcıdan gerçek `<header>`/`<footer>`'a                                                                                                                                                                                                 |
+| 7.4 ✅  | instrumentation kancaları   | ✅    | `onRequestError`; log satırları aynen. 0.7.58: HEAD + server-island bağlandı, async reporter yakalanıyor, iddia ziyaretçinin yanıtına karar veren hatalarla sınırlandı                                                                                                                                           |
+| 6.4 ◐   | bfcache                     | ◐     | Ölçüm altyapısı ✅ (`ssr_client_bfcache_total`). Tablo bir **header sözleşmesi**; "restorable" sonucunu söyleyen tek şey telemetri                                                                                                                                                                               |
+| 5.6 ✅  | Idempotency key'leri        | ✅    | `runOnce` + formun taşıdığı anahtar; JS'siz. Garanti **paylaşımlı store başına** ve deploy sınırını da geçiyor; driver `coordinationScope` beyan ediyor; store arızası `in-flight` değil `unavailable`. 0.7.60: aynı sinyal fragment/resource/cold-fill single-flight'ına ve rate limit namespace'ine de yayıldı |
+| 6.2 ✅  | Early Hints (103)           | ✅    | Cache'ten servis edilmeyen her render'da (MISS **ve** BYPASS), render'dan hemen önce; varsayılan kapalı                                                                                                                                                                                                          |
+| 3.2 ✅  | `routeRules`                | ✅    | Sıralı tablo, sonraki kazanır; korumalı header'lar + 0.7.58: gerçek rest deseni (`/:path*` artık `/` ve derin yolları da kapsıyor)                                                                                                                                                                               |
+| 3.3 ◐   | Harici cache driver         | ◐     | `registerCacheDriver` = unstorage'ın (b) yarısı; artık `coordinationScope` da beyan ediyor. İsimli genel KV (`useStorage("sessions")`) hâlâ yok — ayrı madde                                                                                                                                                     |
+| 4.4 ⛔  | OpenAPI üretimi             | ⛔    | **Kasıtlı hayır** — madde yanlış dosyayı işaret ediyordu; gerçek risk gateway contract kapsamıydı, o kapatıldı                                                                                                                                                                                                   |
+| 7.2 ✅  | Layers / extends            | ✅    | Üç kopya pakete taşındı, `origin-doctor --drift` ıraksamayı ölçüyor. Runtime kalıtım kasıtlı olarak yok                                                                                                                                                                                                          |
+| 9.3 ⛔  | WinterTC kısıtı             | ⛔    | **Kasıtlı hayır** — Node bağı yaprakta değil temelde (server, redis, otel). Ölçüm `origin-shared`'ın Node-free sınırını buldu, o korumaya alındı                                                                                                                                                                 |
+| 10.1 ⛔ | Vite Environment API        | ⛔    | **Kasıtlı hayır** — SSR dev'de Vite'tan geçmiyor, başlık özelliği kullanılmıyor. Tek gerçek tekrar olan alias haritası tek kaynağa indi                                                                                                                                                                          |
 
 ### Üçüncü dalga — fikir olarak dursun
 

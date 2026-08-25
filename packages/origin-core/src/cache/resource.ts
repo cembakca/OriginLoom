@@ -337,7 +337,9 @@ async function performCoordinatedLoad<T>(
   purpose: "miss" | "refresh" | "stale-if-error",
   baseline?: CachedResourceMemoryEntry<T>,
 ): Promise<OperationResult<T>> {
-  if (!cache.isL2Configured()) return executeAndStore(definition, key, load, purpose);
+  // Shared coordination, not "is Redis configured" — a registered driver may be
+  // shared and `isL2Configured()` never says so. See `isCoordinationShared`.
+  if (!cache.isCoordinationShared()) return executeAndStore(definition, key, load, purpose);
 
   const lockKey = `cached-resource:${key}`;
   const lock = await cache.acquireCoordinationLock(lockKey, definition.timeoutMs + 1_000);

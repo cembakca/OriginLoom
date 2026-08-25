@@ -67,7 +67,10 @@ async function observeProcessWait<T>(
 async function runDistributedColdFill<T>(
   options: Parameters<typeof coalesceColdMiss<T>>[0],
 ): Promise<ColdFillResult<T>> {
-  if (!cache.isL2Configured()) {
+  // Shared coordination, not "is Redis configured": a driver-backed shared store
+  // answers yes here and false to `isL2Configured()`. Without this the single
+  // pod path was taken by every pod at once.
+  if (!cache.isCoordinationShared()) {
     return fillUnderLock(options, crypto.randomUUID());
   }
 
