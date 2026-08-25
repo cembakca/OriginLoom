@@ -46,7 +46,12 @@ describe("Hono application integration", () => {
     const slowLoader: Route = {
       path: "/timed",
       loader: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 25));
+        // Long enough that the two phases cannot be confused by scheduler noise.
+        // At 25ms this test compared `render < loader` directly and passed alone
+        // while failing inside the full suite: rendering one <p> is microseconds
+        // of work, but a parallel run's GC pause is not, and the comparison was
+        // reading the machine's load rather than where the time was spent.
+        await new Promise((resolve) => setTimeout(resolve, 150));
         return { data: {} };
       },
       Component: () => createElement("p", null, "timed"),
@@ -61,9 +66,11 @@ describe("Hono application integration", () => {
 
     expect(timing).toContain('cache;desc="BYPASS"');
     // The sleep has to land in the loader, not in the render — that separation
-    // is the whole point of splitting them.
-    expect(phase("loader")).toBeGreaterThanOrEqual(20);
-    expect(phase("render")).toBeLessThan(phase("loader"));
+    // is the whole point of splitting them. Counted in both phases (the failure
+    // this second line exists for) render would be at least 150; the bound is
+    // set far below that so the margin absorbs any real render cost.
+    expect(phase("loader")).toBeGreaterThanOrEqual(140);
+    expect(phase("render")).toBeLessThan(50);
     // Both phases happen inside the total, so neither can exceed it.
     expect(phase("cache")).toBeGreaterThanOrEqual(phase("loader"));
   });

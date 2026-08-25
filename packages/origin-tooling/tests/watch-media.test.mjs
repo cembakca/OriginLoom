@@ -17,7 +17,14 @@ afterEach(() => {
   }
 });
 
-describe("media watch", () => {
+/**
+ * A real watcher, a real debounce and a real image rebuild — seconds of work
+ * even when nothing is wrong, and all of it at the mercy of whatever else the
+ * test run is doing on the machine. At the 5s default this passed alone and
+ * timed out inside the full suite, which is the least useful way for a test to
+ * fail: it reports load, not behaviour.
+ */
+describe("media watch", { timeout: 30_000 }, () => {
   it("rebuilds when a configured visual source changes", async () => {
     const root = mkdtempSync(join(tmpdir(), "originloom-media-watch-"));
     scratchDirectories.push(root);

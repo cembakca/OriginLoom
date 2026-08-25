@@ -17,7 +17,8 @@ afterEach(() => {
   }
 });
 
-describe("icon watch", () => {
+/** Same watcher/debounce cost as the media watch — see that file. */
+describe("icon watch", { timeout: 30_000 }, () => {
   it("regenerates once for its config and ignores sibling-file writes", async () => {
     const root = mkdtempSync(join(tmpdir(), "originloom-icon-watch-"));
     scratchDirectories.push(root);
