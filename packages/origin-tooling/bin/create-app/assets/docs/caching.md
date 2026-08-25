@@ -257,9 +257,13 @@ Redis runtime read hatası miss sayılır. L2 write hatasında L1 write devam ed
 purge, pub/sub invalidation ile diğer podların L1 entry'sini düşürür. Subscriber kurulamazsa ve cache
 opsiyonelse uygulama L1 ile devam eder fakat podlar arası L1 senkronizasyonu kaybolur; alarm üretin.
 
-`RELEASE_ID`, Redis namespace'inin parçasıdır. Aynı release'in bütün podları aynı değeri kullanmalı;
-yeni deploy yeni ve benzersiz bir değer almalıdır. Her uygulama da ayrı namespace kullanmalıdır.
-Blue/green release'ler böylece birbirinin HTML'ini paylaşmaz.
+`RELEASE_ID`, **cache** namespace'inin parçasıdır. Aynı release'in bütün podları aynı değeri
+kullanmalı; yeni deploy yeni ve benzersiz bir değer almalıdır. Blue/green release'ler böylece
+birbirinin HTML'ini paylaşmaz.
+
+Uygulamaları birbirinden ayıran şey `RELEASE_ID` **değil**, `APP_ID`'dir — ve o hiç değişmez.
+Koordinasyon durumu (idempotency, auth refresh, rate limit) onun altında yaşıyor, çünkü bir deploy'u
+aşmak zorunda. İkisinin neden ayrı olduğu ve anahtar biçimleri: [namespaces.md](./namespaces.md).
 
 ## `x-cache` ile yerel doğrulama
 

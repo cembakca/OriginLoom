@@ -107,18 +107,20 @@ describe("RedisStore", () => {
    * be honoured once *per release* rather than once.
    */
   it("keeps coordination state outside the release namespace", async () => {
-    const before = new RedisStore("redis://localhost:6379", "release-1");
-    const after = new RedisStore("redis://localhost:6379", "release-2");
+    const before = new RedisStore("redis://localhost:6379", "release-1", "sigorta");
+    const after = new RedisStore("redis://localhost:6379", "release-2", "sigorta");
 
     await before.writeEphemeral("idempotency:recourse:abc", "receipt-7", 60_000);
 
     expect(await after.readEphemeral("idempotency:recourse:abc")).toBe("receipt-7");
-    expect([...redisData.keys()]).toEqual(["ssr:coordination:ephemeral:idempotency:recourse:abc"]);
+    expect([...redisData.keys()]).toEqual([
+      "ssr:coordination:sigorta:ephemeral:idempotency:recourse:abc",
+    ]);
   });
 
   it("excludes the other release from a coordination lock", async () => {
-    const before = new RedisStore("redis://localhost:6379", "release-1");
-    const after = new RedisStore("redis://localhost:6379", "release-2");
+    const before = new RedisStore("redis://localhost:6379", "release-1", "sigorta");
+    const after = new RedisStore("redis://localhost:6379", "release-2", "sigorta");
 
     const held = await before.acquireCoordinationLock("idempotency:recourse:abc", 60_000);
     const contended = await after.acquireCoordinationLock("idempotency:recourse:abc", 60_000);
@@ -132,8 +134,8 @@ describe("RedisStore", () => {
 
   /** A lock over cached data still follows the cache: that namespace is correct there. */
   it("keeps a cache lock inside the release namespace", async () => {
-    const before = new RedisStore("redis://localhost:6379", "release-1");
-    const after = new RedisStore("redis://localhost:6379", "release-2");
+    const before = new RedisStore("redis://localhost:6379", "release-1", "sigorta");
+    const after = new RedisStore("redis://localhost:6379", "release-2", "sigorta");
 
     expect(await before.acquireLock("cold-fill:loan", 60_000)).not.toBeNull();
     expect(await after.acquireLock("cold-fill:loan", 60_000)).not.toBeNull();
@@ -146,13 +148,56 @@ describe("RedisStore", () => {
    * so the effective ceiling doubled for the length of the rollout.
    */
   it("counts a rate limit across a release boundary", async () => {
-    const before = new RedisStore("redis://localhost:6379", "release-1");
-    const after = new RedisStore("redis://localhost:6379", "release-2");
+    const before = new RedisStore("redis://localhost:6379", "release-1", "sigorta");
+    const after = new RedisStore("redis://localhost:6379", "release-2", "sigorta");
 
     const first = await before.takeRateLimit("ip:198.51.100.7", 2, 60_000);
     const second = await after.takeRateLimit("ip:198.51.100.7", 2, 60_000);
     const third = await after.takeRateLimit("ip:198.51.100.7", 2, 60_000);
 
     expect([first.allowed, second.allowed, third.allowed]).toEqual([true, true, false]);
+  });
+
+  /**
+   * The other axis, and the one the release fix opened by removing it.
+   *
+   * `RELEASE_ID` was separating products by accident — each app happened to use
+   * its own value, so its coordination keys happened not to collide. Moving
+   * coordination out of that namespace fixed the deploy boundary and took the
+   * accident with it: every product on a shared Redis would have written
+   * `ssr:coordination:idempotency:newsletter:<key>`, and one product could
+   * replay another's recorded outcome.
+   */
+  it("keeps one product's coordination state out of another's", async () => {
+    const sigorta = new RedisStore("redis://localhost:6379", "release-1", "sigorta");
+    const yatirim = new RedisStore("redis://localhost:6379", "release-1", "yatirim");
+
+    await sigorta.writeEphemeral("idempotency:newsletter:abc", "receipt-sigorta", 60_000);
+
+    expect(await yatirim.readEphemeral("idempotency:newsletter:abc")).toBeNull();
+    expect(await sigorta.readEphemeral("idempotency:newsletter:abc")).toBe("receipt-sigorta");
+  });
+
+  it("does not let one product hold another's coordination lock", async () => {
+    const sigorta = new RedisStore("redis://localhost:6379", "release-1", "sigorta");
+    const yatirim = new RedisStore("redis://localhost:6379", "release-1", "yatirim");
+
+    const held = await sigorta.acquireCoordinationLock("idempotency:newsletter:abc", 60_000);
+
+    expect(held).not.toBeNull();
+    expect(
+      await yatirim.acquireCoordinationLock("idempotency:newsletter:abc", 60_000),
+    ).not.toBeNull();
+  });
+
+  /** A rate limit counts a caller of *this* product, not of every product on the cluster. */
+  it("counts rate limits per product", async () => {
+    const sigorta = new RedisStore("redis://localhost:6379", "release-1", "sigorta");
+    const yatirim = new RedisStore("redis://localhost:6379", "release-1", "yatirim");
+
+    await sigorta.takeRateLimit("public:client-metrics:ip:1.2.3.4", 1, 60_000);
+    const first = await yatirim.takeRateLimit("public:client-metrics:ip:1.2.3.4", 1, 60_000);
+
+    expect(first.allowed).toBe(true);
   });
 });

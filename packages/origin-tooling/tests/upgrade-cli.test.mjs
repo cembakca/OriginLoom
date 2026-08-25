@@ -616,6 +616,7 @@ function project({ version, metadata }) {
                   "0.7.57-migration-backups",
                   "0.7.58-shared-aliases",
                   "0.7.58-wasm-runtime-pin",
+                  "0.7.62-app-id",
                 ]
               : []),
           ],

@@ -100,6 +100,9 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   if (!/^[A-Za-z0-9._-]{1,128}$/.test(config.releaseId)) {
     throw new Error(`Invalid RELEASE_ID: ${config.releaseId}`);
   }
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(config.appId)) {
+    throw new Error(`Invalid APP_ID: ${config.appId}`);
+  }
 
   validatePublicUrls(config);
 
@@ -111,6 +114,20 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
     validateAuthRefreshSecrets(config);
     if (!env.RELEASE_ID) throw new Error("RELEASE_ID is required in production");
     assertNotProductionPlaceholder("RELEASE_ID", config.releaseId);
+    // Required rather than defaulted, and the default is refused by name: every
+    // app carrying `origin-loom` would share one coordination namespace, which
+    // is the failure this variable exists to prevent — and it would fail
+    // silently, in production, only once a second product shipped.
+    if (!env.APP_ID) {
+      throw new Error(
+        "APP_ID is required in production: coordination state (idempotency, auth refresh, " +
+          "rate limits) is namespaced by it, and apps sharing a Redis would otherwise share it",
+      );
+    }
+    if (config.appId === "origin-loom") {
+      throw new Error("APP_ID is still the platform default in production; give this app its own");
+    }
+    assertNotProductionPlaceholder("APP_ID", config.appId);
     if (config.cachePurgeSecret) {
       assertNotProductionPlaceholder("CACHE_PURGE_SECRET", config.cachePurgeSecret);
     }

@@ -39,6 +39,15 @@ import {
   readBaseline,
 } from "./performance-policy.mjs";
 
+/**
+ * The last lines the app wrote before it gave up, so a timeout can say why.
+ *
+ * Module scope, not beside its reader: the stderr handler is attached the
+ * moment the child spawns, which is earlier than anything further down this
+ * file has been initialised.
+ */
+const startupOutput = [];
+
 const options = parseArgs(process.argv.slice(2));
 const profile = resolveProfile(options);
 const routes = resolveRoutes(options.only);
@@ -251,6 +260,9 @@ async function startLocalEnvironment() {
         GATEWAY_URL: mockGatewayUrl,
         ALLOW_INSECURE_GATEWAY: "true",
         RELEASE_ID: `capacity-${Date.now()}`,
+        // Stable across the run, unlike RELEASE_ID: it namespaces coordination
+        // state, and production refuses to boot without it.
+        APP_ID: "capacity",
         AUTH_REFRESH_COORDINATION_SECRET: "capacity-auth-refresh-secret-0000000000000000",
         CACHE_PURGE_SECRET: "capacity-cache-purge-secret",
         CACHE_BACKEND: options.topology,
@@ -262,9 +274,17 @@ async function startLocalEnvironment() {
         FEATURED_ITEMS_CACHE_SWR: "30",
         ANALYTICS_VENDOR_URL: `${mockGatewayUrl}/vendor/consent.js`,
       },
-      stdio: "ignore",
+      // stderr is kept, not ignored: a server that refuses to boot — a missing
+      // required env, a bad secret — otherwise shows up only as "not ready in
+      // 60000ms", and the reason it printed on the way out is thrown away. It
+      // is replayed by `waitForUrl` when the wait fails.
+      stdio: ["ignore", "ignore", "pipe"],
     }),
   );
+  children.at(-1).stderr?.on("data", (chunk) => {
+    startupOutput.push(String(chunk));
+    if (startupOutput.length > 40) startupOutput.shift();
+  });
 
   for (const child of children) {
     child.once("error", (error) => {
@@ -744,7 +764,11 @@ async function waitForUrl(url, timeoutMs) {
     }
     await wait(250);
   }
-  throw new Error(`${url} ${timeoutMs}ms içinde hazır olmadı`);
+  const reason = startupOutput.join("").trim();
+  throw new Error(
+    `${url} ${timeoutMs}ms içinde hazır olmadı` +
+      (reason ? `\n\nSunucunun son çıktısı:\n${reason}` : ""),
+  );
 }
 
 async function stopChildren() {

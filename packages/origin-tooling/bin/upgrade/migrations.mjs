@@ -40,6 +40,7 @@ export const JSON_SCHEMA_CONTRACTS_MIGRATION = "0.7.52-json-schema-contracts";
 export const PLATFORM_PLUMBING_MIGRATION = "0.7.56-platform-plumbing";
 export const MIGRATION_BACKUPS_MIGRATION = "0.7.57-migration-backups";
 export const SHARED_ALIASES_MIGRATION = "0.7.58-shared-aliases";
+export const APP_ID_MIGRATION = "0.7.62-app-id";
 export const WASM_RUNTIME_PIN_MIGRATION = "0.7.58-wasm-runtime-pin";
 
 const VIEW_TRANSITION_CSS = `
@@ -499,6 +500,27 @@ export const migrations = [
       raiseFloor(manifest, changes, "@vitejs/plugin-react", "^6.0.4", "^6.1.0");
       raiseFloor(manifest, changes, "vite", "^8.1.5", "^8.2.2");
       raiseFloor(manifest, changes, "vitest", "^4.1.10", "^4.1.11");
+    },
+  },
+  {
+    id: APP_ID_MIGRATION,
+    introducedIn: "0.7.62",
+    description:
+      "Koordinasyon durumu (idempotency, auth refresh, rate limit) artık APP_ID ile namespace'leniyor ve APP_ID production'da zorunlu. RELEASE_ID her deploy'da değişir — ürünleri ayırması yalnızca bir yan etkiydi ve 0.7.58 koordinasyonu o namespace'ten çıkarınca o yan etki de gitti. Migration .env dosyalarına APP_ID yazar.",
+    migrateProject(root, changes, fileWrites, manualRequired) {
+      const appId = projectAppId(root);
+      if (!appId) {
+        manualRequired?.push({
+          file: ".env.production",
+          detail:
+            "Uygulama adı türetilemedi; .env.production ve .env.development içine APP_ID=<ürün adı> " +
+            "satırını elle ekleyin (bkz. docs/namespaces.md).",
+        });
+        return;
+      }
+      for (const file of [".env.production", ".env.development"]) {
+        patchProjectFile(root, changes, fileWrites, file, (source) => addAppId(source, appId));
+      }
     },
   },
   {
@@ -1206,6 +1228,53 @@ function useSharedAliases(source) {
     source: next,
     detail: "alias haritası originLoomAliases() ile değiştirildi",
   };
+}
+
+/**
+ * The product's own name, from the metadata the scaffolder records.
+ *
+ * `package.json` is the fallback rather than the first choice: an app may have
+ * been renamed as a package without its deployment identity moving with it, and
+ * the value being written here is one that must never change once production
+ * has coordination state under it.
+ */
+function projectAppId(root) {
+  const metadataPath = join(root, ".originloom/project.json");
+  if (existsSync(metadataPath)) {
+    try {
+      const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+      const recorded = metadata?.scaffold?.name;
+      if (typeof recorded === "string" && /^[A-Za-z0-9._-]{1,64}$/.test(recorded)) return recorded;
+    } catch {
+      // Unreadable metadata is not a reason to guess; fall through.
+    }
+  }
+  const packagePath = join(root, "package.json");
+  if (!existsSync(packagePath)) return null;
+  try {
+    const name = JSON.parse(readFileSync(packagePath, "utf8"))?.name;
+    if (typeof name !== "string") return null;
+    const bare = name.startsWith("@") ? name.slice(name.indexOf("/") + 1) : name;
+    return /^[A-Za-z0-9._-]{1,64}$/.test(bare) ? bare : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Writes `APP_ID` into an env file, under the block that explains the pair. */
+function addAppId(source, appId) {
+  if (/^APP_ID=/m.test(source)) return { status: "already-applied" };
+  const entry =
+    "\n# Never changes, unlike RELEASE_ID. Namespaces coordination state —\n" +
+    "# idempotency records, auth refresh, rate limits — which has to survive a\n" +
+    "# rolling deploy and must not be shared with another product on the same\n" +
+    "# Redis. See docs/namespaces.md.\n" +
+    `APP_ID=${appId}\n`;
+  const anchor = /^RELEASE_ID=.*$/m;
+  const next = anchor.test(source)
+    ? source.replace(anchor, (line) => line + "\n" + entry.trimStart())
+    : source.trimEnd() + "\n" + entry;
+  return { status: "patched", source: next, detail: `APP_ID=${appId} eklendi` };
 }
 
 function dropFirstArgument(source, name) {

@@ -37,6 +37,7 @@ const server = start(["--enable-source-maps", resolve(root, "dist/server/index.j
   GATEWAY_URL: `http://127.0.0.1:${gatewayPort}`,
   ALLOW_INSECURE_GATEWAY: "true",
   RELEASE_ID: "quality-gate",
+  APP_ID: "quality-gate",
   AUTH_REFRESH_COORDINATION_SECRET: "quality-gate-auth-refresh-coordination-secret",
   CACHE_BACKEND: "memory",
   CACHE_REQUIRED: "false",

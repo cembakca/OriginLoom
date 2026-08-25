@@ -504,6 +504,16 @@ ediyordu ve metrikte `success` görünüyordu — artık `lock_unavailable` kend
 doğru, sessizce devam etmek değil; `resource.ts` bunu zaten doğru yapıyordu, model oydu). Ve rate
 limit sayaçları koordinasyona taşındı: bir limit çağıranı sayar, çağıran yeniden deploy etmez.
 
+**Üçüncü sınır (0.7.62): koordinasyonun kimliği yoktu.** 0.7.58 koordinasyonu release
+namespace'inden çıkardı ve doğru yaptı — ama `RELEASE_ID` orada üçüncü bir iş daha yapıyormuş: her
+uygulama kendi değerini kullandığı için **ürünleri de ayırıyormuş**, kazara. Çıkarmak kazayı da
+götürdü ve sabit `ssr:coordination:` prefix'i hiçbir kimlik taşımıyordu. Aynı Redis'i paylaşan iki
+ürün, en kötü hâlde birbirinin idempotency kaydını replay ederdi: `"newsletter"` namespace'ini iki
+ürünün de seçmesi son derece olası.
+
+`APP_ID` bu yarıyı kasıtlı olarak geri koyuyor — hiç değişmeyen, production'da zorunlu, ve platform
+varsayılanı isimle reddedilen bir değer. Kaybolan ayrımı geri kazanan şey bir tesadüf değil artık.
+
 Bugünkü sözleşme: **paylaşımlı bir store başına en fazla bir kez, ve o store paylaşımlıysa deploy
 sınırını da geçiyor.** Paylaşımlı store yoksa garanti tek process kadar — ve bunu ilk guard
 çalıştığında uyarı söylüyor.

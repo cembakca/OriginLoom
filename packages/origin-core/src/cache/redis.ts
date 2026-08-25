@@ -74,7 +74,7 @@ export class RedisStore implements CacheStore {
   private readonly coordinationPrefix: string;
   private readonly tagPrefix: string;
 
-  constructor(url: string, namespace = "development") {
+  constructor(url: string, namespace = "development", appId = "origin-loom") {
     this.redis = new Redis(url, {
       maxRetriesPerRequest: 1,
       lazyConnect: true,
@@ -85,12 +85,15 @@ export class RedisStore implements CacheStore {
       logger.warn("redis connection error", { error: error.message });
     });
     this.prefix = `ssr:${encodeURIComponent(namespace)}:`;
-    // Deliberately not namespaced by release. Cache entries are: a new release
-    // renders different HTML, so it must not read the old one's. Coordination
-    // state is the opposite — during a rolling deploy the two releases are the
-    // two parties that have to agree, and a per-release namespace would give
-    // each of them its own private answer.
-    this.coordinationPrefix = "ssr:coordination:";
+    // Namespaced by app, never by release. Two axes, and they pull in opposite
+    // directions: cache entries must not survive a deploy (a new release renders
+    // different HTML) while coordination state must (mid rolling deploy the two
+    // releases are precisely the two parties that have to agree). What both need
+    // is separation from *other products* — and for a while `RELEASE_ID` was
+    // providing that by accident, because each app happened to use its own.
+    // Taking coordination out of the release namespace removed the accident
+    // along with the bug; this puts the intended half back, on purpose.
+    this.coordinationPrefix = `ssr:coordination:${encodeURIComponent(appId)}:`;
     this.tagPrefix = `ssr-meta:${encodeURIComponent(namespace)}:tag:`;
   }
 

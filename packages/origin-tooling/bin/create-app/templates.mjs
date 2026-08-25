@@ -130,7 +130,7 @@ export function renderTemplates({
     "vitest.config.ts": vitestConfig(name),
     "playwright.config.ts": playwrightConfig(name, port, metricsPort),
     ".env.development": envDevelopment(name, port, metricsPort, vitePort, true),
-    ".env.production": envProduction(port, metricsPort, true),
+    ".env.production": envProduction(name, port, metricsPort, true),
     "README.md": readme(name, title, port, vitePort, standalone, hasWithOps, packageManager),
     "docs/auth.md": asset("docs/auth.md"),
     "docs/background-workers.md": asset("docs/background-workers.md"),
@@ -144,6 +144,7 @@ export function renderTemplates({
     "docs/lists.md": asset("docs/lists.md"),
     "docs/middleware.md": asset("docs/middleware.md"),
     "docs/mutations.md": asset("docs/mutations.md"),
+    "docs/namespaces.md": asset("docs/namespaces.md"),
     "docs/observability.md": asset("docs/observability.md"),
     "docs/react-query.md": asset("docs/react-query.md"),
     "docs/rich-text.md": asset("docs/rich-text.md"),
@@ -751,6 +752,7 @@ export default defineConfig({
               // the internet, and these tests run offline.
               EFILLI_SCRIPT_URL: mockGatewayURL + "/vendor/consent.js",
               RELEASE_ID: "e2e",
+              APP_ID: "e2e",
               AUTH_REFRESH_COORDINATION_SECRET: "0123456789abcdef0123456789abcdef",
               CACHE_BACKEND: "memory",
               CACHE_REQUIRED: "false",
@@ -1198,6 +1200,10 @@ METRICS_PORT=${metricsPort}
 SITE_URL=http://127.0.0.1:${port}
 VITE_DEV_SERVER_URL=http://127.0.0.1:${vitePort}
 
+# Never changes, unlike RELEASE_ID: it namespaces coordination state, which has
+# to survive a rolling deploy. Required in production. See docs/namespaces.md.
+APP_ID=${name}
+
 # L1-only cache; no Redis needed for local development.
 CACHE_BACKEND=memory
 CACHE_REQUIRED=false
@@ -1307,14 +1313,23 @@ ANALYTICS_VENDOR_URL=http://127.0.0.1:4002/vendor/consent.js
 # OTEL_SERVICE_NAME=\${name}
 `;
 
-const envProduction = (port, metricsPort, includeLiveStream = false) => `NODE_ENV=production
+const envProduction = (name, port, metricsPort, includeLiveStream = false) => `NODE_ENV=production
 APP_ENV=production
 PORT=${port}
 METRICS_PORT=${metricsPort}
 
 # Required in production — set these from your secret manager / deployment env:
-#   SITE_URL, GATEWAY_URL, RELEASE_ID, AUTH_REFRESH_COORDINATION_SECRET
-# RELEASE_ID also namespaces the shared Redis cache, so give each app its own.
+#   SITE_URL, GATEWAY_URL, RELEASE_ID, APP_ID, AUTH_REFRESH_COORDINATION_SECRET
+#
+# RELEASE_ID and APP_ID answer different questions and both are required.
+#   RELEASE_ID  changes on every deploy. It namespaces cached HTML, which a new
+#               release must not inherit from the old one.
+#   APP_ID      never changes. It namespaces coordination state — idempotency
+#               records, auth refresh, rate limits — which must survive a
+#               rolling deploy and must not be shared with another product on
+#               the same Redis.
+# See docs/namespaces.md.
+APP_ID=${name}
 
 # This app's own required setting, checked by validateProductConfig() at startup:
 # with it missing the server refuses to boot rather than serving pages that
@@ -8215,10 +8230,11 @@ docker build -f apps/${name}/Dockerfile -t ${name} .`
 }
 \`\`\`
 
-Production'da \`SITE_URL\`, \`GATEWAY_URL\`, \`RELEASE_ID\` ve
-\`AUTH_REFRESH_COORDINATION_SECRET\` zorunludur. \`RELEASE_ID\` ortak Redis'te cache
-namespace'ini de belirler — her uygulamaya kendine ait bir değer verin. Production startup,
-\`replace-with-*\` ve \`change-me\` gibi template placeholder'ları fail-closed reddeder.
+Production'da \`SITE_URL\`, \`GATEWAY_URL\`, \`RELEASE_ID\`, \`APP_ID\` ve
+\`AUTH_REFRESH_COORDINATION_SECRET\` zorunludur. \`RELEASE_ID\` her deploy'da değişir ve
+cache namespace'ini belirler; \`APP_ID\` hiç değişmez ve koordinasyon namespace'ini belirler
+(bkz. \`docs/namespaces.md\`). Production startup, \`replace-with-*\` ve \`change-me\` gibi
+template placeholder'ları fail-closed reddeder.
 
 ${
   withOps

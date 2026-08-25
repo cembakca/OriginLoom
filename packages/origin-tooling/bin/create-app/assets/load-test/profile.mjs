@@ -188,6 +188,7 @@ function appEnvironment({ baseUrl, mockGatewayUrl, appPort, opsPort }) {
     GATEWAY_URL: mockGatewayUrl,
     ALLOW_INSECURE_GATEWAY: "true",
     RELEASE_ID: `profile-${Date.now()}`,
+    APP_ID: "profile",
     AUTH_REFRESH_COORDINATION_SECRET: "profile-auth-refresh-secret-000000000000000000",
     CACHE_PURGE_SECRET: "profile-cache-purge-secret",
     CACHE_BACKEND: "memory",

@@ -158,7 +158,7 @@ export async function initCache(): Promise<CacheStore> {
       }
       logger.warn("CACHE_BACKEND=redis without REDIS_URL; continuing with L1-only cache");
     } else {
-      l2 = new RedisStore(redisUrl, config.releaseId);
+      l2 = new RedisStore(redisUrl, config.releaseId, config.appId);
       try {
         await l2.ping();
       } catch (error) {

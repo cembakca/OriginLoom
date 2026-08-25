@@ -7,6 +7,7 @@ const productionEnv: NodeJS.ProcessEnv = {
   GATEWAY_URL: "https://gateway.example.com",
   SITE_URL: "https://example.com",
   RELEASE_ID: "release-2026-08-21",
+  APP_ID: "sigorta",
 };
 
 function productionConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -19,6 +20,7 @@ function productionConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     authRefreshCoordinationSecret: "a".repeat(32),
     authRefreshCoordinationPreviousSecret: undefined,
     releaseId: "release-2026-08-21",
+    appId: "sigorta",
     cachePurgeSecret: undefined,
     ...overrides,
   };
@@ -79,6 +81,62 @@ describe("production placeholder sentinel (OR5)", () => {
         productionConfig({ cachePurgeSecret: "release-todochange-2026-secret" }),
         productionEnv,
       ),
+    ).not.toThrow();
+  });
+});
+
+/**
+ * `RELEASE_ID` was answering two questions and only one of them well. It changes
+ * on every deploy — right for cached HTML, wrong for state two releases have to
+ * agree on — and it was separating *products* only by accident, because each app
+ * happened to pick its own value. `APP_ID` is the half that was implicit.
+ */
+describe("APP_ID", () => {
+  it("is required in production", () => {
+    expect(() =>
+      validateAppConfig(productionConfig({ appId: "sigorta" }), {
+        ...productionEnv,
+        APP_ID: undefined,
+      }),
+    ).toThrow(/APP_ID is required in production/);
+  });
+
+  /**
+   * The dangerous value is not a missing one, it is the default: every app
+   * carrying it would share a coordination namespace, silently, until a second
+   * product shipped.
+   */
+  it("refuses the platform default in production", () => {
+    expect(() =>
+      validateAppConfig(productionConfig({ appId: "origin-loom" }), {
+        ...productionEnv,
+        APP_ID: "origin-loom",
+      }),
+    ).toThrow(/still the platform default/);
+  });
+
+  it("refuses a template placeholder", () => {
+    expect(() =>
+      validateAppConfig(productionConfig({ appId: "replace-me" }), {
+        ...productionEnv,
+        APP_ID: "replace-me",
+      }),
+    ).toThrow(/APP_ID/);
+  });
+
+  it("refuses a value that cannot be a key namespace", () => {
+    expect(() =>
+      validateAppConfig(productionConfig({ appId: "sigorta:prod" }), {
+        ...productionEnv,
+        APP_ID: "sigorta:prod",
+      }),
+    ).toThrow(/Invalid APP_ID/);
+  });
+
+  /** Outside production the default stands: a laptop has no second product. */
+  it("is not required in development", () => {
+    expect(() =>
+      validateAppConfig({ ...productionConfig({ appId: "origin-loom" }), isProduction: false }, {}),
     ).not.toThrow();
   });
 });

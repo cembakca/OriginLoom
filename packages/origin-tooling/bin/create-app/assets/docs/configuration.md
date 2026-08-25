@@ -4,8 +4,11 @@ Platform değişkenleri `@originloom/core/config`, ürün değişkenleri `server
 tarafından okunur. Ürün config'i tek yerde tutulmalı ve `validateConfig([validateProductConfig])` ile
 ilk request'ten önce fail-fast doğrulanmalıdır.
 
-Production'da `SITE_URL`, `GATEWAY_URL`, `RELEASE_ID` ve
-`AUTH_REFRESH_COORDINATION_SECRET` zorunludur. Redis için `REDIS_URL`, purge için
+Production'da `SITE_URL`, `GATEWAY_URL`, `RELEASE_ID`, `APP_ID` ve
+`AUTH_REFRESH_COORDINATION_SECRET` zorunludur. `RELEASE_ID` her deploy'da değişir ve cache
+namespace'ini belirler; `APP_ID` hiç değişmez ve koordinasyon namespace'ini belirler — ikisi
+birbirinin yerine geçmez, bkz. [namespaces.md](./namespaces.md). `APP_ID` platform varsayılanında
+(`origin-loom`) bırakılırsa production boot reddedilir. Redis için `REDIS_URL`, purge için
 `CACHE_PURGE_SECRET` secret manager'dan gelir. Secret'ları image, repo, ConfigMap veya client bundle'a
 yazmayın. Production doğrulaması `replace-with-*`, `change-me`, `changeme`, `placeholder` ve `todo`
 gibi template sentinel'larını kabul etmez; manifest uygulanmadan önce gerçek değerleri inject edin.

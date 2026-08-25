@@ -252,14 +252,26 @@ modda paketin kaynağı, standalone modda kurulu `dist`'i:
 
 ---
 
-## 5. Cache izolasyonu
+## 5. Redis izolasyonu
 
-Ortak Redis cluster kullanılabilir; ayrım `RELEASE_ID` üzerinden yapılır:
+Ortak Redis cluster kullanılabilir. Ayrım **iki** değişkenle yapılır ve ikisi de production'da
+zorunludur — biri diğerinin yerine geçmez:
 
 ```
-investment-web   RELEASE_ID=investment-4821   → ssr:investment-4821:...
-knowledge-web    RELEASE_ID=knowledge-1192    → ssr:knowledge-1192:...
+                 RELEASE_ID (her deploy'da değişir)   APP_ID (hiç değişmez)
+investment-web   4821                                 investment-web
+knowledge-web    1192                                 knowledge-web
+
+ssr:4821:page:/bist100:...                → cache, release'e ait
+ssr:coordination:investment-web:lock:...  → koordinasyon, uygulamaya ait
 ```
+
+`RELEASE_ID` bir **ürün kimliği değildir**: her deploy'da değişir, çünkü işi yeni release'in eski
+release'in HTML'ini okumasını engellemek. Idempotency, auth refresh ve rate limit ise tam tersine bir
+deploy'u **aşmak** zorunda — rolling deploy sırasında anlaşması gereken iki taraf eski ve yeni
+pod'lardır. Onlar `APP_ID` ile ayrılıyor.
+
+Ayrıntı ve doğrulama komutları: üretilen uygulamanın `docs/namespaces.md` dosyası.
 
 Purge API zaten release namespace'ine göre çalışır; bir ürünün purge'ü diğerini etkilemez.
 Sayfa cache prefix'leri `src/lib/cache-keys.ts` içindeki registry'den gelir ve `isKnownPageCachePrefix`

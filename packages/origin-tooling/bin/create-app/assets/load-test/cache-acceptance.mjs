@@ -391,6 +391,7 @@ async function startWorker(topology, options) {
     CACHE_BACKEND: topology,
     CACHE_REQUIRED: String(options.required),
     RELEASE_ID: options.releaseId ?? `cache-acceptance-${process.pid}`,
+    APP_ID: "cache-acceptance",
     CACHE_MAX_ENTRIES: "100",
     CACHE_L1_MAX_BYTES: "22000",
     CACHE_L1_PAGE_MAX_BYTES: "22000",

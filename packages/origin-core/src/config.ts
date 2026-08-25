@@ -140,6 +140,21 @@ export const config = {
     .split(",")
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean),
+  /**
+   * Which product this is — stable across every deploy of it.
+   *
+   * `RELEASE_ID` answers a different question, and for a while it was asked to
+   * answer both: it changes on every deploy, which is right for cached HTML (a
+   * new release renders different markup) and wrong for anything two releases
+   * have to agree on. Coordination state is namespaced by this instead, so an
+   * idempotency record survives a rolling deploy and still cannot be read by a
+   * different product sharing the same Redis.
+   *
+   * Deliberately not derived from `OTEL_SERVICE_NAME`, which is the same value
+   * in practice: renaming a service in a dashboard must not silently repartition
+   * production state.
+   */
+  appId: process.env.APP_ID ?? "origin-loom",
   releaseId: process.env.RELEASE_ID ?? "development",
   assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
   httpCompressionThresholdBytes: numberEnv("HTTP_COMPRESSION_THRESHOLD_BYTES", 1_024),

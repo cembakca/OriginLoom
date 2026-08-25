@@ -139,7 +139,7 @@ origin-platform/
 
 ### Ayrı deploy (15 image, 15 K8s Deployment)
 
-- `investment-web` → `investment.example.com` → kendi pod’ları, kendi Redis cache namespace (`RELEASE_ID`)
+- `investment-web` → `investment.example.com` → kendi pod’ları, kendi cache namespace’i (`RELEASE_ID`) ve kendi koordinasyon namespace’i (`APP_ID`)
 - `knowledge-web` → `bilgi.example.com` → ayrı pod’lar
 - **Biri deploy olurken diğeri zorunlu deploy olmaz**
 
@@ -324,8 +324,14 @@ Component: Bist100Page,
 
 ### “15 ayrı Redis mi?”
 
-**Öneri:** Ortak Redis cluster, **farklı `RELEASE_ID` / key prefix** (app başına).  
-Purge API zaten release namespace’ine göre çalışır.  
+**Öneri:** Ortak Redis cluster, iki ayrı namespace ekseniyle.
+
+- **`RELEASE_ID`** cache'i ayırır ve her deploy'da değişir. Purge API zaten bu namespace'e göre çalışır.
+- **`APP_ID`** koordinasyonu (idempotency, auth refresh, rate limit) ayırır ve hiç değişmez.
+
+`RELEASE_ID` bir ürün kimliği **değildir**; bir dönem ürünleri kazara ayırıyordu, çünkü her uygulama
+kendi değerini kullanıyordu. Ayrıntı: üretilen uygulamanın `docs/namespaces.md` dosyası.
+
 Alternatif: kritik izolasyon gerekiyorsa app başına Redis DB index — operasyon kararı.
 
 ### “Design system (Button, Header) ortak mı?”

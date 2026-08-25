@@ -95,6 +95,7 @@ describe("server config", () => {
         SITE_URL: undefined,
         CACHE_PURGE_SECRET: undefined,
         RELEASE_ID: undefined,
+        APP_ID: undefined,
       }),
     ).rejects.toThrow("Production GATEWAY_URL");
   });
@@ -111,6 +112,7 @@ describe("server config", () => {
         MARKET_STREAM_TOKEN: "market-secret",
         AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
       }),
     ).resolves.toBeUndefined();
   });
@@ -139,6 +141,7 @@ describe("server config", () => {
         MARKET_STREAM_TOKEN: "loadtest-market-stream-token",
         AUTH_REFRESH_COORDINATION_SECRET: "loadtest-auth-coordination-secret",
         RELEASE_ID: "loadtest",
+        APP_ID: "showroom",
       }),
     ).resolves.toBeUndefined();
   });
@@ -155,6 +158,7 @@ describe("server config", () => {
         REFERRAL_STATS_SECRET: undefined,
         AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
       }),
     ).rejects.toThrow("REFERRAL_STATS_SECRET is required in production");
   });
@@ -172,6 +176,7 @@ describe("server config", () => {
         MARKET_STREAM_TOKEN: undefined,
         AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
       }),
     ).rejects.toThrow("MARKET_STREAM_TOKEN is required in production");
   });
@@ -189,6 +194,7 @@ describe("server config", () => {
         MARKET_STREAM_TOKEN: "market-secret",
         AUTH_REFRESH_COORDINATION_SECRET: "too-short",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
       }),
     ).rejects.toThrow("AUTH_REFRESH_COORDINATION_SECRET must be at least 32 characters");
   });
@@ -204,6 +210,7 @@ describe("server config", () => {
       MARKET_STREAM_TOKEN: "market-secret",
       AUTH_REFRESH_COORDINATION_SECRET: "a-real-auth-coordination-secret-123456",
       RELEASE_ID: "release-1",
+      APP_ID: "showroom",
     };
 
     await expect(
@@ -236,6 +243,7 @@ describe("server config", () => {
         AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
         AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET: "weak",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
       }),
     ).rejects.toThrow("AUTH_REFRESH_COORDINATION_PREVIOUS_SECRET must be at least 32 characters");
   });
@@ -251,6 +259,7 @@ describe("server config", () => {
         CACHE_PURGE_SECRET: "secret",
         REFERRAL_STATS_SECRET: "referral-secret",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
         VITE_DEV_SERVER_URL: "http://localhost:5174",
       }),
     ).rejects.toThrow("VITE_DEV_SERVER_URL is not allowed in production");
@@ -266,6 +275,7 @@ describe("server config", () => {
         SITE_URL: "https://www.example.com",
         CACHE_PURGE_SECRET: "secret",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
         IMAGE_CDN_URL: "http://images.example.com/transform",
       }),
     ).rejects.toThrow("Production IMAGE_CDN_URL must use https");
@@ -300,6 +310,7 @@ describe("server config", () => {
       AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
       TRUSTED_PROXY_CIDRS: "10.0.0.0/8",
       RELEASE_ID: "release-1",
+      APP_ID: "showroom",
     };
     await expect(validateWith(production)).rejects.toThrow("Production GATEWAY_URL must use https");
     await expect(
@@ -371,6 +382,7 @@ describe("server config", () => {
         SITE_URL: "http://www.example.com",
         CACHE_PURGE_SECRET: "secret",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
       }),
     ).rejects.toThrow("Production SITE_URL must use https");
   });
@@ -389,6 +401,7 @@ describe("server config", () => {
       AUTH_REFRESH_COORDINATION_SECRET: "a-dedicated-auth-coordination-secret-123",
       TRUSTED_PROXY_CIDRS: "10.0.0.0/8",
       RELEASE_ID: "release-1",
+      APP_ID: "showroom",
       IMAGE_CDN_URL: "localhost:3005/images/",
     };
     delete process.env.VITE_DEV_SERVER_URL;
@@ -410,6 +423,7 @@ describe("server config", () => {
         SITE_URL: "https://www.example.com",
         CACHE_PURGE_SECRET: "secret",
         RELEASE_ID: "release-1",
+        APP_ID: "showroom",
         IMAGE_TRANSFORM_URL: "http://images.example.com/transform",
       }),
     ).rejects.toThrow("Production IMAGE_TRANSFORM_URL must use https");
