@@ -42,7 +42,8 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r --if-present typecheck",
     "upgrade:verify": "node scripts/upgrade-verify.mjs",
-    "version:set": "node scripts/set-version.mjs"
+    "version:set": "node scripts/set-version.mjs",
+    "adoption": "node scripts/adoption-check.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.1",
