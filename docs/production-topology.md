@@ -27,26 +27,35 @@ Bu platformun sattığı garantilerin hiçbiri tek süreçten görünmüyor:
 Bir gerçek Redis, bir mock gateway, **üç** uygulama süreci:
 
 ```
-pod-a ─┐                        RELEASE_ID = release-n
+pod-a ─┐                        RELEASE_ID = release-n            island secret: OLD
 pod-b ─┼─ aynı APP_ID ──→ Redis
-pod-c ─┘                        RELEASE_ID = release-n-plus-1   (rollout sırasında başlıyor)
+pod-c ─┤                        RELEASE_ID = release-n-plus-1     island secret: NEW + OLD
+pod-d ─┘                        RELEASE_ID = release-n-plus-1     island secret: NEW  (rotasyon bitti)
 ```
 
 Üçü de `CACHE_BACKEND=redis` ve **`CACHE_REQUIRED=true`** ile koşuyor.
 
 ## Ne doğruluyor
 
-| Kontrol                                                   | Ne kanıtlıyor                                                                                           |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| İki pod da hazır oluyor                                   | `CACHE_REQUIRED=true` altında hazır olmak Redis'in gerçekten cevap verdiği demek                        |
-| İkinci pod, ilkinin cache'lediğini servis ediyor          | L2 girdisi gerçekten paylaşılıyor (`x-cache: HIT`)                                                      |
-| Bir idempotency anahtarı işi bir kez çalıştırıyor         | `runOnce` pod'lar arasında koordine oluyor — gateway iki gönderim için **bir** upstream çağrısı görüyor |
-| Yeni release, eskisinin HTML'ini servis etmiyor           | Cache `RELEASE_ID` ile ayrılmış                                                                         |
-| Yeni release, eskisinin idempotency kaydına saygı duyuyor | Koordinasyon `APP_ID` ile ayrılmış ve deploy sınırını **aşıyor**                                        |
+| Kontrol                                                     | Ne kanıtlıyor                                                                                           |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| İki pod da hazır oluyor                                     | `CACHE_REQUIRED=true` altında hazır olmak Redis'in gerçekten cevap verdiği demek                        |
+| İkinci pod, ilkinin cache'lediğini servis ediyor            | L2 girdisi gerçekten paylaşılıyor (`x-cache: HIT`)                                                      |
+| Bir idempotency anahtarı işi bir kez çalıştırıyor           | `runOnce` pod'lar arasında koordine oluyor — gateway iki gönderim için **bir** upstream çağrısı görüyor |
+| Yeni release, eskisinin HTML'ini servis etmiyor             | Cache `RELEASE_ID` ile ayrılmış                                                                         |
+| Yeni release, eskisinin idempotency kaydına saygı duyuyor   | Koordinasyon `APP_ID` ile ayrılmış ve deploy sınırını **aşıyor**                                        |
+| Rotasyon öncesi imzalanmış island yer tutucusu hâlâ doluyor | Anahtar halkası: current imzalıyor, previous doğrulamaya devam ediyor                                   |
+| Rotasyon bitince aynı yer tutucu reddediliyor               | Emekliye ayrılan anahtar gerçekten emekli — adlandırmanın amacı buydu                                   |
 
-Son iki satır birlikte okunmalı: aynı anda hem ayrılması hem aşması gereken iki farklı veri var ve
+Dört ve beşinci satır birlikte okunmalı: aynı anda hem ayrılması hem aşması gereken iki farklı veri var ve
 bunu ancak bir rollout gösterebilir. `docs/migrations/0.7.64.md` ve üretilen `docs/namespaces.md` bu
 ayrımın gerekçesini anlatıyor; burası onun **çalıştığını** gösteren yer.
+
+Son iki satır aynı şeyi secret rotasyonu için yapıyor. Bir island yer tutucusu bir kez imzalanıp
+cache'li HTML'in içinde oturuyor — isteği de, deploy'u da aşıyor. Rolling deploy sırasında onu
+imzalayan pod ile doldurması istenen pod farklı release'ler ve farklı secret'lar tutuyor; tek
+secret'lı bir kurulumda render edilmiş her sayfadaki her delik rollout boyunca boş dönerdi. Bunu
+hiçbir birim testi gösteremez.
 
 ## İşin sayması nasıl mümkün oluyor
 
@@ -56,8 +65,9 @@ ile veriyor. Tek süreç, birden fazla pod — yani "iş kaç kez çalıştı" s
 
 ## Kontrollerin kendisi doğrulandı
 
-Yazılırken hepsi en az bir kez düştü, ve son ikisi kasıtlı olarak da kırıldı: pod-c'ye farklı bir
-`APP_ID` verildiğinde gateway bir yerine **iki** abonelik çağrısı görüyor ve kontrol düşüyor. Bir
+Yazılırken hepsi en az bir kez düştü, ve kritik olanlar kasıtlı olarak da kırıldı: pod-c'ye farklı
+bir `APP_ID` verildiğinde gateway bir yerine **iki** abonelik çağrısı görüyor; pod-c'den
+`SERVER_ISLAND_PREVIOUS_SECRET` çekildiğinde rotasyon kontrolü 400 alıp düşüyor. Bir
 kapının değeri geçmesinde değil, geçmediğinde ne yakaladığındadır.
 
 ## Henüz kapsamadıkları
@@ -66,8 +76,6 @@ Dürüst olmak gerekirse bu kapı review'ın istediği listenin tamamı değil:
 
 - **Graceful shutdown / drain** — SIGTERM sonrası uçuştaki isteğin tamamlanması ve `/readyz`'in önce
   düşmesi doğrulanmıyor.
-- **Secret rotation** — key-ring maddesi henüz yapılmadı; yapıldığında rolling deploy sırasında eski
-  ve yeni secret'ın birlikte doğrulanması buraya bir kontrol olarak eklenmeli.
 - **Rate limit** — pod'lar arası paylaşıldığı burada değil, `redis.test.ts`'te birim seviyesinde
   pinli.
 

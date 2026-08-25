@@ -38,6 +38,10 @@ const RUN = `${Date.now()}-${process.pid}`;
 const APP_ID = `topology-${RUN}`;
 const RELEASE_A = `release-n-${RUN}`;
 const RELEASE_B = `release-n-plus-1-${RUN}`;
+// A rotation, as a deployment performs it: add the new secret everywhere while
+// keeping the old one, then drop the old one.
+const ISLAND_SECRET_OLD = "topology-island-secret-old-0123456789";
+const ISLAND_SECRET_NEW = "topology-island-secret-new-9876543210";
 
 const children = [];
 const failures = [];
@@ -102,7 +106,11 @@ await check("one idempotency key runs the work once across pods", async () => {
  * and must still honour the old one's idempotency records, because during the
  * rollout those two releases are the two parties that have to agree.
  */
-const podC = await startPod("pod-c", 3130, RELEASE_B);
+const podC = await startPod("pod-c", 3130, RELEASE_B, {
+  // Mid-rotation: signs with the new key, still accepts the old one.
+  SERVER_ISLAND_SECRET: ISLAND_SECRET_NEW,
+  SERVER_ISLAND_PREVIOUS_SECRET: ISLAND_SECRET_OLD,
+});
 
 await check("the next release does not serve the previous release's cached HTML", async () => {
   const response = await fetch(`${podC.url}/bankalar/akbank`);
@@ -125,9 +133,40 @@ await check("the next release still honours the previous release's idempotency k
   );
 });
 
+/**
+ * The rotation, end to end, which no unit test can reach.
+ *
+ * A server island placeholder is signed once and then sits inside cached HTML
+ * that outlives the request — and outlives the deploy. Mid rolling deploy the
+ * pod that signed it and the pod asked to fill it are different releases holding
+ * different secrets, and a single-secret setup means every hole in every already
+ * rendered page comes back empty for the length of the rollout.
+ */
+const podD = await startPod("pod-d", 3140, RELEASE_B, {
+  // The rotation has finished: the old key is gone.
+  SERVER_ISLAND_SECRET: ISLAND_SECRET_NEW,
+});
+
+await check("a placeholder signed before the rotation is still filled during it", async () => {
+  const payload = await islandPayloadFrom(podA);
+  const response = await fetch(`${podC.url}/api/_island?p=${encodeURIComponent(payload)}&path=/`);
+  await response.body?.cancel();
+
+  assert(response.status === 200, `pod-c answered ${response.status} for the previous key`);
+});
+
+/** Retiring a key is the point of naming it; once off the ring it is refused. */
+await check("and refused once the rotation has finished", async () => {
+  const payload = await islandPayloadFrom(podA);
+  const response = await fetch(`${podD.url}/api/_island?p=${encodeURIComponent(payload)}&path=/`);
+  await response.body?.cancel();
+
+  assert(response.status === 400, `pod-d answered ${response.status} for a retired key`);
+});
+
 report();
 
-async function startPod(name, port, releaseId) {
+async function startPod(name, port, releaseId, secrets = {}) {
   const url = `http://127.0.0.1:${port}`;
   start(name, ["--enable-source-maps", entry], {
     NODE_ENV: "production",
@@ -152,6 +191,8 @@ async function startPod(name, port, releaseId) {
     REDIS_URL,
     ALLOW_INSECURE_REDIS: "true",
     SUPPORT_EMAIL: "topology@example.invalid",
+    SERVER_ISLAND_SECRET: ISLAND_SECRET_OLD,
+    ...secrets,
   });
   await waitFor(`${url}/readyz`, name);
   return { name, url };
@@ -187,6 +228,15 @@ async function subscribe(pod, key) {
   await response.body?.cancel();
   assert(response.status < 400, `${pod.name} refused the subscription with ${response.status}`);
   return response;
+}
+
+/** The signed placeholder a rendered page carries, straight out of its HTML. */
+async function islandPayloadFrom(pod) {
+  const response = await fetch(`${pod.url}/server-island`);
+  const html = await response.text();
+  const match = /data-payload="([^"]+)"/.exec(html);
+  assert(match !== null, `${pod.name} rendered no signed island placeholder`);
+  return match[1];
 }
 
 async function counters() {
