@@ -351,6 +351,29 @@ takıldı ve **kendi kendini kapatan** hale getirildi (aşağıda).
   işaretlemek yeterli. React'in API'si deneysel — kendi eşdeğerimizi yazmak da mümkün, zaten
   `isShellUsableForFragments` gibi sınır kontrollerimiz var.
 
+### 5.2b CMS içeriği için sanitizasyon sınırı **[P0]** **[YAPILDI — 0.7.61]**
+
+Araştırmanın maddesi değil; dışarıdan gelen bir review'ın bulgusu ve listedeki her şeyden önceliği
+yüksek çıktı.
+
+Sigorta'da SSS cevabı gateway'den geldiği hâliyle `dangerouslySetInnerHTML`'e giriyordu. Bunu
+sıradan bir eksiklikten ayıran iki ayrıntı var. **Aynı alan başka bir yerde zaten işleniyordu** —
+`sanitizeFaqAnswer` onu JSON-LD'ye gömerken tırnak kaçırıyor; yani kod tabanı alanın tehlikeli
+olduğunu biliyor ve iki sink'ten az tehlikeli olanını koruyordu. Ve **cache'e giriyordu**:
+temizlenmemiş markup tutan paylaşılan bir HTML cache'i sorunu view'da değil depoda saklıyor.
+
+5.1 (Trusted Types) bunu kapatmıyor, kapatması da beklenmemeli: platformun policy'si girdiyi olduğu
+gibi kabul eden bir identity policy — DOM sink'lerini görünür yapar, içeriği temizlemez. CSP de
+kapatmıyor; `<iframe>`, `data:` link ve sayfayı kaplayan bir `style` ondan geçer.
+
+**Yapılan, allowlist'ten çok tip.** `sanitizeRichText` (core, `sanitize-html` üstünde) ve `RichText`
+markası (shared, tarayıcıya giden yarı). Marka string yazarak üretilemiyor, yani çağrıyı unutan bir
+mapper güvensiz HTML basmıyor — derlenmiyor. `richTextHtml` de sink tarafını kapatıyor, çünkü marka
+tek başına yalnız üreteni korur.
+
+Temizlik **mapper'da**, component'te değil: sonuç cache'lenen şey, ve cache'e temizlenmiş olan
+girmeli.
+
 ### 5.3 Subresource Integrity (SRI) **[P2]**
 
 - **Ne**: Üçüncü taraf script'lere `integrity` hash'i.

@@ -146,6 +146,7 @@ export function renderTemplates({
     "docs/mutations.md": asset("docs/mutations.md"),
     "docs/observability.md": asset("docs/observability.md"),
     "docs/react-query.md": asset("docs/react-query.md"),
+    "docs/rich-text.md": asset("docs/rich-text.md"),
     "docs/route-params.md": asset("docs/route-params.md"),
     "docs/referrals.md": asset("docs/referrals.md"),
     "docs/routing.md": asset("docs/routing.md"),

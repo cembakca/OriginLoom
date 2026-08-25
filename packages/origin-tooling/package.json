@@ -1,6 +1,6 @@
 {
   "name": "@originloom/tooling",
-  "version": "0.7.60",
+  "version": "0.7.61",
   "description": "Build, dev, smoke and scaffolding CLIs for OriginLoom apps (origin-dev, origin-build, origin-create-app, …).",
   "license": "UNLICENSED",
   "author": "Cem Bakca",

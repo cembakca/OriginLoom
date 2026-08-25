@@ -1,6 +1,6 @@
 {
   "name": "@originloom/core",
-  "version": "0.7.60",
+  "version": "0.7.61",
   "description": "OriginLoom server runtime: SSR pipeline, layered HTML cache, middleware, security, metrics — with no UI framework of its own.",
   "license": "UNLICENSED",
   "author": "Cem Bakca",
@@ -62,10 +62,12 @@
     "@originloom/shared": "workspace:*",
     "hono": "^4.13.3",
     "ioredis": "^5.11.1",
+    "sanitize-html": "^2.17.7",
     "undici": "^8.10.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "@types/sanitize-html": "^2.16.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },

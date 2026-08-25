@@ -62,6 +62,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
   "lib/metadata/types",
   "lib/pagination",
   "lib/request",
+  "lib/rich-text",
   "lib/runtime-schema",
   "lib/stores/session-store",
   "lib/stores/user-info-store",
@@ -83,6 +84,7 @@ export const SHARED_PUBLIC_SUBPATHS = [
 export const CORE_PUBLIC_SUBPATHS = [
   "env-schema",
   "request-error",
+  "rich-text",
   "diagnostics/request-trace",
   "idempotency",
   "route-rules",
