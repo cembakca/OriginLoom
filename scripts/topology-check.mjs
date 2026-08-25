@@ -60,6 +60,7 @@ void gateway;
 // Two pods of the same release, exactly as a Deployment runs them.
 const podA = await startPod("pod-a", 3110, RELEASE_A);
 const podB = await startPod("pod-b", 3120, RELEASE_A);
+const podBProcess = children.at(-1).child;
 
 /**
  * Readiness under the production contract, which the container smoke cannot
@@ -164,6 +165,38 @@ await check("and refused once the rotation has finished", async () => {
   assert(response.status === 400, `pod-d answered ${response.status} for a retired key`);
 });
 
+/**
+ * Graceful shutdown, which is the one guarantee a rolling deploy leans on every
+ * single time and the only way to see it is to pull the rug mid-request.
+ *
+ * A pod that drops in-flight work on SIGTERM turns every deploy into a handful
+ * of 502s — invisible in aggregate, and exactly the kind of thing that gets
+ * blamed on "the network". So: hold a request open by making its upstream slow,
+ * signal the pod while it is waiting, and see whether the answer still arrives.
+ */
+await check("a request in flight survives SIGTERM", async () => {
+  await armGatewayDelay(2_000);
+  const started = Date.now();
+  // A path no earlier check warmed: a cache HIT would answer without ever
+  // reaching the gateway, and the delay — the whole mechanism here — would not
+  // apply. The assertion below is what caught exactly that.
+  const inFlight = fetch(`${podB.url}/bankalar/is-bankasi`);
+  // Long enough for the request to reach the gateway and start waiting there.
+  await new Promise((wake) => setTimeout(wake, 400));
+
+  podBProcess.kill("SIGTERM");
+
+  const response = await inFlight;
+  await response.body?.cancel();
+  const elapsed = Date.now() - started;
+
+  assert(response.status === 200, `the in-flight request ended as ${response.status}`);
+  // Without this the check could pass on a cache HIT that finished before the
+  // signal ever landed — proving nothing. The delay is the proof the request
+  // was still waiting on its upstream when SIGTERM arrived.
+  assert(elapsed > 1_500, `the request took ${elapsed}ms; it was not actually in flight`);
+});
+
 report();
 
 async function startPod(name, port, releaseId, secrets = {}) {
@@ -231,6 +264,14 @@ async function subscribe(pod, key) {
 }
 
 /** The signed placeholder a rendered page carries, straight out of its HTML. */
+/** Makes the next upstream call slow, so a request can be caught mid-flight. */
+async function armGatewayDelay(ms) {
+  const response = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/__fixture/delay?ms=${ms}`, {
+    method: "POST",
+  });
+  await response.body?.cancel();
+}
+
 async function islandPayloadFrom(pod) {
   const response = await fetch(`${pod.url}/server-island`);
   const html = await response.text();

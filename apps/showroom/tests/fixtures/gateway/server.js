@@ -130,6 +130,13 @@ function profileFromPayload(payload) {
 }
 
 async function route(request, response) {
+  // Consumed once, and never for the fixture's own control endpoints — the
+  // caller that armed the delay has to be able to disarm it.
+  if (fixtureDelayMs > 0 && !request.url.startsWith("/__fixture/")) {
+    const waitMs = fixtureDelayMs;
+    fixtureDelayMs = 0;
+    await new Promise((wake) => setTimeout(wake, waitMs));
+  }
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
   if (request.method === "OPTIONS") return empty(response);
@@ -226,6 +233,12 @@ async function route(request, response) {
     upstreamCalls.newsletterSubscribes += 1;
     return json(response, 201, { status: "subscribed" });
   }
+  if (request.method === "POST" && url.pathname === "/__fixture/delay") {
+    // Makes the next upstream call slow on purpose, so a caller can hold a
+    // request open across a SIGTERM and see whether the server finishes it.
+    fixtureDelayMs = Number(url.searchParams.get("ms") ?? 0);
+    return empty(response, 204);
+  }
   if (request.method === "GET" && url.pathname === "/__fixture/counters") {
     return json(response, 200, upstreamCalls);
   }
@@ -244,6 +257,9 @@ async function route(request, response) {
  * the work run" is a number this process alone can answer.
  */
 const upstreamCalls = { newsletterSubscribes: 0 };
+
+/** Milliseconds the next request waits before it is answered. Reset after one use. */
+let fixtureDelayMs = 0;
 
 function isBotAnalyticsBatch(value) {
   if (!value || typeof value !== "object" || !Array.isArray(value.events)) return false;

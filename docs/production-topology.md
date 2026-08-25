@@ -46,6 +46,7 @@ pod-d ─┘                        RELEASE_ID = release-n-plus-1     island sec
 | Yeni release, eskisinin idempotency kaydına saygı duyuyor   | Koordinasyon `APP_ID` ile ayrılmış ve deploy sınırını **aşıyor**                                        |
 | Rotasyon öncesi imzalanmış island yer tutucusu hâlâ doluyor | Anahtar halkası: current imzalıyor, previous doğrulamaya devam ediyor                                   |
 | Rotasyon bitince aynı yer tutucu reddediliyor               | Emekliye ayrılan anahtar gerçekten emekli — adlandırmanın amacı buydu                                   |
+| Uçuştaki bir istek SIGTERM'i atlatıyor                      | Graceful shutdown: rolling deploy'un her seferinde yaslandığı garanti                                   |
 
 Dört ve beşinci satır birlikte okunmalı: aynı anda hem ayrılması hem aşması gereken iki farklı veri var ve
 bunu ancak bir rollout gösterebilir. `docs/migrations/0.7.64.md` ve üretilen `docs/namespaces.md` bu
@@ -67,15 +68,22 @@ ile veriyor. Tek süreç, birden fazla pod — yani "iş kaç kez çalıştı" s
 
 Yazılırken hepsi en az bir kez düştü, ve kritik olanlar kasıtlı olarak da kırıldı: pod-c'ye farklı
 bir `APP_ID` verildiğinde gateway bir yerine **iki** abonelik çağrısı görüyor; pod-c'den
-`SERVER_ISLAND_PREVIOUS_SECRET` çekildiğinde rotasyon kontrolü 400 alıp düşüyor. Bir
+`SERVER_ISLAND_PREVIOUS_SECRET` çekildiğinde rotasyon kontrolü 400 alıp düşüyor.
+
+Drain kontrolü de yazılırken kendini ele verdi: ilk hâli geçiyordu ama isteği cache'ten
+karşılandığı için gateway'e hiç gitmiyor, yani SIGTERM geldiğinde ortada uçuşan bir şey olmuyordu.
+Süre iddiası (`> 1500ms`) tam olarak bunu yakaladı — 401ms. Bir kapı "geçti" demeden önce neyi
+ölçtüğünü kanıtlamalı. Bir
 kapının değeri geçmesinde değil, geçmediğinde ne yakaladığındadır.
 
 ## Henüz kapsamadıkları
 
 Dürüst olmak gerekirse bu kapı review'ın istediği listenin tamamı değil:
 
-- **Graceful shutdown / drain** — SIGTERM sonrası uçuştaki isteğin tamamlanması ve `/readyz`'in önce
-  düşmesi doğrulanmıyor.
+- **`/readyz`'in kapanıştan _önce_ düşmesi** — `shuttingDown` bayrağı senkron set ediliyor ve sunucu
+  aynı tick'te kapanıyor, yani dışarıdan 503 penceresi gözlemlenebilir değil. Uçuştaki isteğin
+  tamamlanması doğrulanıyor (aşağıda); load balancer'ın yönlendirmeyi kesmesi için gereken bekleme
+  penceresi ise bir deployment ayarı ve burada sınanmıyor.
 - **Rate limit** — pod'lar arası paylaşıldığı burada değil, `redis.test.ts`'te birim seviyesinde
   pinli.
 
