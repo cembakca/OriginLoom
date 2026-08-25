@@ -36,43 +36,85 @@ if (urls.length === 0) {
 }
 
 const appUrl = new URL(urls[0]);
+
+/**
+ * Whether to boot the app, or measure one that is already running.
+ *
+ * The quality server exists so a single command can produce a comparable
+ * measurement: it starts the production bundle against a mock gateway, so the
+ * numbers describe the app rather than whatever the upstream was doing. That is
+ * the right default and it assumes a mock gateway at a fixed path.
+ *
+ * An app that talks to a real gateway has no such file and never will — mocking
+ * an upstream it can actually reach is work with no reader. `--external` (or
+ * `LIGHTHOUSE_EXTERNAL_SERVER=1`) points the run at a server someone already
+ * started, which is the only honest way to measure such an app.
+ */
+const external =
+  process.argv.includes("--external") || process.env.LIGHTHOUSE_EXTERNAL_SERVER === "1";
+
+/** Overridable so the mock does not have to live at one blessed path. */
+const gatewayEntry = process.env.LIGHTHOUSE_GATEWAY_ENTRY ?? "mock-gateway/server.mjs";
+
 const qualityServerEntry = fileURLToPath(new URL("./quality-server.mjs", import.meta.url));
 const [qualityGatewayPort, qualityMetricsPort] = await Promise.all([freePort(), freePort()]);
-const qualityServer = spawn(
-  process.execPath,
-  [qualityServerEntry, "--gateway", "mock-gateway/server.mjs"],
-  {
-    cwd: root,
-    env: {
-      ...process.env,
-      QUALITY_PORT: appUrl.port,
-      QUALITY_GATEWAY_PORT: String(qualityGatewayPort),
-      QUALITY_METRICS_PORT: String(qualityMetricsPort),
-    },
-    stdio: ["ignore", "pipe", "inherit"],
-  },
-);
+const qualityServer = external
+  ? null
+  : spawn(process.execPath, [qualityServerEntry, "--gateway", gatewayEntry], {
+      cwd: root,
+      env: {
+        ...process.env,
+        QUALITY_PORT: appUrl.port,
+        QUALITY_GATEWAY_PORT: String(qualityGatewayPort),
+        QUALITY_METRICS_PORT: String(qualityMetricsPort),
+      },
+      stdio: ["ignore", "pipe", "inherit"],
+    });
 
 const waitForServer = () =>
-  new Promise((resolveReady, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error("quality server readiness timed out")),
-      30_000,
-    );
-    qualityServer.stdout.setEncoding("utf8");
-    qualityServer.stdout.on("data", (chunk) => {
-      process.stdout.write(chunk);
-      if (chunk.includes("[quality] ready")) {
-        clearTimeout(timeout);
-        resolveReady();
-      }
-    });
-    qualityServer.once("error", reject);
-    qualityServer.once("exit", (code) => {
-      clearTimeout(timeout);
-      reject(new Error(`quality server exited before readiness (${code ?? "unknown"})`));
-    });
-  });
+  qualityServer === null
+    ? waitForExternalServer()
+    : new Promise((resolveReady, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("quality server readiness timed out")),
+          30_000,
+        );
+        qualityServer.stdout.setEncoding("utf8");
+        qualityServer.stdout.on("data", (chunk) => {
+          process.stdout.write(chunk);
+          if (chunk.includes("[quality] ready")) {
+            clearTimeout(timeout);
+            resolveReady();
+          }
+        });
+        qualityServer.once("error", reject);
+        qualityServer.once("exit", (code) => {
+          clearTimeout(timeout);
+          reject(new Error(`quality server exited before readiness (${code ?? "unknown"})`));
+        });
+      });
+
+/**
+ * Polls the URL the config already names, and says so plainly when nothing is
+ * there: in external mode the missing server is the operator's to start, and a
+ * stack trace about a child process would point at the wrong thing.
+ */
+async function waitForExternalServer() {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(appUrl.origin, { signal: AbortSignal.timeout(2_000) });
+      await response.body?.cancel();
+      return;
+    } catch {
+      await new Promise((wait) => setTimeout(wait, 500));
+    }
+  }
+  throw new Error(
+    `no server answering at ${appUrl.origin}. In --external mode this command measures a ` +
+      `server you started; start it first, or drop --external to boot one against a mock gateway.`,
+  );
+}
 
 const lowerMedian = (values) =>
   [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) / 2)];
@@ -173,7 +215,7 @@ try {
   fail(error instanceof Error ? error.message : String(error));
 } finally {
   if (chrome) await chrome.kill();
-  qualityServer.kill("SIGTERM");
+  qualityServer?.kill("SIGTERM");
 }
 
 function renderFallbackHtml(lhr) {
