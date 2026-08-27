@@ -1,9 +1,18 @@
-import { resolve } from "node:path";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("assetUrl", () => {
   const envSnapshot = { ...process.env };
+
+  beforeEach(() => {
+    process.env.ASSET_NAMESPACE = "revolt";
+    delete process.env.ASSET_CDN_ENABLED;
+    delete process.env.ASSET_CDN_URL;
+    vi.resetModules();
+  });
 
   afterEach(() => {
     process.env = { ...envSnapshot };
@@ -12,27 +21,81 @@ describe("assetUrl", () => {
   });
 
   it("returns origin path when CDN is not set", async () => {
-    delete process.env.ASSET_CDN_URL;
-    vi.resetModules();
-    const { assetUrl } = await import("@originloom/core/assets");
-    expect(assetUrl("/assets/entry.client.js")).toBe("/assets/entry.client.js");
+    const { assetUrl, clientAssetUrl, publicAssetUrl } = await import("@originloom/core/assets");
+    expect(assetUrl("/assets/entry.client.js")).toBe("/revolt/assets/entry.client.js");
+    expect(clientAssetUrl("assets/entry.client.js")).toBe("/revolt/assets/entry.client.js");
+    expect(publicAssetUrl("/icons/card.svg")).toBe("/revolt-icons/icons/card.svg");
   });
 
-  it("prefixes CDN base when ASSET_CDN_URL is set", async () => {
+  it("keeps local URLs when a CDN URL is set but the explicit flag is off", async () => {
     process.env.ASSET_CDN_URL = "https://cdn.hangikredi.com";
     vi.resetModules();
     const { assetUrl, assetCdnOrigin } = await import("@originloom/core/assets");
-    expect(assetUrl("/assets/entry.client.js")).toBe(
-      "https://cdn.hangikredi.com/assets/entry.client.js",
+    expect(assetUrl("/assets/entry.client.js")).toBe("/revolt/assets/entry.client.js");
+    expect(assetCdnOrigin()).toBeNull();
+  });
+
+  it("prefixes both canonical asset families when the CDN flag is enabled", async () => {
+    process.env.ASSET_CDN_ENABLED = "true";
+    process.env.ASSET_CDN_URL = "https://cdn.hangikredi.com";
+    vi.resetModules();
+    const { clientAssetUrl, publicAssetUrl, assetCdnOrigin } =
+      await import("@originloom/core/assets");
+    expect(clientAssetUrl("assets/entry.client.js")).toBe(
+      "https://cdn.hangikredi.com/revolt/assets/entry.client.js",
+    );
+    expect(publicAssetUrl("icons/card.svg")).toBe(
+      "https://cdn.hangikredi.com/revolt-icons/icons/card.svg",
     );
     expect(assetCdnOrigin()).toBe("https://cdn.hangikredi.com");
   });
 
   it("strips trailing slash from CDN URL", async () => {
+    process.env.ASSET_CDN_ENABLED = "true";
     process.env.ASSET_CDN_URL = "https://cdn.hangikredi.com/";
     vi.resetModules();
     const { assetUrl } = await import("@originloom/core/assets");
-    expect(assetUrl("/assets/entry.css")).toBe("https://cdn.hangikredi.com/assets/entry.css");
+    expect(assetUrl("/assets/entry.css")).toBe(
+      "https://cdn.hangikredi.com/revolt/assets/entry.css",
+    );
+  });
+
+  it("passes through absolute HTTP images and rejects local traversal", async () => {
+    const { publicAssetUrl } = await import("@originloom/core/assets");
+    expect(publicAssetUrl("https://images.example.com/card.svg")).toBe(
+      "https://images.example.com/card.svg",
+    );
+    expect(() => publicAssetUrl("../secret.svg")).toThrow("Invalid asset path");
+    expect(() => publicAssetUrl("icons/%2e%2e/secret.svg")).toThrow("Invalid asset path");
+    expect(() => publicAssetUrl("icons%5c..%5csecret.svg")).toThrow("Invalid asset path");
+  });
+
+  it("maps manifest entry, CSS and lazy island graphs into the canonical chunk namespace", async () => {
+    delete process.env.VITE_DEV_SERVER_URL;
+    vi.resetModules();
+    const root = await mkdtemp(join(tmpdir(), "originloom-manifest-"));
+    const manifestPath = join(root, "manifest.json");
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        "src/entry.client.tsx": {
+          file: "assets/entry.hash.js",
+          css: ["assets/entry.hash.css"],
+          isEntry: true,
+        },
+        "src/islands/menu.tsx": {
+          file: "assets/menu.hash.js",
+          src: "src/islands/menu.tsx",
+          isDynamicEntry: true,
+        },
+      }),
+    );
+    const { readAssets } = await import("@originloom/core/assets");
+    const assets = readAssets({ manifestPath });
+
+    expect(assets.js).toBe("/revolt/assets/entry.hash.js");
+    expect(assets.css).toEqual(["/revolt/assets/entry.hash.css"]);
+    expect(assets.islandModulePreloads?.menu).toEqual(["/revolt/assets/menu.hash.js"]);
   });
 
   it("uses source modules and Vite runtime instead of the manifest in development", async () => {
@@ -47,7 +110,9 @@ describe("assetUrl", () => {
       development: { client: "http://127.0.0.1:5174/@vite/client" },
     });
     expect(assets.fonts).toHaveLength(2);
-    expect(assets.fonts[0]?.href).toMatch(/^\/assets\/media\/inter-latin\.[a-f0-9]+\.woff2$/);
+    expect(assets.fonts[0]?.href).toMatch(
+      /^\/revolt\/assets\/media\/inter-latin\.[a-f0-9]+\.woff2$/,
+    );
   });
 
   it("refuses to boot dev against a client entry that does not exist", async () => {

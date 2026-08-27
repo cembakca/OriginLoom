@@ -156,6 +156,10 @@ export const config = {
    */
   appId: process.env.APP_ID ?? "origin-loom",
   releaseId: process.env.RELEASE_ID ?? "development",
+  /** Stable URL namespace for this product's public icons and client bundles. */
+  assetNamespace: process.env.ASSET_NAMESPACE?.trim() || "origin-loom",
+  /** ASSET_CDN_URL is inert unless this explicit delivery switch is enabled. */
+  assetCdnEnabled: booleanEnv("ASSET_CDN_ENABLED", false),
   assetCdnUrl: process.env.ASSET_CDN_URL?.replace(/\/$/, "") || undefined,
   httpCompressionThresholdBytes: numberEnv("HTTP_COMPRESSION_THRESHOLD_BYTES", 1_024),
   requestLogSampleRate: numberEnv("REQUEST_LOG_SAMPLE_RATE", nodeEnv === "production" ? 0.1 : 1),
@@ -173,8 +177,8 @@ export const config = {
    */
   clientDistDir: process.env.CLIENT_DIST_DIR?.replace(/\/$/, "") || "dist/client",
   /**
-   * Unprocessed static files served under /public/*. Relative to the app root in every
-   * run mode; set PUBLIC_DIR to override.
+   * Unprocessed static files rooted at public/<asset namespace>-icons. Relative to the
+   * app root in every run mode; set PUBLIC_DIR to override.
    */
   publicDir: process.env.PUBLIC_DIR?.replace(/\/$/, "") || "public",
   gatewayUrl: (process.env.GATEWAY_URL ?? "http://localhost:4002").replace(/\/$/, ""),

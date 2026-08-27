@@ -451,7 +451,9 @@ Temel değişkenler:
 - `CLIENT_ERROR_IP_RATE_LIMIT` — aynı güvenilir client IP'nin pencere başına event bütçesi
 - `CLIENT_ERROR_IP_MAX_ENTRIES` — process içindeki bounded IP limiter registry kapasitesi
 - `CLIENT_ERROR_IP_TTL_MS` — IP limiter kaydı TTL'i; window süresinden kısa olamaz
-- `ASSET_CDN_URL` — opsiyonel asset CDN origin'i
+- `ASSET_NAMESPACE` — public ikon ve client chunk URL'lerinin sabit ürün namespace'i
+- `ASSET_CDN_ENABLED` — asset CDN teslimini açıkça açar; varsayılan `false`
+- `ASSET_CDN_URL` — yalnız CDN açıkken kullanılan, path taşımayan asset CDN origin'i
 - `IMAGE_CDN_URL` — opsiyonel, dönüşümsüz image dosyaları için CDN prefix'i; path korunur
 - `IMAGE_TRANSFORM_URL` — opsiyonel responsive image transformation endpoint'i
 - `VITE_DEV_SERVER_URL` — yalnız development orchestrator tarafından kullanılan Vite origin'i;

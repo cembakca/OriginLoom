@@ -50,6 +50,23 @@ export const PLATFORM_ENV = {
     type: "string",
     required: true,
   },
+  ASSET_NAMESPACE: {
+    description: "Stable URL namespace for public icons and client bundles (for example revolt).",
+    access: "public",
+    type: "string",
+    required: true,
+  },
+  ASSET_CDN_ENABLED: {
+    description: "Explicitly enables delivery of namespaced static assets through ASSET_CDN_URL.",
+    access: "public",
+    type: "boolean",
+    default: false,
+  },
+  ASSET_CDN_URL: {
+    description: "CDN origin used only when ASSET_CDN_ENABLED is true.",
+    access: "public",
+    type: "url",
+  },
   AUTH_REFRESH_COORDINATION_SECRET: {
     description: "Encrypts the refresh result pods hand each other. A leak is a session takeover.",
     access: "secret",

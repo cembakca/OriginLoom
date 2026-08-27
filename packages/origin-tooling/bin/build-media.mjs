@@ -11,9 +11,9 @@ const outputDir = resolve(root, "dist/client/assets/media");
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 
-const manifest = { version: 1, images: {}, fonts: [] };
+const manifest = { version: 1, images: {}, fonts: [], seo: {} };
 
-await buildSeoAssets(config.seoAssets);
+manifest.seo = await buildSeoAssets(config.seoAssets);
 
 for (const image of config.images) {
   validateImageConfig(image);
@@ -87,21 +87,64 @@ console.log(
   `[media] ${Object.keys(manifest.images).length} image source(s), ${manifest.fonts.length} font subset(s)`,
 );
 
+/**
+ * The four fixed-purpose SEO images, content-hashed like everything else here.
+ *
+ * They used to be written under stable names — `og-default.jpg`,
+ * `apple-touch-icon.png` and friends — and every app referenced those names as
+ * string literals. That put four mutable files inside a namespace the server
+ * serves with `max-age=31536000, immutable`, which is a promise the filename
+ * could not keep: replacing the OG image left every browser and CDN that had
+ * already fetched it holding last year's picture, and the plan deliberately
+ * rules out query versioning as the escape hatch.
+ *
+ * Hashing them makes the promise true and the manifest the single place that
+ * knows their names.
+ */
 async function buildSeoAssets(seoAssets) {
   if (!seoAssets?.openGraphSource || !seoAssets?.brandSource) {
     throw new Error("seoAssets requires openGraphSource and brandSource");
   }
   const openGraphSource = resolve(root, seoAssets.openGraphSource);
   const brandSource = resolve(root, seoAssets.brandSource);
-  await Promise.all([
-    sharp(openGraphSource)
-      .resize(1200, 630, { fit: "cover" })
-      .jpeg({ quality: 84, mozjpeg: true })
-      .toFile(resolve(outputDir, "og-default.jpg")),
-    sharp(brandSource).resize(512, 512).png().toFile(resolve(outputDir, "brand-logo-512.png")),
-    sharp(brandSource).resize(180, 180).png().toFile(resolve(outputDir, "apple-touch-icon.png")),
-    sharp(brandSource).resize(32, 32).png().toFile(resolve(outputDir, "favicon-32.png")),
+
+  const [openGraph, brandLogo, appleTouchIcon, favicon] = await Promise.all([
+    writeHashedSeoAsset(
+      "og-default",
+      "jpg",
+      await sharp(openGraphSource)
+        .resize(1200, 630, { fit: "cover" })
+        .jpeg({ quality: 84, mozjpeg: true })
+        .toBuffer(),
+      { width: 1200, height: 630 },
+    ),
+    writeHashedSeoAsset(
+      "brand-logo-512",
+      "png",
+      await sharp(brandSource).resize(512, 512).png().toBuffer(),
+      { width: 512, height: 512 },
+    ),
+    writeHashedSeoAsset(
+      "apple-touch-icon",
+      "png",
+      await sharp(brandSource).resize(180, 180).png().toBuffer(),
+      { width: 180, height: 180 },
+    ),
+    writeHashedSeoAsset(
+      "favicon-32",
+      "png",
+      await sharp(brandSource).resize(32, 32).png().toBuffer(),
+      { width: 32, height: 32 },
+    ),
   ]);
+
+  return { openGraph, brandLogo, appleTouchIcon, favicon };
+}
+
+async function writeHashedSeoAsset(name, extension, buffer, size) {
+  const filename = `${name}.${hash(buffer)}.${extension}`;
+  await writeFile(resolve(outputDir, filename), buffer);
+  return { src: `/assets/media/${filename}`, ...size };
 }
 
 async function encodeImage(source, width, format, quality) {

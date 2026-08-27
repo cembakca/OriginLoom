@@ -570,7 +570,7 @@ describe("handler", () => {
     expect(second.headers.get("cache-control")).toBe("private, no-cache, max-age=0");
     const body = await second.text();
     expect(body).toContain('rel="preload" as="image"');
-    expect(body).toContain('imageSrcSet="/assets/media/home-hero-480');
+    expect(body).toContain(`imageSrcSet="/${config.assetNamespace}/assets/media/home-hero-480`);
     expect(body).toContain('fetchPriority="high"');
     expect(body).toContain('width="1600" height="900"');
     expect(body).toContain("&quot;publicPath&quot;:&quot;\\/&quot;");
@@ -930,7 +930,9 @@ describe("handler", () => {
     expect(body).toContain("Self-host variable font");
     expect(body).toContain("Çığ, şüphe, özgürlük");
     expect(body).toContain('type="image/avif"');
-    expect(body).toMatch(/src="\/assets\/media\/home-hero-source\.[a-f0-9]+\.svg"/);
+    expect(body).toMatch(
+      new RegExp(`src="/${config.assetNamespace}/assets/media/home-hero-source\\.[a-f0-9]+\\.svg"`),
+    );
   });
 
   it("bypasses cache for uncached routes", async () => {

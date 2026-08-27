@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 async function validateWith(env: Record<string, string | undefined>): Promise<void> {
-  process.env = { ...originalEnv };
+  process.env = { ...originalEnv, ASSET_NAMESPACE: "showroom" };
   if (env.NODE_ENV === "production") {
     delete process.env.VITE_DEV_SERVER_URL;
   }
@@ -96,6 +96,7 @@ describe("server config", () => {
         CACHE_PURGE_SECRET: undefined,
         RELEASE_ID: undefined,
         APP_ID: undefined,
+        ASSET_NAMESPACE: undefined,
       }),
     ).rejects.toThrow("GATEWAY_URL (Upstream the SSR loaders read from");
   });
@@ -294,7 +295,22 @@ describe("server config", () => {
     ).rejects.toThrow("GATEWAY_URL must be an HTTP(S) origin");
     await expect(
       validateWith({ ASSET_CDN_URL: "https://cdn.example/assets?token=secret" }),
-    ).rejects.toThrow("ASSET_CDN_URL must be an HTTP(S) URL");
+    ).rejects.toThrow("ASSET_CDN_URL must be an HTTP(S) origin");
+  });
+
+  it("validates the asset namespace and explicit CDN switch", async () => {
+    await expect(validateWith({ ASSET_NAMESPACE: "Revolt Icons" })).rejects.toThrow(
+      "Invalid ASSET_NAMESPACE",
+    );
+    await expect(
+      validateWith({ ASSET_CDN_ENABLED: "true", ASSET_CDN_URL: undefined }),
+    ).rejects.toThrow("ASSET_CDN_URL is required when ASSET_CDN_ENABLED=true");
+    await expect(validateWith({ ASSET_CDN_ENABLED: "treu" })).rejects.toThrow(
+      "Invalid ASSET_CDN_ENABLED",
+    );
+    await expect(
+      validateWith({ ASSET_CDN_ENABLED: "false", ASSET_CDN_URL: "https://cdn.example.com" }),
+    ).resolves.toBeUndefined();
   });
 
   it("requires HTTPS for a production gateway unless an internal HTTP exception is explicit", async () => {
@@ -390,6 +406,7 @@ describe("server config", () => {
   it("normalizes and permits a bare localhost image CDN for local production containers", async () => {
     process.env = {
       ...originalEnv,
+      ASSET_NAMESPACE: "showroom",
       NODE_ENV: "production",
       CACHE_BACKEND: "redis",
       REDIS_URL: "redis://localhost:6379",

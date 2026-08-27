@@ -1,3 +1,4 @@
+import { config } from "@originloom/core/config";
 import { shouldRunPipeline } from "@originloom/core/middleware/matcher";
 import { describe, expect, it } from "vitest";
 
@@ -5,6 +6,8 @@ describe("shouldRunPipeline", () => {
   it("skips static assets", () => {
     expect(shouldRunPipeline("/assets/entry.client.js")).toBe(false);
     expect(shouldRunPipeline("/public/test.img")).toBe(false);
+    expect(shouldRunPipeline(`/${config.assetNamespace}/assets/entry.client.js`)).toBe(false);
+    expect(shouldRunPipeline(`/${config.assetNamespace}-icons/test.img`)).toBe(false);
     expect(shouldRunPipeline("/favicon.ico")).toBe(false);
   });
 

@@ -49,3 +49,4 @@ sigorta
 # local verification is its own git repository and must never be committed
 # here, nor linted/formatted by the framework's own quality gate.
 /OriginLoomSigorta/
+/Archive/

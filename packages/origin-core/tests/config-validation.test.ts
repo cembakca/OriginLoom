@@ -8,6 +8,7 @@ const productionEnv: NodeJS.ProcessEnv = {
   SITE_URL: "https://example.com",
   RELEASE_ID: "release-2026-08-21",
   APP_ID: "sigorta",
+  ASSET_NAMESPACE: "sigorta",
 };
 
 function productionConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -21,6 +22,7 @@ function productionConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     authRefreshCoordinationPreviousSecret: undefined,
     releaseId: "release-2026-08-21",
     appId: "sigorta",
+    assetNamespace: "sigorta",
     cachePurgeSecret: undefined,
     ...overrides,
   };

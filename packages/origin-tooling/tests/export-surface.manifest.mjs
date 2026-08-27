@@ -102,6 +102,7 @@ export const SHARED_TEMPLATE_SUBPATHS = [
 /** @type {readonly string[]} */
 export const CORE_BLOCKED_SUBPATHS = [
   "app/*",
+  "asset-url",
   "cache/cold-fill",
   "cache/l1-policy",
   "cache/revalidation",

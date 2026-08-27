@@ -1120,7 +1120,8 @@ route'lar bu pipeline'a girmez, oralarda Hono `app.use()` kullanılır. `authori
 
 ### Matcher (3 seviye)
 
-1. **Hono mount** — `/assets/*`, `/healthz`, `/api/*` (internal hariç) pipeline'a girmez
+1. **Hono mount** — `/${ASSET_NAMESPACE}/assets/*`, `/${ASSET_NAMESPACE}-icons/*`, `/healthz`,
+   `/api/*` (internal hariç) pipeline'a girmez
 2. **`shouldRunPipeline(pathname)`** — static extension skip; `/api/internal/*` çalışır
 3. **Middleware `matcher` / `exclude`** — ürün adımı yalnız kendi pattern'lerinde çalışır (`:slug`,
    `:path*`); `exclude` önce bakılır ve matcher'ı yener. Karşılığı olmayan `/api/internal/*` yolları
@@ -1369,40 +1370,51 @@ limitinin yerine geçmez. Stack için 14 günlük retention ve production on-cal
 
 ## Statik asset CDN
 
-Vite build çıktısı (`dist/client/assets/*`) hash'li dosyalardır — uzun süre cache'lenebilir. Prod'da bu dosyaları ayrı bir CDN origin'inden servis etmek için `ASSET_CDN_URL` kullanılır.
+Vite build çıktısı (`dist/client/assets/*`) hash'li dosyalardır — uzun süre cache'lenebilir. Browser
+path'i her ortamda `/${ASSET_NAMESPACE}/assets/*` olur. CDN ancak `ASSET_CDN_ENABLED=true` ile açılır;
+bu durumda `ASSET_CDN_URL` zorunludur.
 
 ### Akış
 
 ```
 pnpm build → dist/client/.vite/manifest.json
        ↓
-readAssets() → assetUrl() ile JS/CSS URL'leri
+readAssets() → clientAssetUrl() ile JS/CSS URL'leri
        ↓
 renderDocument → <link>/<script> href'leri CDN veya origin
        ↓
-CDN (veya origin /assets/*) → Cache-Control: immutable, max-age=31536000
+CDN (veya origin /<namespace>/assets/*) → Cache-Control: immutable, max-age=31536000
 ```
 
-| Dosya                                                  | Rol                                              |
-| ------------------------------------------------------ | ------------------------------------------------ |
-| `packages/origin-core/src/assets.ts`                   | `readAssets()`, `assetUrl()`, `assetCdnOrigin()` |
-| `packages/origin-core/src/document.ts`                 | CDN `preconnect` + manifest URL'leri             |
-| `packages/origin-core/src/middleware/static-assets.ts` | Origin `/assets/*` için immutable header         |
-| `packages/origin-core/src/config.ts`                   | `ASSET_CDN_URL`                                  |
+| Dosya                                                  | Rol                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------ |
+| `packages/origin-core/src/assets.ts`                   | `readAssets()`, `clientAssetUrl()`, `publicAssetUrl()` |
+| `packages/origin-core/src/document.ts`                 | CDN `preconnect` + manifest URL'leri                   |
+| `packages/origin-core/src/middleware/static-assets.ts` | Namespaced origin route cache header'ları              |
+| `packages/origin-core/src/config.ts`                   | Namespace, explicit CDN flag ve CDN origin'i           |
 
 ### Env
 
 ```bash
-# Boş = aynı origin (/assets/entry.*.js)
+ASSET_NAMESPACE=revolt
+ASSET_CDN_ENABLED=true
 ASSET_CDN_URL=https://cdn.hangikredi.com
 ```
 
 - Trailing slash otomatik kesilir.
-- Path yapısı korunur: `https://cdn…/assets/entry.client-abc123.js`
+- Flag kapalıyken URL `/revolt/assets/entry.client-abc123.js` olarak origin'den gelir.
+- Flag açıkken URL `https://cdn…/revolt/assets/entry.client-abc123.js` olur.
 - HTML hâlâ uygulama sunucusundan gelir; yalnızca JS/CSS CDN'e yönlendirilir.
 - `assetCdnOrigin()` → `<link rel="preconnect">` (document head)
 
-**Deploy notu:** CDN bucket'ına `dist/client/assets/` içeriğini build sonrası sync et; manifest ile eşleşen hash'li dosyalar gerekli.
+İşlenmemiş ikonlar `public/revolt-icons/**` altında tutulur; origin'de `/revolt-icons/**`, CDN'de
+aynı anahtarla `revolt-icons/**` olarak sunulur. Query sürümleme yoktur; aynı filename değiştirilirse
+CDN purge gerekir. Görseller server tarafında `<img>`/`<picture>` olarak render edilir, asset çözümü
+client island gerektirmez.
+
+**Deploy notu:** `dist/client/assets/**` içeriğini `revolt/assets/**`, `public/revolt-icons/**`
+içeriğini `revolt-icons/**` anahtarlarına sync et veya origin-pull kullan. Hash'li dosyaların
+`.br`/`.gz` kardeşlerini ve content metadata'sını koru.
 
 ### Responsive image ekleme
 

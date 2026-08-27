@@ -1,8 +1,12 @@
+import { clientAssetPathPrefix, publicAssetPathPrefix } from "../asset-url.js";
+
 /**
  * Level-2 matcher — should the auth/session/redirect pipeline run?
  * Level-1 exclusions (assets, health) are handled in server/index.ts mounts.
  */
 export function shouldRunPipeline(pathname: string): boolean {
+  if (pathname.startsWith(`${clientAssetPathPrefix()}/`)) return false;
+  if (pathname.startsWith(`${publicAssetPathPrefix()}/`)) return false;
   if (pathname.startsWith("/assets/")) return false;
   if (pathname.startsWith("/public/")) return false;
   if (pathname === "/healthz" || pathname === "/readyz" || pathname === "/favicon.ico")

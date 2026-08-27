@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import type { ViteDevServer } from "vite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createDevReloadPlugin } from "../src/vite.js";
+import { createBaseClientViteConfig, createDevReloadPlugin } from "../src/vite.js";
 
 const GENERATION_HEADER = "x-originloom-dev-generation";
 
@@ -65,6 +65,14 @@ describe("createDevReloadPlugin", () => {
 
     await waitFor(() => expect(harness.send).toHaveBeenCalledTimes(1));
     harness.httpServer.emit("close");
+  });
+});
+
+describe("createBaseClientViteConfig", () => {
+  it("emits relocatable client references for runtime CDN namespaces", () => {
+    const config = createBaseClientViteConfig({ entry: "/app/src/entry.client.ts" });
+    expect(config.base).toBe("./");
+    expect(config.build?.outDir).toBe("dist/client");
   });
 });
 

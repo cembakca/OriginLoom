@@ -259,7 +259,8 @@ describe("Hono application integration", () => {
     await writeFile(join(assetsRoot, "entry.js.br"), brotliCompressSync(source));
     const app = appWith([], { staticRoot: root });
 
-    const response = await app.request("http://localhost/assets/entry.js", {
+    const canonicalUrl = `http://localhost/${config.assetNamespace}/assets/entry.js`;
+    const response = await app.request(canonicalUrl, {
       headers: { "accept-encoding": "br, gzip" },
     });
 
@@ -268,9 +269,12 @@ describe("Hono application integration", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     expect(response.headers.get("vary")).toContain("Accept-Encoding");
 
-    const identity = await app.request("http://localhost/assets/entry.js");
+    const identity = await app.request(canonicalUrl);
     expect(identity.headers.get("content-encoding")).toBeNull();
     expect(identity.headers.get("vary")).toContain("Accept-Encoding");
+
+    const legacyAlias = await app.request("http://localhost/assets/entry.js");
+    expect(legacyAlias.status).toBe(200);
   });
 
   it("varies dynamically compressed HTML by Accept-Encoding", async () => {

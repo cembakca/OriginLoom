@@ -79,8 +79,8 @@ Başlıca kapasite grupları:
 - Proxy trust: `TRUST_PROXY`, `TRUSTED_PROXY_HOPS`, `TRUSTED_PROXY_CIDRS`.
 - Middleware: `MAINTENANCE_MODE`, `MAINTENANCE_RETRY_AFTER_SECONDS` (bkz. `docs/middleware.md`).
   Bakım bayrağı her istekte okunur; çalışan deployment'ta değiştirildiğinde rollout beklemez.
-- Delivery: `HTTP_COMPRESSION_THRESHOLD_BYTES`, `ASSET_CDN_URL`, `IMAGE_CDN_URL`,
-  `IMAGE_TRANSFORM_URL`.
+- Delivery: `HTTP_COMPRESSION_THRESHOLD_BYTES`, `ASSET_NAMESPACE`, `ASSET_CDN_ENABLED`,
+  `ASSET_CDN_URL`, `IMAGE_CDN_URL`, `IMAGE_TRANSFORM_URL`.
 - Operations: `METRICS_ENABLED`, `METRICS_PORT`, `CACHE_PURGE_SECRET`.
 - Security/telemetry: `CSP_ENFORCE`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`,
   `LOG_LEVEL`, `LOG_FORMAT`, `REQUEST_LOG_SAMPLE_RATE`.

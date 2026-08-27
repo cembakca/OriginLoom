@@ -11,6 +11,7 @@ import { HTTPException } from "hono/http-exception";
 
 import { flushAfterTasks } from "./after.js";
 import { type Capacity, createSsrDispatch } from "./app/ssr-dispatch.js";
+import { clientAssetPathPrefix, publicAssetPathPrefix } from "./asset-url.js";
 import type { Assets } from "./assets.js";
 import { pingCache } from "./cache/index.js";
 import { resolveTrustedClientIp } from "./client-ip.js";
@@ -63,10 +64,10 @@ export type CreateAppOptions = {
    * a Hono `app.use()` inside `mounts.api`.
    */
   middleware?: readonly OriginMiddleware[];
-  /** Static asset root served under /assets/*. Defaults to the local client build. */
+  /** Static asset root served under /<asset namespace>/assets/*. */
   staticRoot?: string;
   /**
-   * Unprocessed files served under /public/* from the project public directory.
+   * Unprocessed files served under /<asset namespace>-icons/* from public/<namespace>-icons.
    * Defaults to config.publicDir. Set false to disable the mount.
    */
   publicStaticRoot?: string | false;
@@ -219,6 +220,22 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
     await next();
   });
 
+  const clientAssetRoute = `${clientAssetPathPrefix()}/*`;
+  app.use(clientAssetRoute, staticAssetCacheHeaders);
+  app.use(
+    clientAssetRoute,
+    serveStatic({
+      root: options.staticRoot ?? config.clientDistDir,
+      // Strip the namespace, keep `/assets/...` — the root is the client build
+      // and `assets` is a directory inside it. Written as a prefix replacement
+      // rather than an offset so it stays correct if the prefix ever changes
+      // shape.
+      rewriteRequestPath: (path) => path.replace(clientAssetPathPrefix(), "/assets") || "/",
+      precompressed: true,
+    }),
+  );
+
+  // Compatibility alias. Canonical URLs are always namespaced.
   app.use("/assets/*", staticAssetCacheHeaders);
   app.use(
     "/assets/*",
@@ -233,6 +250,16 @@ export function createApp(options: CreateAppOptions): Hono<{ Variables: AppVaria
   const publicStaticRoot =
     options.publicStaticRoot === false ? undefined : (options.publicStaticRoot ?? config.publicDir);
   if (publicStaticRoot) {
+    const publicAssetRoute = `${publicAssetPathPrefix()}/*`;
+    app.use(publicAssetRoute, staticAssetCacheHeaders);
+    app.use(
+      publicAssetRoute,
+      serveStatic({
+        root: publicStaticRoot,
+      }),
+    );
+
+    // Compatibility alias. URL helpers and generated apps never emit it.
     app.use("/public/*", staticAssetCacheHeaders);
     app.use(
       "/public/*",

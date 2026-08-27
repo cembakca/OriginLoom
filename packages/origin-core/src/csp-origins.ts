@@ -4,13 +4,18 @@ export type CspSourceOrigins = {
 };
 
 export function resolveCspSourceOrigins(input: {
+  assetCdnEnabled: boolean;
   assetCdnUrl: string | undefined;
   imageCdnUrl: string | undefined;
   imageTransformUrl: string | undefined;
 }): CspSourceOrigins {
   return {
-    asset: uniqueOrigins([input.assetCdnUrl]),
-    image: uniqueOrigins([input.assetCdnUrl, input.imageCdnUrl, input.imageTransformUrl]),
+    asset: uniqueOrigins([input.assetCdnEnabled ? input.assetCdnUrl : undefined]),
+    image: uniqueOrigins([
+      input.assetCdnEnabled ? input.assetCdnUrl : undefined,
+      input.imageCdnUrl,
+      input.imageTransformUrl,
+    ]),
   };
 }
 

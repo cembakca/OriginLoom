@@ -24,6 +24,11 @@ export default tseslint.config(
       // A consumer app cloned inside this repo for local verification owns its
       // own eslint config; linting it from here reports its rules as our failures.
       "OriginLoomSigorta/**",
+      // Reference copies of the legacy Next.js products, kept only to port pages
+      // from. They are not ours to lint — and until they were ignored they made
+      // `pnpm lint` unusable, which is how an import ended up below a function
+      // body in origin-core without anyone noticing.
+      "Archive/**",
     ],
   },
   eslint.configs.recommended,

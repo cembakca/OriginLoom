@@ -105,6 +105,19 @@ export function validateAppConfig(config: AppConfig, env: NodeJS.ProcessEnv): vo
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(config.appId)) {
     throw new Error(`Invalid APP_ID: ${config.appId}`);
   }
+  if (
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(config.assetNamespace) ||
+    config.assetNamespace.length > 64
+  ) {
+    throw new Error(`Invalid ASSET_NAMESPACE: ${config.assetNamespace}`);
+  }
+  const assetCdnEnabled = env.ASSET_CDN_ENABLED?.trim().toLowerCase();
+  if (assetCdnEnabled && !["true", "false", "1", "0"].includes(assetCdnEnabled)) {
+    throw new Error(`Invalid ASSET_CDN_ENABLED: ${env.ASSET_CDN_ENABLED}`);
+  }
+  if (config.assetCdnEnabled && !config.assetCdnUrl) {
+    throw new Error("ASSET_CDN_URL is required when ASSET_CDN_ENABLED=true");
+  }
 
   validatePublicUrls(config);
 
@@ -320,10 +333,13 @@ function validatePublicUrls(config: AppConfig): void {
       !["http:", "https:"].includes(assetUrl.protocol) ||
       assetUrl.username ||
       assetUrl.password ||
+      (assetUrl.pathname !== "" && assetUrl.pathname !== "/") ||
       assetUrl.search ||
       assetUrl.hash
     ) {
-      throw new Error("ASSET_CDN_URL must be an HTTP(S) URL without credentials, query or hash");
+      throw new Error(
+        "ASSET_CDN_URL must be an HTTP(S) origin without path, credentials, query or hash",
+      );
     }
     requireProductionHttps("ASSET_CDN_URL", assetUrl, config.isProduction);
   }

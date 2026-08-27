@@ -1,3 +1,5 @@
+import { publicAssetUrl } from "@originloom/core/assets";
+import { config } from "@originloom/core/config";
 import {
   buildImageCdnUrl,
   createCdnImage,
@@ -71,5 +73,15 @@ describe("responsive media", () => {
     expect(prefixMediaUrl("https://vendor.example.com/hero.jpg", "https://cdn.example.com")).toBe(
       "https://vendor.example.com/hero.jpg",
     );
+  });
+
+  it("renders namespaced public images as plain SSR markup without an island", () => {
+    const html = renderToStaticMarkup(
+      <img src={publicAssetUrl("icons/card.svg")} width={24} height={24} alt="Card" />,
+    );
+
+    expect(html).toContain(`src="/${config.assetNamespace}-icons/icons/card.svg"`);
+    expect(html).not.toContain("data-island");
+    expect(html).not.toContain("<script");
   });
 });

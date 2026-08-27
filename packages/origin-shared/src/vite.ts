@@ -83,6 +83,9 @@ export function createBaseClientViteConfig(options: BaseClientViteConfigOptions)
   const host = options.devServer?.host ?? "127.0.0.1";
   return {
     appType: "custom",
+    // The server chooses the canonical namespace/CDN at runtime. Relative build
+    // references keep lazy chunks, workers and CSS assets beside the entry URL.
+    base: "./",
     plugins: [
       ...(options.plugins ?? []),
       ...(options.reload ? [createDevReloadPlugin(options.reload)] : []),

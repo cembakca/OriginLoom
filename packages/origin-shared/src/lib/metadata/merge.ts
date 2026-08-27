@@ -48,6 +48,7 @@ export function mergeMetadata(page: PageMetadata | undefined, ctx: Ctx): Resolve
       icon: pageMeta.icons?.icon ?? site.icons.icon,
       apple: pageMeta.icons?.apple ?? site.icons.apple,
     }),
+    ...(site.organizationLogo ? { organizationLogo: site.organizationLogo } : {}),
     verification: pageMeta.verification ?? {},
     pagination: resolvePagination(pageMeta, base),
     languageAlternates: resolveLanguageAlternates(pageMeta, base),

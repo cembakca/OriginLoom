@@ -43,6 +43,7 @@ export const SHARED_ALIASES_MIGRATION = "0.7.58-shared-aliases";
 export const APP_ID_MIGRATION = "0.7.62-app-id";
 export const NAMESPACES_GUIDE_MIGRATION = "0.7.64-namespaces-guide";
 export const SECRET_ROTATION_MIGRATION = "0.7.67-secret-rotation";
+export const NAMESPACED_ASSETS_MIGRATION = "0.7.68-namespaced-assets";
 export const WASM_RUNTIME_PIN_MIGRATION = "0.7.58-wasm-runtime-pin";
 
 const VIEW_TRANSITION_CSS = `
@@ -57,6 +58,24 @@ function migrationAsset(name) {
     fileURLToPath(new URL(`../create-app/assets/${name}`, import.meta.url)),
     "utf8",
   );
+}
+
+function inferAssetNamespace(root) {
+  const developmentEnv = join(root, ".env.development");
+  if (existsSync(developmentEnv)) {
+    const source = readFileSync(developmentEnv, "utf8");
+    const configured = /^ASSET_NAMESPACE=([^\s#]+)$/m.exec(source)?.[1];
+    if (configured && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(configured)) return configured;
+    const appId = /^APP_ID=([^\s#]+)$/m.exec(source)?.[1];
+    if (appId && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(appId)) return appId;
+  }
+  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const packageName = String(manifest.name ?? "origin-loom").replace(/^@[^/]+\//, "");
+  const normalized = packageName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized || "origin-loom";
 }
 
 export const migrations = [
@@ -203,6 +222,60 @@ export const migrations = [
         kind: "patch",
         detail: "Runner aşamasına public/ kopyası eklendi.",
       });
+    },
+  },
+  {
+    id: NAMESPACED_ASSETS_MIGRATION,
+    introducedIn: "0.7.68",
+    description:
+      "Adds ASSET_NAMESPACE/ASSET_CDN_ENABLED and the canonical public/<namespace>-icons directory.",
+    migrateProject(root, changes, fileWrites) {
+      const namespace = inferAssetNamespace(root);
+      for (const envFile of globSync(".env.*", { cwd: root })) {
+        if (envFile.includes(".local")) continue;
+        const absolute = join(root, envFile);
+        const source = readFileSync(absolute, "utf8");
+        const additions = [];
+        if (!/^ASSET_NAMESPACE=/m.test(source)) additions.push(`ASSET_NAMESPACE=${namespace}`);
+        if (!/^ASSET_CDN_ENABLED=/m.test(source)) additions.push("ASSET_CDN_ENABLED=false");
+        if (!/^[# ]*ASSET_CDN_URL=/m.test(source)) {
+          additions.push("# ASSET_CDN_URL=https://cdn.example.com");
+        }
+        if (additions.length === 0) continue;
+        const block = additions.join("\n");
+        const next = /^APP_ID=.*$/m.test(source)
+          ? source.replace(/^APP_ID=.*$/m, (line) => `${line}\n\n${block}`)
+          : `${source.trimEnd()}\n\n${block}\n`;
+        fileWrites[envFile] = next;
+        changes.push({
+          file: envFile,
+          kind: "patch",
+          detail: `Asset namespace ve explicit CDN flag'i eklendi (${namespace}).`,
+        });
+      }
+
+      const iconRoot = `public/${namespace}-icons`;
+      const readmePath = `${iconRoot}/README.md`;
+      const testPath = `${iconRoot}/test.img`;
+      if (!existsSync(join(root, readmePath))) {
+        fileWrites[readmePath] = migrationAsset("public/README.md").replaceAll(
+          "{{ASSET_NAMESPACE}}",
+          namespace,
+        );
+        changes.push({
+          file: readmePath,
+          kind: "add",
+          detail: `Canonical /${namespace}-icons/* public dizini eklendi.`,
+        });
+      }
+      if (!existsSync(join(root, testPath))) {
+        fileWrites[testPath] = migrationAsset("public/test.img");
+        changes.push({
+          file: testPath,
+          kind: "add",
+          detail: "Namespaced static route doğrulama dosyası eklendi.",
+        });
+      }
     },
   },
   {

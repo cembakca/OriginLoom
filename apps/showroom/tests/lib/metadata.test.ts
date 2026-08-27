@@ -1,3 +1,4 @@
+import { config } from "@originloom/core/config";
 import type { Ctx } from "@originloom/react/lib/types";
 import {
   generateMetaDataForPageWithSeoInfo,
@@ -115,6 +116,26 @@ describe("metadata merge", () => {
     ]);
   });
 
+  /**
+   * The Organization logo used to be a literal the platform wrote itself —
+   * `${base}/assets/media/brand-logo-512.png`. That resolved only through the
+   * legacy compatibility route, never reached the asset CDN, and named a file
+   * the media pipeline now content-hashes. The app supplies it instead.
+   */
+  it("takes the Organization logo from the app rather than guessing a path", () => {
+    const organization = mergeMetadata({ title: "Hangikredi" }, ctx("/")).structuredData.find(
+      (node) => node["@type"] === "Organization",
+    );
+    const logo = organization?.logo as Record<string, unknown> | undefined;
+
+    expect(logo?.url).toMatch(
+      new RegExp(
+        `^http://localhost:3005/${config.assetNamespace}/assets/media/brand-logo-512\\.[0-9a-f]{12}\\.png$`,
+      ),
+    );
+    expect(logo).toMatchObject({ width: 512, height: 512 });
+  });
+
   it("does not let canonical or og:url escape the configured site origin", () => {
     const resolved = mergeMetadata(
       {
@@ -126,7 +147,11 @@ describe("metadata merge", () => {
 
     expect(resolved.canonical).toBe("http://localhost:3005/safe-page");
     expect(resolved.openGraph.url).toBe("http://localhost:3005/safe-page");
-    expect(resolved.openGraph.image).toBe("http://localhost:3005/assets/media/og-default.jpg");
+    expect(resolved.openGraph.image).toMatch(
+      new RegExp(
+        `^http://localhost:3005/${config.assetNamespace}/assets/media/og-default\\.[0-9a-f]{12}\\.jpg$`,
+      ),
+    );
   });
 });
 

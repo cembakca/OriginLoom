@@ -3,9 +3,11 @@ import { join } from "node:path";
 
 import type { Assets } from "@originloom/shared/assets";
 
+import { clientAssetUrl } from "./asset-url.js";
 import { config } from "./config.js";
 import { readFontAssets } from "./media.js";
 
+export { assetUrl, clientAssetUrl, publicAssetUrl } from "./asset-url.js";
 export type { Assets } from "@originloom/shared/assets";
 
 export type ManifestChunk = {
@@ -41,13 +43,6 @@ const DEFAULT_CLIENT_ENTRY = "/src/entry.client.tsx";
 const DEFAULT_DEV_STYLESHEETS = ["/src/styles/globals.css"];
 
 const DEFAULT_ISLAND_SOURCE_PREFIX = "src/islands/";
-
-/** Mantıksal asset path → CDN veya origin URL. */
-export function assetUrl(path: string): string {
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  const base = config.assetCdnUrl?.replace(/\/$/, "");
-  return base ? `${base}${normalized}` : normalized;
-}
 
 /**
  * In dev the entry is fetched from the Vite server, so a wrong path 404s and the
@@ -97,14 +92,14 @@ export function readAssets(options: AssetsOptions = {}): Assets {
   });
 
   return {
-    js: assetUrl(`/${resolved.entry.file}`),
-    css: (resolved.entry.css ?? []).map((file) => assetUrl(`/${file}`)),
+    js: clientAssetUrl(resolved.entry.file),
+    css: (resolved.entry.css ?? []).map((file) => clientAssetUrl(file)),
     fonts: readFontAssets(),
-    modulePreloads: resolved.modulePreloadFiles.map((file) => assetUrl(`/${file}`)),
+    modulePreloads: resolved.modulePreloadFiles.map((file) => clientAssetUrl(file)),
     islandModulePreloads: Object.fromEntries(
       Object.entries(resolved.islandModulePreloadFiles).map(([name, files]) => [
         name,
-        files.map((file) => assetUrl(`/${file}`)),
+        files.map((file) => clientAssetUrl(file)),
       ]),
     ),
   };
@@ -182,7 +177,7 @@ function islandManifestKey(
 
 /** CDN origin — preconnect için (ör. https://cdn.hangikredi.com). */
 export function assetCdnOrigin(): string | null {
-  if (!config.assetCdnUrl) return null;
+  if (!config.assetCdnEnabled || !config.assetCdnUrl) return null;
   try {
     return new URL(config.assetCdnUrl).origin;
   } catch {

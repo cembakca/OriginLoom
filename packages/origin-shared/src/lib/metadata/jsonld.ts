@@ -23,12 +23,19 @@ export function baseStructuredData(
       "@id": organizationId,
       name: meta.siteName,
       url: `${base}/`,
-      logo: {
-        "@type": "ImageObject",
-        url: `${base}/assets/media/brand-logo-512.png`,
-        width: 512,
-        height: 512,
-      },
+      // Omitted rather than guessed. The brand mark is content-hashed by the
+      // media pipeline, so there is no filename the platform can write down —
+      // apps pass the resolved URL through `organizationLogo`.
+      ...(meta.organizationLogo
+        ? {
+            logo: {
+              "@type": "ImageObject",
+              url: normalizeMetadataImageUrl(meta.organizationLogo.url, base) ?? undefined,
+              width: meta.organizationLogo.width,
+              height: meta.organizationLogo.height,
+            },
+          }
+        : {}),
     },
     {
       "@type": "WebSite",

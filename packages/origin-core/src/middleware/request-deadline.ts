@@ -3,6 +3,7 @@ import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { timeout } from "hono/timeout";
 
+import { clientAssetPathPrefix, publicAssetPathPrefix } from "../asset-url.js";
 import { config } from "../config.js";
 import { observeRequestTimeout } from "../metrics.js";
 import type { AppVariables, RequestClass } from "./context.js";
@@ -113,7 +114,12 @@ function timeoutFor(requestClass: RequestClass): number {
 
 function skipDeadline(route: string, method: string): boolean {
   return (
-    method === "GET" && (route === "<health>" || route === "/assets/*" || route === "/public/*")
+    method === "GET" &&
+    (route === "<health>" ||
+      route === `${clientAssetPathPrefix()}/*` ||
+      route === `${publicAssetPathPrefix()}/*` ||
+      route === "/assets/*" ||
+      route === "/public/*")
   );
 }
 

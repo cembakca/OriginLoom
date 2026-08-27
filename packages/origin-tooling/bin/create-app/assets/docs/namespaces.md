@@ -3,14 +3,15 @@
 Ortak bir Redis cluster'ında birden fazla OriginLoom ürünü çalışabilir. Bu belge, hangi verinin
 neyle ayrıldığını ve **neden** öyle ayrıldığını anlatır.
 
-Kısa cevap iki değişken:
+Runtime state için iki, browser asset path'leri için ayrı bir sabit kimlik kullanılır:
 
-| Değişken     | Ne zaman değişir  | Neyi ayırır                                         |
-| ------------ | ----------------- | --------------------------------------------------- |
-| `RELEASE_ID` | **her deploy'da** | Cache: render edilmiş HTML, fragment, resource      |
-| `APP_ID`     | **hiçbir zaman**  | Koordinasyon: idempotency, auth refresh, rate limit |
+| Değişken          | Ne zaman değişir  | Neyi ayırır                                         |
+| ----------------- | ----------------- | --------------------------------------------------- |
+| `RELEASE_ID`      | **her deploy'da** | Cache: render edilmiş HTML, fragment, resource      |
+| `APP_ID`          | **hiçbir zaman**  | Koordinasyon: idempotency, auth refresh, rate limit |
+| `ASSET_NAMESPACE` | **hiçbir zaman**  | URL: `<namespace>-icons/*`, `<namespace>/assets/*`  |
 
-İkisi de production'da zorunlu. Eksikse ya da `APP_ID` platform varsayılanı (`origin-loom`) olarak
+Üçü de production'da zorunlu. Eksikse ya da `APP_ID` platform varsayılanı (`origin-loom`) olarak
 kalmışsa uygulama **boot etmeyi reddeder**.
 
 ---
@@ -93,6 +94,8 @@ değişken olarak verilmelidir.
   DB index'ine gitmeli, aynı cluster'da isimle ayrılmamalı.
 - `RELEASE_ID`: build/deploy kimliği — CI'ın verdiği commit sha'sı ya da build numarası. Aynı
   release'in **bütün** pod'ları aynı değeri kullanmalı.
+- `ASSET_NAMESPACE`: CDN ve origin üzerindeki sabit, küçük harfli URL slug'ı — örneğin `revolt`.
+  `APP_ID`'den türetilmez; uygulama yeniden adlandırılsa bile mevcut CDN anahtarları değişmez.
 
 `APP_ID` değiştirmek, o uygulamanın bütün koordinasyon durumunu terk etmek demektir: uçuştaki
 idempotency kayıtları ve rate limit pencereleri görünmez olur. Kısa TTL'li oldukları için kendi

@@ -35,8 +35,8 @@ gereken istekler için `AbortController`, birleşik signal ve yeni `Request` olu
 yolları bounded olduğundan ham request ile devam eder:
 
 - `/healthz` ve `/readyz`;
-- `/assets/*`;
-- `/public/*` (proje kökündeki `public/` klasörü);
+- `/${ASSET_NAMESPACE}/assets/*`;
+- `/${ASSET_NAMESPACE}-icons/*` (`public/${ASSET_NAMESPACE}-icons/` klasörü);
 - uygulamanın `longLivedRoutes` listesine açıkça eklediği SSE/long-poll endpoint'leri.
 
 Loader ve servislerde her zaman `ctx.request.signal` kullanın. Global veya orijinal Node request'ine
@@ -186,10 +186,17 @@ shared cache'e sıkıştırılmış HTML yazmak doğru değildir.
 
 ## 15. Static asset ve CDN teslimi
 
-`dist/client/assets/*` hash'li, bir yıl immutable cache'lidir. `ASSET_CDN_URL` verildiğinde manifest JS,
-CSS, font, media ve modulepreload URL'leri CDN'e yönelir; document head CDN origin'i için preconnect
-üretir ve CSP allowlist otomatik genişler. CDN'e hem kaynak dosyaları hem `.br`/`.gz` kardeşlerini aynı
-path altında yükleyin ve `Content-Encoding`, `Content-Type`, `Vary` metadata'sını koruyun.
+`dist/client/assets/*` hash'li, bir yıl immutable cache'lidir ve tarayıcıda
+`/${ASSET_NAMESPACE}/assets/*` altında görünür. `ASSET_CDN_ENABLED=true` olduğunda
+`ASSET_CDN_URL` zorunludur; manifest JS, CSS, font, media ve modulepreload URL'leri CDN'e yönelir,
+document head preconnect üretir ve CSP allowlist otomatik genişler. CDN'e `dist/client/assets/**`
+dosyalarını `${ASSET_NAMESPACE}/assets/**` anahtarlarıyla, `.br`/`.gz` kardeşleri ve doğru
+`Content-Encoding`, `Content-Type`, `Vary` metadata'sıyla yükleyin veya origin-pull kullanın.
+
+İşlenmemiş ikonlar `public/${ASSET_NAMESPACE}-icons/**` altında tutulur ve aynı isimle CDN'deki
+`${ASSET_NAMESPACE}-icons/**` anahtarlarına karşılık gelir. Bu dosyalar query ile sürümlenmez;
+aynı isimle değiştirilirlerse CDN purge gerekir. Görsel URL'leri server tarafında çözülür;
+`ResponsiveImage` ve `UnoptimizedImage` hydration veya client-only island oluşturmaz.
 
 Media pipeline hero/LCP görselini bounded responsive AVIF/WebP/JPEG adaylarına dönüştürür; fontlar
 WOFF2 subset ve yalnız gerçekten kritikse preload edilir. `readAssets({ eagerIslands })` listesine

@@ -286,10 +286,15 @@ describe("renderTemplates — shared shape", () => {
   it("points the icons at assets the media pipeline actually produces", () => {
     {
       const defaults = standalone()["src/lib/metadata/site-defaults.ts"];
-      // A dangling /favicon.ico is a 404 in the console of every generated app:
-      // nothing serves it, and only /assets/* is served statically.
+      // A dangling /favicon.ico is a 404 in the console of every generated app.
       expect(defaults).not.toContain("/favicon.ico");
-      expect(defaults).toContain("/assets/media/favicon-32.png");
+      // Read from the manifest, never spelled out: these four are content-hashed
+      // and served immutable for a year, so a literal filename would pin every
+      // generated app to whatever picture it shipped with.
+      expect(defaults).toContain('import { seoAssets } from "@originloom/core/media"');
+      expect(defaults).toContain("icon: seo.favicon.src");
+      expect(defaults).toContain("apple: seo.appleTouchIcon.src");
+      expect(defaults).not.toMatch(/assets\/media\/[a-z0-9-]+\.(png|jpg)/);
     }
   });
 });
@@ -1419,10 +1424,12 @@ describe("renderTemplates — product config, public API and media", () => {
     expect(JSON.parse(files["package.json"]).scripts.media).toBe("origin-build-media");
   });
 
-  it.each(modes)("%s: ships a public folder served under /public/*", (_name, files) => {
-    expect(files).toHaveProperty(["public/README.md"]);
-    expect(files).toHaveProperty(["public/test.img"]);
-    expect(files["public/README.md"]).toContain("/public/*");
+  it.each(modes)("%s: ships a namespaced public icon folder", (_name, files) => {
+    expect(files).toHaveProperty(["public/investment-web-icons/README.md"]);
+    expect(files).toHaveProperty(["public/investment-web-icons/test.img"]);
+    expect(files["public/investment-web-icons/README.md"]).toContain("/investment-web-icons/*");
+    expect(files[".env.development"]).toContain("ASSET_NAMESPACE=investment-web");
+    expect(files[".env.development"]).toContain("ASSET_CDN_ENABLED=false");
   });
 
   it("ships icon codegen with the transformer left in the tooling that runs it", () => {

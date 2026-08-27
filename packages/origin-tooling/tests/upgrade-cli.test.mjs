@@ -97,6 +97,9 @@ describe("origin-migrate", () => {
     expect(metadata.appliedMigrations).toContain("0.7.12-hono-ssr-security");
     expect(metadata.appliedMigrations).toContain("0.7.14-public-static");
     expect(metadata.appliedMigrations).toContain("0.7.14-scaffold-gateway");
+    expect(metadata.appliedMigrations).toContain("0.7.68-namespaced-assets");
+    expect(existsSync(join(root, "public/upgrade-fixture-icons/README.md"))).toBe(true);
+    expect(existsSync(join(root, "public/upgrade-fixture-icons/test.img"))).toBe(true);
     expect(metadata.appliedMigrations).toContain("0.7.15-navigation-paint");
     expect(metadata.appliedMigrations).toContain("0.7.16-ssr-capacity");
     expect(metadata.appliedMigrations).toContain("0.7.17-dev-experience");
@@ -619,6 +622,7 @@ function project({ version, metadata }) {
                   "0.7.62-app-id",
                   "0.7.64-namespaces-guide",
                   "0.7.67-secret-rotation",
+                  "0.7.68-namespaced-assets",
                 ]
               : []),
           ],

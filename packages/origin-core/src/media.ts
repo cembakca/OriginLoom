@@ -11,6 +11,7 @@ import {
   type UnoptimizedImageData,
 } from "@originloom/shared/lib/media";
 
+import { clientAssetUrl } from "./asset-url.js";
 import { config } from "./config.js";
 
 function mediaManifestPath(): string {
@@ -28,10 +29,25 @@ type ImageManifestEntry = {
   variants: Record<ImageFormat, ImageCandidate[]>;
 };
 
+/** One of the four fixed-purpose SEO images, content-hashed by the media build. */
+export type SeoAsset = {
+  src: string;
+  width: number;
+  height: number;
+};
+
+export type SeoAssets = {
+  openGraph: SeoAsset;
+  brandLogo: SeoAsset;
+  appleTouchIcon: SeoAsset;
+  favicon: SeoAsset;
+};
+
 type MediaManifest = {
   version: 1;
   images: Record<string, ImageManifestEntry>;
   fonts: FontAsset[];
+  seo: SeoAssets;
 };
 
 let cachedManifest: MediaManifest | undefined;
@@ -40,6 +56,28 @@ export function readFontAssets(): FontAsset[] {
   // Apps without a media pipeline ship no self-hosted fonts.
   const manifest = tryReadMediaManifest();
   return (manifest?.fonts ?? []).map((font) => ({ ...font, href: fontAssetUrl(font.href) }));
+}
+
+/**
+ * The favicon, apple-touch icon, OG image and organization logo.
+ *
+ * Read from the manifest rather than written out as paths: these files are
+ * content-hashed, so a literal would be wrong the first time the source image
+ * changed — and they live under the immutable client-asset namespace, where a
+ * stale URL is stale for a year.
+ */
+export function seoAssets(): SeoAssets {
+  const manifest = readMediaManifest();
+  return {
+    openGraph: seoAsset(manifest.seo.openGraph),
+    brandLogo: seoAsset(manifest.seo.brandLogo),
+    appleTouchIcon: seoAsset(manifest.seo.appleTouchIcon),
+    favicon: seoAsset(manifest.seo.favicon),
+  };
+}
+
+function seoAsset(asset: SeoAsset): SeoAsset {
+  return { ...asset, src: imageAssetUrl(asset.src) };
 }
 
 export function imageCdnOrigins(): string[] {
@@ -113,15 +151,14 @@ function readMediaManifest(): MediaManifest {
 }
 
 function fontAssetUrl(path: string): string {
-  const base = config.assetCdnUrl?.replace(/\/$/, "");
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return base ? `${base}${normalized}` : normalized;
+  return clientAssetUrl(path);
 }
 
 function imageAssetUrl(path: string): string {
-  const base = (config.imageCdnUrl ?? config.assetCdnUrl)?.replace(/\/$/, "");
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return base ? `${base}${normalized}` : normalized;
+  const localOrAssetCdn = clientAssetUrl(path);
+  if (!config.imageCdnUrl) return localOrAssetCdn;
+  const namespacedPath = new URL(localOrAssetCdn, config.siteUrl).pathname;
+  return `${config.imageCdnUrl.replace(/\/$/, "")}${namespacedPath}`;
 }
 
 function absoluteAssetUrl(path: string): string {
@@ -133,12 +170,28 @@ function isMediaManifest(value: unknown): value is MediaManifest {
   const manifest = value as Record<string, unknown>;
   return (
     manifest.version === 1 &&
+    isSeoAssets(manifest.seo) &&
     Array.isArray(manifest.fonts) &&
     manifest.fonts.every(isFontAsset) &&
     Boolean(manifest.images) &&
     typeof manifest.images === "object" &&
     Object.values(manifest.images as Record<string, unknown>).every(isImageEntry)
   );
+}
+
+function isSeoAssets(value: unknown): value is SeoAssets {
+  if (!value || typeof value !== "object") return false;
+  const seo = value as Record<string, unknown>;
+  return ["openGraph", "brandLogo", "appleTouchIcon", "favicon"].every((key) => {
+    const asset = seo[key];
+    if (!asset || typeof asset !== "object") return false;
+    const entry = asset as Record<string, unknown>;
+    return (
+      typeof entry.src === "string" &&
+      typeof entry.width === "number" &&
+      typeof entry.height === "number"
+    );
+  });
 }
 
 function isFontAsset(value: unknown): value is FontAsset {

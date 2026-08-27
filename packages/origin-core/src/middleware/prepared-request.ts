@@ -3,6 +3,7 @@ import type { Route } from "@originloom/shared/lib/types";
 import { normalizePublicUrl, resolveRoute } from "@originloom/shared/routing";
 import type { RouteResolution } from "@originloom/shared/routing/types";
 
+import { clientAssetPathPrefix, publicAssetPathPrefix } from "../asset-url.js";
 import { config } from "../config.js";
 import type { RequestClass } from "./context.js";
 
@@ -63,6 +64,8 @@ function preparedRouteLabel(
 }
 
 function infrastructureRoute(pathname: string): string {
+  if (pathname.startsWith(`${clientAssetPathPrefix()}/`)) return `${clientAssetPathPrefix()}/*`;
+  if (pathname.startsWith(`${publicAssetPathPrefix()}/`)) return `${publicAssetPathPrefix()}/*`;
   if (pathname.startsWith("/assets/")) return "/assets/*";
   if (pathname.startsWith("/public/")) return "/public/*";
   if (pathname === "/healthz" || pathname === "/readyz") return "<health>";

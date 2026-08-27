@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,8 +55,11 @@ describe("media watch", { timeout: 30_000 }, () => {
     writeFileSync(source, svg("#2563eb"));
     await waitForOutput(child, "[media:watch] regenerated (source:brand.svg)");
 
-    expect(existsSync(join(root, "dist/client/assets/media/og-default.jpg"))).toBe(true);
-    expect(existsSync(join(root, "dist/client/assets/media/favicon-32.png"))).toBe(true);
+    // Content-hashed, so the names are matched by shape rather than spelled out —
+    // spelling them out is what made these four assets uncacheable.
+    const produced = readdirSync(join(root, "dist/client/assets/media"));
+    expect(produced.some((file) => /^og-default\.[0-9a-f]{12}\.jpg$/.test(file))).toBe(true);
+    expect(produced.some((file) => /^favicon-32\.[0-9a-f]{12}\.png$/.test(file))).toBe(true);
   });
 });
 

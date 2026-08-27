@@ -97,6 +97,15 @@ export type SiteMetadataConfig = {
   };
   robots: { index: boolean; follow: boolean };
   icons: { icon: string; apple?: string };
+  /**
+   * Organization logo for JSON-LD.
+   *
+   * Supplied by the app because only the app knows where its brand mark ended
+   * up: the media pipeline content-hashes it, so the platform cannot name the
+   * file. It used to be written here as a literal path, which resolved through
+   * a compatibility route and never reached the asset CDN.
+   */
+  organizationLogo?: { url: string; width: number; height: number };
   formatDetection?: { telephone?: boolean };
 };
 
@@ -115,6 +124,7 @@ export type ResolvedMetadata = {
   twitter: Required<Pick<NonNullable<PageMetadata["twitter"]>, "card" | "title" | "description">> &
     NonNullable<PageMetadata["twitter"]>;
   icons: { icon: string; apple?: string };
+  organizationLogo?: { url: string; width: number; height: number };
   verification: Record<string, string>;
   pagination: { previous?: string; next?: string };
   languageAlternates: Record<string, string>;

@@ -125,8 +125,11 @@ export function renderTemplates({
     "vite.config.ts": viteConfig(vitePort),
     "tailwind.config.js": tailwindConfig(),
     "vite.server.config.ts": viteServerConfig(),
-    "public/README.md": asset("public/README.md"),
-    "public/test.img": asset("public/test.img"),
+    [`public/${name}-icons/README.md`]: asset("public/README.md").replaceAll(
+      "{{ASSET_NAMESPACE}}",
+      name,
+    ),
+    [`public/${name}-icons/test.img`]: asset("public/test.img"),
     "vitest.config.ts": vitestConfig(name),
     "playwright.config.ts": playwrightConfig(name, port, metricsPort),
     ".env.development": envDevelopment(name, port, metricsPort, vitePort, true),
@@ -1205,6 +1208,11 @@ VITE_DEV_SERVER_URL=http://127.0.0.1:${vitePort}
 # to survive a rolling deploy. Required in production. See docs/namespaces.md.
 APP_ID=${name}
 
+# Stable browser path: /${name}-icons/* and /${name}/assets/* in every environment.
+ASSET_NAMESPACE=${name}
+ASSET_CDN_ENABLED=false
+# ASSET_CDN_URL=https://cdn.example.com
+
 # L1-only cache; no Redis needed for local development.
 CACHE_BACKEND=memory
 CACHE_REQUIRED=false
@@ -1300,10 +1308,10 @@ ${includeLiveStream ? menuCacheEnv + liveStreamEnv + botAnalyticsEnv : ""}
 # gateway plays that part so the chain really runs; point this at your vendor.
 ANALYTICS_VENDOR_URL=http://127.0.0.1:4002/vendor/consent.js
 
-# Serving images and assets from a CDN. With IMAGE_TRANSFORM_URL set,
+# Serving responsive images from a CDN. Static asset CDN settings live beside
+# ASSET_NAMESPACE above. With IMAGE_TRANSFORM_URL set,
 # responsiveImage() rewrites its candidates through it and the pages do not
 # change at all; the CSP img-src picks up these origins on its own.
-# ASSET_CDN_URL=https://cdn.example.com
 # IMAGE_CDN_URL=https://images.example.com
 # IMAGE_TRANSFORM_URL=https://images.example.com/transform
 
@@ -1321,7 +1329,8 @@ PORT=${port}
 METRICS_PORT=${metricsPort}
 
 # Required in production — set these from your secret manager / deployment env:
-#   SITE_URL, GATEWAY_URL, RELEASE_ID, APP_ID, AUTH_REFRESH_COORDINATION_SECRET
+#   SITE_URL, GATEWAY_URL, RELEASE_ID, APP_ID, ASSET_NAMESPACE,
+#   AUTH_REFRESH_COORDINATION_SECRET
 #
 # Every signing secret has a PREVIOUS twin (PREVIEW_PREVIOUS_SECRET and friends)
 # used only while rotating: set the new value as the secret and the old one as
@@ -1339,6 +1348,11 @@ METRICS_PORT=${metricsPort}
 #               the same Redis.
 # See docs/namespaces.md.
 APP_ID=${name}
+
+# Stable browser path: /${name}-icons/* and /${name}/assets/*.
+ASSET_NAMESPACE=${name}
+ASSET_CDN_ENABLED=false
+# ASSET_CDN_URL=https://cdn.example.com
 
 # This app's own required setting, checked by validateProductConfig() at startup:
 # with it missing the server refuses to boot rather than serving pages that
@@ -7933,12 +7947,15 @@ export function isKnownPageCachePrefix(prefix: string): prefix is PageCacheId {
 }
 `;
 
-const siteDefaults = (
-  title,
-) => `import type { SiteMetadataConfig } from "@originloom/shared/lib/metadata/types";
+const siteDefaults = (title) => `import { seoAssets } from "@originloom/core/media";
+import type { SiteMetadataConfig } from "@originloom/shared/lib/metadata/types";
 
 /** Static site identity — the metadata engine merges route metadata on top of this. */
 export function siteMetadata(baseUrl: string): SiteMetadataConfig {
+  // Read from the media manifest, never written out as a path: \`pnpm media\`
+  // content-hashes these four, and they are served with a one-year immutable
+  // cache — a hard-coded filename would be stale the first time you replace one.
+  const seo = seoAssets();
   return {
     applicationName: "${title}",
     title: {
@@ -7951,14 +7968,20 @@ export function siteMetadata(baseUrl: string): SiteMetadataConfig {
       siteName: "${title}",
       type: "website",
       locale: "tr_TR",
-      defaultImage: \`\${baseUrl}/assets/media/og-default.jpg\`,
+      defaultImage: new URL(seo.openGraph.src, baseUrl).toString(),
     },
     twitter: { card: "summary_large_image" },
     robots: { index: true, follow: true },
-    // Both are produced by \`pnpm media\` from server/media.config.json.
     icons: {
-      icon: "/assets/media/favicon-32.png",
-      apple: "/assets/media/apple-touch-icon.png",
+      icon: seo.favicon.src,
+      apple: seo.appleTouchIcon.src,
+    },
+    // JSON-LD Organization logo. The platform cannot name this file, so the app
+    // hands it over resolved.
+    organizationLogo: {
+      url: seo.brandLogo.src,
+      width: seo.brandLogo.width,
+      height: seo.brandLogo.height,
     },
     formatDetection: { telephone: false },
   };
